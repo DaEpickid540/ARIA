@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import askAria from "./Aria/brain.js";
+import askAria from "./ARIA/brain.js";
 
 const app = express();
 app.use(express.json());
