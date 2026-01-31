@@ -6,30 +6,26 @@ import appTool from "./apps.js";
 import systemTool from "./system.js";
 import todoTool from "./todo.js";
 import newsTool from "./news.js";
+import webSearchTool from "./websearch.js";
+import calculatorTool from "./calculator.js";
 
-export default async function runTools(message) {
+export default async function runTool(message) {
   message = message.toLowerCase();
 
-  if (message.startsWith("note") || message.startsWith("save note"))
-    return notesTool(message);
-
-  if (message.includes("timer") || message.includes("remind"))
-    return timerTool(message);
-
+  if (message.includes("note")) return notesTool(message);
+  if (message.includes("timer")) return timerTool(message);
   if (message.includes("weather")) return weatherTool(message);
-
-  if (message.includes("find file") || message.includes("search file"))
-    return fileTool(message);
-
-  if (message.startsWith("open ")) return appTool(message);
-
-  if (message.includes("system info")) return systemTool();
-
-  if (message.startsWith("add task") || message.startsWith("todo"))
+  if (message.includes("file")) return fileTool(message);
+  if (message.includes("open") || message.includes("launch"))
+    return appTool(message);
+  if (message.includes("system")) return systemTool(message);
+  if (message.includes("todo") || message.includes("task"))
     return todoTool(message);
+  if (message.includes("news")) return newsTool(message);
+  if (message.includes("search") || message.includes("google"))
+    return webSearchTool(message);
+  if (message.includes("calculate") || message.includes("what is"))
+    return calculatorTool(message);
 
-  if (message.includes("news") || message.includes("debrief"))
-    return await newsTool(message);
-
-  return null; // no tool matched
+  return null;
 }
