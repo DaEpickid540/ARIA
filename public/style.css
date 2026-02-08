@@ -23,26 +23,28 @@ body {
 @keyframes glitch {
   0% {
     transform: translate(0, 0);
+    opacity: 0.9;
   }
-  20% {
-    transform: translate(-1px, 1px);
+  25% {
+    transform: translate(-0.5px, 0.5px);
+    opacity: 0.6;
   }
-  40% {
-    transform: translate(1px, -1px);
+  50% {
+    transform: translate(0.5px, -0.5px);
+    opacity: 0.7;
   }
-  60% {
-    transform: translate(-1px, -1px);
-  }
-  80% {
-    transform: translate(1px, 1px);
+  75% {
+    transform: translate(-0.3px, -0.3px);
+    opacity: 0.5;
   }
   100% {
     transform: translate(0, 0);
+    opacity: 0.9;
   }
 }
 
 .glitch:hover {
-  animation: glitch 0.25s steps(2, end) infinite;
+  animation: glitch 0.17s linear infinite;
 }
 
 /* MAIN LAYOUT */
@@ -331,6 +333,71 @@ body {
   }
 
   /* stays invisible until next cycle */
+  100% {
+    opacity: 0;
+  }
+}
+
+#scanlineSweep {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 4px;
+  background: linear-gradient(to bottom, #e63946, transparent);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 9997;
+  animation: sweep 6s infinite;
+}
+
+@keyframes sweep {
+  0% {
+    opacity: 0;
+    transform: translateY(-10vh);
+  }
+  10% {
+    opacity: 0.8;
+    transform: translateY(110vh);
+  }
+  12% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+#chromaticFlash {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0);
+  pointer-events: none;
+  z-index: 9996;
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: chroma 9s infinite;
+}
+
+@keyframes chroma {
+  0% {
+    opacity: 0;
+  }
+  4% {
+    opacity: 0;
+  }
+  4.5% {
+    opacity: 0.7;
+    filter: blur(2px) hue-rotate(20deg);
+  }
+  5% {
+    opacity: 0.3;
+    filter: blur(1px) hue-rotate(-20deg);
+  }
+  5.3% {
+    opacity: 0;
+    filter: none;
+  }
   100% {
     opacity: 0;
   }
