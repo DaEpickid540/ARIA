@@ -30,9 +30,16 @@ function saveChats() {
   localStorage.setItem("aria_chats", JSON.stringify(chats));
 }
 
+// generate a title from first user message
+function generateTitle(text) {
+  const cleaned = text.trim();
+  if (cleaned.length <= 30) return cleaned;
+  return cleaned.slice(0, 30) + "...";
+}
+
 function createNewChat() {
   const id = Date.now();
-  chats.push({ id, messages: [] });
+  chats.push({ id, title: "New Chat", messages: [] });
   currentChatId = id;
   saveChats();
   renderChatList();
@@ -46,7 +53,7 @@ function renderChatList() {
   chats.forEach((chat) => {
     const div = document.createElement("div");
     div.className = "chatItem";
-    div.textContent = "Chat " + chat.id;
+    div.textContent = chat.title; // ← show title instead of ID
     div.onclick = () => {
       currentChatId = chat.id;
       renderMessages();
@@ -65,10 +72,8 @@ function renderMessages() {
   chat.messages.forEach((m) => {
     const div = document.createElement("div");
 
-    // apply bubble classes
     div.className = "msg " + (m.role === "assistant" ? "aria" : "user");
 
-    // display names
     const name = m.role === "assistant" ? "ARIA" : "You";
     div.textContent = name + ": " + m.content;
 
@@ -87,9 +92,15 @@ document.getElementById("sendBtn").onclick = async () => {
 
   const chat = chats.find((c) => c.id === currentChatId);
 
+  // auto‑name chat on first message
+  if (chat.title === "New Chat") {
+    chat.title = generateTitle(text);
+  }
+
   // user message
   chat.messages.push({ role: "user", content: text });
   saveChats();
+  renderChatList();
   renderMessages();
 
   // send to backend
