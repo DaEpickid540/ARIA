@@ -219,8 +219,6 @@ recognition.addEventListener("result", (e) => {
 
 let ariaVoice = null;
 
-let ariaVoice = null;
-
 function loadVoices() {
   const voices = speechSynthesis.getVoices();
 

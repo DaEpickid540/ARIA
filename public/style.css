@@ -644,3 +644,7 @@ body {
   border-radius: 4px;
   padding: 4px;
 }
+
+#lockScreen {
+  z-index: 999999999;
+}
