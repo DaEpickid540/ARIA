@@ -204,3 +204,17 @@ body {
   margin-top: 10px;
   height: 20px;
 }
+
+.msg {
+  position: relative;
+  padding-bottom: 14px; /* space for timestamp */
+}
+
+.msgTimestamp {
+  position: absolute;
+  bottom: 2px;
+  right: 8px;
+  font-size: 10px;
+  opacity: 0.6;
+  pointer-events: none;
+}

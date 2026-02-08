@@ -109,19 +109,26 @@ function renderMessages() {
   if (!chat) return;
 
   chat.messages.forEach((m) => {
-    const div = document.createElement("div");
-
-    div.className = "msg " + (m.role === "assistant" ? "aria" : "user");
+    const wrapper = document.createElement("div");
+    wrapper.className = "msg " + (m.role === "assistant" ? "aria" : "user");
 
     const name = m.role === "assistant" ? "ARIA" : "You";
     const time = m.timestamp ? formatTimestamp(m.timestamp) : "";
 
-    div.textContent = `${name} (${time}): ${m.content}`;
+    const text = document.createElement("div");
+    text.className = "msgText";
+    text.textContent = `${name}: ${m.content}`;
 
-    msgBox.appendChild(div);
+    const ts = document.createElement("div");
+    ts.className = "msgTimestamp";
+    ts.textContent = time;
+
+    wrapper.appendChild(text);
+    wrapper.appendChild(ts);
+    msgBox.appendChild(wrapper);
   });
 
-  msgBox.scrollTop = msgBox.scrollHeight; // newest at bottom
+  msgBox.scrollTop = msgBox.scrollHeight;
 }
 
 document.getElementById("newChatBtn").onclick = createNewChat;
