@@ -365,7 +365,7 @@ body {
 /* VERTICAL SWEEP */
 #scanlineSweep {
   position: fixed;
-  top: -10%;
+  top: 0;
   left: 0;
   width: 100vw;
   height: 8px;
@@ -374,19 +374,23 @@ body {
   opacity: 0;
   pointer-events: none;
   z-index: 999999;
-  animation: sweepVertical 1s infinite linear;
+  animation: sweepVertical 4s infinite ease-out;
 }
 
 @keyframes sweepVertical {
   0% {
     opacity: 0;
-    transform: translateY(-20%);
+    transform: translateY(-100%);
   }
-  10% {
+  5% {
     opacity: 1;
-    transform: translateY(120%);
+    transform: translateY(0%);
   }
-  40% {
+  15% {
+    opacity: 1;
+    transform: translateY(100vh);
+  }
+  20% {
     opacity: 0;
   }
   100% {
@@ -398,7 +402,7 @@ body {
 #sideSweep {
   position: fixed;
   top: 0;
-  left: -20%;
+  left: 0;
   width: 8px;
   height: 100vh;
   background: rgba(230, 57, 70, 1);
@@ -406,19 +410,23 @@ body {
   opacity: 0;
   pointer-events: none;
   z-index: 999999;
-  animation: sweepHorizontal 1s infinite linear;
+  animation: sweepHorizontal 4s infinite ease-out;
 }
 
 @keyframes sweepHorizontal {
   0% {
     opacity: 0;
-    transform: translateX(-20%);
+    transform: translateX(-100%);
   }
-  10% {
+  5% {
     opacity: 1;
-    transform: translateX(120vw);
+    transform: translateX(0%);
   }
-  40% {
+  15% {
+    opacity: 1;
+    transform: translateX(100vw);
+  }
+  20% {
     opacity: 0;
   }
   100% {
@@ -477,4 +485,16 @@ body {
   background: #151515;
   border-color: #e63946;
   box-shadow: 0 0 8px #e63946;
+}
+
+#glitchOverlay {
+  animation: glitchFlash 6s infinite ease-out;
+}
+
+#glitchOverlay2 {
+  animation: glitchFlash2 6s infinite ease-out;
+}
+
+#chromaticFlash {
+  animation: chroma 7s infinite ease-out;
 }
