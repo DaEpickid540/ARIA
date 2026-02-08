@@ -281,3 +281,57 @@ body {
   margin-top: 10px;
   height: 20px;
 }
+
+/* RANDOM GLITCH OVERLAY */
+#glitchOverlay {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 180px;
+  height: 80px;
+  transform: translate(-50%, -50%);
+  background: repeating-linear-gradient(
+    0deg,
+    #e63946 0px,
+    #e63946 2px,
+    #000 2px,
+    #000 4px
+  );
+  opacity: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  z-index: 9998;
+  animation: glitchFlash 8s infinite;
+}
+
+/* RANDOMIZED FLICKER */
+@keyframes glitchFlash {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  5% {
+    opacity: 0;
+  }
+  6% {
+    opacity: 0.8;
+    transform: translate(-48%, -52%) scale(1.1);
+  }
+  6.5% {
+    opacity: 0.4;
+    transform: translate(-52%, -48%) scale(0.9);
+  }
+  7% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  7.2% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  /* stays invisible until next cycle */
+  100% {
+    opacity: 0;
+  }
+}
