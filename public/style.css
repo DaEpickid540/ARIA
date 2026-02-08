@@ -119,6 +119,10 @@ body {
   box-shadow: 0 0 8px #111;
 }
 
+.msg.aria:hover {
+  box-shadow: 0 0 10px #e63946;
+}
+
 /* INPUT BAR */
 
 #inputBar {
