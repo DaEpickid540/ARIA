@@ -37,6 +37,19 @@ function generateTitle(text) {
   return cleaned.slice(0, 30) + "...";
 }
 
+// rename a chat
+function renameChat(id) {
+  const chat = chats.find((c) => c.id === id);
+  if (!chat) return;
+
+  const newName = prompt("Rename chat:", chat.title);
+  if (!newName || !newName.trim()) return;
+
+  chat.title = newName.trim();
+  saveChats();
+  renderChatList();
+}
+
 function createNewChat() {
   const id = Date.now();
   chats.push({ id, title: "New Chat", messages: [] });
@@ -53,11 +66,31 @@ function renderChatList() {
   chats.forEach((chat) => {
     const div = document.createElement("div");
     div.className = "chatItem";
-    div.textContent = chat.title; // ← show title instead of ID
-    div.onclick = () => {
+
+    const title = document.createElement("span");
+    title.textContent = chat.title;
+    title.style.flex = "1";
+    title.onclick = () => {
       currentChatId = chat.id;
       renderMessages();
     };
+
+    const renameBtn = document.createElement("button");
+    renameBtn.textContent = "✎";
+    renameBtn.style.marginLeft = "10px";
+    renameBtn.style.cursor = "pointer";
+    renameBtn.style.background = "transparent";
+    renameBtn.style.border = "none";
+    renameBtn.style.color = "#e63946";
+    renameBtn.style.fontSize = "16px";
+
+    renameBtn.onclick = (e) => {
+      e.stopPropagation();
+      renameChat(chat.id);
+    };
+
+    div.appendChild(title);
+    div.appendChild(renameBtn);
     list.appendChild(div);
   });
 }
@@ -92,18 +125,15 @@ document.getElementById("sendBtn").onclick = async () => {
 
   const chat = chats.find((c) => c.id === currentChatId);
 
-  // auto‑name chat on first message
   if (chat.title === "New Chat") {
     chat.title = generateTitle(text);
   }
 
-  // user message
   chat.messages.push({ role: "user", content: text });
   saveChats();
   renderChatList();
   renderMessages();
 
-  // send to backend
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -112,7 +142,6 @@ document.getElementById("sendBtn").onclick = async () => {
 
   const data = await res.json();
 
-  // assistant message
   chat.messages.push({ role: "assistant", content: data.reply });
   saveChats();
   renderMessages();
@@ -124,7 +153,6 @@ document.getElementById("userInput").onkeydown = (e) => {
   if (e.key === "Enter") document.getElementById("sendBtn").click();
 };
 
-// start with one chat if none exist
 if (chats.length === 0) {
   createNewChat();
 } else {
