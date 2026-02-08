@@ -108,7 +108,7 @@ function renderMessages() {
 
   if (!chat) return;
 
-  [...chat.messages].reverse().forEach((m) => {
+  chat.messages.forEach((m) => {
     const div = document.createElement("div");
 
     div.className = "msg " + (m.role === "assistant" ? "aria" : "user");
@@ -121,7 +121,7 @@ function renderMessages() {
     msgBox.appendChild(div);
   });
 
-  msgBox.scrollTop = 0;
+  msgBox.scrollTop = msgBox.scrollHeight; // newest at bottom
 }
 
 document.getElementById("newChatBtn").onclick = createNewChat;
