@@ -292,13 +292,14 @@ body {
   width: 180px;
   height: 80px;
   transform: translate(-50%, -50%);
-  background: repeating-linear-gradient(
-    0deg,
-    #e63946 0px,
-    #e63946 2px,
-    #000 2px,
-    #000 4px
+  background: linear-gradient(
+    to bottom,
+    rgba(230, 57, 70, 0.9),
+    rgba(230, 57, 70, 0.4),
+    rgba(230, 57, 70, 0)
   );
+  filter: blur(2px);
+
   opacity: 0;
   pointer-events: none;
   mix-blend-mode: screen;
@@ -331,13 +332,14 @@ body {
   width: 140px;
   height: 60px;
   transform: translate(-50%, -50%);
-  background: repeating-linear-gradient(
-    0deg,
-    #e63946 0px,
-    #e63946 2px,
-    #000 2px,
-    #000 4px
+  background: linear-gradient(
+    to bottom,
+    rgba(230, 57, 70, 0.9),
+    rgba(230, 57, 70, 0.4),
+    rgba(230, 57, 70, 0)
   );
+  filter: blur(2px);
+
   opacity: 0;
   pointer-events: none;
   mix-blend-mode: screen;
@@ -488,13 +490,60 @@ body {
 }
 
 #glitchOverlay {
-  animation: glitchFlash 6s infinite ease-out;
+  animation-delay: 0s;
 }
-
 #glitchOverlay2 {
-  animation: glitchFlash2 6s infinite ease-out;
+  animation-delay: 3.2s;
 }
 
+#scanlineSweep {
+  animation-duration: 12s;
+}
+#sideSweep {
+  animation-duration: 14s;
+}
+#glitchOverlay {
+  animation-duration: 9s;
+}
+#glitchOverlay2 {
+  animation-duration: 13s;
+}
 #chromaticFlash {
-  animation: chroma 7s infinite ease-out;
+  animation-duration: 16s;
+}
+
+#bgDrift {
+  position: fixed;
+  top: 40%;
+  left: 50%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(
+    circle,
+    rgba(230, 57, 70, 0.25),
+    rgba(230, 57, 70, 0)
+  );
+  filter: blur(60px);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+  animation: drift 22s infinite linear;
+}
+
+@keyframes drift {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  25% {
+    transform: translate(-40%, -60%) scale(1.2);
+  }
+  50% {
+    transform: translate(-60%, -40%) scale(0.9);
+  }
+  75% {
+    transform: translate(-45%, -55%) scale(1.15);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
