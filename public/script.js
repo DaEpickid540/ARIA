@@ -1,13 +1,4 @@
 // ---------------- PASSWORD LOCK ----------------
-let chats = [];
-let currentChatId = null;
-
-// Load saved chats
-const saved = localStorage.getItem("aria_chats");
-if (saved) {
-  chats = JSON.parse(saved);
-  currentChatId = chats[0]?.id || null;
-}
 
 const PASSWORD = "727846";
 
@@ -23,8 +14,21 @@ document.getElementById("unlockBtn").onclick = () => {
 
 // ---------------- CHAT SYSTEM ----------------
 
+// main state (declare ONCE)
 let chats = [];
 let currentChatId = null;
+
+// load saved chats
+const saved = localStorage.getItem("aria_chats");
+if (saved) {
+  chats = JSON.parse(saved);
+  currentChatId = chats[0]?.id || null;
+}
+
+// save helper
+function saveChats() {
+  localStorage.setItem("aria_chats", JSON.stringify(chats));
+}
 
 function createNewChat() {
   const id = Date.now();
@@ -60,15 +64,18 @@ function renderMessages() {
 
   chat.messages.forEach((m) => {
     const div = document.createElement("div");
-    div.textContent = m.role + ": " + m.content;
+
+    // apply bubble classes
+    div.className = "msg " + (m.role === "assistant" ? "aria" : "user");
+
+    // display names
+    const name = m.role === "assistant" ? "ARIA" : "You";
+    div.textContent = name + ": " + m.content;
+
     msgBox.appendChild(div);
   });
 
   msgBox.scrollTop = msgBox.scrollHeight;
-}
-
-function saveChats() {
-  localStorage.setItem("aria_chats", JSON.stringify(chats));
 }
 
 document.getElementById("newChatBtn").onclick = createNewChat;
@@ -79,10 +86,13 @@ document.getElementById("sendBtn").onclick = async () => {
   if (!text) return;
 
   const chat = chats.find((c) => c.id === currentChatId);
-  chat.messages.push({ role: "You", content: text });
+
+  // user message
+  chat.messages.push({ role: "user", content: text });
   saveChats();
   renderMessages();
 
+  // send to backend
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -90,7 +100,9 @@ document.getElementById("sendBtn").onclick = async () => {
   });
 
   const data = await res.json();
-  chat.messages.push({ role: "ARIA", content: data.reply });
+
+  // assistant message
+  chat.messages.push({ role: "assistant", content: data.reply });
   saveChats();
   renderMessages();
 
@@ -101,5 +113,10 @@ document.getElementById("userInput").onkeydown = (e) => {
   if (e.key === "Enter") document.getElementById("sendBtn").click();
 };
 
-// Start with one chat
-createNewChat();
+// start with one chat if none exist
+if (chats.length === 0) {
+  createNewChat();
+} else {
+  renderChatList();
+  renderMessages();
+}
