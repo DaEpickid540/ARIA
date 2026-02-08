@@ -50,6 +50,12 @@ function renameChat(id) {
   renderChatList();
 }
 
+// timestamp formatter
+function formatTimestamp(ts) {
+  const d = new Date(ts);
+  return d.toLocaleString();
+}
+
 function createNewChat() {
   const id = Date.now();
   chats.push({ id, title: "New Chat", messages: [] });
@@ -108,12 +114,14 @@ function renderMessages() {
     div.className = "msg " + (m.role === "assistant" ? "aria" : "user");
 
     const name = m.role === "assistant" ? "ARIA" : "You";
-    div.textContent = name + ": " + m.content;
+    const time = m.timestamp ? formatTimestamp(m.timestamp) : "";
+
+    div.textContent = `${name} (${time}): ${m.content}`;
 
     msgBox.appendChild(div);
   });
 
-  msgBox.scrollTop = 0; // newest at top
+  msgBox.scrollTop = 0;
 }
 
 document.getElementById("newChatBtn").onclick = createNewChat;
@@ -129,7 +137,11 @@ document.getElementById("sendBtn").onclick = async () => {
     chat.title = generateTitle(text);
   }
 
-  chat.messages.push({ role: "user", content: text });
+  chat.messages.push({
+    role: "user",
+    content: text,
+    timestamp: Date.now(),
+  });
   saveChats();
   renderChatList();
   renderMessages();
@@ -142,7 +154,11 @@ document.getElementById("sendBtn").onclick = async () => {
 
   const data = await res.json();
 
-  chat.messages.push({ role: "assistant", content: data.reply });
+  chat.messages.push({
+    role: "assistant",
+    content: data.reply,
+    timestamp: Date.now(),
+  });
   saveChats();
   renderMessages();
 
