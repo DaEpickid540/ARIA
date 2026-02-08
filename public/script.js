@@ -219,15 +219,22 @@ recognition.addEventListener("result", (e) => {
 
 let ariaVoice = null;
 
+let ariaVoice = null;
+
 function loadVoices() {
   const voices = speechSynthesis.getVoices();
 
-  // pick a good default female / US voice
+  const englishVoices = voices.filter((v) => v.lang.startsWith("en"));
+
   ariaVoice =
-    voices.find((v) => v.name.includes("Female")) ||
-    voices.find((v) => v.name.includes("Samantha")) ||
-    voices.find((v) => v.name.includes("Google")) ||
-    voices.find((v) => v.lang === "en-US") ||
+    englishVoices.find(
+      (v) => v.name.includes("Google") && v.name.includes("Female"),
+    ) ||
+    englishVoices.find((v) => v.name.includes("Samantha")) ||
+    englishVoices.find((v) => v.name.includes("Aria")) ||
+    englishVoices.find((v) => v.name.includes("Jenny")) ||
+    englishVoices.find((v) => v.name.includes("Female")) ||
+    englishVoices[0] ||
     voices[0];
 }
 
