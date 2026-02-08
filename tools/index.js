@@ -8,7 +8,6 @@ import todoTool from "./todo.js";
 import newsTool from "./news.js";
 import webSearchTool from "./websearch.js";
 import calculatorTool from "./calculator.js";
-import calculatorTool from "./evs.js";
 
 export default async function runTool(message) {
   message = message.toLowerCase();

@@ -96,5 +96,17 @@ document.getElementById("sendBtn").onclick = async () => {
   input.value = "";
 };
 
+const PASSWORD = "727846"; // change this
+
+document.getElementById("unlockBtn").onclick = () => {
+  const input = document.getElementById("passwordInput").value;
+
+  if (input === PASSWORD) {
+    document.getElementById("lockScreen").style.display = "none";
+  } else {
+    document.getElementById("lockError").textContent = "Incorrect password";
+  }
+};
+
 // Start with one chat
 createNewChat();

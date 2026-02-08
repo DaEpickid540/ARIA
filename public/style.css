@@ -128,3 +128,46 @@ body {
   border-radius: 6px;
   cursor: pointer;
 }
+
+#lockScreen {
+  position: fixed;
+  inset: 0;
+  background: #0d0d0d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+#lockBox {
+  background: #1a1a1a;
+  padding: 30px;
+  border-radius: 10px;
+  text-align: center;
+  width: 300px;
+}
+
+#lockBox input {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 6px;
+  border: none;
+}
+
+#lockBox button {
+  margin-top: 15px;
+  width: 100%;
+  padding: 10px;
+  background: #333;
+  border: none;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#lockError {
+  color: red;
+  margin-top: 10px;
+  height: 20px;
+}
