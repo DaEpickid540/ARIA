@@ -1,4 +1,13 @@
 // ---------------- PASSWORD LOCK ----------------
+let chats = [];
+let currentChatId = null;
+
+// Load saved chats
+const saved = localStorage.getItem("aria_chats");
+if (saved) {
+  chats = JSON.parse(saved);
+  currentChatId = chats[0]?.id || null;
+}
 
 const PASSWORD = "727846";
 
@@ -21,6 +30,7 @@ function createNewChat() {
   const id = Date.now();
   chats.push({ id, messages: [] });
   currentChatId = id;
+  saveChats();
   renderChatList();
   renderMessages();
 }
@@ -57,6 +67,10 @@ function renderMessages() {
   msgBox.scrollTop = msgBox.scrollHeight;
 }
 
+function saveChats() {
+  localStorage.setItem("aria_chats", JSON.stringify(chats));
+}
+
 document.getElementById("newChatBtn").onclick = createNewChat;
 
 document.getElementById("sendBtn").onclick = async () => {
@@ -66,6 +80,7 @@ document.getElementById("sendBtn").onclick = async () => {
 
   const chat = chats.find((c) => c.id === currentChatId);
   chat.messages.push({ role: "You", content: text });
+  saveChats();
   renderMessages();
 
   const res = await fetch("/api/chat", {
@@ -76,6 +91,7 @@ document.getElementById("sendBtn").onclick = async () => {
 
   const data = await res.json();
   chat.messages.push({ role: "ARIA", content: data.reply });
+  saveChats();
   renderMessages();
 
   input.value = "";
