@@ -65,7 +65,7 @@ document.getElementById("sendBtn").onclick = async () => {
   if (!text) return;
 
   const chat = chats.find((c) => c.id === currentChatId);
-  chat.messages.push({ role: "user", content: text });
+  chat.messages.push({ role: "You", content: text });
   renderMessages();
 
   const res = await fetch("/api/chat", {
@@ -75,7 +75,7 @@ document.getElementById("sendBtn").onclick = async () => {
   });
 
   const data = await res.json();
-  chat.messages.push({ role: "assistant", content: data.reply });
+  chat.messages.push({ role: "ARIA", content: data.reply });
   renderMessages();
 
   input.value = "";
