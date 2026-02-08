@@ -214,8 +214,35 @@ recognition.addEventListener("result", (e) => {
 // ---------------- VOICE OUTPUT (TEXT‑TO‑SPEECH) ----------------
 
 // speak() = ARIA's voice
+
+// ---------------- ARIA VOICE SELECTION ----------------
+
+let ariaVoice = null;
+
+function loadVoices() {
+  const voices = speechSynthesis.getVoices();
+
+  // pick a good default female / US voice
+  ariaVoice =
+    voices.find((v) => v.name.includes("Female")) ||
+    voices.find((v) => v.name.includes("Samantha")) ||
+    voices.find((v) => v.name.includes("Google")) ||
+    voices.find((v) => v.lang === "en-US") ||
+    voices[0];
+}
+
+speechSynthesis.onvoiceschanged = loadVoices;
+loadVoices();
+
+ariaVoice = speechSynthesis
+  .getVoices()
+  .find((v) => v.name === "Google US English");
+
+// speak with selected voice + interruption
 function speak(text) {
+  speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(text);
+  utter.voice = ariaVoice;
   utter.rate = 1;
   utter.pitch = 1;
   utter.volume = 1;
@@ -260,6 +287,55 @@ document.getElementById("sendBtn").onclick = async () => {
   }
 };
 
+// ---------------- SIDEBAR SETTINGS PANEL ----------------
+
+const voiceSelect = document.getElementById("voiceSelect");
+const voiceRate = document.getElementById("voiceRate");
+const voicePitch = document.getElementById("voicePitch");
+
+function populateVoiceList() {
+  const voices = speechSynthesis.getVoices();
+  voiceSelect.innerHTML = "";
+
+  voices.forEach((v, i) => {
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = `${v.name} (${v.lang})`;
+    voiceSelect.appendChild(opt);
+  });
+
+  const defaultIndex = voices.indexOf(ariaVoice);
+  if (defaultIndex >= 0) voiceSelect.value = defaultIndex;
+}
+
+speechSynthesis.onvoiceschanged = populateVoiceList;
+populateVoiceList();
+
+voiceSelect.onchange = () => {
+  const voices = speechSynthesis.getVoices();
+  ariaVoice = voices[voiceSelect.value];
+};
+
+voiceRate.oninput = () => {
+  window.ariaRate = parseFloat(voiceRate.value);
+};
+
+voicePitch.oninput = () => {
+  window.ariaPitch = parseFloat(voicePitch.value);
+};
+
+// patch speak() to use rate/pitch
+const oldSpeak = speak;
+speak = function (text) {
+  speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.voice = ariaVoice;
+  utter.rate = window.ariaRate || 1;
+  utter.pitch = window.ariaPitch || 1;
+  utter.volume = 1;
+  speechSynthesis.speak(utter);
+};
+
 // ---------------- FULL CALL MODE ENGINE ----------------
 
 let callMode = false;
@@ -301,6 +377,7 @@ function speak(text) {
 callBtn.addEventListener("click", () => {
   callMode = !callMode;
   callBtn.classList.toggle("active", callMode);
+  document.getElementById("callIndicator").classList.toggle("active", callMode);
 
   if (callMode) {
     wave.classList.add("active");
@@ -384,4 +461,16 @@ continuousRecognition.addEventListener("result", async (e) => {
 // restart recognition if it stops
 continuousRecognition.addEventListener("end", () => {
   if (callMode) continuousRecognition.start();
+});
+
+const voiceOffBtn = document.getElementById("voiceOffBtn");
+
+voiceOffBtn.addEventListener("click", () => {
+  speechSynthesis.cancel();
+  if (recognition) recognition.stop();
+  if (continuousRecognition) continuousRecognition.stop();
+
+  callMode = false;
+  callBtn.classList.remove("active");
+  wave.classList.remove("active");
 });
