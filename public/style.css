@@ -1,5 +1,7 @@
 /* GLOBAL */
 
+/* GLOBAL */
+
 body {
   background: #000;
   color: #e63946;
@@ -114,4 +116,87 @@ body {
   background: #1a1a1a;
   color: #e6e6e6;
   border: 1px solid #333;
-  box-shadow: 
+  box-shadow: 0 0 8px #111;
+}
+
+/* INPUT BAR */
+
+#inputBar {
+  display: flex;
+  padding: 12px;
+  background: #0a0a0a;
+  border-top: 2px solid #e63946;
+}
+
+#userInput {
+  flex: 1;
+  padding: 12px;
+  background: #000;
+  border: 1px solid #e63946;
+  border-radius: 6px;
+  color: #e63946;
+  outline: none;
+}
+
+#sendBtn {
+  margin-left: 10px;
+  padding: 12px 20px;
+  background: #e63946;
+  border: none;
+  color: #000;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  box-shadow: 0 0 10px #e63946;
+}
+
+/* PASSWORD LOCK */
+
+#lockScreen {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+#lockBox {
+  background: #0a0a0a;
+  padding: 30px;
+  border-radius: 10px;
+  text-align: center;
+  width: 300px;
+  border: 2px solid #e63946;
+  box-shadow: 0 0 15px #e63946;
+}
+
+#lockBox input {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 6px;
+  border: 1px solid #e63946;
+  background: #000;
+  color: #e63946;
+}
+
+#lockBox button {
+  margin-top: 15px;
+  width: 100%;
+  padding: 12px;
+  background: #e63946;
+  border: none;
+  color: #000;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  box-shadow: 0 0 10px #e63946;
+}
+
+#lockError {
+  color: #ff4d5a;
+  margin-top: 10px;
+  height: 20px;
+}
