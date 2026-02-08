@@ -69,7 +69,7 @@ function renderChatList() {
   const list = document.getElementById("chatList");
   list.innerHTML = "";
 
-  chats.forEach((chat) => {
+  [...chats].reverse().forEach((chat) => {
     const div = document.createElement("div");
     div.className = "chatItem";
 
