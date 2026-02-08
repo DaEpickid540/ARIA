@@ -299,23 +299,29 @@ body {
     rgba(230, 57, 70, 0)
   );
   filter: blur(2px);
-
   opacity: 0;
   pointer-events: none;
   mix-blend-mode: screen;
   z-index: 999999;
-  animation: glitchFlash 1.2s infinite linear;
+  animation: glitchFlash 9s infinite ease-out;
+  animation-delay: 0s;
 }
 
 @keyframes glitchFlash {
-  0% {
+  0%,
+  6% {
     opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
   }
-  10% {
+  6.5% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1.05);
+    transform: translate(-49%, -51%) scale(1.08);
   }
-  20% {
+  7.2% {
+    opacity: 0.4;
+    transform: translate(-51%, -49%) scale(0.96);
+  }
+  7.6% {
     opacity: 0;
     transform: translate(-50%, -50%) scale(1);
   }
@@ -339,23 +345,29 @@ body {
     rgba(230, 57, 70, 0)
   );
   filter: blur(2px);
-
   opacity: 0;
   pointer-events: none;
   mix-blend-mode: screen;
   z-index: 999999;
-  animation: glitchFlash2 1.6s infinite linear;
+  animation: glitchFlash2 13s infinite ease-out;
+  animation-delay: 4.3s;
 }
 
 @keyframes glitchFlash2 {
-  0% {
+  0%,
+  4% {
     opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
   }
-  12% {
+  4.4% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1.05);
+    transform: translate(-49%, -51%) scale(1.06);
   }
-  22% {
+  5.1% {
+    opacity: 0.35;
+    transform: translate(-51%, -49%) scale(0.94);
+  }
+  5.5% {
     opacity: 0;
     transform: translate(-50%, -50%) scale(1);
   }
@@ -364,10 +376,10 @@ body {
   }
 }
 
-/* VERTICAL SWEEP */
+/* VERTICAL SWEEP – SLOW + OFFSET */
 #scanlineSweep {
   position: fixed;
-  top: 0;
+  top: -8px;
   left: 0;
   width: 100vw;
   height: 8px;
@@ -376,7 +388,8 @@ body {
   opacity: 0;
   pointer-events: none;
   z-index: 999999;
-  animation: sweepVertical 4s infinite ease-out;
+  animation: sweepVertical 18s infinite ease-out;
+  animation-delay: 0s;
 }
 
 @keyframes sweepVertical {
@@ -384,15 +397,15 @@ body {
     opacity: 0;
     transform: translateY(-100%);
   }
-  5% {
+  3% {
     opacity: 1;
     transform: translateY(0%);
   }
-  15% {
+  7% {
     opacity: 1;
     transform: translateY(100vh);
   }
-  20% {
+  9% {
     opacity: 0;
   }
   100% {
@@ -400,11 +413,11 @@ body {
   }
 }
 
-/* HORIZONTAL SWEEP */
+/* HORIZONTAL SWEEP – DIFFERENT PERIOD + DELAY */
 #sideSweep {
   position: fixed;
   top: 0;
-  left: 0;
+  left: -8px;
   width: 8px;
   height: 100vh;
   background: rgba(230, 57, 70, 1);
@@ -412,7 +425,8 @@ body {
   opacity: 0;
   pointer-events: none;
   z-index: 999999;
-  animation: sweepHorizontal 4s infinite ease-out;
+  animation: sweepHorizontal 23s infinite ease-out;
+  animation-delay: 6.7s;
 }
 
 @keyframes sweepHorizontal {
@@ -420,15 +434,15 @@ body {
     opacity: 0;
     transform: translateX(-100%);
   }
-  5% {
+  4% {
     opacity: 1;
     transform: translateX(0%);
   }
-  15% {
+  8% {
     opacity: 1;
     transform: translateX(100vw);
   }
-  20% {
+  10% {
     opacity: 0;
   }
   100% {
@@ -436,7 +450,7 @@ body {
   }
 }
 
-/* CHROMATIC FLASH */
+/* CHROMATIC FLASH – SLOWER */
 #chromaticFlash {
   position: fixed;
   inset: 0;
@@ -445,7 +459,8 @@ body {
   z-index: 999999;
   opacity: 0;
   mix-blend-mode: screen;
-  animation: chroma 1.4s infinite linear;
+  animation: chroma 16s infinite ease-out;
+  animation-delay: 2.1s;
 }
 
 @keyframes chroma {
@@ -465,53 +480,7 @@ body {
   }
 }
 
-/* SIDEBAR FOOTER */
-#sidebarFooter {
-  padding-top: 10px;
-  border-top: 1px solid #333;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.footerBtn {
-  padding: 10px;
-  background: #111;
-  border: 1px solid #333;
-  border-radius: 6px;
-  color: #e6e6e6;
-  cursor: pointer;
-}
-
-.footerBtn:hover {
-  background: #151515;
-  border-color: #e63946;
-  box-shadow: 0 0 8px #e63946;
-}
-
-#glitchOverlay {
-  animation-delay: 0s;
-}
-#glitchOverlay2 {
-  animation-delay: 3.2s;
-}
-
-#scanlineSweep {
-  animation-duration: 12s;
-}
-#sideSweep {
-  animation-duration: 14s;
-}
-#glitchOverlay {
-  animation-duration: 9s;
-}
-#glitchOverlay2 {
-  animation-duration: 13s;
-}
-#chromaticFlash {
-  animation-duration: 16s;
-}
-
+/* DRIFTING BACKGROUND */
 #bgDrift {
   position: fixed;
   top: 40%;
