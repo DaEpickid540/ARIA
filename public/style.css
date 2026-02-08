@@ -43,3 +43,88 @@ body {
   color: black;
   cursor: pointer;
 }
+
+/*Sidebar old chats*/
+
+#layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: #111;
+  color: white;
+  font-family: sans-serif;
+}
+
+#sidebar {
+  width: 260px;
+  background: #1a1a1a;
+  border-right: 1px solid #333;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+}
+
+#newChatBtn {
+  width: 100%;
+  padding: 10px;
+  background: #333;
+  border: none;
+  color: white;
+  cursor: pointer;
+  margin-bottom: 15px;
+  border-radius: 6px;
+}
+
+#chatList {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.chatItem {
+  padding: 10px;
+  margin-bottom: 8px;
+  background: #222;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.chatItem:hover {
+  background: #2d2d2d;
+}
+
+#chatWindow {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+#messages {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+#inputBar {
+  display: flex;
+  padding: 10px;
+  background: #1a1a1a;
+}
+
+#userInput {
+  flex: 1;
+  padding: 10px;
+  border-radius: 6px;
+  border: none;
+  outline: none;
+}
+
+#sendBtn {
+  margin-left: 10px;
+  padding: 10px 20px;
+  background: #444;
+  border: none;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+}
