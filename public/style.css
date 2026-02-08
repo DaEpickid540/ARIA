@@ -516,3 +516,18 @@ body {
     transform: translate(-50%, -50%) scale(1);
   }
 }
+
+#micBtn {
+  margin-left: 10px;
+  padding: 12px;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #e63946;
+  cursor: pointer;
+  font-size: 18px;
+}
+#micBtn:hover {
+  border-color: #e63946;
+  box-shadow: 0 0 10px #e63946;
+}

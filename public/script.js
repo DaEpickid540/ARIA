@@ -182,3 +182,80 @@ if (chats.length === 0) {
   renderChatList();
   renderMessages();
 }
+
+const micBtn = document.createElement("button");
+micBtn.id = "micBtn";
+micBtn.textContent = "🎤";
+document.getElementById("inputBar").appendChild(micBtn);
+
+let recognition;
+
+try {
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = "en-US";
+} catch (e) {
+  console.log("Speech recognition not supported");
+}
+
+micBtn.addEventListener("click", () => {
+  if (!recognition) return;
+  recognition.start();
+});
+
+recognition.addEventListener("result", (e) => {
+  const text = e.results[0][0].transcript;
+  document.getElementById("userInput").value = text;
+});
+
+// ---------------- VOICE OUTPUT (TEXT‑TO‑SPEECH) ----------------
+
+// speak() = ARIA's voice
+function speak(text) {
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 1;
+  utter.pitch = 1;
+  utter.volume = 1;
+  speechSynthesis.speak(utter);
+}
+
+// toggle button for auto‑speak mode
+const voiceToggle = document.createElement("button");
+voiceToggle.id = "voiceToggle";
+voiceToggle.textContent = "🔈";
+voiceToggle.style.marginLeft = "10px";
+voiceToggle.style.padding = "12px";
+voiceToggle.style.background = "#111";
+voiceToggle.style.border = "1px solid #333";
+voiceToggle.style.borderRadius = "6px";
+voiceToggle.style.color = "#e63946";
+voiceToggle.style.cursor = "pointer";
+voiceToggle.style.fontSize = "18px";
+
+document.getElementById("inputBar").appendChild(voiceToggle);
+
+let autoSpeak = false;
+
+voiceToggle.addEventListener("click", () => {
+  autoSpeak = !autoSpeak;
+  voiceToggle.style.borderColor = autoSpeak ? "#e63946" : "#333";
+  voiceToggle.style.boxShadow = autoSpeak ? "0 0 10px #e63946" : "none";
+});
+
+// patch ARIA's reply handler to speak automatically
+const originalSend = document.getElementById("sendBtn").onclick;
+
+document.getElementById("sendBtn").onclick = async () => {
+  await originalSend();
+
+  const chat = chats.find((c) => c.id === currentChatId);
+  if (!chat) return;
+
+  const last = chat.messages[chat.messages.length - 1];
+  if (last && last.role === "assistant" && autoSpeak) {
+    speak(last.content);
+  }
+};
