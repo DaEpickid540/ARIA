@@ -1,35 +1,18 @@
-const input = document.getElementById("user-input");
-const sendBtn = document.getElementById("send-btn");
-const messages = document.getElementById("messages");
+// ---------------- PASSWORD LOCK ----------------
 
-function addMessage(sender, text) {
-  const div = document.createElement("div");
-  div.textContent = `${sender}: ${text}`;
-  messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
-}
+const PASSWORD = "727846";
 
-async function sendMessage() {
-  const text = input.value.trim();
-  if (!text) return;
+document.getElementById("unlockBtn").onclick = () => {
+  const input = document.getElementById("passwordInput").value;
 
-  addMessage("You", text);
-  input.value = "";
-
-  const res = await fetch("/api/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: text }),
-  });
-
-  const data = await res.json();
-  addMessage("ARIA", data.reply);
-}
-
-sendBtn.onclick = sendMessage;
-input.onkeydown = (e) => {
-  if (e.key === "Enter") sendMessage();
+  if (input === PASSWORD) {
+    document.getElementById("lockScreen").style.display = "none";
+  } else {
+    document.getElementById("lockError").textContent = "Incorrect password";
+  }
 };
+
+// ---------------- CHAT SYSTEM ----------------
 
 let chats = [];
 let currentChatId = null;
@@ -70,6 +53,8 @@ function renderMessages() {
     div.textContent = m.role + ": " + m.content;
     msgBox.appendChild(div);
   });
+
+  msgBox.scrollTop = msgBox.scrollHeight;
 }
 
 document.getElementById("newChatBtn").onclick = createNewChat;
@@ -96,16 +81,8 @@ document.getElementById("sendBtn").onclick = async () => {
   input.value = "";
 };
 
-const PASSWORD = "727846"; // change this
-
-document.getElementById("unlockBtn").onclick = () => {
-  const input = document.getElementById("passwordInput").value;
-
-  if (input === PASSWORD) {
-    document.getElementById("lockScreen").style.display = "none";
-  } else {
-    document.getElementById("lockError").textContent = "Incorrect password";
-  }
+document.getElementById("userInput").onkeydown = (e) => {
+  if (e.key === "Enter") document.getElementById("sendBtn").click();
 };
 
 // Start with one chat
