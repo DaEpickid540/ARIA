@@ -284,7 +284,7 @@ body {
   height: 20px;
 }
 
-/* RANDOM GLITCH OVERLAY */
+/* CENTER GLITCH 1 */
 #glitchOverlay {
   position: fixed;
   top: 50%;
@@ -303,13 +303,14 @@ body {
   pointer-events: none;
   mix-blend-mode: screen;
   z-index: 9998;
-  animation: glitchFlash 8s infinite;
+  animation: glitchFlash 8s infinite ease-out;
 }
 
+/* CENTER GLITCH 2 */
 #glitchOverlay2 {
   position: fixed;
-  top: 60%;
-  left: 40%;
+  top: 62%;
+  left: 42%;
   width: 140px;
   height: 60px;
   transform: translate(-50%, -50%);
@@ -324,66 +325,64 @@ body {
   pointer-events: none;
   mix-blend-mode: screen;
   z-index: 9998;
-  animation: glitchFlash2 11s infinite;
+  animation: glitchFlash2 11s infinite ease-out;
 }
 
-@keyframes glitchFlash2 {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  3% {
-    opacity: 0;
-  }
-  3.5% {
-    opacity: 0.7;
-    transform: translate(-49%, -51%) scale(1.1);
-  }
-  4% {
-    opacity: 0.3;
-    transform: translate(-51%, -49%) scale(0.9);
-  }
-  4.3% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-/* RANDOMIZED FLICKER */
+/* GLITCH FLASH 1 */
 @keyframes glitchFlash {
-  0% {
+  0%,
+  4% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(1);
   }
   5% {
-    opacity: 0;
-  }
-  6% {
     opacity: 0.8;
-    transform: translate(-48%, -52%) scale(1.1);
+    transform: translate(-50%, -50%) scale(1.05);
   }
-  6.5% {
+  5.4% {
     opacity: 0.4;
-    transform: translate(-52%, -48%) scale(0.9);
+    transform: translate(-51%, -49%) scale(0.95);
   }
-  7% {
+  5.8% {
     opacity: 0.9;
-    transform: translate(-50%, -50%) scale(1.2);
+    transform: translate(-49%, -51%) scale(1.1);
   }
-  7.2% {
+  6.2% {
     opacity: 0;
     transform: translate(-50%, -50%) scale(1);
   }
-
-  /* stays invisible until next cycle */
   100% {
     opacity: 0;
   }
 }
 
+/* GLITCH FLASH 2 */
+@keyframes glitchFlash2 {
+  0%,
+  2.5% {
+    opacity: 0;
+  }
+  3% {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+  3.4% {
+    opacity: 0.3;
+    transform: translate(-51%, -49%) scale(0.95);
+  }
+  3.8% {
+    opacity: 0.9;
+    transform: translate(-49%, -51%) scale(1.1);
+  }
+  4.2% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* VERTICAL SWEEP */
 #scanlineSweep {
   position: fixed;
   top: -10%;
@@ -399,7 +398,7 @@ body {
   opacity: 0;
   pointer-events: none;
   z-index: 9997;
-  animation: sweepVertical 7s infinite;
+  animation: sweepVertical 7s infinite ease-out;
 }
 
 @keyframes sweepVertical {
@@ -407,11 +406,11 @@ body {
     opacity: 0;
     transform: translateY(-20%);
   }
-  5% {
+  6% {
     opacity: 0.8;
     transform: translateY(120%);
   }
-  7% {
+  8% {
     opacity: 0;
   }
   100% {
@@ -419,23 +418,7 @@ body {
   }
 }
 
-@keyframes sweep {
-  0% {
-    opacity: 0;
-    transform: translateY(-10vh);
-  }
-  10% {
-    opacity: 0.8;
-    transform: translateY(110vh);
-  }
-  12% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
+/* HORIZONTAL SWEEP */
 #sideSweep {
   position: fixed;
   top: 0;
@@ -451,7 +434,7 @@ body {
   opacity: 0;
   pointer-events: none;
   z-index: 9997;
-  animation: sweepHorizontal 9s infinite;
+  animation: sweepHorizontal 9s infinite ease-out;
 }
 
 @keyframes sweepHorizontal {
@@ -459,11 +442,11 @@ body {
     opacity: 0;
     transform: translateX(-20%);
   }
-  6% {
+  7% {
     opacity: 0.8;
     transform: translateX(130%);
   }
-  8% {
+  9% {
     opacity: 0;
   }
   100% {
@@ -471,6 +454,7 @@ body {
   }
 }
 
+/* CHROMATIC FLASH */
 #chromaticFlash {
   position: fixed;
   inset: 0;
@@ -479,13 +463,11 @@ body {
   z-index: 9996;
   mix-blend-mode: screen;
   opacity: 0;
-  animation: chroma 9s infinite;
+  animation: chroma 9s infinite ease-out;
 }
 
 @keyframes chroma {
-  0% {
-    opacity: 0;
-  }
+  0%,
   4% {
     opacity: 0;
   }
