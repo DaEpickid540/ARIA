@@ -531,3 +531,46 @@ body {
   border-color: #e63946;
   box-shadow: 0 0 10px #e63946;
 }
+
+#callModeBtn {
+  margin-left: 10px;
+  padding: 12px;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #e63946;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.25s ease;
+}
+
+#callModeBtn.active {
+  border-color: #e63946;
+  box-shadow: 0 0 12px #e63946;
+  background: #1a1a1a;
+  transform: scale(1.05);
+}
+
+/* waveform */
+#voiceWave {
+  width: 40px;
+  height: 20px;
+  margin-left: 10px;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+#voiceWave.active {
+  opacity: 1;
+}
+
+#voiceWave span {
+  width: 4px;
+  background: #e63946;
+  height: 4px;
+  border-radius: 2px;
+  transition: height 0.1s ease;
+}

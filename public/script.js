@@ -259,3 +259,129 @@ document.getElementById("sendBtn").onclick = async () => {
     speak(last.content);
   }
 };
+
+// ---------------- FULL CALL MODE ENGINE ----------------
+
+let callMode = false;
+let listening = false;
+let continuousRecognition;
+let silenceTimer = null;
+
+// create waveform bars
+const wave = document.getElementById("voiceWave");
+for (let i = 0; i < 6; i++) {
+  const bar = document.createElement("span");
+  wave.appendChild(bar);
+}
+
+const callBtn = document.getElementById("callModeBtn");
+
+// setup continuous recognition
+try {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  continuousRecognition = new SR();
+  continuousRecognition.continuous = true;
+  continuousRecognition.interimResults = true;
+  continuousRecognition.lang = "en-US";
+} catch (e) {
+  console.log("Speech recognition not supported");
+}
+
+// speak with interruption
+function speak(text) {
+  speechSynthesis.cancel(); // interrupt current speech
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 1;
+  utter.pitch = 1;
+  utter.volume = 1;
+  speechSynthesis.speak(utter);
+}
+
+// toggle call mode
+callBtn.addEventListener("click", () => {
+  callMode = !callMode;
+  callBtn.classList.toggle("active", callMode);
+
+  if (callMode) {
+    wave.classList.add("active");
+    continuousRecognition.start();
+  } else {
+    wave.classList.remove("active");
+    continuousRecognition.stop();
+    speechSynthesis.cancel();
+  }
+});
+
+// waveform animation
+function animateWave(level) {
+  const bars = wave.querySelectorAll("span");
+  bars.forEach((bar, i) => {
+    const h = Math.max(4, level - i * 3);
+    bar.style.height = h + "px";
+  });
+}
+
+// silence detection
+function resetSilenceTimer() {
+  clearTimeout(silenceTimer);
+  silenceTimer = setTimeout(() => {
+    listening = false;
+    animateWave(4);
+  }, 1200);
+}
+
+// recognition events
+continuousRecognition.addEventListener("result", async (e) => {
+  if (!callMode) return;
+
+  const result = e.results[e.results.length - 1];
+  const text = result[0].transcript.trim();
+
+  // animate waveform based on speech confidence
+  const level = Math.floor(result[0].confidence * 40) + 10;
+  animateWave(level);
+
+  listening = true;
+  resetSilenceTimer();
+
+  if (!result.isFinal) return;
+
+  // stop ARIA if she's talking
+  speechSynthesis.cancel();
+
+  // push user message
+  const chat = chats.find((c) => c.id === currentChatId);
+  chat.messages.push({
+    role: "user",
+    content: text,
+    timestamp: Date.now(),
+  });
+  saveChats();
+  renderMessages();
+
+  // send to backend
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: text }),
+  });
+
+  const data = await res.json();
+
+  // push ARIA reply
+  chat.messages.push({
+    role: "assistant",
+    content: data.reply,
+    timestamp: Date.now(),
+  });
+  saveChats();
+  renderMessages();
+
+  // speak ARIA reply
+  speak(data.reply);
+});
+
+// restart recognition if it stops
+continuousRecognition.addEventListener("end", () => {
+  if (callMode) continuousRecognition.start();
+});
