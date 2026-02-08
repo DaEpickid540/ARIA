@@ -1,7 +1,9 @@
-/* GLOBAL */
+/* GLOBAL TRANSITIONS */
+* {
+  transition: all 0.25s ease;
+}
 
 /* GLOBAL */
-
 body {
   background: #000;
   color: #e63946;
@@ -12,8 +14,38 @@ body {
   overflow: hidden;
 }
 
-/* MAIN LAYOUT */
+/* CYBERPUNK NEON GLOW */
+.neon {
+  filter: drop-shadow(0 0 6px #e63946) drop-shadow(0 0 12px #e63946);
+}
 
+/* GLITCH ANIMATION */
+@keyframes glitch {
+  0% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-1px, 1px);
+  }
+  40% {
+    transform: translate(1px, -1px);
+  }
+  60% {
+    transform: translate(-1px, -1px);
+  }
+  80% {
+    transform: translate(1px, 1px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+.glitch:hover {
+  animation: glitch 0.25s steps(2, end) infinite;
+}
+
+/* MAIN LAYOUT */
 #layout {
   display: flex;
   height: 100vh;
@@ -24,7 +56,6 @@ body {
 }
 
 /* SIDEBAR */
-
 #sidebar {
   width: 260px;
   background: #0a0a0a;
@@ -35,6 +66,7 @@ body {
   padding: 10px;
 }
 
+/* NEW CHAT BUTTON */
 #newChatBtn {
   width: 100%;
   padding: 12px;
@@ -47,6 +79,14 @@ body {
   box-shadow: 0 0 10px #e63946;
 }
 
+#newChatBtn:hover {
+  background: #ff4d5a;
+  box-shadow: 0 0 15px #ff4d5a;
+  transform: translateY(-2px) scale(1.05);
+  filter: drop-shadow(0 0 12px #e63946);
+}
+
+/* CHAT LIST */
 #chatList {
   flex: 1;
   overflow-y: auto;
@@ -61,17 +101,18 @@ body {
   border-radius: 6px;
   cursor: pointer;
   color: #e6e6e6;
-  transition: 0.2s;
 }
 
 .chatItem:hover {
   background: #151515;
   border-color: #e63946;
-  box-shadow: 0 0 8px #e63946;
+  box-shadow: 0 0 12px #e63946;
+  color: #ff4d5a;
+  transform: translateX(4px) scale(1.05);
+  animation: glitch 0.25s steps(2, end) infinite;
 }
 
 /* CHAT WINDOW */
-
 #chatWindow {
   flex: 1;
   display: flex;
@@ -80,7 +121,6 @@ body {
 }
 
 /* MESSAGE AREA */
-
 #messages {
   flex: 1;
   padding: 20px;
@@ -89,7 +129,6 @@ body {
 }
 
 /* MESSAGE BUBBLES */
-
 .msg {
   max-width: 75%;
   padding: 12px 16px;
@@ -98,10 +137,11 @@ body {
   font-family: Consolas, monospace;
   line-height: 1.4;
   word-wrap: break-word;
+  position: relative;
+  padding-bottom: 14px;
 }
 
-/* USER (RED NEON) */
-
+/* USER BUBBLE */
 .msg.user {
   background: #e63946;
   color: #000;
@@ -110,8 +150,13 @@ body {
   box-shadow: 0 0 10px #e63946;
 }
 
-/* ARIA (DARK GRAY CYBERPUNK) */
+.msg.user:hover {
+  box-shadow: 0 0 15px #ff4d5a;
+  transform: translateY(-2px) scale(1.03);
+  animation: glitch 0.25s steps(2, end) infinite;
+}
 
+/* ARIA BUBBLE */
 .msg.aria {
   background: #1a1a1a;
   color: #e6e6e6;
@@ -120,11 +165,22 @@ body {
 }
 
 .msg.aria:hover {
-  box-shadow: 0 0 10px #e63946;
+  box-shadow: 0 0 12px #e63946;
+  transform: translateY(-2px) scale(1.03);
+  animation: glitch 0.25s steps(2, end) infinite;
+}
+
+/* TIMESTAMP */
+.msgTimestamp {
+  position: absolute;
+  bottom: 2px;
+  right: 8px;
+  font-size: 10px;
+  opacity: 0.6;
+  pointer-events: none;
 }
 
 /* INPUT BAR */
-
 #inputBar {
   display: flex;
   padding: 12px;
@@ -142,6 +198,13 @@ body {
   outline: none;
 }
 
+#userInput:hover,
+#userInput:focus {
+  border-color: #ff4d5a;
+  box-shadow: 0 0 10px #e63946;
+}
+
+/* SEND BUTTON */
 #sendBtn {
   margin-left: 10px;
   padding: 12px 20px;
@@ -154,8 +217,15 @@ body {
   box-shadow: 0 0 10px #e63946;
 }
 
-/* PASSWORD LOCK */
+#sendBtn:hover {
+  background: #ff4d5a;
+  box-shadow: 0 0 15px #ff4d5a;
+  transform: scale(1.05);
+  filter: drop-shadow(0 0 12px #e63946);
+  animation: glitch 0.25s steps(2, end) infinite;
+}
 
+/* PASSWORD LOCK */
 #lockScreen {
   position: fixed;
   inset: 0;
@@ -199,22 +269,15 @@ body {
   box-shadow: 0 0 10px #e63946;
 }
 
+#lockBox button:hover {
+  background: #ff4d5a;
+  box-shadow: 0 0 15px #ff4d5a;
+  transform: translateY(-2px);
+  filter: drop-shadow(0 0 12px #e63946);
+}
+
 #lockError {
   color: #ff4d5a;
   margin-top: 10px;
   height: 20px;
-}
-
-.msg {
-  position: relative;
-  padding-bottom: 14px; /* space for timestamp */
-}
-
-.msgTimestamp {
-  position: absolute;
-  bottom: 2px;
-  right: 8px;
-  font-size: 10px;
-  opacity: 0.6;
-  pointer-events: none;
 }
