@@ -391,26 +391,26 @@ body {
   height: 6px;
   background: linear-gradient(
     to bottom,
-    rgba(230, 57, 70, 0.9),
+    rgba(230, 57, 70, 1),
     rgba(230, 57, 70, 0)
   );
   filter: blur(3px);
   opacity: 0;
   pointer-events: none;
-  z-index: 9997;
-  animation: sweepVertical 7s infinite ease-out;
+  z-index: 999999; /* forces visibility */
+  animation: sweepVerticalTest 1s infinite linear;
 }
 
-@keyframes sweepVertical {
+@keyframes sweepVerticalTest {
   0% {
     opacity: 0;
     transform: translateY(-20%);
   }
-  6% {
-    opacity: 0.8;
+  10% {
+    opacity: 1;
     transform: translateY(120%);
   }
-  8% {
+  40% {
     opacity: 0;
   }
   100% {
@@ -418,7 +418,6 @@ body {
   }
 }
 
-/* HORIZONTAL SWEEP */
 #sideSweep {
   position: fixed;
   top: 0;
@@ -427,26 +426,26 @@ body {
   height: 100vh;
   background: linear-gradient(
     to right,
-    rgba(230, 57, 70, 0.9),
+    rgba(230, 57, 70, 1),
     rgba(230, 57, 70, 0)
   );
   filter: blur(3px);
   opacity: 0;
   pointer-events: none;
-  z-index: 9997;
-  animation: sweepHorizontal 9s infinite ease-out;
+  z-index: 999999; /* forces visibility */
+  animation: sweepHorizontalTest 1s infinite linear;
 }
 
-@keyframes sweepHorizontal {
+@keyframes sweepHorizontalTest {
   0% {
     opacity: 0;
     transform: translateX(-20%);
   }
-  7% {
-    opacity: 0.8;
+  10% {
+    opacity: 1;
     transform: translateX(130%);
   }
-  9% {
+  40% {
     opacity: 0;
   }
   100% {
