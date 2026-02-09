@@ -1,21 +1,16 @@
 // ---------------- PASSWORD LOCK ----------------
 
-function setupLockScreen() {
-  const lockScreen = document.getElementById("lockScreen");
-  const passwordInput = document.getElementById("passwordInput");
-  const unlockBtn = document.getElementById("unlockBtn");
+const PASSWORD = "727846";
 
-  const CORRECT_PW = "727846"; // or whatever you use
+document.getElementById("unlockBtn").onclick = () => {
+  const input = document.getElementById("passwordInput").value;
 
-  unlockBtn.addEventListener("click", () => {
-    if (passwordInput.value === CORRECT_PW) {
-      lockScreen.style.display = "none";
-    } else {
-      passwordInput.value = "";
-      passwordInput.placeholder = "Access Denied";
-    }
-  });
-}
+  if (input === PASSWORD) {
+    document.getElementById("lockScreen").style.display = "none";
+  } else {
+    document.getElementById("lockError").textContent = "Incorrect password";
+  }
+};
 
 // ---------------- CHAT SYSTEM ----------------
 
@@ -34,6 +29,10 @@ if (serverChats.length > 0) {
 }
 
 // save helper
+function saveChats() {
+  localStorage.setItem("aria_chats", JSON.stringify(chats));
+}
+
 async function syncToServer() {
   await fetch("/api/saveChats", {
     method: "POST",
@@ -506,22 +505,3 @@ voiceOffBtn.addEventListener("click", () => {
   callBtn.classList.remove("active");
   wave.classList.remove("active");
 });
-
-document.addEventListener("DOMContentLoaded", () => {
-  init();
-});
-
-async function init() {
-  const serverChats = await loadFromServer();
-
-  if (serverChats.length > 0) {
-    chats = serverChats;
-    currentChatId = chats[0].id;
-  } else {
-    createNewChat();
-  }
-
-  renderChatList();
-  renderMessages();
-  setupLockScreen();
-}
