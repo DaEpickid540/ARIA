@@ -19,15 +19,31 @@ let chats = [];
 let currentChatId = null;
 
 // load saved chats
-const saved = localStorage.getItem("aria_chats");
-if (saved) {
-  chats = JSON.parse(saved);
-  currentChatId = chats[0]?.id || null;
+const serverChats = await loadFromServer();
+
+if (serverChats.length > 0) {
+  chats = serverChats;
+  currentChatId = chats[0].id;
+} else {
+  createNewChat();
 }
 
 // save helper
-function saveChats() {
-  localStorage.setItem("aria_chats", JSON.stringify(chats));
+async function syncToServer() {
+  await fetch("/api/saveChats", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId: "sarvin", // temporary until you add login
+      chats,
+    }),
+  });
+}
+
+async function loadFromServer() {
+  const res = await fetch("/api/loadChats?userId=sarvin");
+  const data = await res.json();
+  return data.chats || [];
 }
 
 // generate a title from first user message
@@ -47,6 +63,7 @@ function renameChat(id) {
 
   chat.title = newName.trim();
   saveChats();
+  syncToServer();
   renderChatList();
 }
 
@@ -61,6 +78,7 @@ function createNewChat() {
   chats.push({ id, title: "New Chat", messages: [] });
   currentChatId = id;
   saveChats();
+  syncToServer();
   renderChatList();
   renderMessages();
 }
@@ -150,6 +168,7 @@ document.getElementById("sendBtn").onclick = async () => {
     timestamp: Date.now(),
   });
   saveChats();
+  syncToServer();
   renderChatList();
   renderMessages();
 
@@ -167,6 +186,7 @@ document.getElementById("sendBtn").onclick = async () => {
     timestamp: Date.now(),
   });
   saveChats();
+  syncToServer();
   renderMessages();
 
   input.value = "";
@@ -439,6 +459,7 @@ continuousRecognition.addEventListener("result", async (e) => {
     timestamp: Date.now(),
   });
   saveChats();
+  syncToServer();
   renderMessages();
 
   // send to backend
@@ -457,6 +478,7 @@ continuousRecognition.addEventListener("result", async (e) => {
     timestamp: Date.now(),
   });
   saveChats();
+  syncToServer();
   renderMessages();
 
   // speak ARIA reply
