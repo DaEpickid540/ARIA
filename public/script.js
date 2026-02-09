@@ -1,16 +1,21 @@
 // ---------------- PASSWORD LOCK ----------------
 
-const PASSWORD = "727846";
+function setupLockScreen() {
+  const lockScreen = document.getElementById("lockScreen");
+  const passwordInput = document.getElementById("passwordInput");
+  const unlockBtn = document.getElementById("unlockBtn");
 
-document.getElementById("unlockBtn").onclick = () => {
-  const input = document.getElementById("passwordInput").value;
+  const CORRECT_PW = "727846"; // or whatever you use
 
-  if (input === PASSWORD) {
-    document.getElementById("lockScreen").style.display = "none";
-  } else {
-    document.getElementById("lockError").textContent = "Incorrect password";
-  }
-};
+  unlockBtn.addEventListener("click", () => {
+    if (passwordInput.value === CORRECT_PW) {
+      lockScreen.style.display = "none";
+    } else {
+      passwordInput.value = "";
+      passwordInput.placeholder = "Access Denied";
+    }
+  });
+}
 
 // ---------------- CHAT SYSTEM ----------------
 
@@ -501,3 +506,22 @@ voiceOffBtn.addEventListener("click", () => {
   callBtn.classList.remove("active");
   wave.classList.remove("active");
 });
+
+document.addEventListener("DOMContentLoaded", () => {
+  init();
+});
+
+async function init() {
+  const serverChats = await loadFromServer();
+
+  if (serverChats.length > 0) {
+    chats = serverChats;
+    currentChatId = chats[0].id;
+  } else {
+    createNewChat();
+  }
+
+  renderChatList();
+  renderMessages();
+  setupLockScreen();
+}
