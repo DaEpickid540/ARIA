@@ -1,57 +1,50 @@
-import express from "express";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
-import askAria from "./brain.js";
+const express = require("express");
+const path = require("path");
+const fs = require("fs");
 
 const app = express();
 app.use(express.json());
-
-// resolve paths
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// serve frontend
 app.use(express.static(path.join(__dirname, "public")));
 
-// ---------------- CHAT ROUTE ----------------
-app.post("/api/chat", async (req, res) => {
-  const userMessage = req.body.message;
-  const reply = await askAria(userMessage);
-  res.json({ reply });
-});
+const memoryFile = path.join(__dirname, "memory.json");
 
-// ---------------- SIMPLE JSON DATABASE ----------------
-const DB_FILE = path.join(__dirname, "chats.json");
-
-function loadDB() {
-  if (!fs.existsSync(DB_FILE)) return {};
-  return JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
+function loadMemory() {
+  if (!fs.existsSync(memoryFile)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(memoryFile, "utf-8"));
+  } catch {
+    return {};
+  }
 }
 
-function saveDB(data) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+function saveMemory(data) {
+  fs.writeFileSync(memoryFile, JSON.stringify(data, null, 2));
 }
 
-// save chats
-app.post("/api/saveChats", (req, res) => {
-  const { userId, chats } = req.body;
-  const db = loadDB();
-  db[userId] = chats;
-  saveDB(db);
-  res.json({ ok: true });
-});
-
-// load chats
 app.get("/api/loadChats", (req, res) => {
-  const userId = req.query.userId;
-  const db = loadDB();
-  res.json({ chats: db[userId] || [] });
+  const userId = req.query.userId || "default";
+  const data = loadMemory();
+  res.json({ chats: data[userId] || [] });
 });
 
-// ---------------- START SERVER ----------------
-const PORT = process.env.PORT || 3000;
+app.post("/api/saveChats", (req, res) => {
+  const { userId = "default", chats } = req.body;
+  const data = loadMemory();
+  data[userId] = chats || [];
+  saveMemory(data);
+  res.json({ success: true });
+});
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`ARIA running on port ${PORT}`);
+app.post("/api/chat", (req, res) => {
+  const { message } = req.body;
+  res.json({ reply: `Echo: ${message}` });
+});
+
+app.use((req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log("ARIA running on port", PORT);
 });
