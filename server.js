@@ -21,12 +21,14 @@ function saveMemory(data) {
   fs.writeFileSync(memoryFile, JSON.stringify(data, null, 2));
 }
 
+// Load chats for a user
 app.get("/api/loadChats", (req, res) => {
   const userId = req.query.userId || "default";
   const data = loadMemory();
   res.json({ chats: data[userId] || [] });
 });
 
+// Save chats for a user
 app.post("/api/saveChats", (req, res) => {
   const { userId = "default", chats } = req.body;
   const data = loadMemory();
@@ -35,15 +37,18 @@ app.post("/api/saveChats", (req, res) => {
   res.json({ success: true });
 });
 
+// Basic chat reply
 app.post("/api/chat", (req, res) => {
   const { message } = req.body;
   res.json({ reply: `Echo: ${message}` });
 });
 
+// Fallback route for SPA
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("ARIA running on port", PORT);
