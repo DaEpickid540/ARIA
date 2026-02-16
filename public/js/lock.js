@@ -30,7 +30,6 @@ window.addEventListener("DOMContentLoaded", () => {
     layout.style.display = "flex";
   });
 
-  // Initial visibility
   lockScreen.style.display = "flex";
   homepage.style.display = "none";
   layout.style.display = "none";

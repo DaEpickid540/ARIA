@@ -1,3 +1,6 @@
+import { remember, recall } from "./memory.js";
+import { runTool } from "./tools.js";
+
 window.addEventListener("DOMContentLoaded", () => {
   let chats = [];
   let currentChatId = null;
@@ -7,6 +10,13 @@ window.addEventListener("DOMContentLoaded", () => {
   const userInput = document.getElementById("userInput");
   const messages = document.getElementById("messages");
   const chatList = document.getElementById("chatList");
+
+  function generateChatTitle(message) {
+    if (!message) return "New Chat";
+    let title = message.trim();
+    if (title.length > 30) title = title.substring(0, 30) + "...";
+    return title.charAt(0).toUpperCase() + title.slice(1);
+  }
 
   const saved = localStorage.getItem("aria_chats");
   if (saved) {
@@ -71,6 +81,7 @@ window.addEventListener("DOMContentLoaded", () => {
     messages.innerHTML = "";
     const chat = getCurrentChat();
     if (!chat) return;
+
     chat.messages.forEach((msg) => {
       const div = document.createElement("div");
       div.classList.add("msg", msg.role);
@@ -87,21 +98,43 @@ window.addEventListener("DOMContentLoaded", () => {
       `;
       messages.appendChild(div);
     });
+
     messages.scrollTop = messages.scrollHeight;
   }
 
   async function sendMessage() {
     const text = userInput.value.trim();
     if (!text) return;
+
     const chat = getCurrentChat();
     if (!chat) return;
 
     const userMsg = { role: "user", content: text, timestamp: Date.now() };
     chat.messages.push(userMsg);
+
+    if (chat.title === "New Chat") {
+      chat.title = generateChatTitle(text);
+      renderChatList();
+    }
+
     userInput.value = "";
     saveChats();
     syncToServer();
     renderMessages();
+
+    // TOOL CALL DETECTION
+    if (text.startsWith("/calc ")) {
+      const expr = text.replace("/calc ", "");
+      const output = await runTool("calc", expr);
+      addAIMessage(output);
+      return;
+    }
+
+    if (text.startsWith("/time")) {
+      const output = await runTool("time", "");
+      addAIMessage(output);
+      return;
+    }
 
     try {
       const res = await fetch("/api/chat", {
@@ -109,42 +142,34 @@ window.addEventListener("DOMContentLoaded", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text }),
       });
+
       const data = await res.json();
       const reply = data.reply?.trim() || "[No reply]";
-      const aiMsg = { role: "aria", content: reply, timestamp: Date.now() };
-      chat.messages.push(aiMsg);
-      saveChats();
-      syncToServer();
-      renderMessages();
+      addAIMessage(reply);
     } catch (err) {
-      console.error("Chat error:", err);
-      chat.messages.push({
-        role: "aria",
-        content: "[Error contacting server]",
-        timestamp: Date.now(),
-      });
-      renderMessages();
+      addAIMessage("[Error contacting server]");
     }
+  }
+
+  function addAIMessage(content) {
+    const chat = getCurrentChat();
+    const aiMsg = { role: "aria", content, timestamp: Date.now() };
+    chat.messages.push(aiMsg);
+    saveChats();
+    syncToServer();
+    renderMessages();
   }
 
   function saveChats() {
-    try {
-      localStorage.setItem("aria_chats", JSON.stringify(chats));
-    } catch (e) {
-      console.error("local save failed", e);
-    }
+    localStorage.setItem("aria_chats", JSON.stringify(chats));
   }
 
   async function syncToServer() {
-    try {
-      await fetch("/api/saveChats", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: "sarvin", chats }),
-      });
-    } catch (e) {
-      console.error("sync failed", e);
-    }
+    await fetch("/api/saveChats", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: "sarvin", chats }),
+    });
   }
 
   async function loadFromServer() {
@@ -158,8 +183,6 @@ window.addEventListener("DOMContentLoaded", () => {
         renderChatList();
         renderMessages();
       }
-    } catch (e) {
-      console.error("load failed", e);
-    }
+    } catch {}
   }
 });
