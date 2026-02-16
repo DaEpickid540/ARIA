@@ -1,14 +1,31 @@
+// server.js
+import express from "express";
+import fetch from "node-fetch";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const app = express();
+app.use(express.json());
+
+// Resolve __dirname for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve static files
+app.use(express.static(path.join(__dirname, "public")));
+
+// ------------------------------
+//  CHAT ROUTE (OpenRouter / Groq)
+// ------------------------------
 app.post("/api/chat", async (req, res) => {
   const { message, provider = "openrouter", personality = "hacker" } = req.body;
 
-  // Map personality to system prompt (simple server-side fallback)
   const personalityPrompts = {
     hacker: "You are ARIA in Hacker mode. Terse, technical, slightly cryptic.",
     companion: "You are ARIA in Companion mode. Warm, friendly, supportive.",
     analyst: "You are ARIA in Analyst mode. Precise, structured, logical.",
-    chaotic: "You are ARIA in Chaotic mode. Energetic, glitchy, but helpful.",
-    hostile:
-      "You are ARIA in Hostile mode. Blunt, cold, minimal, but not abusive.",
+    chaotic: "You are ARIA in Chaotic mode. Energetic, glitchy, unpredictable.",
+    hostile: "You are ARIA in Hostile mode. Blunt, cold, minimal, not abusive.",
   };
 
   const systemPrompt =
@@ -20,7 +37,6 @@ app.post("/api/chat", async (req, res) => {
     let body = {};
 
     if (provider === "groq") {
-      // GROQ endpoint
       url = "https://api.groq.com/openai/v1/chat/completions";
       headers = {
         Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
@@ -34,7 +50,7 @@ app.post("/api/chat", async (req, res) => {
         ],
       };
     } else {
-      // OPENROUTER (default)
+      // DEFAULT = OPENROUTER
       url = "https://openrouter.ai/api/v1/chat/completions";
       headers = {
         Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
@@ -64,4 +80,61 @@ app.post("/api/chat", async (req, res) => {
     console.error("AI error:", err);
     res.json({ reply: "Error contacting AI provider." });
   }
+});
+
+// ------------------------------
+//  SAVE CHATS
+// ------------------------------
+let userChats = {};
+
+app.post("/api/saveChats", (req, res) => {
+  const { userId, chats } = req.body;
+  userChats[userId] = chats;
+  res.json({ success: true });
+});
+
+// ------------------------------
+//  LOAD CHATS
+// ------------------------------
+app.get("/api/loadChats", (req, res) => {
+  const { userId } = req.query;
+  res.json({ chats: userChats[userId] || [] });
+});
+
+// ------------------------------
+//  TOOL ROUTE
+// ------------------------------
+app.post("/api/tool", (req, res) => {
+  const { tool, input } = req.body;
+
+  try {
+    if (tool === "calc") {
+      return res.json({ output: eval(input) });
+    }
+    if (tool === "time") {
+      return res.json({ output: new Date().toString() });
+    }
+    if (tool === "echo") {
+      return res.json({ output: input });
+    }
+
+    res.json({ output: "Unknown tool." });
+  } catch (err) {
+    res.json({ output: "Tool error." });
+  }
+});
+
+// ------------------------------
+//  FALLBACK → index.html
+// ------------------------------
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// ------------------------------
+//  START SERVER
+// ------------------------------
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log("ARIA server running on port", PORT);
 });
