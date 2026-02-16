@@ -35,9 +35,41 @@ app.post("/api/saveChats", (req, res) => {
   res.json({ success: true });
 });
 
-app.post("/api/chat", (req, res) => {
+app.post("/api/chat", async (req, res) => {
   const { message } = req.body;
-  res.json({ reply: `Echo: ${message}` });
+
+  try {
+    const response = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-3.5-turbo",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are ARIA, a helpful, friendly, conversational AI assistant.",
+            },
+            { role: "user", content: message },
+          ],
+        }),
+      },
+    );
+
+    const data = await response.json();
+    const reply =
+      data?.choices?.[0]?.message?.content || "I couldn't generate a response.";
+
+    res.json({ reply });
+  } catch (err) {
+    console.error("OpenRouter error:", err);
+    res.json({ reply: "Error contacting AI provider." });
+  }
 });
 
 app.use((req, res) => {
