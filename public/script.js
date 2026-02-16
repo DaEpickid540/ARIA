@@ -1,60 +1,12 @@
 window.addEventListener("DOMContentLoaded", () => {
-  // LOCK SCREEN
-  const PASSWORD = "727846";
   const unlockBtn = document.getElementById("unlockBtn");
   const passwordInput = document.getElementById("passwordInput");
+  const lockBox = document.getElementById("lockBox");
   const lockError = document.getElementById("lockError");
   const lockScreen = document.getElementById("lockScreen");
   const homepage = document.getElementById("homepageScreen");
   const layout = document.getElementById("layout");
   const enterConsoleBtn = document.getElementById("enterConsoleBtn");
-
-  unlockBtn.onclick = tryUnlock;
-  passwordInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") tryUnlock();
-  });
-
-  function tryUnlock() {
-    const input = passwordInput.value.trim();
-    if (input === PASSWORD) {
-      lockScreen.style.display = "none";
-      homepage.style.display = "flex";
-    } else {
-      lockError.textContent = "Incorrect password";
-    }
-  }
-
-  if (enterConsoleBtn) {
-    enterConsoleBtn.onclick = () => {
-      homepage.style.display = "none";
-      layout.style.display = "flex";
-    };
-  }
-
-  // HOMEPAGE INFO
-  const homeTime = document.getElementById("homeTime");
-  const homeSystem = document.getElementById("homeSystem");
-
-  if (homeTime) {
-    const now = new Date();
-    homeTime.textContent = now.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
-  if (homeSystem) {
-    homeSystem.innerHTML = `
-      <div>GPU: RX 6700 XT</div>
-      <div>Plan: T-Mobile Essentials</div>
-      <div>Scout Rank: Star Scout</div>
-      <div>Merit Badges Left: 2</div>
-    `;
-  }
-
-  // CHAT SYSTEM
-  let chats = [];
-  let currentChatId = null;
 
   const newChatBtn = document.getElementById("newChatBtn");
   const sendBtn = document.getElementById("sendBtn");
@@ -63,36 +15,32 @@ window.addEventListener("DOMContentLoaded", () => {
   const chatList = document.getElementById("chatList");
   const loader = document.getElementById("ariaLoading");
 
-  const saved = localStorage.getItem("aria_chats");
-  if (saved) {
-    try {
-      chats = JSON.parse(saved);
-      if (chats.length > 0) currentChatId = chats[0].id;
-    } catch (e) {
-      chats = [];
+  let chats = [];
+  let currentChatId = null;
+
+  function tryUnlock() {
+    const password = passwordInput.value.trim();
+    if (password === "727846") {
+      lockBox.classList.add("unlocking");
+      setTimeout(() => {
+        lockScreen.style.display = "none";
+        homepage.style.display = "flex";
+      }, 300);
+    } else {
+      lockError.textContent = "Incorrect password";
     }
   }
 
-  if (!currentChatId) createNewChat();
+  unlockBtn.onclick = tryUnlock;
+  passwordInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") tryUnlock();
+  });
 
-  renderChatList();
-  renderMessages();
-
-  if (newChatBtn)
-    newChatBtn.onclick = () => {
-      createNewChat();
-      renderChatList();
-      renderMessages();
+  if (enterConsoleBtn) {
+    enterConsoleBtn.onclick = () => {
+      homepage.style.display = "none";
+      layout.style.display = "flex";
     };
-
-  if (sendBtn) sendBtn.onclick = sendMessage;
-  if (userInput) {
-    userInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
   }
 
   function createNewChat() {
@@ -102,6 +50,8 @@ window.addEventListener("DOMContentLoaded", () => {
     currentChatId = id;
     saveChats();
     syncToServer();
+    renderChatList();
+    renderMessages();
   }
 
   function getCurrentChat() {
@@ -212,13 +162,28 @@ window.addEventListener("DOMContentLoaded", () => {
       const res = await fetch("/api/loadChats?userId=sarvin");
       const data = await res.json();
       chats = data.chats || [];
-      if (chats.length > 0) currentChatId = chats[0].id;
+      if (chats.length > 0) {
+        currentChatId = chats[0].id;
+      } else {
+        createNewChat();
+      }
       saveChats();
       renderChatList();
       renderMessages();
     } catch (e) {
       console.error("load failed", e);
     }
+  }
+
+  if (newChatBtn) newChatBtn.onclick = createNewChat;
+  if (sendBtn) sendBtn.onclick = sendMessage;
+  if (userInput) {
+    userInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
   }
 
   loadFromServer();
