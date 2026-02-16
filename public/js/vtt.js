@@ -4,7 +4,6 @@ const SpeechRecognition =
 const callModeBtn = document.getElementById("callModeBtn");
 const vttToggleBtn = document.getElementById("vttToggleBtn");
 const userInput = document.getElementById("userInput");
-const callIndicator = document.getElementById("callIndicator");
 const voiceActivityBar = document.getElementById("voiceActivityBar");
 const voiceWave = document.getElementById("voiceWave");
 
@@ -32,16 +31,25 @@ if (SpeechRecognition) {
   };
 }
 
+export function setVTTEnabled(enabled) {
+  vttEnabled = enabled;
+  if (vttToggleBtn) {
+    vttToggleBtn.classList.toggle("active", vttEnabled);
+  }
+  if (!enabled) {
+    stopRecognition();
+  }
+}
+
 function setRecordingState(active) {
-  if (!callIndicator || !voiceActivityBar || !voiceWave) return;
+  if (!voiceActivityBar || !voiceWave) return;
 
   isRecording = active;
 
-  callIndicator.classList.remove("speaking");
   voiceActivityBar.classList.remove("speaking");
+  voiceActivityBar.classList.remove("recording");
 
   if (active) {
-    callIndicator.classList.add("recording");
     voiceActivityBar.classList.add("recording");
     voiceWave.classList.add("active");
 
@@ -52,13 +60,12 @@ function setRecordingState(active) {
       });
     }, 100);
   } else {
-    callIndicator.classList.remove("recording");
-    voiceActivityBar.classList.remove("recording");
     voiceWave.classList.remove("active");
     if (waveInterval) clearInterval(waveInterval);
     Array.from(voiceWave.children).forEach((bar) => {
       bar.style.height = "4px";
     });
+    voiceActivityBar.classList.remove("recording");
   }
 }
 
@@ -80,19 +87,11 @@ function stopRecognition() {
 
 if (vttToggleBtn) {
   vttToggleBtn.addEventListener("click", () => {
-    vttEnabled = !vttEnabled;
-    vttToggleBtn.classList.toggle("active", vttEnabled);
-    if (!vttEnabled) {
-      stopRecognition();
-    }
+    setVTTEnabled(!vttEnabled);
   });
-
-  // default ON
-  vttToggleBtn.classList.add("active");
 }
 
 if (callModeBtn && recognition) {
-  // Push-to-talk: hold to record
   const start = () => {
     if (!vttEnabled) return;
     callModeBtn.classList.add("active");

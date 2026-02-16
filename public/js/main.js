@@ -1,6 +1,8 @@
 import "./memory.js";
 import "./lock.js";
 import "./homepage.js";
+import "./personality.js";
+import "./settings.js";
 import "./chat.js";
 import "./ui.js";
 import "./tts.js";

@@ -14,7 +14,7 @@
       <div id="lockBox" class="neon">
         <h2>Enter Password</h2>
         <input id="passwordInput" type="password" placeholder="Password" />
-        <button id="unlockBtn" class="cyber-hover glitch">Unlock</button>
+        <button id="unlockBtn" class="glitch">Unlock</button>
         <p id="lockError"></p>
       </div>
     </div>
@@ -25,44 +25,19 @@
         <h1>ARIA System</h1>
         <div id="homeTime"></div>
         <div id="homeSystem"></div>
-        <button id="enterConsoleBtn" class="cyber-hover glitch">
-          Enter Console
-        </button>
+        <button id="enterConsoleBtn" class="glitch">Enter Console</button>
       </div>
     </div>
 
     <!-- Main Layout -->
     <div id="layout">
       <aside id="sidebar">
-        <button id="newChatBtn" class="cyber-hover glitch">+ New Chat</button>
-        <div id="chatList"></div>
-
-        <div id="settingsPanel">
-          <h3>Settings</h3>
-
-          <label>Voice:</label>
-          <select id="voiceSelect"></select>
-
-          <label>Speech Rate:</label>
-          <input
-            type="range"
-            id="voiceRate"
-            min="0.5"
-            max="2"
-            step="0.1"
-            value="1"
-          />
-
-          <label>Speech Pitch:</label>
-          <input
-            type="range"
-            id="voicePitch"
-            min="0"
-            max="2"
-            step="0.1"
-            value="1"
-          />
+        <div id="sidebarTop">
+          <button id="newChatBtn" class="primaryBtn glitch">+ New Chat</button>
+          <button id="settingsBtn" class="secondaryBtn">⚙ Settings</button>
         </div>
+
+        <div id="chatList"></div>
       </aside>
 
       <div id="bgDrift"></div>
@@ -72,17 +47,107 @@
 
         <div id="inputBar">
           <input id="userInput" placeholder="Type a message..." />
-          <button id="sendBtn" class="cyber-hover glitch">Send</button>
+          <button id="sendBtn" class="primaryBtn glitch">Send</button>
 
+          <!-- Voice controls -->
           <button id="callModeBtn" class="voiceBtn">🎙 PTT</button>
           <button id="vttToggleBtn" class="voiceBtn">VTT</button>
           <button id="voiceOffBtn" class="voiceBtn">TTS</button>
+
           <div id="voiceWave"></div>
         </div>
 
-        <!-- Voice activity bar under input -->
+        <!-- Voice activity bar -->
         <div id="voiceActivityBar"></div>
       </main>
+    </div>
+
+    <!-- Settings Overlay -->
+    <div id="settingsOverlay">
+      <div id="settingsPanel">
+        <div id="settingsHeader">
+          <h2>ARIA Settings</h2>
+          <button id="settingsCloseBtn">✕</button>
+        </div>
+
+        <div id="settingsContent">
+          <!-- Personality -->
+          <section class="settingsSection">
+            <h3>Personality Presets</h3>
+            <div id="personalityList">
+              <button class="personalityBtn" data-preset="hacker">
+                Hacker
+              </button>
+              <button class="personalityBtn" data-preset="companion">
+                Companion
+              </button>
+              <button class="personalityBtn" data-preset="analyst">
+                Analyst
+              </button>
+              <button class="personalityBtn" data-preset="chaotic">
+                Chaotic
+              </button>
+              <button class="personalityBtn" data-preset="hostile">
+                Hostile
+              </button>
+            </div>
+          </section>
+
+          <!-- Voice -->
+          <section class="settingsSection">
+            <h3>Voice Settings</h3>
+            <label>Voice</label>
+            <select id="voiceSelect"></select>
+
+            <label>Rate</label>
+            <input
+              type="range"
+              id="voiceRate"
+              min="0.5"
+              max="2"
+              step="0.1"
+              value="1"
+            />
+
+            <label>Pitch</label>
+            <input
+              type="range"
+              id="voicePitch"
+              min="0"
+              max="2"
+              step="0.1"
+              value="1"
+            />
+
+            <div class="toggleRow">
+              <span>TTS Enabled</span>
+              <button id="ttsToggle" class="toggleBtn active">ON</button>
+            </div>
+          </section>
+
+          <!-- Speech Recognition -->
+          <section class="settingsSection">
+            <h3>Speech Recognition</h3>
+            <div class="toggleRow">
+              <span>VTT Enabled</span>
+              <button id="vttMasterToggle" class="toggleBtn active">ON</button>
+            </div>
+          </section>
+
+          <!-- API Provider -->
+          <section class="settingsSection">
+            <h3>API Provider</h3>
+            <select id="providerSelect">
+              <option value="openrouter">OpenRouter</option>
+              <option value="groq">Groq</option>
+            </select>
+          </section>
+        </div>
+
+        <div id="settingsFooter">
+          <button id="settingsSaveBtn" class="primaryBtn">Save</button>
+        </div>
+      </div>
     </div>
 
     <!-- Overlays -->

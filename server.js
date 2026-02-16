@@ -1,65 +1,59 @@
-const express = require("express");
-const path = require("path");
-const fs = require("fs");
-
-const app = express();
-app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
-
-const memoryFile = path.join(__dirname, "memory.json");
-
-function loadMemory() {
-  if (!fs.existsSync(memoryFile)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(memoryFile, "utf-8"));
-  } catch {
-    return {};
-  }
-}
-
-function saveMemory(data) {
-  fs.writeFileSync(memoryFile, JSON.stringify(data, null, 2));
-}
-
-app.get("/api/loadChats", (req, res) => {
-  const userId = req.query.userId || "default";
-  const data = loadMemory();
-  res.json({ chats: data[userId] || [] });
-});
-
-app.post("/api/saveChats", (req, res) => {
-  const { userId = "default", chats } = req.body;
-  const data = loadMemory();
-  data[userId] = chats || [];
-  saveMemory(data);
-  res.json({ success: true });
-});
-
 app.post("/api/chat", async (req, res) => {
-  const { message } = req.body;
+  const { message, provider = "openrouter", personality = "hacker" } = req.body;
+
+  // Map personality to system prompt (simple server-side fallback)
+  const personalityPrompts = {
+    hacker: "You are ARIA in Hacker mode. Terse, technical, slightly cryptic.",
+    companion: "You are ARIA in Companion mode. Warm, friendly, supportive.",
+    analyst: "You are ARIA in Analyst mode. Precise, structured, logical.",
+    chaotic: "You are ARIA in Chaotic mode. Energetic, glitchy, but helpful.",
+    hostile:
+      "You are ARIA in Hostile mode. Blunt, cold, minimal, but not abusive.",
+  };
+
+  const systemPrompt =
+    personalityPrompts[personality] || personalityPrompts.hacker;
 
   try {
-    const response = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "openai/gpt-3.5-turbo",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are ARIA, a helpful, friendly, conversational AI assistant.",
-            },
-            { role: "user", content: message },
-          ],
-        }),
-      },
-    );
+    let url = "";
+    let headers = {};
+    let body = {};
+
+    if (provider === "groq") {
+      // GROQ endpoint
+      url = "https://api.groq.com/openai/v1/chat/completions";
+      headers = {
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        "Content-Type": "application/json",
+      };
+      body = {
+        model: "llama3-8b-8192",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: message },
+        ],
+      };
+    } else {
+      // OPENROUTER (default)
+      url = "https://openrouter.ai/api/v1/chat/completions";
+      headers = {
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+      };
+      body = {
+        model: "openai/gpt-3.5-turbo",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: message },
+        ],
+      };
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
 
     const data = await response.json();
     const reply =
@@ -67,16 +61,7 @@ app.post("/api/chat", async (req, res) => {
 
     res.json({ reply });
   } catch (err) {
-    console.error("OpenRouter error:", err);
+    console.error("AI error:", err);
     res.json({ reply: "Error contacting AI provider." });
   }
-});
-
-app.use((req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("ARIA running on port", PORT);
 });

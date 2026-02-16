@@ -1,6 +1,7 @@
 import { remember, recall } from "./memory.js";
 import { runTool } from "./tools.js";
 import { speak, ttsEnabled } from "./tts.js";
+import { loadSettings, getSystemPrompt } from "./personality.js";
 
 window.addEventListener("DOMContentLoaded", () => {
   let chats = [];
@@ -11,6 +12,8 @@ window.addEventListener("DOMContentLoaded", () => {
   const userInput = document.getElementById("userInput");
   const messages = document.getElementById("messages");
   const chatList = document.getElementById("chatList");
+
+  let currentSettings = loadSettings();
 
   function generateChatTitle(message) {
     if (!message) return "New Chat";
@@ -107,6 +110,8 @@ window.addEventListener("DOMContentLoaded", () => {
     const text = userInput.value.trim();
     if (!text) return;
 
+    currentSettings = loadSettings();
+
     const chat = getCurrentChat();
     if (!chat) return;
 
@@ -141,7 +146,11 @@ window.addEventListener("DOMContentLoaded", () => {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({
+          message: text,
+          provider: currentSettings.provider || "openrouter",
+          personality: currentSettings.personality || "hacker",
+        }),
       });
 
       const data = await res.json();
