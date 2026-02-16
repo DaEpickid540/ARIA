@@ -29,7 +29,22 @@ export function speak(text) {
 
   const utter = new SpeechSynthesisUtterance(text);
 
-  const selectedName = voiceSelect?.value;
+  let selectedName = voiceSelect?.value;
+
+  // If no voice selected, auto-pick a female voice
+  if (!selectedName) {
+    const female = voices.find(
+      (v) =>
+        v.name.toLowerCase().includes("female") ||
+        v.name.toLowerCase().includes("woman") ||
+        v.name.toLowerCase().includes("girl") ||
+        v.name.toLowerCase().includes("samantha") ||
+        v.name.toLowerCase().includes("victoria") ||
+        v.name.toLowerCase().includes("zira"),
+    );
+    if (female) selectedName = female.name;
+  }
+
   if (selectedName && voices.length) {
     const match = voices.find((v) => v.name === selectedName);
     if (match) utter.voice = match;
