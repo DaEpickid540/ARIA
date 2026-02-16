@@ -5,7 +5,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const lockError = document.getElementById("lockError");
   const homepageScreen = document.getElementById("homepageScreen");
 
-  const CORRECT_PASSWORD = "aria";
+  const CORRECT_PASSWORD = "727846";
 
   function unlock() {
     const val = passwordInput.value.trim();
