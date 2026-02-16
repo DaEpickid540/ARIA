@@ -73,11 +73,24 @@
         <div id="inputBar">
           <input id="userInput" placeholder="Type a message..." />
           <button id="sendBtn" class="cyber-hover glitch">Send</button>
-          <button id="callModeBtn">📞</button>
-          <button id="voiceOffBtn">🛑</button>
+
+          <!-- Push-to-talk (hold) -->
+          <button id="callModeBtn" title="Push to talk">🎙</button>
+
+          <!-- VTT toggle -->
+          <button id="vttToggleBtn" title="Toggle voice recognition">
+            VTT
+          </button>
+
+          <!-- TTS toggle -->
+          <button id="voiceOffBtn" title="Toggle ARIA voice">🔊</button>
+
           <div id="callIndicator"></div>
           <div id="voiceWave"></div>
         </div>
+
+        <!-- Voice activity bar under input -->
+        <div id="voiceActivityBar"></div>
       </main>
     </div>
 

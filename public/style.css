@@ -93,25 +93,27 @@ body {
   flex: 1;
   overflow-y: auto;
   margin-top: 15px;
+  width: 100%;
 }
 
 .chatItem {
-  padding: 12px;
-  margin-bottom: 10px;
-  background: #111;
-  border: 1px solid #333;
+  width: 100%;
+  display: block;
+  text-align: left;
+  padding: 10px 12px;
   border-radius: 6px;
+  background: transparent;
+  color: white;
+  border: none;
   cursor: pointer;
-  color: #e6e6e6;
+}
+
+.chatItem.active {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .chatItem:hover {
-  background: #151515;
-  border-color: #e63946;
-  box-shadow: 0 0 12px #e63946;
-  color: #ff4d5a;
-  transform: translateX(4px) scale(1.05);
-  animation: glitch 0.25s steps(2, end) infinite;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* CHAT WINDOW */
@@ -185,6 +187,7 @@ body {
 /* INPUT BAR */
 #inputBar {
   display: flex;
+  align-items: center;
   padding: 12px;
   background: #0a0a0a;
   border-top: 2px solid #e63946;
@@ -235,7 +238,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 999999999;
 }
 
 #lockBox {
@@ -376,7 +379,7 @@ body {
   }
 }
 
-/* VERTICAL SWEEP – SLOW + OFFSET */
+/* VERTICAL SWEEP */
 #scanlineSweep {
   position: fixed;
   top: -8px;
@@ -413,7 +416,7 @@ body {
   }
 }
 
-/* HORIZONTAL SWEEP – DIFFERENT PERIOD + DELAY */
+/* HORIZONTAL SWEEP */
 #sideSweep {
   position: fixed;
   top: 0;
@@ -450,7 +453,7 @@ body {
   }
 }
 
-/* CHROMATIC FLASH – SLOWER */
+/* CHROMATIC FLASH */
 #chromaticFlash {
   position: fixed;
   inset: 0;
@@ -517,38 +520,46 @@ body {
   }
 }
 
-#micBtn {
+/* BUTTONS: CALL / VTT / TTS */
+#callModeBtn,
+#vttToggleBtn,
+#voiceOffBtn {
   margin-left: 10px;
-  padding: 12px;
+  padding: 10px 12px;
   background: #111;
   border: 1px solid #333;
   border-radius: 6px;
   color: #e63946;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 14px;
 }
-#micBtn:hover {
+
+#callModeBtn:hover,
+#vttToggleBtn:hover,
+#voiceOffBtn:hover {
   border-color: #e63946;
   box-shadow: 0 0 10px #e63946;
 }
 
-#callModeBtn {
-  margin-left: 10px;
-  padding: 12px;
-  background: #111;
-  border: 1px solid #333;
-  border-radius: 6px;
-  color: #e63946;
-  cursor: pointer;
-  font-size: 18px;
-  transition: all 0.25s ease;
-}
-
+/* Active states */
 #callModeBtn.active {
   border-color: #e63946;
-  box-shadow: 0 0 12px #e63946;
   background: #1a1a1a;
+  box-shadow: 0 0 12px #e63946;
   transform: scale(1.05);
+}
+
+#vttToggleBtn.active {
+  border-color: #00ff99;
+  color: #00ff99;
+  box-shadow: 0 0 12px #00ff99;
+}
+
+#voiceOffBtn.active {
+  border-color: #e63946;
+  background: #e63946;
+  color: #000;
+  box-shadow: 0 0 12px #e63946;
 }
 
 /* waveform */
@@ -575,23 +586,7 @@ body {
   transition: height 0.1s ease;
 }
 
-#voiceOffBtn {
-  margin-left: 10px;
-  padding: 12px;
-  background: #111;
-  border: 1px solid #333;
-  border-radius: 6px;
-  color: #e63946;
-  cursor: pointer;
-  font-size: 18px;
-  transition: all 0.25s ease;
-}
-
-#voiceOffBtn:hover {
-  border-color: #e63946;
-  box-shadow: 0 0 10px #e63946;
-}
-
+/* Call indicator */
 #callIndicator {
   width: 14px;
   height: 14px;
@@ -603,12 +598,37 @@ body {
   transition: all 0.25s ease;
 }
 
-#callIndicator.active {
+#callIndicator.recording {
   border-color: #e63946;
   background: #e63946;
   box-shadow: 0 0 12px #e63946;
 }
 
+#callIndicator.speaking {
+  border-color: #ffffff;
+  background: #ffffff;
+  box-shadow: 0 0 12px #ffffff;
+}
+
+/* Voice activity bar */
+#voiceActivityBar {
+  height: 4px;
+  width: 100%;
+  background: #111;
+  box-shadow: 0 0 0 transparent;
+}
+
+#voiceActivityBar.recording {
+  background: #e63946;
+  box-shadow: 0 0 12px #e63946;
+}
+
+#voiceActivityBar.speaking {
+  background: #ffffff;
+  box-shadow: 0 0 12px #ffffff;
+}
+
+/* SETTINGS PANEL */
 #settingsPanel {
   margin-top: 15px;
   padding: 12px;
@@ -645,105 +665,9 @@ body {
   padding: 4px;
 }
 
-#lockScreen {
-  z-index: 999999999;
-}
-
-#chatList {
-  width: 100%;
-}
-
-.chatItem {
-  width: 100%;
-  display: block;
-  text-align: left;
-  padding: 10px 12px;
-  border-radius: 6px;
-  background: transparent;
-  color: white;
-  border: none;
-  cursor: pointer;
-}
-
-.chatItem.active {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.chatItem:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-#voiceSelect {
-  width: 100%;
-  padding: 8px;
-  border-radius: 6px;
-  background: #111;
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-#voiceSelect option {
-  background: #111;
-  color: white;
-}
-
 /* Layout visibility defaults */
-#lockScreen {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 #homepageScreen {
   display: none;
   align-items: center;
   justify-content: center;
-}
-
-#layout {
-  display: none;
-}
-
-/* Sidebar & chat list */
-#sidebar {
-  width: 260px;
-}
-
-#chatList {
-  width: 100%;
-}
-
-.chatItem {
-  width: 100%;
-  display: block;
-  text-align: left;
-  padding: 10px 12px;
-  border-radius: 6px;
-  background: transparent;
-  color: white;
-  border: none;
-  cursor: pointer;
-}
-
-.chatItem.active {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.chatItem:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-/* Voice select styling */
-#voiceSelect {
-  width: 100%;
-  padding: 8px;
-  border-radius: 6px;
-  background: #111;
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-#voiceSelect option {
-  background: #111;
-  color: white;
 }

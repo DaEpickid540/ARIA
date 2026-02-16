@@ -1,5 +1,6 @@
 import { remember, recall } from "./memory.js";
 import { runTool } from "./tools.js";
+import { speak, ttsEnabled } from "./tts.js";
 
 window.addEventListener("DOMContentLoaded", () => {
   let chats = [];
@@ -122,7 +123,7 @@ window.addEventListener("DOMContentLoaded", () => {
     syncToServer();
     renderMessages();
 
-    // TOOL CALL DETECTION
+    // Simple tool commands
     if (text.startsWith("/calc ")) {
       const expr = text.replace("/calc ", "");
       const output = await runTool("calc", expr);
@@ -158,6 +159,10 @@ window.addEventListener("DOMContentLoaded", () => {
     saveChats();
     syncToServer();
     renderMessages();
+
+    if (ttsEnabled) {
+      speak(content);
+    }
   }
 
   function saveChats() {
@@ -183,6 +188,8 @@ window.addEventListener("DOMContentLoaded", () => {
         renderChatList();
         renderMessages();
       }
-    } catch {}
+    } catch {
+      // ignore
+    }
   }
 });

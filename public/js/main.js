@@ -3,4 +3,6 @@ import "./lock.js";
 import "./homepage.js";
 import "./chat.js";
 import "./ui.js";
+import "./tts.js";
+import "./vtt.js";
 import "./tools.js";
