@@ -23,6 +23,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
   let currentSettings = loadSettings();
 
+  /* -----------------------------
+     APPLY SETTINGS TO UI
+  ----------------------------- */
   function applySettingsToUI() {
     // Personality
     personalityButtons.forEach((btn) => {
@@ -31,62 +34,71 @@ window.addEventListener("DOMContentLoaded", () => {
     });
 
     // Provider
-    if (providerSelect) {
-      providerSelect.value = currentSettings.provider || "openrouter";
-    }
+    providerSelect.value = currentSettings.provider || "openrouter";
 
     // TTS
-    if (ttsToggle) {
-      ttsToggle.classList.toggle("active", currentSettings.ttsEnabled);
-      ttsToggle.textContent = currentSettings.ttsEnabled ? "ON" : "OFF";
-    }
+    ttsToggle.classList.toggle("active", currentSettings.ttsEnabled);
+    ttsToggle.textContent = currentSettings.ttsEnabled ? "ON" : "OFF";
 
     // VTT
-    if (vttMasterToggle) {
-      vttMasterToggle.classList.toggle("active", currentSettings.vttEnabled);
-      vttMasterToggle.textContent = currentSettings.vttEnabled ? "ON" : "OFF";
-    }
-
-    // Voice sliders (keep whatever is stored in DOM; no persistence yet)
+    vttMasterToggle.classList.toggle("active", currentSettings.vttEnabled);
+    vttMasterToggle.textContent = currentSettings.vttEnabled ? "ON" : "OFF";
   }
 
+  /* -----------------------------
+     OPEN / CLOSE SETTINGS
+  ----------------------------- */
   function openSettings() {
     applySettingsToUI();
-    settingsOverlay?.classList.add("active");
+    settingsOverlay.classList.add("active");
   }
 
   function closeSettings() {
-    settingsOverlay?.classList.remove("active");
+    settingsOverlay.classList.remove("active");
   }
 
-  settingsBtn?.addEventListener("click", openSettings);
-  settingsCloseBtn?.addEventListener("click", closeSettings);
+  settingsBtn.addEventListener("click", openSettings);
+  settingsCloseBtn.addEventListener("click", closeSettings);
 
+  /* -----------------------------
+     PERSONALITY SELECT
+  ----------------------------- */
   personalityButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
-      const key = btn.dataset.preset;
-      currentSettings.personality = key;
+      currentSettings.personality = btn.dataset.preset;
       applySettingsToUI();
     });
   });
 
-  providerSelect?.addEventListener("change", () => {
+  /* -----------------------------
+     PROVIDER SELECT
+  ----------------------------- */
+  providerSelect.addEventListener("change", () => {
     currentSettings.provider = providerSelect.value;
   });
 
-  ttsToggle?.addEventListener("click", () => {
+  /* -----------------------------
+     TTS TOGGLE
+  ----------------------------- */
+  ttsToggle.addEventListener("click", () => {
     currentSettings.ttsEnabled = !currentSettings.ttsEnabled;
     applySettingsToUI();
     setTTSEnabled(currentSettings.ttsEnabled);
   });
 
-  vttMasterToggle?.addEventListener("click", () => {
+  /* -----------------------------
+     VTT TOGGLE
+  ----------------------------- */
+  vttMasterToggle.addEventListener("click", () => {
     currentSettings.vttEnabled = !currentSettings.vttEnabled;
     applySettingsToUI();
     setVTTEnabled(currentSettings.vttEnabled);
   });
 
-  settingsSaveBtn?.addEventListener("click", () => {
+  /* -----------------------------
+     SAVE BUTTON
+  ----------------------------- */
+  settingsSaveBtn.addEventListener("click", () => {
     saveSettings(currentSettings);
     closeSettings();
   });

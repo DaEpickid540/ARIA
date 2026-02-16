@@ -15,14 +15,14 @@ const __dirname = path.dirname(__filename);
 // Serve static files
 app.use(express.static(path.join(__dirname, "public")));
 
-// ------------------------------
-//  CHAT ROUTE (OpenRouter / Groq)
-// ------------------------------
+/* ============================================================
+   CHAT ROUTE — OpenRouter (default) + Groq (optional)
+   ============================================================ */
 app.post("/api/chat", async (req, res) => {
   const { message, provider = "openrouter", personality = "hacker" } = req.body;
 
   const personalityPrompts = {
-    hacker: "You are ARIA in Hacker mode. Terse, technical, slightly cryptic.",
+    hacker: "You are ARIA in Hacker mode. Terse, technical, cryptic.",
     companion: "You are ARIA in Companion mode. Warm, friendly, supportive.",
     analyst: "You are ARIA in Analyst mode. Precise, structured, logical.",
     chaotic: "You are ARIA in Chaotic mode. Energetic, glitchy, unpredictable.",
@@ -38,7 +38,7 @@ app.post("/api/chat", async (req, res) => {
     let body = {};
 
     if (provider === "groq") {
-      // GROQ endpoint
+      // GROQ
       url = "https://api.groq.com/openai/v1/chat/completions";
       headers = {
         Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
@@ -52,7 +52,7 @@ app.post("/api/chat", async (req, res) => {
         ],
       };
     } else {
-      // DEFAULT = OPENROUTER
+      // OPENROUTER (default)
       url = "https://openrouter.ai/api/v1/chat/completions";
       headers = {
         Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
@@ -74,6 +74,7 @@ app.post("/api/chat", async (req, res) => {
     });
 
     const data = await response.json();
+
     const reply =
       data?.choices?.[0]?.message?.content || "I couldn't generate a response.";
 
@@ -84,9 +85,9 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-// ------------------------------
-//  SAVE CHATS
-// ------------------------------
+/* ============================================================
+   SAVE CHATS (in-memory)
+   ============================================================ */
 let userChats = {};
 
 app.post("/api/saveChats", (req, res) => {
@@ -95,17 +96,17 @@ app.post("/api/saveChats", (req, res) => {
   res.json({ success: true });
 });
 
-// ------------------------------
-//  LOAD CHATS
-// ------------------------------
+/* ============================================================
+   LOAD CHATS
+   ============================================================ */
 app.get("/api/loadChats", (req, res) => {
   const { userId } = req.query;
   res.json({ chats: userChats[userId] || [] });
 });
 
-// ------------------------------
-//  TOOL ROUTE
-// ------------------------------
+/* ============================================================
+   TOOL ROUTE
+   ============================================================ */
 app.post("/api/tool", (req, res) => {
   const { tool, input } = req.body;
 
@@ -126,16 +127,16 @@ app.post("/api/tool", (req, res) => {
   }
 });
 
-// ------------------------------
-//  FALLBACK → index.html
-// ------------------------------
+/* ============================================================
+   FALLBACK — SERVE index.html
+   ============================================================ */
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// ------------------------------
-//  START SERVER
-// ------------------------------
+/* ============================================================
+   START SERVER
+   ============================================================ */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("ARIA server running on port", PORT);

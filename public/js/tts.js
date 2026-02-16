@@ -1,117 +1,64 @@
 export let ttsEnabled = true;
 
-const voiceOffBtn = document.getElementById("voiceOffBtn");
-const voiceSelect = document.getElementById("voiceSelect");
-const voiceRate = document.getElementById("voiceRate");
-const voicePitch = document.getElementById("voicePitch");
-const voiceActivityBar = document.getElementById("voiceActivityBar");
-const voiceWave = document.getElementById("voiceWave");
-
-let voices = [];
-let speakingInterval = null;
-
-function populateVoices() {
-  voices = window.speechSynthesis.getVoices();
-  if (voiceSelect && voiceSelect.children.length <= 1) {
-    // Fill with actual voices
-    voiceSelect.innerHTML = "";
-    voices.forEach((v) => {
-      const opt = document.createElement("option");
-      opt.value = v.name;
-      opt.textContent = v.name;
-      voiceSelect.appendChild(opt);
-    });
-  }
-}
-
-if (typeof speechSynthesis !== "undefined") {
-  populateVoices();
-  speechSynthesis.onvoiceschanged = populateVoices;
-}
+let currentUtterance = null;
 
 export function setTTSEnabled(enabled) {
   ttsEnabled = enabled;
-  if (voiceOffBtn) {
-    voiceOffBtn.classList.toggle("active", ttsEnabled);
-  }
-  if (!enabled && window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-    setSpeakingState(false);
+  const btn = document.getElementById("voiceOffBtn");
+  if (btn) {
+    btn.classList.toggle("active", enabled);
   }
 }
 
 export function speak(text) {
   if (!ttsEnabled) return;
-  if (!window.speechSynthesis) return;
-  if (!text) return;
+  if (!("speechSynthesis" in window)) return;
 
   window.speechSynthesis.cancel();
 
   const utter = new SpeechSynthesisUtterance(text);
+  currentUtterance = utter;
 
-  let selectedName = voiceSelect?.value;
+  const rateSlider = document.getElementById("voiceRate");
+  const pitchSlider = document.getElementById("voicePitch");
+  const voiceSelect = document.getElementById("voiceSelect");
 
-  // Auto-pick a female voice if none selected
-  if (!selectedName && voices.length) {
-    const female = voices.find(
-      (v) =>
-        v.name.toLowerCase().includes("female") ||
-        v.name.toLowerCase().includes("woman") ||
-        v.name.toLowerCase().includes("girl") ||
-        v.name.toLowerCase().includes("samantha") ||
-        v.name.toLowerCase().includes("victoria") ||
-        v.name.toLowerCase().includes("zira"),
-    );
-    if (female) selectedName = female.name;
-  }
+  utter.rate = rateSlider ? parseFloat(rateSlider.value) || 1 : 1;
+  utter.pitch = pitchSlider ? parseFloat(pitchSlider.value) || 1 : 1;
 
-  if (selectedName && voices.length) {
-    const match = voices.find((v) => v.name === selectedName);
+  const voices = window.speechSynthesis.getVoices();
+  if (voices.length && voiceSelect && voiceSelect.value) {
+    const match = voices.find((v) => v.name === voiceSelect.value);
     if (match) utter.voice = match;
+  } else if (voices.length) {
+    const female = voices.find((v) =>
+      /female|woman|girl/i.test(v.name + " " + v.lang),
+    );
+    utter.voice = female || voices[0];
   }
-
-  if (voiceRate) utter.rate = parseFloat(voiceRate.value) || 1;
-  if (voicePitch) utter.pitch = parseFloat(voicePitch.value) || 1;
 
   utter.onstart = () => {
-    setSpeakingState(true);
+    document.dispatchEvent(new CustomEvent("aria-speaking-start"));
   };
 
   utter.onend = () => {
-    setSpeakingState(false);
+    document.dispatchEvent(new CustomEvent("aria-speaking-stop"));
   };
 
   window.speechSynthesis.speak(utter);
 }
 
-function setSpeakingState(isSpeaking) {
-  if (!voiceActivityBar || !voiceWave) return;
+window.speechSynthesis.onvoiceschanged = () => {
+  const voiceSelect = document.getElementById("voiceSelect");
+  if (!voiceSelect) return;
 
-  voiceActivityBar.classList.remove("recording");
-  voiceActivityBar.classList.remove("speaking");
+  const voices = window.speechSynthesis.getVoices();
+  voiceSelect.innerHTML = "";
 
-  if (isSpeaking) {
-    voiceActivityBar.classList.add("speaking");
-    voiceWave.classList.add("active");
-
-    if (speakingInterval) clearInterval(speakingInterval);
-    speakingInterval = setInterval(() => {
-      Array.from(voiceWave.children).forEach((bar) => {
-        bar.style.height = `${4 + Math.random() * 16}px`;
-      });
-    }, 100);
-  } else {
-    voiceWave.classList.remove("active");
-    if (speakingInterval) clearInterval(speakingInterval);
-    Array.from(voiceWave.children).forEach((bar) => {
-      bar.style.height = "4px";
-    });
-    voiceActivityBar.classList.remove("speaking");
-  }
-}
-
-if (voiceOffBtn) {
-  voiceOffBtn.addEventListener("click", () => {
-    setTTSEnabled(!ttsEnabled);
+  voices.forEach((v) => {
+    const opt = document.createElement("option");
+    opt.value = v.name;
+    opt.textContent = `${v.name} (${v.lang})`;
+    voiceSelect.appendChild(opt);
   });
-}
+};

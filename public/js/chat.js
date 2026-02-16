@@ -1,7 +1,6 @@
-import { remember, recall } from "./memory.js";
-import { runTool } from "./tools.js";
 import { speak, ttsEnabled } from "./tts.js";
-import { loadSettings, getSystemPrompt } from "./personality.js";
+import { loadSettings } from "./personality.js";
+import { runTool } from "./tools.js";
 
 window.addEventListener("DOMContentLoaded", () => {
   let chats = [];
@@ -15,13 +14,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
   let currentSettings = loadSettings();
 
-  function generateChatTitle(message) {
-    if (!message) return "New Chat";
-    let title = message.trim();
-    if (title.length > 30) title = title.substring(0, 30) + "...";
-    return title.charAt(0).toUpperCase() + title.slice(1);
-  }
-
+  /* -----------------------------
+     LOAD CHATS FROM LOCALSTORAGE
+  ----------------------------- */
   const saved = localStorage.getItem("aria_chats");
   if (saved) {
     try {
@@ -38,6 +33,9 @@ window.addEventListener("DOMContentLoaded", () => {
   renderMessages();
   loadFromServer();
 
+  /* -----------------------------
+     EVENT LISTENERS
+  ----------------------------- */
   newChatBtn?.addEventListener("click", () => {
     createNewChat();
     renderChatList();
@@ -45,6 +43,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   sendBtn?.addEventListener("click", sendMessage);
+
   userInput?.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -52,6 +51,9 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  /* -----------------------------
+     CREATE NEW CHAT
+  ----------------------------- */
   function createNewChat() {
     const id = "chat_" + Date.now();
     const chat = { id, title: "New Chat", messages: [] };
@@ -65,6 +67,9 @@ window.addEventListener("DOMContentLoaded", () => {
     return chats.find((c) => c.id === currentChatId) || null;
   }
 
+  /* -----------------------------
+     RENDER CHAT LIST
+  ----------------------------- */
   function renderChatList() {
     chatList.innerHTML = "";
     chats.forEach((chat) => {
@@ -72,15 +77,20 @@ window.addEventListener("DOMContentLoaded", () => {
       btn.className = "chatItem";
       btn.textContent = chat.title || "Untitled";
       if (chat.id === currentChatId) btn.classList.add("active");
+
       btn.onclick = () => {
         currentChatId = chat.id;
         renderChatList();
         renderMessages();
       };
+
       chatList.appendChild(btn);
     });
   }
 
+  /* -----------------------------
+     RENDER MESSAGES
+  ----------------------------- */
   function renderMessages() {
     messages.innerHTML = "";
     const chat = getCurrentChat();
@@ -89,23 +99,27 @@ window.addEventListener("DOMContentLoaded", () => {
     chat.messages.forEach((msg) => {
       const div = document.createElement("div");
       div.classList.add("msg", msg.role);
+
       div.innerHTML = `
         <div class="msgSender">${msg.role === "user" ? "You" : "ARIA"}</div>
         <div class="msgText">${msg.content}</div>
-        <div class="msgTimestamp">${new Date(msg.timestamp).toLocaleTimeString(
-          [],
-          {
+        <div class="msgTimestamp">
+          ${new Date(msg.timestamp).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
-          },
-        )}</div>
+          })}
+        </div>
       `;
+
       messages.appendChild(div);
     });
 
     messages.scrollTop = messages.scrollHeight;
   }
 
+  /* -----------------------------
+     SEND MESSAGE
+  ----------------------------- */
   async function sendMessage() {
     const text = userInput.value.trim();
     if (!text) return;
@@ -115,7 +129,12 @@ window.addEventListener("DOMContentLoaded", () => {
     const chat = getCurrentChat();
     if (!chat) return;
 
-    const userMsg = { role: "user", content: text, timestamp: Date.now() };
+    const userMsg = {
+      role: "user",
+      content: text,
+      timestamp: Date.now(),
+    };
+
     chat.messages.push(userMsg);
 
     if (chat.title === "New Chat") {
@@ -128,7 +147,9 @@ window.addEventListener("DOMContentLoaded", () => {
     syncToServer();
     renderMessages();
 
-    // Simple tool commands
+    /* -------------------------
+       TOOL COMMANDS
+    ------------------------- */
     if (text.startsWith("/calc ")) {
       const expr = text.replace("/calc ", "");
       const output = await runTool("calc", expr);
@@ -142,6 +163,9 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    /* -------------------------
+       SEND TO BACKEND AI
+    ------------------------- */
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -161,35 +185,65 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  /* -----------------------------
+     ADD AI MESSAGE
+  ----------------------------- */
   function addAIMessage(content) {
     const chat = getCurrentChat();
-    const aiMsg = { role: "aria", content, timestamp: Date.now() };
+    const aiMsg = {
+      role: "aria",
+      content,
+      timestamp: Date.now(),
+    };
+
     chat.messages.push(aiMsg);
     saveChats();
     syncToServer();
     renderMessages();
 
-    if (ttsEnabled) {
-      speak(content);
-    }
+    if (ttsEnabled) speak(content);
   }
 
+  /* -----------------------------
+     TITLE GENERATOR
+  ----------------------------- */
+  function generateChatTitle(message) {
+    if (!message) return "New Chat";
+    let title = message.trim();
+    if (title.length > 30) title = title.substring(0, 30) + "...";
+    return title.charAt(0).toUpperCase() + title.slice(1);
+  }
+
+  /* -----------------------------
+     SAVE CHATS
+  ----------------------------- */
   function saveChats() {
     localStorage.setItem("aria_chats", JSON.stringify(chats));
   }
 
+  /* -----------------------------
+     SYNC TO SERVER
+  ----------------------------- */
   async function syncToServer() {
-    await fetch("/api/saveChats", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: "sarvin", chats }),
-    });
+    try {
+      await fetch("/api/saveChats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: "sarvin", chats }),
+      });
+    } catch {
+      // ignore offline errors
+    }
   }
 
+  /* -----------------------------
+     LOAD FROM SERVER
+  ----------------------------- */
   async function loadFromServer() {
     try {
       const res = await fetch("/api/loadChats?userId=sarvin");
       const data = await res.json();
+
       if (data.chats && data.chats.length) {
         chats = data.chats;
         currentChatId = chats[0].id;

@@ -2,42 +2,72 @@
 <html>
   <head>
     <title>ARIA Interface</title>
-    <link rel="stylesheet" href="style.css" />
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" />
   </head>
 
   <body>
-    <!-- Lock Screen -->
+    <!-- LOCK SCREEN -->
     <div id="lockScreen">
       <div id="lockBox" class="neon">
-        <h2>Enter Password</h2>
-        <input id="passwordInput" type="password" placeholder="Password" />
-        <button id="unlockBtn" class="glitch">Unlock</button>
+        <h2>ACCESS REQUIRED</h2>
+        <input
+          id="passwordInput"
+          type="password"
+          placeholder="Enter password"
+        />
+        <button id="unlockBtn" class="primaryBtn glitch">Unlock</button>
         <p id="lockError"></p>
       </div>
     </div>
 
-    <!-- Homepage -->
+    <!-- HOMEPAGE -->
     <div id="homepageScreen">
       <div id="homepageContent" class="neon">
-        <h1>ARIA System</h1>
-        <div id="homeTime"></div>
-        <div id="homeSystem"></div>
-        <button id="enterConsoleBtn" class="glitch">Enter Console</button>
+        <h1>ARIA SYSTEM</h1>
+
+        <div id="homeTopRow">
+          <div id="homeTimeCard" class="homeCard">
+            <div class="homeLabel">TIME</div>
+            <div id="homeTime" class="homeValue"></div>
+          </div>
+
+          <div id="homeWeatherCard" class="homeCard">
+            <div class="homeLabel">WEATHER — DEERFIELD, OH</div>
+            <div id="homeWeatherMain" class="homeValue"></div>
+            <div id="homeWeatherDetails" class="homeSub"></div>
+          </div>
+        </div>
+
+        <div id="homeSystemCard" class="homeCard">
+          <div class="homeLabel">SYSTEM</div>
+          <div id="homeSystem" class="homeValue"></div>
+        </div>
+
+        <div id="homeQuoteCard" class="homeCard">
+          <div class="homeLabel">MOTIVATION</div>
+          <div id="homeQuote" class="homeValue"></div>
+        </div>
+
+        <div id="homeButtons">
+          <button id="ariaIntroBtn" class="primaryBtn glitch">Meet ARIA</button>
+          <button id="enterConsoleBtn" class="secondaryBtn glitch">
+            Enter Console
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- Main Layout -->
+    <!-- MAIN LAYOUT -->
     <div id="layout">
       <aside id="sidebar">
-        <div id="sidebarTop">
+        <div id="chatList"></div>
+
+        <div id="sidebarBottom">
           <button id="newChatBtn" class="primaryBtn glitch">+ New Chat</button>
           <button id="settingsBtn" class="secondaryBtn">⚙ Settings</button>
         </div>
-
-        <div id="chatList"></div>
       </aside>
 
       <div id="bgDrift"></div>
@@ -49,20 +79,17 @@
           <input id="userInput" placeholder="Type a message..." />
           <button id="sendBtn" class="primaryBtn glitch">Send</button>
 
-          <!-- Voice controls -->
           <button id="callModeBtn" class="voiceBtn">🎙 PTT</button>
-          <button id="vttToggleBtn" class="voiceBtn">VTT</button>
           <button id="voiceOffBtn" class="voiceBtn">TTS</button>
 
           <div id="voiceWave"></div>
         </div>
 
-        <!-- Voice activity bar -->
         <div id="voiceActivityBar"></div>
       </main>
     </div>
 
-    <!-- Settings Overlay -->
+    <!-- SETTINGS OVERLAY -->
     <div id="settingsOverlay">
       <div id="settingsPanel">
         <div id="settingsHeader">
@@ -71,7 +98,7 @@
         </div>
 
         <div id="settingsContent">
-          <!-- Personality -->
+          <!-- PERSONALITY -->
           <section class="settingsSection">
             <h3>Personality Presets</h3>
             <div id="personalityList">
@@ -93,9 +120,10 @@
             </div>
           </section>
 
-          <!-- Voice -->
+          <!-- VOICE -->
           <section class="settingsSection">
             <h3>Voice Settings</h3>
+
             <label>Voice</label>
             <select id="voiceSelect"></select>
 
@@ -125,7 +153,7 @@
             </div>
           </section>
 
-          <!-- Speech Recognition -->
+          <!-- SPEECH RECOGNITION -->
           <section class="settingsSection">
             <h3>Speech Recognition</h3>
             <div class="toggleRow">
@@ -134,7 +162,7 @@
             </div>
           </section>
 
-          <!-- API Provider -->
+          <!-- API PROVIDER -->
           <section class="settingsSection">
             <h3>API Provider</h3>
             <select id="providerSelect">
@@ -150,14 +178,13 @@
       </div>
     </div>
 
-    <!-- Overlays -->
+    <!-- FX -->
     <div id="glitchOverlay"></div>
     <div id="glitchOverlay2"></div>
     <div id="scanlineSweep"></div>
     <div id="sideSweep"></div>
     <div id="chromaticFlash"></div>
 
-    <!-- Modular scripts -->
     <script type="module" src="js/main.js"></script>
   </body>
 </html>

@@ -1,4 +1,3 @@
-import "./memory.js";
 import "./lock.js";
 import "./homepage.js";
 import "./personality.js";

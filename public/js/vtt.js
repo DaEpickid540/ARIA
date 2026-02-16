@@ -1,118 +1,77 @@
-const SpeechRecognition =
-  window.SpeechRecognition || window.webkitSpeechRecognition || null;
-
-const callModeBtn = document.getElementById("callModeBtn");
-const vttToggleBtn = document.getElementById("vttToggleBtn");
-const userInput = document.getElementById("userInput");
-const voiceActivityBar = document.getElementById("voiceActivityBar");
-const voiceWave = document.getElementById("voiceWave");
-
 let recognition = null;
 let vttEnabled = true;
 let isRecording = false;
-let waveInterval = null;
 
-if (SpeechRecognition) {
+export function setVTTEnabled(enabled) {
+  vttEnabled = enabled;
+  if (!enabled && recognition && isRecording) {
+    recognition.stop();
+  }
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  const callModeBtn = document.getElementById("callModeBtn");
+  const userInput = document.getElementById("userInput");
+  const voiceActivityBar = document.getElementById("voiceActivityBar");
+  const voiceWave = document.getElementById("voiceWave");
+
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    if (callModeBtn) {
+      callModeBtn.disabled = true;
+      callModeBtn.textContent = "🎙 N/A";
+    }
+    return;
+  }
+
   recognition = new SpeechRecognition();
   recognition.continuous = false;
   recognition.interimResults = true;
   recognition.lang = "en-US";
 
-  recognition.onresult = (event) => {
-    let transcript = "";
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      transcript += event.results[i][0].transcript;
+  function setRecordingUI(active) {
+    isRecording = active;
+    if (callModeBtn) callModeBtn.classList.toggle("active", active);
+    if (voiceActivityBar) {
+      voiceActivityBar.classList.toggle("recording", active);
     }
-    if (userInput) userInput.value = transcript;
+    if (voiceWave) {
+      voiceWave.classList.toggle("active", active);
+    }
+  }
+
+  callModeBtn?.addEventListener("mousedown", () => {
+    if (!vttEnabled || !recognition) return;
+    try {
+      recognition.start();
+      setRecordingUI(true);
+    } catch {
+      // ignore double start
+    }
+  });
+
+  callModeBtn?.addEventListener("mouseup", () => {
+    if (!recognition) return;
+    recognition.stop();
+    setRecordingUI(false);
+  });
+
+  recognition.onresult = (event) => {
+    let finalTranscript = "";
+    for (let i = 0; i < event.results.length; i++) {
+      const res = event.results[i];
+      if (res.isFinal) {
+        finalTranscript += res[0].transcript;
+      }
+    }
+    if (finalTranscript && userInput) {
+      userInput.value = finalTranscript.trim();
+    }
   };
 
   recognition.onend = () => {
-    setRecordingState(false);
+    setRecordingUI(false);
   };
-}
-
-export function setVTTEnabled(enabled) {
-  vttEnabled = enabled;
-  if (vttToggleBtn) {
-    vttToggleBtn.classList.toggle("active", vttEnabled);
-  }
-  if (!enabled) {
-    stopRecognition();
-  }
-}
-
-function setRecordingState(active) {
-  if (!voiceActivityBar || !voiceWave) return;
-
-  isRecording = active;
-
-  voiceActivityBar.classList.remove("speaking");
-  voiceActivityBar.classList.remove("recording");
-
-  if (active) {
-    voiceActivityBar.classList.add("recording");
-    voiceWave.classList.add("active");
-
-    if (waveInterval) clearInterval(waveInterval);
-    waveInterval = setInterval(() => {
-      Array.from(voiceWave.children).forEach((bar) => {
-        bar.style.height = `${4 + Math.random() * 16}px`;
-      });
-    }, 100);
-  } else {
-    voiceWave.classList.remove("active");
-    if (waveInterval) clearInterval(waveInterval);
-    Array.from(voiceWave.children).forEach((bar) => {
-      bar.style.height = "4px";
-    });
-    voiceActivityBar.classList.remove("recording");
-  }
-}
-
-function startRecognition() {
-  if (!recognition || !vttEnabled) return;
-  try {
-    recognition.start();
-    setRecordingState(true);
-  } catch {
-    // ignore double start
-  }
-}
-
-function stopRecognition() {
-  if (!recognition) return;
-  recognition.stop();
-  setRecordingState(false);
-}
-
-if (vttToggleBtn) {
-  vttToggleBtn.addEventListener("click", () => {
-    setVTTEnabled(!vttEnabled);
-  });
-}
-
-if (callModeBtn && recognition) {
-  const start = () => {
-    if (!vttEnabled) return;
-    callModeBtn.classList.add("active");
-    startRecognition();
-  };
-
-  const stop = () => {
-    callModeBtn.classList.remove("active");
-    stopRecognition();
-  };
-
-  callModeBtn.addEventListener("mousedown", start);
-  callModeBtn.addEventListener("mouseup", stop);
-  callModeBtn.addEventListener("mouseleave", stop);
-
-  callModeBtn.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    start();
-  });
-  callModeBtn.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    stop();
-  });
-}
+});

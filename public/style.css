@@ -1,4 +1,4 @@
-/* GLOBAL */
+/* GLOBAL RESET */
 * {
   box-sizing: border-box;
   transition: all 0.2s ease;
@@ -25,7 +25,7 @@ body {
   font-family: Consolas, monospace;
 }
 
-/* NEON / GLITCH */
+/* NEON + GLITCH */
 .neon {
   filter: drop-shadow(0 0 6px var(--red-deep))
     drop-shadow(0 0 14px var(--red-neon));
@@ -75,13 +75,44 @@ body {
   display: flex;
   flex-direction: column;
   padding: 10px;
-  position: relative;
   z-index: 2;
 }
 
-#sidebarTop {
+#chatList {
+  flex: 1;
+  overflow-y: auto;
+  width: 100%;
+}
+
+.chatItem {
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-main);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+}
+
+.chatItem.active {
+  background: rgba(209, 0, 0, 0.18);
+  border-color: var(--red-deep);
+}
+
+.chatItem:hover {
+  background: rgba(255, 26, 26, 0.08);
+}
+
+/* SIDEBAR BOTTOM BUTTONS */
+#sidebarBottom {
+  margin-top: auto;
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
 }
 
 /* BUTTONS */
@@ -116,36 +147,6 @@ body {
   box-shadow: 0 0 10px rgba(209, 0, 0, 0.7);
 }
 
-/* CHAT LIST */
-#chatList {
-  flex: 1;
-  overflow-y: auto;
-  margin-top: 14px;
-  width: 100%;
-}
-
-.chatItem {
-  width: 100%;
-  display: block;
-  text-align: left;
-  padding: 9px 10px;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-main);
-  border: 1px solid transparent;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.chatItem.active {
-  background: rgba(209, 0, 0, 0.18);
-  border-color: var(--red-deep);
-}
-
-.chatItem:hover {
-  background: rgba(255, 26, 26, 0.08);
-}
-
 /* CHAT WINDOW */
 #chatWindow {
   flex: 1;
@@ -156,7 +157,6 @@ body {
   z-index: 1;
 }
 
-/* MESSAGES */
 #messages {
   flex: 1;
   padding: 18px;
@@ -176,7 +176,6 @@ body {
   font-size: 13px;
 }
 
-/* USER */
 .msg.user {
   background: var(--red-deep);
   color: #000;
@@ -185,7 +184,6 @@ body {
   box-shadow: 0 0 12px rgba(209, 0, 0, 0.7);
 }
 
-/* ARIA (base) */
 .msg.aria {
   background: #111;
   color: var(--text-main);
@@ -193,7 +191,12 @@ body {
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
 }
 
-/* TIMESTAMP */
+.msgSender {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-bottom: 2px;
+}
+
 .msgTimestamp {
   position: absolute;
   bottom: 2px;
@@ -227,6 +230,11 @@ body {
   box-shadow: 0 0 10px rgba(209, 0, 0, 0.7);
 }
 
+/* GAP BETWEEN INPUT + SEND */
+#sendBtn {
+  margin-left: 18px;
+}
+
 /* VOICE BUTTONS */
 .voiceBtn {
   margin-left: 8px;
@@ -245,19 +253,11 @@ body {
   box-shadow: 0 0 10px rgba(209, 0, 0, 0.7);
 }
 
-/* ACTIVE STATES */
 #callModeBtn.active {
   background: #1a0000;
   border-color: var(--red-deep);
   color: var(--red-neon);
   box-shadow: 0 0 12px rgba(209, 0, 0, 0.9);
-}
-
-#vttToggleBtn.active {
-  background: #002015;
-  border-color: #00ff99;
-  color: #00ff99;
-  box-shadow: 0 0 12px rgba(0, 255, 153, 0.9);
 }
 
 #voiceOffBtn.active {
@@ -267,7 +267,7 @@ body {
   box-shadow: 0 0 12px rgba(209, 0, 0, 0.9);
 }
 
-/* VOICE WAVEFORM */
+/* WAVEFORM */
 #voiceWave {
   width: 40px;
   height: 18px;
@@ -294,7 +294,6 @@ body {
   height: 4px;
   width: 100%;
   background: #080808;
-  box-shadow: 0 0 0 transparent;
 }
 
 #voiceActivityBar.recording {
@@ -303,7 +302,7 @@ body {
 }
 
 #voiceActivityBar.speaking {
-  background: #ffffff;
+  background: #fff;
   box-shadow: 0 0 12px rgba(255, 255, 255, 0.9);
 }
 
@@ -365,22 +364,57 @@ body {
 
 #homepageContent {
   background: #080808;
-  padding: 30px;
+  padding: 26px;
   border-radius: 6px;
   border: 1px solid var(--red-deep);
   box-shadow: 0 0 18px rgba(209, 0, 0, 0.9);
+  width: 520px;
+}
+
+#homepageContent h1 {
+  margin: 0 0 16px 0;
   text-align: center;
 }
 
-#homeTime {
-  margin-top: 8px;
-  font-size: 18px;
+#homeTopRow {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
-#homeSystem {
-  margin-top: 12px;
-  font-size: 12px;
+.homeCard {
+  flex: 1;
+  background: #050505;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+  padding: 10px;
+}
+
+.homeLabel {
+  font-size: 11px;
   color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.homeValue {
+  font-size: 14px;
+}
+
+.homeSub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+#homeSystemCard,
+#homeQuoteCard {
+  margin-bottom: 10px;
+}
+
+#homeButtons {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 /* SETTINGS OVERLAY */
@@ -470,7 +504,7 @@ body {
   padding: 4px;
 }
 
-/* TOGGLE ROW */
+/* TOGGLES */
 .toggleRow {
   display: flex;
   align-items: center;
@@ -494,6 +528,7 @@ body {
   background: var(--red-deep);
   border-color: var(--red-deep);
   color: #000;
+  box-shadow: 0 0 12px rgba(209, 0, 0, 0.9);
 }
 
 /* PERSONALITY BUTTONS */
@@ -527,7 +562,7 @@ body {
   border-top: 1px solid var(--border-subtle);
 }
 
-/* BG DRIFT */
+/* BACKGROUND DRIFT */
 #bgDrift {
   position: fixed;
   top: 40%;
@@ -560,7 +595,7 @@ body {
   }
 }
 
-/* GLITCH / SWEEPS / FLASH (kept minimal) */
+/* FX SHELLS */
 #glitchOverlay,
 #glitchOverlay2,
 #scanlineSweep,
@@ -571,7 +606,7 @@ body {
   z-index: 999;
 }
 
-/* Visibility defaults */
+/* DEFAULTS */
 #homepageScreen {
   display: none;
 }
