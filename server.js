@@ -1,8 +1,9 @@
 // server.js
 import express from "express";
-import fetch from "node-fetch";
 import path from "path";
 import { fileURLToPath } from "url";
+
+// Node 18+ has fetch built-in — no import needed
 
 const app = express();
 app.use(express.json());
@@ -37,6 +38,7 @@ app.post("/api/chat", async (req, res) => {
     let body = {};
 
     if (provider === "groq") {
+      // GROQ endpoint
       url = "https://api.groq.com/openai/v1/chat/completions";
       headers = {
         Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
