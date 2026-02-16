@@ -1,47 +1,42 @@
 window.addEventListener("DOMContentLoaded", () => {
-  const unlockBtn = document.getElementById("unlockBtn");
-  const passwordInput = document.getElementById("passwordInput");
-  const lockBox = document.getElementById("lockBox");
-  const lockError = document.getElementById("lockError");
-  const lockScreen = document.getElementById("lockScreen");
-  const homepage = document.getElementById("homepageScreen");
-  const layout = document.getElementById("layout");
-  const enterConsoleBtn = document.getElementById("enterConsoleBtn");
+  let chats = [];
+  let currentChatId = null;
 
   const newChatBtn = document.getElementById("newChatBtn");
   const sendBtn = document.getElementById("sendBtn");
   const userInput = document.getElementById("userInput");
   const messages = document.getElementById("messages");
   const chatList = document.getElementById("chatList");
-  const loader = document.getElementById("ariaLoading");
 
-  let chats = [];
-  let currentChatId = null;
-
-  function tryUnlock() {
-    const password = passwordInput.value.trim();
-    if (password === "727846") {
-      lockBox.classList.add("unlocking");
-      setTimeout(() => {
-        lockScreen.style.display = "none";
-        homepage.style.display = "flex";
-      }, 300);
-    } else {
-      lockError.textContent = "Incorrect password";
+  const saved = localStorage.getItem("aria_chats");
+  if (saved) {
+    try {
+      chats = JSON.parse(saved);
+      if (chats.length > 0) currentChatId = chats[0].id;
+    } catch {
+      chats = [];
     }
   }
 
-  unlockBtn.onclick = tryUnlock;
-  passwordInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") tryUnlock();
+  if (!currentChatId) createNewChat();
+
+  renderChatList();
+  renderMessages();
+  loadFromServer();
+
+  newChatBtn?.addEventListener("click", () => {
+    createNewChat();
+    renderChatList();
+    renderMessages();
   });
 
-  if (enterConsoleBtn) {
-    enterConsoleBtn.onclick = () => {
-      homepage.style.display = "none";
-      layout.style.display = "flex";
-    };
-  }
+  sendBtn?.addEventListener("click", sendMessage);
+  userInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
 
   function createNewChat() {
     const id = "chat_" + Date.now();
@@ -50,8 +45,6 @@ window.addEventListener("DOMContentLoaded", () => {
     currentChatId = id;
     saveChats();
     syncToServer();
-    renderChatList();
-    renderMessages();
   }
 
   function getCurrentChat() {
@@ -111,7 +104,6 @@ window.addEventListener("DOMContentLoaded", () => {
     renderMessages();
 
     try {
-      if (loader) loader.classList.add("active");
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -132,8 +124,6 @@ window.addEventListener("DOMContentLoaded", () => {
         timestamp: Date.now(),
       });
       renderMessages();
-    } finally {
-      if (loader) loader.classList.remove("active");
     }
   }
 
@@ -161,30 +151,15 @@ window.addEventListener("DOMContentLoaded", () => {
     try {
       const res = await fetch("/api/loadChats?userId=sarvin");
       const data = await res.json();
-      chats = data.chats || [];
-      if (chats.length > 0) {
+      if (data.chats && data.chats.length) {
+        chats = data.chats;
         currentChatId = chats[0].id;
-      } else {
-        createNewChat();
+        saveChats();
+        renderChatList();
+        renderMessages();
       }
-      saveChats();
-      renderChatList();
-      renderMessages();
     } catch (e) {
       console.error("load failed", e);
     }
   }
-
-  if (newChatBtn) newChatBtn.onclick = createNewChat;
-  if (sendBtn) sendBtn.onclick = sendMessage;
-  if (userInput) {
-    userInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
-  }
-
-  loadFromServer();
 });

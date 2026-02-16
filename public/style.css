@@ -648,3 +648,102 @@ body {
 #lockScreen {
   z-index: 999999999;
 }
+
+#chatList {
+  width: 100%;
+}
+
+.chatItem {
+  width: 100%;
+  display: block;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: transparent;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.chatItem.active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.chatItem:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+#voiceSelect {
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  background: #111;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#voiceSelect option {
+  background: #111;
+  color: white;
+}
+
+/* Layout visibility defaults */
+#lockScreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#homepageScreen {
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+#layout {
+  display: none;
+}
+
+/* Sidebar & chat list */
+#sidebar {
+  width: 260px;
+}
+
+#chatList {
+  width: 100%;
+}
+
+.chatItem {
+  width: 100%;
+  display: block;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: transparent;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.chatItem.active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.chatItem:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Voice select styling */
+#voiceSelect {
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  background: #111;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#voiceSelect option {
+  background: #111;
+  color: white;
+}
