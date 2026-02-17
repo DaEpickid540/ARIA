@@ -1,31 +1,37 @@
-import notesTool from "./notes.js";
-import timerTool from "./timer.js";
-import weatherTool from "./weather.js";
-import fileTool from "./files.js";
-import appTool from "./apps.js";
-import systemTool from "./system.js";
-import todoTool from "./todo.js";
-import newsTool from "./news.js";
-import webSearchTool from "./websearch.js";
-import calculatorTool from "./calculator.js";
+// tools/index.js
+import * as calc from "./calc.js";
+import * as time from "./time.js";
+import * as notes from "./notes.js";
+import * as todo from "./todo.js";
+import * as weather from "./weather.js";
+import * as system from "./system.js";
+import * as search from "./search.js";
+import * as news from "./news.js";
+import * as timer from "./timer.js";
+import * as files from "./files.js";
 
-export default async function runTool(message) {
-  message = message.toLowerCase();
+export const tools = {
+  calc,
+  time,
+  notes,
+  todo,
+  weather,
+  system,
+  search,
+  news,
+  timer,
+  files,
+};
 
-  if (message.includes("note")) return notesTool(message);
-  if (message.includes("timer")) return timerTool(message);
-  if (message.includes("weather")) return weatherTool(message);
-  if (message.includes("file")) return fileTool(message);
-  if (message.includes("open") || message.includes("launch"))
-    return appTool(message);
-  if (message.includes("system")) return systemTool(message);
-  if (message.includes("todo") || message.includes("task"))
-    return todoTool(message);
-  if (message.includes("news")) return newsTool(message);
-  if (message.includes("search") || message.includes("google"))
-    return webSearchTool(message);
-  if (message.includes("calculate") || message.includes("what is"))
-    return calculatorTool(message);
+export async function runToolServer(toolName, input) {
+  const tool = tools[toolName];
+  if (!tool || typeof tool.run !== "function") {
+    return `Unknown tool: ${toolName}`;
+  }
 
-  return null;
+  try {
+    return await tool.run(input);
+  } catch (err) {
+    return `Tool error: ${err.message}`;
+  }
 }

@@ -1,4 +1,5 @@
 // server.js
+import { runToolServer } from "./tools/index.js";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -83,6 +84,15 @@ app.post("/api/chat", async (req, res) => {
     console.error("AI error:", err);
     res.json({ reply: "Error contacting AI provider." });
   }
+});
+
+/* ============================================================
+   TOOL ROUTER
+   ============================================================ */
+app.post("/api/tool", async (req, res) => {
+  const { tool, input } = req.body;
+  const output = await runToolServer(tool, input);
+  res.json({ output });
 });
 
 /* ============================================================

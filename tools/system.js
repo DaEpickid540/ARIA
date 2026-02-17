@@ -1,16 +1,17 @@
 // tools/system.js
 import os from "os";
 
-export default function systemTool() {
-  const cpu = os.cpus()[0].model;
-  const cores = os.cpus().length;
-  const ram = (os.totalmem() / 1e9).toFixed(2);
-  const platform = os.platform();
-  const release = os.release();
+export async function run() {
+  const cpus = os.cpus();
+  const totalMem = (os.totalmem() / 1024 / 1024 / 1024).toFixed(1);
+  const freeMem = (os.freemem() / 1024 / 1024 / 1024).toFixed(1);
 
-  return `System info:
-- CPU: ${cpu}
-- Cores: ${cores}
-- RAM: ${ram} GB
-- OS: ${platform} ${release}`;
+  return `
+Server OS: ${os.type()} ${os.release()}
+CPU: ${cpus[0].model}
+Cores: ${cpus.length}
+RAM: ${freeMem} GB free / ${totalMem} GB total
+Uptime: ${(os.uptime() / 3600).toFixed(1)} hours
+Host: ${os.hostname()}
+  `.trim();
 }

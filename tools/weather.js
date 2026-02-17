@@ -1,21 +1,16 @@
-import axios from "axios";
+// tools/weather.js
+export async function run() {
+  // Deerfield, OH approx
+  const lat = 41.0337;
+  const lon = -81.042;
 
-export default async function weatherTool(message) {
-  const cityMatch = message.match(/in\s+([a-zA-Z\s]+)/i);
-  const city = cityMatch ? cityMatch[1].trim() : "Mason";
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
 
-  const key = process.env.WEATHER_KEY;
-  if (!key) return "Weather API key missing.";
+  const res = await fetch(url);
+  const data = await res.json();
 
-  const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${key}&units=metric`;
+  const w = data.current_weather;
+  if (!w) return "Weather data unavailable.";
 
-  try {
-    const res = await axios.get(url);
-    const w = res.data.weather[0].description;
-    const t = res.data.main.temp;
-
-    return `Weather in ${city}: ${w}, ${t}°C`;
-  } catch {
-    return "Couldn't fetch weather.";
-  }
+  return `Weather: ${w.temperature}°C, wind ${w.windspeed} km/h`;
 }

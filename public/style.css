@@ -368,7 +368,9 @@ body {
   border-radius: 6px;
   border: 1px solid var(--red-deep);
   box-shadow: 0 0 18px rgba(209, 0, 0, 0.9);
-  width: 520px;
+  width: 760px;
+  max-width: 90vw;
+  margin: 0 auto;
 }
 
 #homepageContent h1 {
@@ -380,6 +382,17 @@ body {
   display: flex;
   gap: 10px;
   margin-bottom: 10px;
+}
+
+#systemInfoBox .sysRow {
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+
+#networkIndicator {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--accent-soft, #ff4b4b);
 }
 
 .homeCard {

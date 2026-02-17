@@ -1,9 +1,27 @@
-export default async function timerTool(message) {
-  const match = message.match(/(\d+)\s*(seconds?|minutes?|hours?)/i);
-  if (!match) return "Tell me a time like 'set a 5 minute timer'.";
+// tools/timer.js
+let timers = [];
 
-  const value = parseInt(match[1]);
-  const unit = match[2].toLowerCase();
+export async function run(input = "") {
+  const [cmd, value] = input.split(" ");
 
-  return `Timer set for ${value} ${unit}. (Timers only run locally, not on Render.)`;
+  if (cmd === "start") {
+    const seconds = parseInt(value);
+    if (isNaN(seconds)) return "Usage: /timer start <seconds>";
+
+    const ms = seconds * 1000;
+    const id = Date.now();
+    timers.push(id);
+
+    setTimeout(() => {
+      console.log(`Timer ${id} finished.`);
+    }, ms);
+
+    return `Timer started for ${seconds} seconds.`;
+  }
+
+  if (cmd === "list") {
+    return timers.length ? timers.join("\n") : "No timers running.";
+  }
+
+  return "Timer commands: start <seconds>, list";
 }
