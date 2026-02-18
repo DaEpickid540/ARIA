@@ -20,15 +20,18 @@ window.addEventListener("DOMContentLoaded", () => {
     const val = passwordInput.value.trim();
 
     if (val === CORRECT_PASSWORD) {
+      // Hide lock, show homepage
       lockScreen.style.display = "none";
       homepageScreen.style.display = "flex";
+      layout.style.display = "none";
 
-      // Load modular homepage tools AFTER unlocking
-      const { initHomepage } = await import("./homepage.js");
-      initHomepage();
-
+      // Clear error + input
       lockError.textContent = "";
       passwordInput.value = "";
+
+      // Load homepage modules AFTER unlocking
+      const { initHomepage } = await import("./homepage.js");
+      initHomepage();
     } else {
       lockError.textContent = "ACCESS DENIED";
     }
