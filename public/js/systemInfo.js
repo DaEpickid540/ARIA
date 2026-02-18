@@ -1,4 +1,3 @@
-// public/js/systemInfo.js
 function translateNetwork(type) {
   switch (type) {
     case "wifi":
@@ -14,7 +13,7 @@ function translateNetwork(type) {
     case "3g":
       return "3G";
     case "slow-2g":
-      return "Very slow";
+      return "Very Slow";
     default:
       return "Unknown";
   }
@@ -25,21 +24,17 @@ export async function getClientSystemInfo() {
 
   info.userAgent = navigator.userAgent;
   info.platform = navigator.platform;
-
   info.cpuThreads = navigator.hardwareConcurrency || "Unknown";
-
   info.ram = navigator.deviceMemory
     ? navigator.deviceMemory + " GB"
     : "Unknown";
 
-  // GPU
   try {
     const canvas = document.createElement("canvas");
-    const gl =
-      canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-    const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
-    info.gpu = debugInfo
-      ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
+    const gl = canvas.getContext("webgl");
+    const debug = gl.getExtension("WEBGL_debug_renderer_info");
+    info.gpu = debug
+      ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)
       : "Unknown GPU";
   } catch {
     info.gpu = "Unknown GPU";
@@ -47,20 +42,8 @@ export async function getClientSystemInfo() {
 
   info.screen = `${window.screen.width} x ${window.screen.height}`;
 
-  const conn =
-    navigator.connection ||
-    navigator.webkitConnection ||
-    navigator.mozConnection;
-
-  if (conn) {
-    info.networkType = translateNetwork(conn.effectiveType || "unknown");
-    info.downlink = conn.downlink || "unknown";
-  } else {
-    info.networkType = "Unknown";
-    info.downlink = "unknown";
-  }
-
-  info.online = navigator.onLine ? "Online" : "Offline";
+  const conn = navigator.connection;
+  info.networkType = conn ? translateNetwork(conn.effectiveType) : "Unknown";
 
   return info;
 }

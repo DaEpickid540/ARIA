@@ -623,3 +623,34 @@ body {
 #homepageScreen {
   display: none;
 }
+
+/* Wider button */
+.wideBtn {
+  width: 260px;
+  font-size: 1.1rem;
+}
+
+/* Animation: button morphs into chat input bar */
+.enterToChat {
+  animation: morphToChat 0.7s forwards ease-in-out;
+}
+
+@keyframes morphToChat {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  40% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(0.1);
+    opacity: 0;
+  }
+}
+
+/* Fade homepage out */
+#homepageScreen {
+  transition: opacity 0.4s ease;
+}

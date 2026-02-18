@@ -2,23 +2,23 @@
 import { getClientSystemInfo } from "./systemInfo.js";
 
 window.addEventListener("DOMContentLoaded", async () => {
-  const sysBox = document.getElementById("systemInfoBox");
+  const sys = document.getElementById("homeSystem");
   const net = document.getElementById("networkIndicator");
 
-  if (!sysBox) return;
+  if (!sys) return;
 
   const info = await getClientSystemInfo();
 
-  sysBox.innerHTML = `
-    <div class="sysRow"><strong>OS:</strong> ${info.platform}</div>
-    <div class="sysRow"><strong>Browser:</strong> ${info.userAgent}</div>
-    <div class="sysRow"><strong>CPU Threads:</strong> ${info.cpuThreads}</div>
-    <div class="sysRow"><strong>RAM:</strong> ${info.ram}</div>
-    <div class="sysRow"><strong>GPU:</strong> ${info.gpu}</div>
-    <div class="sysRow"><strong>Screen:</strong> ${info.screen}</div>
-    <div class="sysRow"><strong>Status:</strong> ${info.online}</div>
+  // System info block
+  sys.innerHTML = `
+    OS: ${info.platform}<br>
+    CPU Threads: ${info.cpuThreads}<br>
+    RAM: ${info.ram}<br>
+    GPU: ${info.gpu}<br>
+    Screen: ${info.screen}
   `;
 
+  // Network indicator
   if (net) {
     net.textContent = `Network: ${info.networkType}`;
   }
