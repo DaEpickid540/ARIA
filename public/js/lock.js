@@ -11,7 +11,6 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const CORRECT_PASSWORD = "727846";
 
-  // Initial state
   lockScreen.style.display = "flex";
   homepageScreen.style.display = "none";
   layout.style.display = "none";
@@ -20,18 +19,19 @@ window.addEventListener("DOMContentLoaded", () => {
     const val = passwordInput.value.trim();
 
     if (val === CORRECT_PASSWORD) {
-      // Switch screens
       lockScreen.style.display = "none";
       homepageScreen.style.display = "flex";
-      layout.style.display = "none";
 
-      // Reset UI
       lockError.textContent = "";
       passwordInput.value = "";
 
-      // Load homepage modules AFTER unlocking
-      const { initHomepage } = await import("./homepage.js");
-      initHomepage();
+      try {
+        const { initHomepage } = await import("./homepage.js");
+        initHomepage();
+        console.log("HOMEPAGE LOADED");
+      } catch (err) {
+        console.error("HOMEPAGE FAILED:", err);
+      }
     } else {
       lockError.textContent = "ACCESS DENIED";
     }

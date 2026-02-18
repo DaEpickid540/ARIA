@@ -13,17 +13,24 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // HOMEPAGE → CHAT
   enterBtn.addEventListener("click", async () => {
+    console.log("ENTER ARIA CLICKED");
+
     homepage.style.display = "none";
     layout.style.display = "flex";
 
-    // Load chat modules AFTER entering console
-    await import("./chat.js");
-    await import("./ui.js");
-    await import("./tts.js");
-    await import("./vtt.js");
-    await import("./tools.js");
-    await import("./settings.js");
-    await import("./personality.js");
+    try {
+      await import("./chat.js");
+      await import("./ui.js");
+      await import("./tts.js");
+      await import("./vtt.js");
+      await import("./tools.js");
+      await import("./settings.js");
+      await import("./personality.js");
+
+      console.log("CHAT MODULES LOADED");
+    } catch (err) {
+      console.error("CHAT FAILED TO LOAD:", err);
+    }
   });
 
   // SIDEBAR → HOME

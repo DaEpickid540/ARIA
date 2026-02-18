@@ -1,4 +1,4 @@
-// public/js/homepage.js
+// homepage.js
 
 import { initTime } from "./homeTools/time.js";
 import { initQuote } from "./homeTools/quote.js";
@@ -13,6 +13,8 @@ import { initDailySummary } from "./homeTools/dailySummary.js";
 import { initSystemMonitor } from "./homeTools/systemMonitor.js";
 
 export function initHomepage() {
+  console.log("INIT HOMEPAGE");
+
   initTime();
   initQuote();
   initSystemInfo();
