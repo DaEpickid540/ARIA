@@ -1,80 +1,137 @@
-// settings.js
+import {
+  personalityPresets,
+  loadSettings,
+  saveSettings,
+} from "./personality.js";
 
-import { saveSettings, loadSettings } from "./personality.js";
-import { enableTTS, disableTTS, ttsEnabled } from "./tts.js";
-import { enableVTT, disableVTT, vttEnabled } from "./vtt.js";
+import { setTTSEnabled } from "./tts.js";
+import { setVTTEnabled } from "./vtt.js";
 
-console.log("SETTINGS.JS LOADED");
+window.addEventListener("DOMContentLoaded", () => {
+  const settingsOverlay = document.getElementById("settingsOverlay");
+  const settingsBtn = document.getElementById("settingsBtn");
+  const settingsCloseBtn = document.getElementById("settingsCloseBtn");
+  const settingsSaveBtn = document.getElementById("settingsSaveBtn");
 
-const settingsBtn = document.getElementById("settingsBtn");
-const settingsOverlay = document.getElementById("settingsOverlay");
-const closeSettingsBtn = document.getElementById("closeSettingsBtn");
+  const personalityButtons = document.querySelectorAll(".personalityBtn");
+  const providerSelect = document.getElementById("providerSelect");
 
-const providerSelect = document.getElementById("providerSelect");
-const personalitySelect = document.getElementById("personalitySelect");
+  const ttsToggle = document.getElementById("ttsToggle");
+  const vttMasterToggle = document.getElementById("vttMasterToggle");
 
-const ttsToggle = document.getElementById("ttsToggle");
-const vttToggle = document.getElementById("vttToggle");
+  const voiceSelect = document.getElementById("voiceSelect");
+  const voiceRate = document.getElementById("voiceRate");
+  const voicePitch = document.getElementById("voicePitch");
 
-// Load saved settings
-let current = loadSettings();
-applySettingsToUI(current);
+  let currentSettings = loadSettings();
 
-/* -----------------------------
-   OPEN / CLOSE SETTINGS
------------------------------ */
-settingsBtn?.addEventListener("click", () => {
-  settingsOverlay.style.display = "flex";
-});
+  /* -----------------------------
+     APPLY SETTINGS TO UI
+  ----------------------------- */
+  function applySettingsToUI() {
+    // Personality
+    personalityButtons.forEach((btn) => {
+      const key = btn.dataset.preset;
+      btn.classList.toggle("active", key === currentSettings.personality);
+    });
 
-closeSettingsBtn?.addEventListener("click", () => {
-  settingsOverlay.style.display = "none";
-});
+    // Provider
+    providerSelect.value = currentSettings.provider || "openrouter";
 
-/* -----------------------------
-   PROVIDER + PERSONALITY
------------------------------ */
-providerSelect?.addEventListener("change", () => {
-  current.provider = providerSelect.value;
-  saveSettings(current);
-});
+    // TTS
+    ttsToggle.classList.toggle("active", currentSettings.ttsEnabled);
+    ttsToggle.textContent = currentSettings.ttsEnabled ? "ON" : "OFF";
 
-personalitySelect?.addEventListener("change", () => {
-  current.personality = personalitySelect.value;
-  saveSettings(current);
-});
+    // VTT
+    vttMasterToggle.classList.toggle("active", currentSettings.vttEnabled);
+    vttMasterToggle.textContent = currentSettings.vttEnabled ? "ON" : "OFF";
 
-/* -----------------------------
-   TTS TOGGLE
------------------------------ */
-ttsToggle?.addEventListener("change", () => {
-  if (ttsToggle.checked) {
-    enableTTS();
-  } else {
-    disableTTS();
+    // Voice settings
+    if (voiceSelect) voiceSelect.value = currentSettings.voice || "";
+    if (voiceRate) voiceRate.value = currentSettings.rate || 1;
+    if (voicePitch) voicePitch.value = currentSettings.pitch || 1;
   }
-});
 
-/* -----------------------------
-   VTT TOGGLE
------------------------------ */
-vttToggle?.addEventListener("change", () => {
-  if (vttToggle.checked) {
-    enableVTT();
-  } else {
-    disableVTT();
+  /* -----------------------------
+     OPEN / CLOSE SETTINGS
+  ----------------------------- */
+  function openSettings() {
+    applySettingsToUI();
+    settingsOverlay.classList.add("active");
   }
+
+  function closeSettings() {
+    settingsOverlay.classList.remove("active");
+  }
+
+  settingsBtn.addEventListener("click", openSettings);
+  settingsCloseBtn.addEventListener("click", closeSettings);
+
+  /* -----------------------------
+     PERSONALITY SELECT
+  ----------------------------- */
+  personalityButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      currentSettings.personality = btn.dataset.preset;
+      applySettingsToUI();
+    });
+  });
+
+  /* -----------------------------
+     PROVIDER SELECT
+  ----------------------------- */
+  providerSelect.addEventListener("change", () => {
+    currentSettings.provider = providerSelect.value;
+  });
+
+  /* -----------------------------
+     TTS TOGGLE
+  ----------------------------- */
+  ttsToggle.addEventListener("click", () => {
+    currentSettings.ttsEnabled = !currentSettings.ttsEnabled;
+    applySettingsToUI();
+    setTTSEnabled(currentSettings.ttsEnabled);
+  });
+
+  /* -----------------------------
+     VTT TOGGLE
+  ----------------------------- */
+  vttMasterToggle.addEventListener("click", () => {
+    currentSettings.vttEnabled = !currentSettings.vttEnabled;
+    applySettingsToUI();
+    setVTTEnabled(currentSettings.vttEnabled);
+  });
+
+  /* -----------------------------
+     VOICE SETTINGS
+  ----------------------------- */
+  if (voiceSelect) {
+    voiceSelect.addEventListener("change", () => {
+      currentSettings.voice = voiceSelect.value;
+    });
+  }
+
+  if (voiceRate) {
+    voiceRate.addEventListener("input", () => {
+      currentSettings.rate = parseFloat(voiceRate.value);
+    });
+  }
+
+  if (voicePitch) {
+    voicePitch.addEventListener("input", () => {
+      currentSettings.pitch = parseFloat(voicePitch.value);
+    });
+  }
+
+  /* -----------------------------
+     SAVE BUTTON
+  ----------------------------- */
+  settingsSaveBtn.addEventListener("click", () => {
+    saveSettings(currentSettings);
+    closeSettings();
+  });
+
+  // Apply initial settings to TTS/VTT
+  setTTSEnabled(currentSettings.ttsEnabled);
+  setVTTEnabled(currentSettings.vttEnabled);
 });
-
-/* -----------------------------
-   APPLY SETTINGS TO UI
------------------------------ */
-function applySettingsToUI(settings) {
-  if (!settings) return;
-
-  providerSelect.value = settings.provider || "openrouter";
-  personalitySelect.value = settings.personality || "hacker";
-
-  ttsToggle.checked = ttsEnabled;
-  vttToggle.checked = vttEnabled;
-}

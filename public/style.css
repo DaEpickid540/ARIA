@@ -105,7 +105,7 @@ body {
   background: rgba(255, 26, 26, 0.08);
 }
 
-/* SIDEBAR BOTTOM BUTTONS */
+/* SIDEBAR BOTTOM */
 #sidebarBottom {
   margin-top: auto;
   display: flex;
@@ -166,14 +166,13 @@ body {
 /* MESSAGE BUBBLES */
 .msg {
   max-width: 75%;
-  padding: 10px 14px;
+  padding: 10px 14px 14px;
   margin: 8px 0;
   border-radius: 6px;
   line-height: 1.4;
   word-wrap: break-word;
-  position: relative;
-  padding-bottom: 14px;
   font-size: 13px;
+  position: relative;
 }
 
 .msg.user {
@@ -230,7 +229,6 @@ body {
   box-shadow: 0 0 10px rgba(209, 0, 0, 0.7);
 }
 
-/* GAP BETWEEN INPUT + SEND */
 #sendBtn {
   margin-left: 18px;
 }
@@ -253,13 +251,7 @@ body {
   box-shadow: 0 0 10px rgba(209, 0, 0, 0.7);
 }
 
-#callModeBtn.active {
-  background: #1a0000;
-  border-color: var(--red-deep);
-  color: var(--red-neon);
-  box-shadow: 0 0 12px rgba(209, 0, 0, 0.9);
-}
-
+#callModeBtn.active,
 #voiceOffBtn.active {
   background: var(--red-deep);
   border-color: var(--red-deep);
@@ -289,23 +281,6 @@ body {
   border-radius: 2px;
 }
 
-/* VOICE ACTIVITY BAR */
-#voiceActivityBar {
-  height: 4px;
-  width: 100%;
-  background: #080808;
-}
-
-#voiceActivityBar.recording {
-  background: var(--red-deep);
-  box-shadow: 0 0 12px rgba(209, 0, 0, 0.9);
-}
-
-#voiceActivityBar.speaking {
-  background: #fff;
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.9);
-}
-
 /* LOCK SCREEN */
 #lockScreen {
   position: fixed;
@@ -327,23 +302,6 @@ body {
   box-shadow: 0 0 18px rgba(209, 0, 0, 0.9);
 }
 
-#lockBox input {
-  width: 100%;
-  padding: 10px;
-  margin-top: 10px;
-  border-radius: 4px;
-  border: 1px solid var(--border-subtle);
-  background: #050505;
-  color: var(--text-main);
-}
-
-#lockBox button {
-  margin-top: 14px;
-  width: 100%;
-  padding: 10px;
-  border-radius: 4px;
-}
-
 #lockError {
   color: var(--red-neon);
   margin-top: 10px;
@@ -360,6 +318,7 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 5000;
+  transition: opacity 0.4s ease;
 }
 
 #homepageContent {
@@ -373,28 +332,6 @@ body {
   margin: 0 auto;
 }
 
-#homepageContent h1 {
-  margin: 0 0 16px 0;
-  text-align: center;
-}
-
-#homeTopRow {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-#systemInfoBox .sysRow {
-  font-size: 0.85rem;
-  margin-bottom: 4px;
-}
-
-#networkIndicator {
-  margin-top: 8px;
-  font-size: 0.85rem;
-  color: var(--accent-soft, #ff4b4b);
-}
-
 .homeCard {
   flex: 1;
   background: #050505;
@@ -406,28 +343,13 @@ body {
 .homeLabel {
   font-size: 11px;
   color: var(--text-muted);
-  margin-bottom: 4px;
 }
-
 .homeValue {
   font-size: 14px;
 }
-
 .homeSub {
   font-size: 11px;
   color: var(--text-muted);
-  margin-top: 4px;
-}
-
-#homeSystemCard,
-#homeQuoteCard {
-  margin-bottom: 10px;
-}
-
-#homeButtons {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
 }
 
 /* SETTINGS OVERLAY */
@@ -455,37 +377,6 @@ body {
   flex-direction: column;
 }
 
-#settingsHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-#settingsHeader h2 {
-  margin: 0;
-  font-size: 16px;
-}
-
-#settingsCloseBtn {
-  background: transparent;
-  border: none;
-  color: var(--text-main);
-  cursor: pointer;
-  font-size: 16px;
-}
-
-#settingsCloseBtn:hover {
-  color: var(--red-neon);
-}
-
-#settingsContent {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px 16px;
-}
-
 .settingsSection {
   margin-bottom: 18px;
   padding-bottom: 12px;
@@ -493,7 +384,7 @@ body {
 }
 
 .settingsSection h3 {
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
   font-size: 13px;
   color: var(--red-neon);
 }
@@ -569,12 +460,6 @@ body {
   box-shadow: 0 0 10px rgba(255, 26, 26, 0.7);
 }
 
-/* SETTINGS FOOTER */
-#settingsFooter {
-  padding: 10px 16px;
-  border-top: 1px solid var(--border-subtle);
-}
-
 /* BACKGROUND DRIFT */
 #bgDrift {
   position: fixed;
@@ -619,54 +504,14 @@ body {
   z-index: 999;
 }
 
-/* DEFAULTS */
-#homepageScreen {
-  display: none;
-}
-
-/* Wider button */
-.wideBtn {
-  width: 260px;
-  font-size: 1.1rem;
-}
-
-/* Animation: button morphs into chat input bar */
-.enterToChat {
-  animation: morphToChat 0.7s forwards ease-in-out;
-}
-
-@keyframes morphToChat {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  40% {
-    transform: scale(1.2);
-    opacity: 0.7;
-  }
-  100% {
-    transform: scale(0.1);
-    opacity: 0;
-  }
-}
-
-/* Fade homepage out */
-#homepageScreen {
-  transition: opacity 0.4s ease;
-}
-
-#homeButtons {
-  display: flex;
-  justify-content: center;
-  margin-top: 20px;
-}
-
+/* HOMEPAGE BUTTON */
 #enterConsoleBtn {
   width: 100%;
   max-width: 420px;
   font-size: 1.2rem;
   padding: 14px 0;
 }
+
 .enterToChat {
   animation: morphToChat 0.7s forwards ease-in-out;
 }
@@ -684,12 +529,4 @@ body {
     transform: scale(0.1);
     opacity: 0;
   }
-}
-
-#glitchOverlay,
-#glitchOverlay2,
-#scanlineSweep,
-#sideSweep,
-#chromaticFlash {
-  pointer-events: none;
 }
