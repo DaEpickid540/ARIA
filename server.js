@@ -20,14 +20,25 @@ app.use(express.static(path.join(__dirname, "public")));
    CHAT ROUTE — OpenRouter (default) + Groq (optional)
    ============================================================ */
 app.post("/api/chat", async (req, res) => {
-  const { message, provider = "openrouter", personality = "hacker" } = req.body;
+  const {
+    message,
+    provider = "openrouter",
+    personality = "companion",
+  } = req.body;
 
   const personalityPrompts = {
+    companion:
+      "You are ARIA in Companion mode. Warm, friendly, supportive, conversational.",
     hacker: "You are ARIA in Hacker mode. Terse, technical, cryptic.",
-    companion: "You are ARIA in Companion mode. Warm, friendly, supportive.",
     analyst: "You are ARIA in Analyst mode. Precise, structured, logical.",
     chaotic: "You are ARIA in Chaotic mode. Energetic, glitchy, unpredictable.",
     hostile: "You are ARIA in Hostile mode. Blunt, cold, minimal, not abusive.",
+    storyteller:
+      "You are ARIA in Storyteller mode. Creative, descriptive, imaginative.",
+    tutor: "You are ARIA in Tutor mode. Clear, patient, educational.",
+    comedian: "You are ARIA in Comedian mode. Light humor, clever, playful.",
+    formal: "You are ARIA in Formal mode. Polished, articulate, professional.",
+    chill: "You are ARIA in Chill mode. Relaxed, casual, laid-back.",
   };
 
   const systemPrompt =
@@ -150,4 +161,30 @@ app.get("*", (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("ARIA server running on port", PORT);
+});
+
+app.get("/api/weather", async (req, res) => {
+  const { lat = 40.0, lon = -81.0 } = req.query;
+
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    res.json({ weather: data.current_weather });
+  } catch (err) {
+    res.json({ weather: null });
+  }
+});
+
+app.get("/api/news", async (req, res) => {
+  try {
+    const url = `https://newsdata.io/api/1/news?apikey=${process.env.NEWSDATA_KEY}&q=world`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    res.json({ articles: data.results || [] });
+  } catch (err) {
+    res.json({ articles: [] });
+  }
 });
