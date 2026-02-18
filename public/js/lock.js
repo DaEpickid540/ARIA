@@ -11,7 +11,6 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const CORRECT_PASSWORD = "727846";
 
-  // Ensure correct initial visibility
   lockScreen.style.display = "flex";
   homepageScreen.style.display = "none";
   layout.style.display = "none";
@@ -20,12 +19,9 @@ window.addEventListener("DOMContentLoaded", () => {
     const val = passwordInput.value.trim();
 
     if (val === CORRECT_PASSWORD) {
-      // Hide lock, show homepage
       lockScreen.style.display = "none";
       homepageScreen.style.display = "flex";
-      layout.style.display = "none";
 
-      // Clear error + input
       lockError.textContent = "";
       passwordInput.value = "";
 

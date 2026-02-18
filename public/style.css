@@ -685,3 +685,11 @@ body {
     opacity: 0;
   }
 }
+
+#glitchOverlay,
+#glitchOverlay2,
+#scanlineSweep,
+#sideSweep,
+#chromaticFlash {
+  pointer-events: none;
+}

@@ -1,4 +1,4 @@
-// homepage.js
+// public/js/homepage.js
 
 import { initTime } from "./homeTools/time.js";
 import { initQuote } from "./homeTools/quote.js";
