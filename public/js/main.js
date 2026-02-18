@@ -1,12 +1,12 @@
 import "./lock.js";
-// import "./homepage.js";
-// import "./personality.js";
-// import "./settings.js";
-// import "./chat.js";
-// import "./ui.js";
-// import "./tts.js";
-// import "./vtt.js";
-// import "./tools.js";
+import "./homepage.js";
+import "./personality.js";
+import "./settings.js";
+import "./chat.js";
+import "./ui.js";
+import "./tts.js";
+import "./vtt.js";
+import "./tools.js";
 
 // HOMEPAGE → CHAT TRANSITION WITH ANIMATION
 window.addEventListener("DOMContentLoaded", () => {
