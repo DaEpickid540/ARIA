@@ -1,4 +1,4 @@
-// public/js/lock.js
+// lock.js
 
 window.addEventListener("DOMContentLoaded", () => {
   const lockScreen = document.getElementById("lockScreen");
@@ -34,7 +34,6 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   unlockBtn.addEventListener("click", unlock);
-
   passwordInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") unlock();
   });

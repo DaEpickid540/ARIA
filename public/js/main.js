@@ -1,55 +1,40 @@
-import "./lock.js";
-import "./homepage.js";
-import "./personality.js";
-import "./settings.js";
-import "./chat.js";
-import "./ui.js";
-import "./tts.js";
-import "./vtt.js";
-import "./tools.js";
+// main.js
 
-// HOMEPAGE → CHAT TRANSITION WITH ANIMATION
+// Only lock loads immediately
+import "./lock.js";
+
 window.addEventListener("DOMContentLoaded", () => {
-  const enterBtn = document.getElementById("enterConsoleBtn");
   const homepage = document.getElementById("homepageScreen");
   const layout = document.getElementById("layout");
+  const enterBtn = document.getElementById("enterConsoleBtn");
+  const goHomeBtn = document.getElementById("goHomeBtn");
+  const goLockBtn = document.getElementById("goLockBtn");
 
-  if (enterBtn) {
-    enterBtn.addEventListener("click", () => {
-      enterBtn.classList.add("enterToChat");
-
-      setTimeout(() => {
-        homepage.style.opacity = "0";
-      }, 300);
-
-      setTimeout(() => {
-        homepage.style.display = "none";
-        layout.style.display = "flex";
-      }, 700);
-    });
-  }
-});
-
-document.getElementById("goHomeBtn").addEventListener("click", () => {
-  document.getElementById("layout").style.display = "none";
-  document.getElementById("homepageScreen").style.display = "flex";
-});
-
-document.getElementById("goLockBtn").addEventListener("click", () => {
-  document.getElementById("layout").style.display = "none";
-  document.getElementById("homepageScreen").style.display = "none";
-  document.getElementById("lockScreen").style.display = "flex";
-});
-
-enterBtn.addEventListener("click", () => {
-  enterBtn.classList.add("enterToChat");
-
-  setTimeout(() => {
-    homepage.style.opacity = "0";
-  }, 300);
-
-  setTimeout(() => {
+  // HOMEPAGE → CHAT
+  enterBtn.addEventListener("click", async () => {
     homepage.style.display = "none";
     layout.style.display = "flex";
-  }, 700);
+
+    // Load chat modules AFTER entering console
+    await import("./chat.js");
+    await import("./ui.js");
+    await import("./tts.js");
+    await import("./vtt.js");
+    await import("./tools.js");
+    await import("./settings.js");
+    await import("./personality.js");
+  });
+
+  // SIDEBAR → HOME
+  goHomeBtn.addEventListener("click", () => {
+    layout.style.display = "none";
+    homepage.style.display = "flex";
+  });
+
+  // SIDEBAR → LOCK
+  goLockBtn.addEventListener("click", () => {
+    layout.style.display = "none";
+    homepage.style.display = "none";
+    document.getElementById("lockScreen").style.display = "flex";
+  });
 });
