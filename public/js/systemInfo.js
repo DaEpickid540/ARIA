@@ -33,11 +33,20 @@ export async function getClientSystemInfo() {
     const canvas = document.createElement("canvas");
     const gl = canvas.getContext("webgl");
     const debug = gl.getExtension("WEBGL_debug_renderer_info");
-    info.gpu = debug
+    const renderer = debug
       ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)
       : "Unknown GPU";
+
+    info.gpu = renderer;
+
+    // Extract CPU model if present
+    const cpuMatch = renderer.match(
+      /Intel.*?Graphics|AMD.*?Graphics|Apple.*?GPU/i,
+    );
+    info.cpuModel = cpuMatch ? cpuMatch[0] : "Unknown CPU";
   } catch {
     info.gpu = "Unknown GPU";
+    info.cpuModel = "Unknown CPU";
   }
 
   info.screen = `${window.screen.width} x ${window.screen.height}`;

@@ -29,3 +29,27 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+document.getElementById("goHomeBtn").addEventListener("click", () => {
+  document.getElementById("layout").style.display = "none";
+  document.getElementById("homepageScreen").style.display = "flex";
+});
+
+document.getElementById("goLockBtn").addEventListener("click", () => {
+  document.getElementById("layout").style.display = "none";
+  document.getElementById("homepageScreen").style.display = "none";
+  document.getElementById("lockScreen").style.display = "flex";
+});
+
+enterBtn.addEventListener("click", () => {
+  enterBtn.classList.add("enterToChat");
+
+  setTimeout(() => {
+    homepage.style.opacity = "0";
+  }, 300);
+
+  setTimeout(() => {
+    homepage.style.display = "none";
+    layout.style.display = "flex";
+  }, 700);
+});
