@@ -11,6 +11,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const CORRECT_PASSWORD = "727846";
 
+  // Initial state
   lockScreen.style.display = "flex";
   homepageScreen.style.display = "none";
   layout.style.display = "none";
@@ -19,9 +20,12 @@ window.addEventListener("DOMContentLoaded", () => {
     const val = passwordInput.value.trim();
 
     if (val === CORRECT_PASSWORD) {
+      // Switch screens
       lockScreen.style.display = "none";
       homepageScreen.style.display = "flex";
+      layout.style.display = "none";
 
+      // Reset UI
       lockError.textContent = "";
       passwordInput.value = "";
 

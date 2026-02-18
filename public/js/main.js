@@ -6,6 +6,7 @@ import "./lock.js";
 window.addEventListener("DOMContentLoaded", () => {
   const homepage = document.getElementById("homepageScreen");
   const layout = document.getElementById("layout");
+
   const enterBtn = document.getElementById("enterConsoleBtn");
   const goHomeBtn = document.getElementById("goHomeBtn");
   const goLockBtn = document.getElementById("goLockBtn");
