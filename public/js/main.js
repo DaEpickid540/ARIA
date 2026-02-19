@@ -1,46 +1,53 @@
 // main.js
+console.log("MAIN JS LOADED");
 
-import { initHomepage } from "./homepage.js";
-import { initPages } from "./pages.js";
-import { initSettings } from "./settings.js";
-import { initChat } from "./chat.js";
+// Load ONLY the lock screen immediately
+import "./lock.js";
 
 window.addEventListener("DOMContentLoaded", () => {
-  const lockScreen = document.getElementById("lockScreen");
-  const lockInput = document.getElementById("lockInput");
-  const lockBtn = document.getElementById("lockBtn");
-  const lockError = document.getElementById("lockError");
+  const homepage = document.getElementById("homepageScreen");
+  const layout = document.getElementById("layout");
 
-  const PASS = "727846"; // your lock code
+  const enterBtn = document.getElementById("enterConsoleBtn");
+  const goHomeBtn = document.getElementById("goHomeBtn");
+  const goLockBtn = document.getElementById("goLockBtn");
 
-  // Lock screen logic
-  lockBtn.addEventListener("click", tryUnlock);
-  lockInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") tryUnlock();
+  /* ---------------- ENTER ARIA (LOAD CHAT MODULES) ---------------- */
+  enterBtn?.addEventListener("click", async () => {
+    console.log("ENTER ARIA CLICKED");
+
+    homepage.style.display = "none";
+    layout.style.display = "flex";
+
+    try {
+      // Load chat system dynamically
+      const chatModule = await import("./chat.js");
+      console.log("CHAT.JS LOADED", chatModule);
+
+      await import("./ui.js");
+      await import("./tools.js");
+      await import("./tts.js");
+      await import("./vtt.js");
+      await import("./settings.js");
+      await import("./personality.js");
+      await import("./pages.js"); // NEW: load pages system
+
+      console.log("ALL CHAT + PAGE MODULES LOADED");
+    } catch (err) {
+      console.error("CHAT/PAGE MODULE FAILED:", err);
+    }
   });
 
-  function tryUnlock() {
-    if (lockInput.value === PASS) {
-      lockError.textContent = "";
-      lockScreen.style.opacity = 0;
+  /* ---------------- GO HOME ---------------- */
+  goHomeBtn?.addEventListener("click", () => {
+    layout.style.display = "none";
+    homepage.style.display = "flex";
+  });
 
-      setTimeout(() => {
-        lockScreen.style.display = "none";
-
-        // Load homepage
-        initHomepage();
-
-        // Load pages
-        initPages();
-
-        // Load chat system
-        initChat();
-
-        // Load settings panel
-        initSettings();
-      }, 300);
-    } else {
-      lockError.textContent = "Incorrect code.";
-    }
-  }
+  /* ---------------- GO LOCK ---------------- */
+  goLockBtn?.addEventListener("click", () => {
+    layout.style.display = "none";
+    homepage.style.display = "none";
+    document.getElementById("lockScreen").style.display = "flex";
+  });
 });
