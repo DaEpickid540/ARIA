@@ -1,19 +1,25 @@
 // homeTools/tasksPreview.js
 
 export function initTasksPreview() {
-  const el = document.getElementById("homeTasksPreview");
+  const el = document.getElementById("homeTasksList");
   if (!el) return;
 
-  // Placeholder tasks
-  const tasks = [
-    "Finish math homework",
-    "Review chemistry notes",
-    "Practice piano",
-    "Scout meeting prep",
-  ];
+  const tasks = JSON.parse(localStorage.getItem("aria_tasks") || "[]");
 
-  el.innerHTML = tasks
-    .slice(0, 3)
-    .map((t) => `<div class="taskItem">• ${t}</div>`)
-    .join("");
+  if (!tasks.length) {
+    el.textContent = "No tasks yet.";
+    return;
+  }
+
+  const ul = document.createElement("ul");
+  ul.style.paddingLeft = "18px";
+
+  tasks.slice(0, 5).forEach((t) => {
+    const li = document.createElement("li");
+    li.textContent = t;
+    ul.appendChild(li);
+  });
+
+  el.innerHTML = "";
+  el.appendChild(ul);
 }

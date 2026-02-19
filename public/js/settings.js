@@ -23,6 +23,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const voiceRate = document.getElementById("voiceRate");
   const voicePitch = document.getElementById("voicePitch");
 
+  // Load settings
   let currentSettings = loadSettings();
 
   /* -----------------------------

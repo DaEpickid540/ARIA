@@ -1,49 +1,46 @@
 // main.js
 
-console.log("MAIN JS LOADED");
-
-// Only lock loads immediately
-import "./lock.js";
+import { initHomepage } from "./homepage.js";
+import { initPages } from "./pages.js";
+import { initSettings } from "./settings.js";
+import { initChat } from "./chat.js";
 
 window.addEventListener("DOMContentLoaded", () => {
-  const homepage = document.getElementById("homepageScreen");
-  const layout = document.getElementById("layout");
+  const lockScreen = document.getElementById("lockScreen");
+  const lockInput = document.getElementById("lockInput");
+  const lockBtn = document.getElementById("lockBtn");
+  const lockError = document.getElementById("lockError");
 
-  const enterBtn = document.getElementById("enterConsoleBtn");
-  const goHomeBtn = document.getElementById("goHomeBtn");
-  const goLockBtn = document.getElementById("goLockBtn");
+  const PASS = "727846"; // your lock code
 
-  enterBtn.addEventListener("click", async () => {
-    console.log("ENTER ARIA CLICKED");
+  // Lock screen logic
+  lockBtn.addEventListener("click", tryUnlock);
+  lockInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") tryUnlock();
+  });
 
-    homepage.style.display = "none";
-    layout.style.display = "flex";
+  function tryUnlock() {
+    if (lockInput.value === PASS) {
+      lockError.textContent = "";
+      lockScreen.style.opacity = 0;
 
-    try {
-      const chatModule = await import("./chat.js");
-      console.log("CHAT.JS LOADED", chatModule);
+      setTimeout(() => {
+        lockScreen.style.display = "none";
 
-      await import("./ui.js");
-      await import("./tools.js");
-      await import("./tts.js");
-      await import("./vtt.js");
-      await import("./settings.js");
-      await import("./personality.js");
+        // Load homepage
+        initHomepage();
 
-      console.log("ALL CHAT MODULES LOADED");
-    } catch (err) {
-      console.error("CHAT MODULE FAILED:", err);
+        // Load pages
+        initPages();
+
+        // Load chat system
+        initChat();
+
+        // Load settings panel
+        initSettings();
+      }, 300);
+    } else {
+      lockError.textContent = "Incorrect code.";
     }
-  });
-
-  goHomeBtn.addEventListener("click", () => {
-    layout.style.display = "none";
-    homepage.style.display = "flex";
-  });
-
-  goLockBtn.addEventListener("click", () => {
-    layout.style.display = "none";
-    homepage.style.display = "none";
-    document.getElementById("lockScreen").style.display = "flex";
-  });
+  }
 });

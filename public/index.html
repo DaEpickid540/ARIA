@@ -31,7 +31,8 @@
       <div id="homepageContent" class="neon">
         <h1>ARIA SYSTEM</h1>
 
-        <div id="homeTopRow">
+        <!-- TOP GRID (3‑COLUMN) -->
+        <div id="homeTopGrid" class="homeGrid">
           <div id="homeTimeCard" class="homeCard">
             <div class="homeLabel">TIME</div>
             <div id="homeTime" class="homeValue"></div>
@@ -42,19 +43,63 @@
             <div id="homeWeatherMain" class="homeValue"></div>
             <div id="homeWeatherDetails" class="homeSub"></div>
           </div>
+
+          <div id="homeSystemCard" class="homeCard">
+            <div class="homeLabel">SYSTEM</div>
+            <div id="homeSystem" class="homeValue"></div>
+            <div id="networkIndicator" class="homeSub"></div>
+          </div>
         </div>
 
-        <div id="homeSystemCard" class="homeCard">
-          <div class="homeLabel">SYSTEM</div>
-          <div id="homeSystem" class="homeValue"></div>
-          <div id="networkIndicator" class="homeSub"></div>
+        <!-- SCROLL ROW 1 -->
+        <div class="scrollRow">
+          <div id="homeQuoteCard" class="homeCard scrollCard">
+            <div class="homeLabel">MOTIVATION</div>
+            <div id="homeQuote" class="homeValue"></div>
+          </div>
+
+          <div id="homeTasksCard" class="homeCard scrollCard">
+            <div class="homeLabel">TASKS PREVIEW</div>
+            <div id="homeTasksList" class="homeValue"></div>
+          </div>
+
+          <div id="homeRecentCard" class="homeCard scrollCard">
+            <div class="homeLabel">RECENT CHATS</div>
+            <div id="homeRecentChats" class="homeValue"></div>
+          </div>
         </div>
 
-        <div id="homeQuoteCard" class="homeCard">
-          <div class="homeLabel">MOTIVATION</div>
-          <div id="homeQuote" class="homeValue"></div>
+        <!-- SCROLL ROW 2 -->
+        <div class="scrollRow">
+          <div id="homeHealthCard" class="homeCard scrollCard">
+            <div class="homeLabel">SYSTEM HEALTH</div>
+            <div id="homeHealthScore" class="homeValue"></div>
+            <div id="homeHealthDetails" class="homeSub"></div>
+          </div>
+
+          <div id="homeSpeedCard" class="homeCard scrollCard">
+            <div class="homeLabel">SPEED TEST</div>
+            <div id="homeSpeedPreview" class="homeValue"></div>
+            <div class="homeSub">Simulated estimate</div>
+          </div>
+
+          <div id="homeQuickToolsCard" class="homeCard scrollCard">
+            <div class="homeLabel">QUICK TOOLS</div>
+            <div id="homeQuickTools" class="homeValue"></div>
+          </div>
+
+          <div id="homeSummaryCard" class="homeCard scrollCard">
+            <div class="homeLabel">DAILY SUMMARY</div>
+            <div id="homeDailySummary" class="homeValue"></div>
+          </div>
+
+          <div id="homeMonitorCard" class="homeCard scrollCard">
+            <div class="homeLabel">SYSTEM MONITOR</div>
+            <div id="homeSystemMonitor" class="homeValue"></div>
+          </div>
         </div>
 
+        <!-- ENTER BUTTON -->
         <div id="homeButtons">
           <button id="enterConsoleBtn" class="primaryBtn glitch wideBtn">
             Enter ARIA

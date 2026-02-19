@@ -6,9 +6,8 @@ export function initSpeedPreview() {
 
   el.textContent = "Testing...";
 
-  // Fake speed test
   setTimeout(() => {
     const speed = (Math.random() * 200 + 50).toFixed(1);
-    el.textContent = `${speed} Mbps`;
+    el.textContent = `${speed} Mbps (simulated)`;
   }, 800);
 }

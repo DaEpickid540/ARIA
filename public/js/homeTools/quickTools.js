@@ -5,9 +5,30 @@ export function initQuickTools() {
   if (!el) return;
 
   el.innerHTML = `
-    <button class="qtBtn" data-tool="notes">📝 Notes</button>
-    <button class="qtBtn" data-tool="todo">📋 To‑Do</button>
-    <button class="qtBtn" data-tool="timer">⏱ Timer</button>
-    <button class="qtBtn" data-tool="weather">☁ Weather</button>
+    <button class="secondaryBtn" style="margin-right:6px;" data-qt="clear">
+      Clear Chats
+    </button>
+    <button class="secondaryBtn" data-qt="export">
+      Export Chats
+    </button>
   `;
+
+  el.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const action = btn.dataset.qt;
+
+      if (action === "clear") {
+        localStorage.removeItem("aria_chats");
+        alert("Local chats cleared.");
+      }
+
+      if (action === "export") {
+        const chats = localStorage.getItem("aria_chats") || "[]";
+        navigator.clipboard
+          .writeText(chats)
+          .then(() => alert("Chats copied to clipboard."))
+          .catch(() => alert("Unable to copy chats."));
+      }
+    });
+  });
 }

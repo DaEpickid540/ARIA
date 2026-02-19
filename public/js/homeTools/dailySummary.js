@@ -1,18 +1,33 @@
 // homeTools/dailySummary.js
 
-export function initDailySummary() {
+export async function initDailySummary() {
   const el = document.getElementById("homeDailySummary");
   if (!el) return;
 
-  const summary = [
-    "You studied 2 hours today.",
-    "You completed 3 tasks.",
-    "You slept 7.5 hours.",
-    "Your productivity is trending up.",
-  ];
+  try {
+    const res = await fetch("/api/loadChats?userId=sarvin");
+    const data = await res.json();
+    const chats = data.chats || [];
 
-  el.innerHTML = summary
-    .slice(0, 2)
-    .map((s) => `<div class="summaryItem">${s}</div>`)
-    .join("");
+    if (!chats.length) {
+      el.textContent = "No activity yet today.";
+      return;
+    }
+
+    const today = new Date().toDateString();
+    let msgCount = 0;
+
+    chats.forEach((chat) => {
+      (chat.messages || []).forEach((m) => {
+        if (new Date(m.timestamp).toDateString() === today) msgCount++;
+      });
+    });
+
+    el.textContent =
+      msgCount === 0
+        ? "No messages yet today."
+        : `You exchanged ${msgCount} messages today.`;
+  } catch {
+    el.textContent = "Unable to compute summary.";
+  }
 }

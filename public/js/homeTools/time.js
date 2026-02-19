@@ -1,13 +1,19 @@
 // homeTools/time.js
 
 export function initTime() {
-  const timeBox = document.getElementById("homeTime");
-  if (!timeBox) return;
+  const el = document.getElementById("homeTime");
+  if (!el) return;
 
-  function updateTime() {
-    timeBox.textContent = new Date().toLocaleTimeString();
+  function update() {
+    const now = new Date();
+    el.textContent = now.toLocaleString([], {
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
   }
 
-  updateTime();
-  setInterval(updateTime, 1000);
+  update();
+  setInterval(update, 1000);
 }

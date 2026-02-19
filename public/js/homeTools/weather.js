@@ -1,18 +1,25 @@
 // homeTools/weather.js
 
-export function initWeather() {
-  const main = document.getElementById("homeWeatherMain");
-  const details = document.getElementById("homeWeatherDetails");
+export async function initWeather() {
+  const mainEl = document.getElementById("homeWeatherMain");
+  const detailsEl = document.getElementById("homeWeatherDetails");
+  if (!mainEl || !detailsEl) return;
 
-  if (!main || !details) return;
+  try {
+    const res = await fetch("/api/weather?lat=41.0&lon=-81.0");
+    const data = await res.json();
+    const w = data.weather;
 
-  // Placeholder weather (you can replace with real API later)
-  main.textContent = "Loading...";
-  details.textContent = "";
+    if (!w) {
+      mainEl.textContent = "Unavailable";
+      detailsEl.textContent = "Weather API error.";
+      return;
+    }
 
-  // Fake weather for now
-  setTimeout(() => {
-    main.textContent = "32°F — Cloudy";
-    details.textContent = "Feels like 28°F • Wind 6mph";
-  }, 500);
+    mainEl.textContent = `${w.temperature}°C, wind ${w.windspeed} km/h`;
+    detailsEl.textContent = `Direction ${w.winddirection}°, code ${w.weathercode}`;
+  } catch {
+    mainEl.textContent = "Unavailable";
+    detailsEl.textContent = "Weather API error.";
+  }
 }

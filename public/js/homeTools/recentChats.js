@@ -1,19 +1,31 @@
 // homeTools/recentChats.js
 
-export function initRecentChats() {
+export async function initRecentChats() {
   const el = document.getElementById("homeRecentChats");
   if (!el) return;
 
-  // Placeholder recent chats
-  const chats = [
-    "Homework help",
-    "Project planning",
-    "Daily summary",
-    "Random Q&A",
-  ];
+  try {
+    const res = await fetch("/api/loadChats?userId=sarvin");
+    const data = await res.json();
+    const chats = data.chats || [];
 
-  el.innerHTML = chats
-    .slice(0, 3)
-    .map((c) => `<div class="chatItem">• ${c}</div>`)
-    .join("");
+    if (!chats.length) {
+      el.textContent = "No chats yet.";
+      return;
+    }
+
+    const ul = document.createElement("ul");
+    ul.style.paddingLeft = "18px";
+
+    chats.slice(0, 5).forEach((chat) => {
+      const li = document.createElement("li");
+      li.textContent = chat.title || "Untitled chat";
+      ul.appendChild(li);
+    });
+
+    el.innerHTML = "";
+    el.appendChild(ul);
+  } catch {
+    el.textContent = "Unable to load chats.";
+  }
 }
