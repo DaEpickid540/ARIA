@@ -252,6 +252,38 @@
       </div>
     </div>
 
+    <!-- PRE-BOOT RED SCRIPTS SCREEN -->
+    <div id="preBootScreen">
+      <div id="preBootTerminal">
+        <pre id="preBootLog"></pre>
+      </div>
+    </div>
+
+    <!-- CINEMATIC BOOT SEQUENCE -->
+    <div id="bootScreen">
+      <div id="bootTerminal">
+        <pre id="bootLog"></pre>
+      </div>
+      <div id="bootModal">
+        <h2>ARIA INITIALIZED</h2>
+        <p>System ready.</p>
+      </div>
+    </div>
+
+    <!-- CALL MODE OVERLAY -->
+    <div id="callModeOverlay">
+      <div id="callModeInner">
+        <div id="callModeStatus">CALL MODE ACTIVE</div>
+        <div id="callModeHint">Press ESC or click to exit</div>
+      </div>
+    </div>
+
+    <!-- FX LAYERS -->
+    <div id="chromaticFlash"></div>
+
+    <!-- AUDIO -->
+    <audio id="bootSound" src="boot-startup.mp3" preload="auto"></audio>
+
     <audio id="bootSound" src="boot-startup.mp3" preload="auto"></audio>
 
     <script type="module" src="js/main.js"></script>

@@ -6,15 +6,66 @@ console.log("MAIN JS LOADED");
 import "./lock.js";
 
 window.addEventListener("DOMContentLoaded", () => {
-  /* ---------------------------------------------------
-     1. HIDE OLD LOADING SCREEN (if still present)
-  --------------------------------------------------- */
+  // HIDE OLD LOADING SCREEN IF PRESENT
   const loading = document.getElementById("loadingScreen");
   if (loading) loading.style.display = "none";
 
-  /* ---------------------------------------------------
-     2. BOOT SEQUENCE
-  --------------------------------------------------- */
+  const chromaticFlash = document.getElementById("chromaticFlash");
+  function triggerChromaticFlash() {
+    if (!chromaticFlash) return;
+    chromaticFlash.classList.remove("chromatic-active");
+    void chromaticFlash.offsetWidth;
+    chromaticFlash.classList.add("chromatic-active");
+  }
+
+  // EXPOSE FOR OTHER MODULES (chat, etc.)
+  window.ARIA_triggerChromaticFlash = triggerChromaticFlash;
+
+  /* ---------------- PRE-BOOT RED SCRIPTS ---------------- */
+  const preBootScreen = document.getElementById("preBootScreen");
+  const preBootLog = document.getElementById("preBootLog");
+
+  function runPreBoot(callback) {
+    if (!preBootScreen || !preBootLog) {
+      callback();
+      return;
+    }
+
+    const lines = [
+      "[SYS] Mounting ARIA partitions...",
+      "[SYS] Checking integrity of local modules...",
+      "[OK ] js/chat.js",
+      "[OK ] js/ui.js",
+      "[OK ] js/tools.js",
+      "[OK ] js/tts.js",
+      "[OK ] js/vtt.js",
+      "[OK ] js/settings.js",
+      "[OK ] js/personality.js",
+      "[SYS] Linking homeTools suite...",
+      "[OK ] time, weather, system, tasks, recent, health, speed, quick, summary, monitor",
+      "[SYS] Handing off to core bootloader...",
+    ];
+
+    let idx = 0;
+
+    const step = () => {
+      if (idx < lines.length) {
+        preBootLog.textContent += lines[idx] + "\n";
+        idx++;
+        setTimeout(step, 120);
+      } else {
+        preBootScreen.classList.add("fade-out");
+        setTimeout(() => {
+          preBootScreen.style.display = "none";
+          callback();
+        }, 600);
+      }
+    };
+
+    step();
+  }
+
+  /* ---------------- MAIN BOOT SEQUENCE ---------------- */
   const bootScreen = document.getElementById("bootScreen");
   const bootLog = document.getElementById("bootLog");
   const bootModal = document.getElementById("bootModal");
@@ -46,6 +97,7 @@ window.addEventListener("DOMContentLoaded", () => {
       if (idx < lines.length) {
         bootLog.textContent += lines[idx] + "\n";
         idx++;
+        triggerChromaticFlash();
         setTimeout(step, 180);
       } else {
         bootModal.classList.add("show");
@@ -68,54 +120,53 @@ window.addEventListener("DOMContentLoaded", () => {
     step();
   }
 
-  /* ---------------------------------------------------
-     3. AFTER BOOT → RUN ARIA MAIN LOGIC
-  --------------------------------------------------- */
-  runBootSequence(() => {
-    const homepage = document.getElementById("homepageScreen");
-    const layout = document.getElementById("layout");
+  /* ---------------- AFTER BOOT → ARIA MAIN ---------------- */
+  runPreBoot(() => {
+    runBootSequence(() => {
+      const homepage = document.getElementById("homepageScreen");
+      const layout = document.getElementById("layout");
 
-    const enterBtn = document.getElementById("enterConsoleBtn");
-    const goHomeBtn = document.getElementById("goHomeBtn");
-    const goLockBtn = document.getElementById("goLockBtn");
+      const enterBtn = document.getElementById("enterConsoleBtn");
+      const goHomeBtn = document.getElementById("goHomeBtn");
+      const goLockBtn = document.getElementById("goLockBtn");
 
-    /* ENTER ARIA */
-    enterBtn?.addEventListener("click", async () => {
-      homepage.style.display = "none";
-      layout.style.display = "flex";
+      /* ENTER ARIA */
+      enterBtn?.addEventListener("click", async () => {
+        homepage.style.display = "none";
+        layout.style.display = "flex";
 
-      try {
-        await import("./chat.js");
-        await import("./ui.js");
-        await import("./tools.js");
-        await import("./tts.js");
-        await import("./vtt.js");
-        await import("./settings.js");
-        await import("./personality.js");
-        await import("./pages.js");
+        try {
+          await import("./chat.js");
+          await import("./ui.js");
+          await import("./tools.js");
+          await import("./tts.js");
+          await import("./vtt.js");
+          await import("./settings.js");
+          await import("./personality.js");
+          await import("./pages.js");
 
-        // Voice controls (TTS/VTT sync)
-        const { initVoiceControls } = await import("./voiceControls.js");
-        initVoiceControls();
+          const { initVoiceControls } = await import("./voiceControls.js");
+          initVoiceControls();
 
-        console.log("ALL CHAT MODULES LOADED");
-      } catch (err) {
-        console.error("CHAT MODULE FAILED:", err);
-      }
-    });
+          console.log("ALL CHAT MODULES LOADED");
+        } catch (err) {
+          console.error("CHAT MODULE FAILED:", err);
+        }
+      });
 
-    /* GO HOME */
-    goHomeBtn?.addEventListener("click", () => {
-      layout.style.display = "none";
-      homepage.style.display = "flex";
-      homepage.style.opacity = 1;
-    });
+      /* GO HOME */
+      goHomeBtn?.addEventListener("click", () => {
+        layout.style.display = "none";
+        homepage.style.display = "flex";
+        homepage.style.opacity = 1;
+      });
 
-    /* GO LOCK */
-    goLockBtn?.addEventListener("click", () => {
-      layout.style.display = "none";
-      homepage.style.display = "none";
-      document.getElementById("lockScreen").style.display = "flex";
+      /* GO LOCK */
+      goLockBtn?.addEventListener("click", () => {
+        layout.style.display = "none";
+        homepage.style.display = "none";
+        document.getElementById("lockScreen").style.display = "flex";
+      });
     });
   });
 });

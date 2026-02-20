@@ -851,3 +851,194 @@ body {
   transition: opacity 0.6s ease;
   pointer-events: none;
 }
+
+/* PRE-BOOT RED SCRIPTS SCREEN */
+#preBootScreen {
+  position: fixed;
+  inset: 0;
+  background: #050000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  color: #ff4b4b;
+  font-family: Consolas, monospace;
+}
+
+#preBootTerminal {
+  width: 80%;
+  max-width: 900px;
+  height: 220px;
+  background: #120000;
+  border: 1px solid #ff1a1a;
+  box-shadow: 0 0 22px rgba(255, 26, 26, 0.6);
+  padding: 12px;
+  overflow: hidden;
+  font-size: 12px;
+}
+
+#preBootLog {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+/* MAIN BOOT SEQUENCE */
+#bootScreen {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  z-index: 99999;
+  color: #0f0;
+  font-family: Consolas, monospace;
+}
+
+#bootTerminal {
+  width: 80%;
+  max-width: 1000px;
+  height: 320px;
+  background: #020202;
+  border: 1px solid #0f0;
+  box-shadow: 0 0 22px rgba(0, 255, 0, 0.4);
+  padding: 12px;
+  overflow: hidden;
+  font-size: 12px;
+}
+
+#bootLog {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+#bootModal {
+  margin-top: 28px;
+  padding: 18px 28px;
+  border-radius: 4px;
+  border: 1px solid var(--red-neon);
+  background: #050505;
+  color: var(--text-main);
+  text-align: center;
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+}
+
+#bootModal h2 {
+  margin: 0 0 6px 0;
+  font-size: 22px;
+}
+
+#bootModal.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#bootScreen.fade-out,
+#preBootScreen.fade-out {
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+
+/* CHROMATIC FLASH FX */
+#chromaticFlash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0;
+  z-index: 99998;
+}
+
+.chromatic-active {
+  animation: chromaticFlash 0.35s ease-out;
+}
+
+@keyframes chromaticFlash {
+  0% {
+    opacity: 0.9;
+    background:
+      radial-gradient(circle at 30% 30%, rgba(255, 0, 0, 0.6), transparent),
+      radial-gradient(circle at 70% 70%, rgba(0, 200, 255, 0.6), transparent);
+    transform: translate(0, 0);
+  }
+  40% {
+    opacity: 0.7;
+    transform: translate(-2px, 1px);
+  }
+  80% {
+    opacity: 0.3;
+    transform: translate(1px, -1px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+}
+
+/* CALL MODE OVERLAY */
+#callModeOverlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 99990;
+  transition: opacity 0.3s ease;
+}
+
+#callModeOverlay.active {
+  display: flex;
+  opacity: 1;
+}
+
+#callModeInner {
+  text-align: center;
+  color: var(--text-main);
+  z-index: 1;
+}
+
+#callModeStatus {
+  font-size: 1.4rem;
+  margin-bottom: 8px;
+}
+
+#callModeHint {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+/* CALL MODE BACKGROUND GRADIENT STATES */
+#callModeOverlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, #220000 0, #000 55%, #000 100%);
+  transition: background 0.2s ease;
+}
+
+/* USER SPEAKING: RED/BLACK */
+#callModeOverlay.user-speaking::before {
+  background: radial-gradient(
+    circle at center,
+    rgba(209, 0, 0, 0.9) 0,
+    #000 55%,
+    #000 100%
+  );
+}
+
+/* ARIA SPEAKING: WHITE/BLACK */
+#callModeOverlay.aria-speaking::before {
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.9) 0,
+    #000 55%,
+    #000 100%
+  );
+}

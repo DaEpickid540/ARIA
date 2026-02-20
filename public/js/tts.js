@@ -1,12 +1,21 @@
-export let ttsEnabled = true;
+// tts.js
 
+export let ttsEnabled = true;
 let currentUtterance = null;
 
 export function setTTSEnabled(enabled) {
   ttsEnabled = enabled;
-  const btn = document.getElementById("voiceOffBtn");
-  if (btn) {
-    btn.classList.toggle("active", enabled);
+
+  // Update UI button state
+  const callModeBtn = document.getElementById("callModeBtn");
+  const voiceOffBtn = document.getElementById("voiceOffBtn");
+
+  if (callModeBtn) callModeBtn.classList.toggle("active", enabled);
+  if (voiceOffBtn) voiceOffBtn.classList.toggle("active", !enabled);
+
+  // Stop any active speech
+  if (!enabled && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
   }
 }
 
@@ -38,10 +47,24 @@ export function speak(text) {
   }
 
   utter.onstart = () => {
+    // ARIA SPEAKING GRADIENT
+    if (window.ARIA_setAriaSpeaking) {
+      window.ARIA_setAriaSpeaking(true);
+    }
+
+    // Chromatic flash
+    if (window.ARIA_triggerChromaticFlash) {
+      window.ARIA_triggerChromaticFlash();
+    }
+
     document.dispatchEvent(new CustomEvent("aria-speaking-start"));
   };
 
   utter.onend = () => {
+    if (window.ARIA_setAriaSpeaking) {
+      window.ARIA_setAriaSpeaking(false);
+    }
+
     document.dispatchEvent(new CustomEvent("aria-speaking-stop"));
   };
 
