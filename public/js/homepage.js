@@ -16,7 +16,7 @@ export function initHomepage() {
   const screen = document.getElementById("homepageScreen");
   if (!screen) return;
 
-  // Prevent double initialization when unlocking multiple times
+  // Prevent double initialization
   if (screen.dataset.inited === "1") {
     screen.style.display = "flex";
     screen.style.opacity = 1;

@@ -108,6 +108,11 @@
       </div>
     </div>
 
+    <div id="loadingScreen">
+      <div class="loadingSpinner"></div>
+      <p>Initializing ARIA...</p>
+    </div>
+
     <!-- MAIN LAYOUT -->
     <div id="layout" style="display: none">
       <aside id="sidebar">
@@ -235,6 +240,19 @@
     <div id="scanlineSweep"></div>
     <div id="sideSweep"></div>
     <div id="chromaticFlash"></div>
+
+    <!-- BOOT SEQUENCE OVERLAY -->
+    <div id="bootScreen">
+      <div id="bootTerminal">
+        <pre id="bootLog"></pre>
+      </div>
+      <div id="bootModal">
+        <h2>ARIA INITIALIZED</h2>
+        <p>System ready.</p>
+      </div>
+    </div>
+
+    <audio id="bootSound" src="boot-startup.mp3" preload="auto"></audio>
 
     <script type="module" src="js/main.js"></script>
   </body>

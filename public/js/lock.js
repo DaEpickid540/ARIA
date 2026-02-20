@@ -22,13 +22,8 @@ window.addEventListener("DOMContentLoaded", () => {
       lockScreen.style.display = "none";
       layout.style.display = "none";
 
-      try {
-        const { initHomepage } = await import("./homepage.js");
-        initHomepage();
-        console.log("HOMEPAGE LOADED");
-      } catch (err) {
-        console.error("HOMEPAGE FAILED:", err);
-      }
+      const { initHomepage } = await import("./homepage.js");
+      initHomepage();
 
       lockError.textContent = "";
       passwordInput.value = "";
