@@ -622,6 +622,13 @@ body {
 /* DEFAULTS */
 #homepageScreen {
   display: none;
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top, #2a0000 0, #000 50%, #000 100%);
+  align-items: center;
+  justify-content: center;
+  z-index: 5000;
+  transition: opacity 0.4s ease;
 }
 
 /* Wider button */
@@ -650,11 +657,6 @@ body {
   }
 }
 
-/* Fade homepage out */
-#homepageScreen {
-  transition: opacity 0.4s ease;
-}
-
 #homeButtons {
   display: flex;
   justify-content: center;
@@ -667,39 +669,35 @@ body {
   font-size: 1.2rem;
   padding: 14px 0;
 }
-.enterToChat {
-  animation: morphToChat 0.7s forwards ease-in-out;
-}
 
-@keyframes morphToChat {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  40% {
-    transform: scale(1.2);
-    opacity: 0.7;
-  }
-  100% {
-    transform: scale(0.1);
-    opacity: 0;
-  }
-}
-
+/* FX SHELLS */
 #glitchOverlay,
 #glitchOverlay2,
 #scanlineSweep,
 #sideSweep,
 #chromaticFlash {
   pointer-events: none;
+  position: fixed;
+  z-index: 999;
 }
 
 /* HOMEPAGE GRID + SCROLL ROWS (HYBRID RESPONSIVE) */
 
 /* Full-width dashboard */
 #homepageContent {
+  background: #080808;
+  padding: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--red-deep);
+  box-shadow: 0 0 18px rgba(209, 0, 0, 0.9);
   width: 100%;
   max-width: 1400px;
+  margin: 0 auto;
+}
+
+#homepageContent h1 {
+  margin: 0 0 16px 0;
+  text-align: center;
 }
 
 /* 3‑column grid */
@@ -718,10 +716,26 @@ body {
   padding-bottom: 8px;
   margin-bottom: 16px;
   scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-deep) #050505;
 }
 
+/* Scrollbar styling (WebKit) */
 .scrollRow::-webkit-scrollbar {
   height: 6px;
+}
+
+.scrollRow::-webkit-scrollbar-track {
+  background: #050505;
+}
+
+.scrollRow::-webkit-scrollbar-thumb {
+  background: var(--red-deep);
+  border-radius: 3px;
+}
+
+.scrollRow::-webkit-scrollbar-thumb:hover {
+  background: var(--red-neon);
 }
 
 .scrollCard {

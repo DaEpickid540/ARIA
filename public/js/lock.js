@@ -20,10 +20,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     if (val === CORRECT_PASSWORD) {
       lockScreen.style.display = "none";
-      homepageScreen.style.display = "flex";
-
-      lockError.textContent = "";
-      passwordInput.value = "";
+      layout.style.display = "none";
 
       try {
         const { initHomepage } = await import("./homepage.js");
@@ -32,6 +29,9 @@ window.addEventListener("DOMContentLoaded", () => {
       } catch (err) {
         console.error("HOMEPAGE FAILED:", err);
       }
+
+      lockError.textContent = "";
+      passwordInput.value = "";
     } else {
       lockError.textContent = "ACCESS DENIED";
     }

@@ -14,15 +14,19 @@ import { initSystemMonitor } from "./homeTools/systemMonitor.js";
 
 export function initHomepage() {
   const screen = document.getElementById("homepageScreen");
-  const enterBtn = document.getElementById("enterConsoleBtn");
+  if (!screen) return;
 
-  if (!screen || !enterBtn) return;
+  // Prevent double initialization when unlocking multiple times
+  if (screen.dataset.inited === "1") {
+    screen.style.display = "flex";
+    screen.style.opacity = 1;
+    return;
+  }
+  screen.dataset.inited = "1";
 
-  // Show homepage
   screen.style.display = "flex";
   screen.style.opacity = 1;
 
-  // Initialize all widgets
   initTime();
   initWeather();
   initSystemInfo();
@@ -34,16 +38,4 @@ export function initHomepage() {
   initQuickTools();
   initDailySummary();
   initSystemMonitor();
-
-  // Enter ARIA → fade out homepage
-  enterBtn.addEventListener("click", () => {
-    enterBtn.classList.add("enterToChat");
-
-    setTimeout(() => {
-      screen.style.opacity = 0;
-      setTimeout(() => {
-        screen.style.display = "none";
-      }, 400);
-    }, 600);
-  });
 }
