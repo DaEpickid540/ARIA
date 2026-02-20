@@ -140,8 +140,6 @@
 
           <div id="voiceWave"></div>
         </div>
-
-        <div id="voiceActivityBar"></div>
       </main>
     </div>
 
@@ -234,56 +232,84 @@
       </div>
     </div>
 
-    <!-- FX -->
-    <div id="glitchOverlay"></div>
-    <div id="glitchOverlay2"></div>
-    <div id="scanlineSweep"></div>
-    <div id="sideSweep"></div>
-    <div id="chromaticFlash"></div>
-
-    <!-- BOOT SEQUENCE OVERLAY -->
-    <div id="bootScreen">
-      <div id="bootTerminal">
-        <pre id="bootLog"></pre>
-      </div>
-      <div id="bootModal">
-        <h2>ARIA INITIALIZED</h2>
-        <p>System ready.</p>
-      </div>
-    </div>
-
-    <!-- PRE-BOOT RED SCRIPTS SCREEN -->
+    <!-- ========================= -->
+    <!--  RED PRE-BOOT SCRIPTS     -->
+    <!-- ========================= -->
     <div id="preBootScreen">
       <div id="preBootTerminal">
         <pre id="preBootLog"></pre>
       </div>
     </div>
 
-    <!-- CINEMATIC BOOT SEQUENCE -->
+    <!-- ========================= -->
+    <!--  RED CYBERPUNK BOOT       -->
+    <!-- ========================= -->
     <div id="bootScreen">
       <div id="bootTerminal">
         <pre id="bootLog"></pre>
       </div>
+
       <div id="bootModal">
         <h2>ARIA INITIALIZED</h2>
-        <p>System ready.</p>
+        <p>System Ready</p>
+        <p class="bootPressKey">Press any key to continue</p>
       </div>
     </div>
 
-    <!-- CALL MODE OVERLAY -->
+    <!-- ========================= -->
+    <!--  CALL MODE OVERLAY        -->
+    <!-- ========================= -->
     <div id="callModeOverlay">
       <div id="callModeInner">
         <div id="callModeStatus">CALL MODE ACTIVE</div>
         <div id="callModeHint">Press ESC or click to exit</div>
+
+        <!-- Waveform -->
+        <div id="callWaveform">
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+        </div>
+
+        <!-- Spectrogram -->
+        <div id="callSpectrogram">
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+        </div>
       </div>
     </div>
 
-    <!-- FX LAYERS -->
+    <!-- ========================= -->
+    <!--  FX LAYERS                -->
+    <!-- ========================= -->
     <div id="chromaticFlash"></div>
+    <div id="glitchBurst"></div>
+    <div id="scanlineSweep"></div>
+    <div id="sideSweep"></div>
 
-    <!-- AUDIO -->
-    <audio id="bootSound" src="boot-startup.mp3" preload="auto"></audio>
-
+    <!-- ========================= -->
+    <!--  AUDIO                    -->
+    <!-- ========================= -->
     <audio id="bootSound" src="boot-startup.mp3" preload="auto"></audio>
 
     <script type="module" src="js/main.js"></script>

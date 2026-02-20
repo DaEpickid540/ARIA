@@ -1,16 +1,25 @@
-// main.js
+// main.js — FINAL CYBERPUNK ARIA OS VERSION
 
 console.log("MAIN JS LOADED");
 
-// Only lock loads immediately
+// Lock screen loads immediately
 import "./lock.js";
 
 window.addEventListener("DOMContentLoaded", () => {
-  // HIDE OLD LOADING SCREEN IF PRESENT
+  /* ============================================================
+     CLEANUP: REMOVE OLD LOADING SCREEN IF PRESENT
+     ============================================================ */
   const loading = document.getElementById("loadingScreen");
   if (loading) loading.style.display = "none";
 
+  /* ============================================================
+     FX ENGINE HOOKS
+     ============================================================ */
   const chromaticFlash = document.getElementById("chromaticFlash");
+  const glitchBurst = document.getElementById("glitchBurst");
+  const scanlineSweep = document.getElementById("scanlineSweep");
+  const sideSweep = document.getElementById("sideSweep");
+
   function triggerChromaticFlash() {
     if (!chromaticFlash) return;
     chromaticFlash.classList.remove("chromatic-active");
@@ -18,10 +27,36 @@ window.addEventListener("DOMContentLoaded", () => {
     chromaticFlash.classList.add("chromatic-active");
   }
 
-  // EXPOSE FOR OTHER MODULES (chat, etc.)
-  window.ARIA_triggerChromaticFlash = triggerChromaticFlash;
+  function triggerGlitch() {
+    if (!glitchBurst) return;
+    glitchBurst.classList.remove("glitch-active");
+    void glitchBurst.offsetWidth;
+    glitchBurst.classList.add("glitch-active");
+  }
 
-  /* ---------------- PRE-BOOT RED SCRIPTS ---------------- */
+  function triggerScanline() {
+    if (!scanlineSweep) return;
+    scanlineSweep.classList.remove("scanline-active");
+    void scanlineSweep.offsetWidth;
+    scanlineSweep.classList.add("scanline-active");
+  }
+
+  function triggerSideSweep() {
+    if (!sideSweep) return;
+    sideSweep.classList.remove("side-active");
+    void sideSweep.offsetWidth;
+    sideSweep.classList.add("side-active");
+  }
+
+  // Expose globally for chat.js, tts.js, vtt.js, etc.
+  window.ARIA_triggerChromaticFlash = triggerChromaticFlash;
+  window.ARIA_triggerGlitch = triggerGlitch;
+  window.ARIA_triggerScanline = triggerScanline;
+  window.ARIA_triggerSideSweep = triggerSideSweep;
+
+  /* ============================================================
+     PRE-BOOT (RED SYSTEM SCRIPTS)
+     ============================================================ */
   const preBootScreen = document.getElementById("preBootScreen");
   const preBootLog = document.getElementById("preBootLog");
 
@@ -43,7 +78,7 @@ window.addEventListener("DOMContentLoaded", () => {
       "[OK ] js/personality.js",
       "[SYS] Linking homeTools suite...",
       "[OK ] time, weather, system, tasks, recent, health, speed, quick, summary, monitor",
-      "[SYS] Handing off to core bootloader...",
+      "[SYS] Handing off to ARIA bootloader...",
     ];
 
     let idx = 0;
@@ -65,7 +100,9 @@ window.addEventListener("DOMContentLoaded", () => {
     step();
   }
 
-  /* ---------------- MAIN BOOT SEQUENCE ---------------- */
+  /* ============================================================
+     MAIN BOOT (RED CYBERPUNK BOOT)
+     ============================================================ */
   const bootScreen = document.getElementById("bootScreen");
   const bootLog = document.getElementById("bootLog");
   const bootModal = document.getElementById("bootModal");
@@ -82,7 +119,7 @@ window.addEventListener("DOMContentLoaded", () => {
       "[CHECK] Verifying system integrity...",
       "[OK]  Memory map stable.",
       "[OK]  Neural routing tables loaded.",
-      "[LINK] Establishing local IO channels...",
+      "[LINK] Establishing IO channels...",
       "[OK]  Audio, text, and tools online.",
       "[SCAN] Loading personality profiles...",
       "[OK]  Active profile: SARVIN-LOCAL",
@@ -97,30 +134,53 @@ window.addEventListener("DOMContentLoaded", () => {
       if (idx < lines.length) {
         bootLog.textContent += lines[idx] + "\n";
         idx++;
+
+        // FX during boot
         triggerChromaticFlash();
+        triggerGlitch();
+
         setTimeout(step, 180);
       } else {
+        // Show ARIA INITIALIZED modal
         bootModal.classList.add("show");
 
+        // Play boot sound
         if (bootSound) {
           bootSound.currentTime = 0;
           bootSound.play().catch(() => {});
         }
 
-        setTimeout(() => {
-          bootScreen.classList.add("fade-out");
+        // Wait for user input
+        const continueHandler = () => {
+          document.removeEventListener("keydown", continueHandler);
+          document.removeEventListener("click", continueHandler);
+
+          // Full cyberpunk transition
+          triggerChromaticFlash();
+          triggerGlitch();
+          triggerScanline();
+          triggerSideSweep();
+
           setTimeout(() => {
-            bootScreen.style.display = "none";
-            callback();
-          }, 600);
-        }, 900);
+            bootScreen.classList.add("fade-out");
+            setTimeout(() => {
+              bootScreen.style.display = "none";
+              callback();
+            }, 600);
+          }, 500);
+        };
+
+        document.addEventListener("keydown", continueHandler);
+        document.addEventListener("click", continueHandler);
       }
     };
 
     step();
   }
 
-  /* ---------------- AFTER BOOT → ARIA MAIN ---------------- */
+  /* ============================================================
+     AFTER BOOT → ARIA MAIN LOGIC
+     ============================================================ */
   runPreBoot(() => {
     runBootSequence(() => {
       const homepage = document.getElementById("homepageScreen");
@@ -145,6 +205,7 @@ window.addEventListener("DOMContentLoaded", () => {
           await import("./personality.js");
           await import("./pages.js");
 
+          // Voice controls (call mode, waveform, spectrogram)
           const { initVoiceControls } = await import("./voiceControls.js");
           initVoiceControls();
 

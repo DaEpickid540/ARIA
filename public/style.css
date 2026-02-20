@@ -267,45 +267,6 @@ body {
   box-shadow: 0 0 12px rgba(209, 0, 0, 0.9);
 }
 
-/* WAVEFORM */
-#voiceWave {
-  width: 40px;
-  height: 18px;
-  margin-left: 8px;
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  opacity: 0;
-}
-
-#voiceWave.active {
-  opacity: 1;
-}
-
-#voiceWave span {
-  width: 4px;
-  background: var(--red-neon);
-  height: 4px;
-  border-radius: 2px;
-}
-
-/* VOICE ACTIVITY BAR */
-#voiceActivityBar {
-  height: 4px;
-  width: 100%;
-  background: #080808;
-}
-
-#voiceActivityBar.recording {
-  background: var(--red-deep);
-  box-shadow: 0 0 12px rgba(209, 0, 0, 0.9);
-}
-
-#voiceActivityBar.speaking {
-  background: #fff;
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.9);
-}
-
 /* LOCK SCREEN */
 #lockScreen {
   position: fixed;
@@ -761,66 +722,6 @@ body {
   }
 }
 
-#loadingScreen {
-  position: fixed;
-  inset: 0;
-  background: #000;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 99999;
-  color: var(--red-neon);
-  font-size: 1.2rem;
-}
-
-.loadingSpinner {
-  width: 60px;
-  height: 60px;
-  border: 4px solid #300;
-  border-top-color: var(--red-neon);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin-bottom: 20px;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* BOOT SEQUENCE */
-#bootScreen {
-  position: fixed;
-  inset: 0;
-  background: #000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  z-index: 100000;
-  color: #0f0;
-  font-family: Consolas, monospace;
-}
-
-#bootTerminal {
-  width: 80%;
-  max-width: 900px;
-  height: 260px;
-  background: #020202;
-  border: 1px solid #0f0;
-  box-shadow: 0 0 18px rgba(0, 255, 0, 0.4);
-  padding: 12px;
-  overflow: hidden;
-  font-size: 12px;
-}
-
-#bootLog {
-  margin: 0;
-  white-space: pre-wrap;
-}
-
 #bootModal {
   margin-top: 24px;
   padding: 14px 22px;
@@ -844,105 +745,6 @@ body {
 #bootModal.show {
   opacity: 1;
   transform: translateY(0);
-}
-
-#bootScreen.fade-out {
-  opacity: 0;
-  transition: opacity 0.6s ease;
-  pointer-events: none;
-}
-
-/* PRE-BOOT RED SCRIPTS SCREEN */
-#preBootScreen {
-  position: fixed;
-  inset: 0;
-  background: #050000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100000;
-  color: #ff4b4b;
-  font-family: Consolas, monospace;
-}
-
-#preBootTerminal {
-  width: 80%;
-  max-width: 900px;
-  height: 220px;
-  background: #120000;
-  border: 1px solid #ff1a1a;
-  box-shadow: 0 0 22px rgba(255, 26, 26, 0.6);
-  padding: 12px;
-  overflow: hidden;
-  font-size: 12px;
-}
-
-#preBootLog {
-  margin: 0;
-  white-space: pre-wrap;
-}
-
-/* MAIN BOOT SEQUENCE */
-#bootScreen {
-  position: fixed;
-  inset: 0;
-  background: #000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  z-index: 99999;
-  color: #0f0;
-  font-family: Consolas, monospace;
-}
-
-#bootTerminal {
-  width: 80%;
-  max-width: 1000px;
-  height: 320px;
-  background: #020202;
-  border: 1px solid #0f0;
-  box-shadow: 0 0 22px rgba(0, 255, 0, 0.4);
-  padding: 12px;
-  overflow: hidden;
-  font-size: 12px;
-}
-
-#bootLog {
-  margin: 0;
-  white-space: pre-wrap;
-}
-
-#bootModal {
-  margin-top: 28px;
-  padding: 18px 28px;
-  border-radius: 4px;
-  border: 1px solid var(--red-neon);
-  background: #050505;
-  color: var(--text-main);
-  text-align: center;
-  opacity: 0;
-  transform: translateY(12px);
-  transition:
-    opacity 0.4s ease,
-    transform 0.4s ease;
-}
-
-#bootModal h2 {
-  margin: 0 0 6px 0;
-  font-size: 22px;
-}
-
-#bootModal.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-#bootScreen.fade-out,
-#preBootScreen.fade-out {
-  opacity: 0;
-  transition: opacity 0.6s ease;
-  pointer-events: none;
 }
 
 /* CHROMATIC FLASH FX */
@@ -1041,4 +843,359 @@ body {
     #000 55%,
     #000 100%
   );
+}
+
+/* ============================================================
+   RED PRE-BOOT SCRIPTS
+   ============================================================ */
+#preBootScreen {
+  position: fixed;
+  inset: 0;
+  background: #050000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  color: #ff4b4b;
+  font-family: Consolas, monospace;
+  opacity: 1;
+  transition: opacity 0.6s ease;
+}
+
+#preBootTerminal {
+  width: 80%;
+  max-width: 900px;
+  height: 240px;
+  background: #120000;
+  border: 1px solid #ff1a1a;
+  box-shadow: 0 0 22px rgba(255, 26, 26, 0.6);
+  padding: 12px;
+  overflow: hidden;
+  font-size: 12px;
+}
+
+#preBootLog {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+#preBootScreen.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ============================================================
+   RED CYBERPUNK BOOT
+   ============================================================ */
+#bootScreen {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  z-index: 99999;
+  color: #ff4b4b;
+  font-family: Consolas, monospace;
+  opacity: 1;
+  transition: opacity 0.6s ease;
+}
+
+#bootTerminal {
+  width: 80%;
+  max-width: 1000px;
+  height: 320px;
+  background: #080000;
+  border: 1px solid #ff1a1a;
+  box-shadow: 0 0 22px rgba(255, 26, 26, 0.4);
+  padding: 12px;
+  overflow: hidden;
+  font-size: 12px;
+}
+
+#bootLog {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+/* ============================================================
+   ARIA INITIALIZED MODAL
+   ============================================================ */
+#bootModal {
+  margin-top: 28px;
+  padding: 20px 32px;
+  border-radius: 4px;
+  border: 1px solid #ff1a1a;
+  background: #0a0000;
+  color: #ff4b4b;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+  box-shadow: 0 0 18px rgba(255, 26, 26, 0.4);
+}
+
+#bootModal h2 {
+  margin: 0 0 6px 0;
+  font-size: 24px;
+}
+
+.bootPressKey {
+  margin-top: 6px;
+  font-size: 14px;
+  opacity: 0.7;
+  animation: pressKeyPulse 1.4s infinite ease-in-out;
+}
+
+@keyframes pressKeyPulse {
+  0% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.4;
+  }
+}
+
+#bootModal.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#bootScreen.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ============================================================
+   CHROMATIC FLASH
+   ============================================================ */
+#chromaticFlash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0;
+  z-index: 99998;
+}
+
+.chromatic-active {
+  animation: chromaticFlash 0.35s ease-out;
+}
+
+@keyframes chromaticFlash {
+  0% {
+    opacity: 0.9;
+    background:
+      radial-gradient(circle at 30% 30%, rgba(255, 0, 0, 0.6), transparent),
+      radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.6), transparent);
+    transform: translate(0, 0);
+  }
+  40% {
+    opacity: 0.7;
+    transform: translate(-2px, 1px);
+  }
+  80% {
+    opacity: 0.3;
+    transform: translate(1px, -1px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+}
+
+/* ============================================================
+   GLITCH BURST
+   ============================================================ */
+#glitchBurst {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 99997;
+}
+
+.glitch-active {
+  animation: glitchBurst 0.25s steps(2) forwards;
+}
+
+@keyframes glitchBurst {
+  0% {
+    opacity: 0.8;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(255, 0, 0, 0.4) 0,
+      rgba(255, 0, 0, 0.4) 2px,
+      transparent 2px,
+      transparent 4px
+    );
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ============================================================
+   SCANLINE SWEEP
+   ============================================================ */
+#scanlineSweep {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 99996;
+}
+
+.scanline-active {
+  animation: scanlineSweep 0.5s ease-out forwards;
+}
+
+@keyframes scanlineSweep {
+  0% {
+    opacity: 0.8;
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 0, 0, 0.6) 0%,
+      transparent 20%
+    );
+    transform: translateY(-100%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
+/* ============================================================
+   SIDE SWEEP
+   ============================================================ */
+#sideSweep {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 99995;
+}
+
+.side-active {
+  animation: sideSweep 0.4s ease-out forwards;
+}
+
+@keyframes sideSweep {
+  0% {
+    opacity: 0.7;
+    background: linear-gradient(
+      to right,
+      rgba(255, 0, 0, 0.6) 0%,
+      transparent 40%
+    );
+    transform: translateX(-100%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+/* ============================================================
+   CALL MODE OVERLAY
+   ============================================================ */
+#callModeOverlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 99990;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+#callModeOverlay.active {
+  display: flex;
+  opacity: 1;
+}
+
+#callModeOverlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, #220000 0, #000 55%, #000 100%);
+  transition: background 0.2s ease;
+}
+
+/* USER SPEAKING */
+#callModeOverlay.user-speaking::before {
+  background: radial-gradient(
+    circle at center,
+    rgba(209, 0, 0, 0.9) 0,
+    #000 55%,
+    #000 100%
+  );
+}
+
+/* ARIA SPEAKING */
+#callModeOverlay.aria-speaking::before {
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.9) 0,
+    #000 55%,
+    #000 100%
+  );
+}
+
+#callModeInner {
+  text-align: center;
+  color: #ff4b4b;
+  z-index: 1;
+}
+
+#callModeStatus {
+  font-size: 1.4rem;
+  margin-bottom: 8px;
+}
+
+#callModeHint {
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+/* ============================================================
+   SPECTROGRAM
+   ============================================================ */
+#callSpectrogram {
+  display: flex;
+  gap: 3px;
+  margin-top: 14px;
+  justify-content: center;
+}
+
+.specBar {
+  width: 4px;
+  height: 10px;
+  background: #ff4b4b;
+  opacity: 0.5;
+  animation: specIdle 1.8s infinite ease-in-out;
+}
+
+@keyframes specIdle {
+  0% {
+    height: 8px;
+    opacity: 0.4;
+  }
+  50% {
+    height: 18px;
+    opacity: 1;
+  }
+  100% {
+    height: 8px;
+    opacity: 0.4;
+  }
 }
