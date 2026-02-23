@@ -1,127 +1,94 @@
-// vtt.js — FINAL CYBERPUNK ARIA OS VERSION
+// vtt.js — Shared Recognition Engine (PTT + VTT)
+
+import { speak, ttsEnabled } from "./tts.js";
 
 let recognition = null;
-let vttEnabled = true;
-let isRecording = false;
+let vttEnabled = false;
+let isListening = false;
 
-/* ============================================================
-   ENABLE / DISABLE VTT
-   ============================================================ */
+const SpeechRecognition =
+  window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (SpeechRecognition) {
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = "en-US";
+}
+
 export function setVTTEnabled(enabled) {
   vttEnabled = enabled;
 
-  // Stop recognition if disabled
-  if (!enabled && recognition && isRecording) {
-    recognition.stop();
-  }
+  const vttBtn = document.getElementById("vttBtn");
+  if (vttBtn) vttBtn.classList.toggle("active", enabled);
 
-  // Update UI button state
-  const vttToggleBtn = document.getElementById("vttToggleBtn");
-  if (vttToggleBtn) {
-    vttToggleBtn.classList.toggle("active", enabled);
-  }
+  if (!enabled) stopContinuousVTT();
 }
 
-/* ============================================================
-   INITIALIZE VTT ON DOM LOAD
-   ============================================================ */
+export function startContinuousVTT() {
+  if (!recognition || !vttEnabled || isListening) return;
+
+  try {
+    recognition.start();
+    isListening = true;
+    window.ARIA_setUserSpeaking?.(true);
+  } catch {}
+}
+
+export function stopContinuousVTT() {
+  if (!recognition || !isListening) return;
+
+  recognition.stop();
+  isListening = false;
+  window.ARIA_setUserSpeaking?.(false);
+}
+
+export function startPushToTalk() {
+  if (!recognition) return;
+
+  try {
+    recognition.start();
+    isListening = true;
+    window.ARIA_setUserSpeaking?.(true);
+  } catch {}
+}
+
+export function stopPushToTalk() {
+  if (!recognition) return;
+
+  recognition.stop();
+  isListening = false;
+  window.ARIA_setUserSpeaking?.(false);
+}
+
 window.addEventListener("DOMContentLoaded", () => {
-  const callModeBtn = document.getElementById("callModeBtn");
+  if (!recognition) return;
+
   const userInput = document.getElementById("userInput");
-  const voiceActivityBar = document.getElementById("voiceActivityBar");
-  const voiceWave = document.getElementById("voiceWave");
+  const sendBtn = document.getElementById("sendBtn");
 
-  const SpeechRecognition =
-    window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  /* ------------------------------------------------------------
-     NO SPEECH RECOGNITION AVAILABLE
-     ------------------------------------------------------------ */
-  if (!SpeechRecognition) {
-    if (callModeBtn) {
-      callModeBtn.disabled = true;
-      callModeBtn.textContent = "🎙 N/A";
-    }
-    return;
-  }
-
-  /* ------------------------------------------------------------
-     CREATE RECOGNITION INSTANCE
-     ------------------------------------------------------------ */
-  recognition = new SpeechRecognition();
-  recognition.continuous = false;
-  recognition.interimResults = true;
-  recognition.lang = "en-US";
-
-  /* ============================================================
-     RECORDING UI + CALL MODE GRADIENT HOOKS
-     ============================================================ */
-  function setRecordingUI(active) {
-    isRecording = active;
-
-    // Button glow
-    callModeBtn?.classList.toggle("active", active);
-
-    // Old UI elements (if still present)
-    voiceActivityBar?.classList.toggle("recording", active);
-    voiceWave?.classList.toggle("active", active);
-
-    // CALL MODE GRADIENT HOOK
-    if (window.ARIA_setUserSpeaking) {
-      window.ARIA_setUserSpeaking(active);
-    }
-
-    // Chromatic flash on start
-    if (active && window.ARIA_triggerChromaticFlash) {
-      window.ARIA_triggerChromaticFlash();
-    }
-  }
-
-  /* ============================================================
-     PUSH-TO-TALK START
-     ============================================================ */
-  callModeBtn?.addEventListener("mousedown", () => {
-    if (!vttEnabled || !recognition) return;
-
-    try {
-      recognition.start();
-      setRecordingUI(true);
-    } catch {
-      // Ignore double-start errors
-    }
-  });
-
-  /* ============================================================
-     PUSH-TO-TALK STOP
-     ============================================================ */
-  callModeBtn?.addEventListener("mouseup", () => {
-    if (!recognition) return;
-    recognition.stop();
-    setRecordingUI(false);
-  });
-
-  /* ============================================================
-     SPEECH RESULT HANDLER
-     ============================================================ */
   recognition.onresult = (event) => {
-    let finalTranscript = "";
+    let final = "";
 
     for (let i = 0; i < event.results.length; i++) {
       const res = event.results[i];
-      if (res.isFinal) {
-        finalTranscript += res[0].transcript;
-      }
+      if (res.isFinal) final += res[0].transcript;
     }
 
-    if (finalTranscript && userInput) {
-      userInput.value = finalTranscript.trim();
+    if (final && userInput) {
+      userInput.value = final.trim();
     }
   };
 
-  /* ============================================================
-     RECOGNITION END
-     ============================================================ */
-  recognition.onend = () => {
-    setRecordingUI(false);
+  recognition.onend = async () => {
+    if (!isListening) return;
+
+    isListening = false;
+    window.ARIA_setUserSpeaking?.(false);
+
+    // Auto-send (Option C)
+    if (userInput?.value.trim()) {
+      sendBtn?.click();
+    }
   };
 });

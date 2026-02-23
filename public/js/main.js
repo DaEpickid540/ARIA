@@ -205,7 +205,10 @@ window.addEventListener("DOMContentLoaded", () => {
           await import("./personality.js");
           await import("./pages.js");
 
-          // Voice controls (call mode, waveform, spectrogram)
+          // NEW: Call engine
+          const { initCallEngine } = await import("./callEngine.js");
+          initCallEngine();
+
           const { initVoiceControls } = await import("./voiceControls.js");
           initVoiceControls();
 
