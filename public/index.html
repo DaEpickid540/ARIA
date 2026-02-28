@@ -117,7 +117,9 @@
           <button id="goHomeBtn" class="secondaryBtn glitch">🏠 Home</button>
           <button id="goLockBtn" class="secondaryBtn glitch">🔒 Lock</button>
           <button id="newChatBtn" class="primaryBtn glitch">+ New Chat</button>
-          <button id="settingsBtn" class="secondaryBtn">⚙ Settings</button>
+          <button id="settingsBtn" class="secondaryBtn glitch">
+            ⚙ Settings
+          </button>
         </div>
       </aside>
 
@@ -130,13 +132,11 @@
           <input id="userInput" placeholder="Type a message..." />
           <button id="sendBtn" class="primaryBtn glitch">Send</button>
 
-          <!-- NEW VOICE CONTROLS -->
-          <button id="callModeBtn" class="secondaryBtn glitch">📞 Call</button>
-          <button id="pushToTalkBtn" class="secondaryBtn glitch">
-            🎙 Push-to-Talk
-          </button>
-          <button id="vttBtn" class="secondaryBtn glitch">🗣 VTT</button>
-          <button id="ttsBtn" class="secondaryBtn glitch">🔊 TTS</button>
+          <!-- Voice controls: IDs aligned with JS -->
+          <button id="callModeBtn" class="voiceBtn glitch">📞 Call</button>
+          <button id="pushToTalkBtn" class="voiceBtn glitch">🎙 PTT</button>
+          <button id="vttBtn" class="voiceBtn glitch">🗣 VTT</button>
+          <button id="ttsBtn" class="voiceBtn glitch">🔊 TTS</button>
 
           <div id="voiceWave"></div>
         </div>
@@ -235,6 +235,11 @@
     <!-- ========================= -->
     <!--  RED PRE-BOOT SCRIPTS     -->
     <!-- ========================= -->
+    <div id="preBootScreen">
+      <div id="preBootTerminal">
+        <pre id="preBootLog"></pre>
+      </div>
+    </div>
 
     <!-- ========================= -->
     <!--  RED CYBERPUNK BOOT       -->
@@ -255,17 +260,42 @@
     <!--  CALL MODE OVERLAY        -->
     <!-- ========================= -->
     <div id="callModeOverlay">
-      <div id="callWaveform">
-        <div class="waveBar"></div>
-        <div class="waveBar"></div>
-        <div class="waveBar"></div>
-        <div class="waveBar"></div>
-      </div>
-      <div id="callSpectrogram">
-        <div class="specBar"></div>
-        <div class="specBar"></div>
-        <div class="specBar"></div>
-        <div class="specBar"></div>
+      <div id="callModeInner">
+        <div id="callModeStatus">CALL MODE ACTIVE</div>
+        <div id="callModeHint">Press ESC or click to exit</div>
+
+        <!-- Waveform -->
+        <div id="callWaveform">
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+          <div class="waveBar"></div>
+        </div>
+
+        <!-- Spectrogram -->
+        <div id="callSpectrogram">
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+          <div class="specBar"></div>
+        </div>
       </div>
     </div>
 

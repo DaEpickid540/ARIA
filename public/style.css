@@ -117,8 +117,8 @@ body {
 
 /* BUTTONS */
 .primaryBtn {
-  background: var(--red-deep);
   color: #000;
+  border-color: var(--red-deep);
   border: none;
   border-radius: 4px;
   padding: 10px 14px;
@@ -233,6 +233,18 @@ body {
 /* GAP BETWEEN INPUT + SEND */
 #sendBtn {
   margin-left: 18px;
+}
+
+button,
+.primaryBtn,
+.secondaryBtn,
+.voiceBtn,
+.toggleBtn {
+  border-radius: 4px !important;
+  margin: 5px !important;
+  border-color: var(--red-deep) !important;
+  background-color: #000 !important;
+  color: var(--red-deep) !important;
 }
 
 /* VOICE BUTTONS */
@@ -835,58 +847,96 @@ body {
   );
 }
 
-/* ARIA SPEAKING: WHITE/BLACK */
+/* ============================================================
+   CALL MODE OVERLAY (SIMPLIFIED)
+   ============================================================ */
+#callModeOverlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 99990;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+#callModeOverlay.active {
+  display: flex;
+  opacity: 1;
+}
+
+#callModeOverlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, #220000 0, #000 55%);
+  transition: background 0.2s ease;
+}
+
+/* USER SPEAKING */
+#callModeOverlay.user-speaking::before {
+  background: radial-gradient(
+    circle at center,
+    rgba(209, 0, 0, 0.9) 0,
+    #000 55%
+  );
+}
+
+/* ARIA SPEAKING */
 #callModeOverlay.aria-speaking::before {
   background: radial-gradient(
     circle at center,
     rgba(255, 255, 255, 0.9) 0,
-    #000 55%,
-    #000 100%
+    #000 55%
   );
 }
 
 /* ============================================================
-   RED PRE-BOOT SCRIPTS
+   SPECTROGRAM (SIMPLIFIED)
    ============================================================ */
-#preBootScreen {
-  position: fixed;
-  inset: 0;
-  background: #050000;
+#callSpectrogram {
   display: flex;
-  align-items: center;
+  gap: 3px;
+  margin-top: 14px;
   justify-content: center;
-  z-index: 100000;
-  color: #ff4b4b;
-  font-family: Consolas, monospace;
-  opacity: 1;
-  transition: opacity 0.6s ease;
 }
 
-#preBootTerminal {
-  width: 80%;
-  max-width: 900px;
-  height: 240px;
-  background: #120000;
-  border: 1px solid #ff1a1a;
-  box-shadow: 0 0 22px rgba(255, 26, 26, 0.6);
-  padding: 12px;
-  overflow: hidden;
-  font-size: 12px;
+.specBar {
+  width: 4px;
+  height: 10px;
+  background: #ff4b4b;
+  opacity: 0.5;
+  animation: specIdle 1.8s infinite ease-in-out;
 }
 
-#preBootLog {
-  margin: 0;
-  white-space: pre-wrap;
-}
-
-#preBootScreen.fade-out {
-  opacity: 0;
-  pointer-events: none;
+@keyframes specIdle {
+  0%,
+  100% {
+    height: 8px;
+    opacity: 0.4;
+  }
+  50% {
+    height: 18px;
+    opacity: 1;
+  }
 }
 
 /* ============================================================
-   RED CYBERPUNK BOOT
+   ACTIVE BUTTON STATES (TTS / VTT)
    ============================================================ */
+#ttsBtn.active,
+#vttBtn.active {
+  background: #ff2b2b !important;
+  color: white !important;
+  border-color: #ff2b2b !important;
+}
+
+/* ============================================================
+   BOOT SCREENS (SIMPLIFIED)
+   ============================================================ */
+#preBootScreen,
 #bootScreen {
   position: fixed;
   inset: 0;
@@ -902,25 +952,33 @@ body {
   transition: opacity 0.6s ease;
 }
 
+#preBootScreen.fade-out,
+#bootScreen.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#preBootTerminal,
 #bootTerminal {
   width: 80%;
-  max-width: 1000px;
-  height: 320px;
-  background: #080000;
+  max-width: 900px;
+  height: 260px;
+  background: #120000;
   border: 1px solid #ff1a1a;
-  box-shadow: 0 0 22px rgba(255, 26, 26, 0.4);
+  box-shadow: 0 0 22px rgba(255, 26, 26, 0.6);
   padding: 12px;
   overflow: hidden;
   font-size: 12px;
 }
 
+#preBootLog,
 #bootLog {
   margin: 0;
   white-space: pre-wrap;
 }
 
 /* ============================================================
-   ARIA INITIALIZED MODAL
+   BOOT MODAL
    ============================================================ */
 #bootModal {
   margin-top: 28px;
@@ -938,9 +996,9 @@ body {
   box-shadow: 0 0 18px rgba(255, 26, 26, 0.4);
 }
 
-#bootModal h2 {
-  margin: 0 0 6px 0;
-  font-size: 24px;
+#bootModal.show {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .bootPressKey {
@@ -951,37 +1009,27 @@ body {
 }
 
 @keyframes pressKeyPulse {
-  0% {
+  0%,
+  100% {
     opacity: 0.4;
   }
   50% {
     opacity: 1;
   }
-  100% {
-    opacity: 0.4;
-  }
-}
-
-#bootModal.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-#bootScreen.fade-out {
-  opacity: 0;
-  pointer-events: none;
 }
 
 /* ============================================================
-   CHROMATIC FLASH
+   FX (CHROMATIC, GLITCH, SWEEPS) — MERGED + CLEANED
    ============================================================ */
-#chromaticFlash {
+#chromaticFlash,
+#glitchBurst,
+#scanlineSweep,
+#sideSweep {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  mix-blend-mode: screen;
   opacity: 0;
-  z-index: 99998;
+  z-index: 99995;
 }
 
 .chromatic-active {
@@ -1010,17 +1058,6 @@ body {
   }
 }
 
-/* ============================================================
-   GLITCH BURST
-   ============================================================ */
-#glitchBurst {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  z-index: 99997;
-}
-
 .glitch-active {
   animation: glitchBurst 0.25s steps(2) forwards;
 }
@@ -1039,17 +1076,6 @@ body {
   100% {
     opacity: 0;
   }
-}
-
-/* ============================================================
-   SCANLINE SWEEP
-   ============================================================ */
-#scanlineSweep {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  z-index: 99996;
 }
 
 .scanline-active {
@@ -1072,17 +1098,6 @@ body {
   }
 }
 
-/* ============================================================
-   SIDE SWEEP
-   ============================================================ */
-#sideSweep {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  z-index: 99995;
-}
-
 .side-active {
   animation: sideSweep 0.4s ease-out forwards;
 }
@@ -1101,108 +1116,4 @@ body {
     opacity: 0;
     transform: translateX(100%);
   }
-}
-
-/* ============================================================
-   CALL MODE OVERLAY
-   ============================================================ */
-#callModeOverlay {
-  position: fixed;
-  inset: 0;
-  background: #000;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 99990;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-#callModeOverlay.active {
-  display: flex;
-  opacity: 1;
-}
-
-#callModeOverlay::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at center, #220000 0, #000 55%, #000 100%);
-  transition: background 0.2s ease;
-}
-
-/* USER SPEAKING */
-#callModeOverlay.user-speaking::before {
-  background: radial-gradient(
-    circle at center,
-    rgba(209, 0, 0, 0.9) 0,
-    #000 55%,
-    #000 100%
-  );
-}
-
-/* ARIA SPEAKING */
-#callModeOverlay.aria-speaking::before {
-  background: radial-gradient(
-    circle at center,
-    rgba(255, 255, 255, 0.9) 0,
-    #000 55%,
-    #000 100%
-  );
-}
-
-#callModeInner {
-  text-align: center;
-  color: #ff4b4b;
-  z-index: 1;
-}
-
-#callModeStatus {
-  font-size: 1.4rem;
-  margin-bottom: 8px;
-}
-
-#callModeHint {
-  font-size: 0.9rem;
-  opacity: 0.7;
-}
-
-/* ============================================================
-   SPECTROGRAM
-   ============================================================ */
-#callSpectrogram {
-  display: flex;
-  gap: 3px;
-  margin-top: 14px;
-  justify-content: center;
-}
-
-.specBar {
-  width: 4px;
-  height: 10px;
-  background: #ff4b4b;
-  opacity: 0.5;
-  animation: specIdle 1.8s infinite ease-in-out;
-}
-
-@keyframes specIdle {
-  0% {
-    height: 8px;
-    opacity: 0.4;
-  }
-  50% {
-    height: 18px;
-    opacity: 1;
-  }
-  100% {
-    height: 8px;
-    opacity: 0.4;
-  }
-}
-
-#ttsBtn.active,
-#vttBtn.active {
-  background: #ff2b2b !important;
-  color: white !important;
-  border-color: #ff2b2b !important;
 }
