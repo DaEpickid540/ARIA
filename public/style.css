@@ -235,18 +235,6 @@ body {
   margin-left: 18px;
 }
 
-button,
-.primaryBtn,
-.secondaryBtn,
-.voiceBtn,
-.toggleBtn {
-  border-radius: 4px !important;
-  margin: 5px !important;
-  border-color: var(--red-deep) !important;
-  background-color: #000 !important;
-  color: var(--red-deep) !important;
-}
-
 /* VOICE BUTTONS */
 .voiceBtn {
   margin-left: 8px;
