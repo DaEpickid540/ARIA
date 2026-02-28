@@ -1,4 +1,4 @@
-// tts.js — Pure ARIA TTS Engine
+// tts.js — Pure ARIA TTS Engine (patched)
 
 export let ttsEnabled = false;
 
@@ -8,7 +8,13 @@ export function setTTSEnabled(enabled) {
   const ttsBtn = document.getElementById("ttsBtn");
   if (ttsBtn) ttsBtn.classList.toggle("active", enabled);
 
-  if (!enabled) window.speechSynthesis.cancel();
+  // Sync settings UI if it exists
+  const settingsTTS = document.getElementById("settingsTTS");
+  if (settingsTTS) settingsTTS.checked = enabled;
+
+  if (!enabled && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
 }
 
 export function speak(text) {

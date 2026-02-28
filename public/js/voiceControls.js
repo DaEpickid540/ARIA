@@ -1,4 +1,4 @@
-// voiceControls.js — Button Wiring + Waveform
+// voiceControls.js — Button Wiring + Waveform (patched)
 
 import { setTTSEnabled } from "./tts.js";
 import {
@@ -40,7 +40,6 @@ export function initVoiceControls() {
     setTTSEnabled(true);
   });
 
-  // Waveform analyzer
   initAudioAnalyzer();
 }
 
@@ -50,34 +49,37 @@ function initAudioAnalyzer() {
     "#callSpectrogram .specBar",
   );
 
-  let ctx = null;
-  let analyser = null;
-  let data = null;
+  if (!waveformBars.length && !spectrogramBars.length) return;
 
-  navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-    ctx = new (window.AudioContext || window.webkitAudioContext)();
-    analyser = ctx.createAnalyser();
-    analyser.fftSize = 64;
-    data = new Uint8Array(analyser.frequencyBinCount);
+  navigator.mediaDevices
+    .getUserMedia({ audio: true })
+    .then((stream) => {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 64;
+      const data = new Uint8Array(analyser.frequencyBinCount);
 
-    const src = ctx.createMediaStreamSource(stream);
-    src.connect(analyser);
+      const src = ctx.createMediaStreamSource(stream);
+      src.connect(analyser);
 
-    function loop() {
-      requestAnimationFrame(loop);
-      analyser.getByteFrequencyData(data);
+      function loop() {
+        requestAnimationFrame(loop);
+        analyser.getByteFrequencyData(data);
 
-      waveformBars.forEach((bar, i) => {
-        const v = data[i] || 0;
-        bar.style.height = `${Math.max(10, v / 4)}px`;
-      });
+        waveformBars.forEach((bar, i) => {
+          const v = data[i] || 0;
+          bar.style.height = `${Math.max(10, v / 4)}px`;
+        });
 
-      spectrogramBars.forEach((bar, i) => {
-        const v = data[i] || 0;
-        bar.style.height = `${Math.max(6, v / 5)}px`;
-      });
-    }
+        spectrogramBars.forEach((bar, i) => {
+          const v = data[i] || 0;
+          bar.style.height = `${Math.max(6, v / 5)}px`;
+        });
+      }
 
-    loop();
-  });
+      loop();
+    })
+    .catch(() => {
+      console.warn("Mic access denied for analyzer");
+    });
 }

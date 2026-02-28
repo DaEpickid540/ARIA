@@ -1,10 +1,9 @@
-// callEngine.js — ARIA Call Mode Engine
+// callEngine.js — ARIA Call Mode Engine (patched)
 
 export function initCallEngine() {
   const overlay = document.getElementById("callModeOverlay");
-
   if (!overlay) {
-    console.warn("Call overlay missing");
+    console.warn("callModeOverlay not found");
     return;
   }
 
