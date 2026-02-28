@@ -1,4 +1,4 @@
-// tts.js — Pure ARIA TTS Engine (patched)
+// tts.js — final baseline
 
 export let ttsEnabled = false;
 
@@ -8,7 +8,6 @@ export function setTTSEnabled(enabled) {
   const ttsBtn = document.getElementById("ttsBtn");
   if (ttsBtn) ttsBtn.classList.toggle("active", enabled);
 
-  // Sync settings UI if it exists
   const settingsTTS = document.getElementById("settingsTTS");
   if (settingsTTS) settingsTTS.checked = enabled;
 
@@ -40,7 +39,6 @@ export function speak(text) {
 
   utter.onstart = () => {
     window.ARIA_setAriaSpeaking?.(true);
-    window.ARIA_triggerChromaticFlash?.();
   };
 
   utter.onend = () => {

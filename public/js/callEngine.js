@@ -1,22 +1,18 @@
-// callEngine.js — ARIA Call Mode Engine (patched)
+// callEngine.js — final baseline
 
 export function initCallEngine() {
   const overlay = document.getElementById("callModeOverlay");
   if (!overlay) {
-    console.warn("callModeOverlay not found");
+    console.warn("callModeOverlay missing");
     return;
   }
 
   function open() {
     overlay.classList.add("active");
-    overlay.classList.remove("user-speaking", "aria-speaking");
-
-    window.ARIA_triggerChromaticFlash?.();
-    window.ARIA_triggerGlitch?.();
   }
 
   function close() {
-    overlay.classList.remove("active", "user-speaking", "aria-speaking");
+    overlay.classList.remove("active");
   }
 
   overlay.addEventListener("click", close);

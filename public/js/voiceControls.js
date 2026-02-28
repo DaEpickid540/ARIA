@@ -1,7 +1,7 @@
-// voiceControls.js — Button Wiring + Waveform (patched)
+// voiceControls.js — final baseline
 
-import { setTTSEnabled } from "./tts.js";
 import {
+  initVTT,
   setVTTEnabled,
   startContinuousVTT,
   stopContinuousVTT,
@@ -9,7 +9,11 @@ import {
   stopPushToTalk,
 } from "./vtt.js";
 
+import { setTTSEnabled } from "./tts.js";
+
 export function initVoiceControls() {
+  initVTT();
+
   const callBtn = document.getElementById("callModeBtn");
   const pttBtn = document.getElementById("pushToTalkBtn");
   const vttBtn = document.getElementById("vttBtn");
@@ -29,57 +33,14 @@ export function initVoiceControls() {
     else stopContinuousVTT();
   });
 
-  // Push-to-Talk (Option C)
+  // Push-to-talk
   pttBtn?.addEventListener("mousedown", startPushToTalk);
   pttBtn?.addEventListener("mouseup", stopPushToTalk);
   pttBtn?.addEventListener("mouseleave", stopPushToTalk);
 
-  // Call Mode
+  // Call mode
   callBtn?.addEventListener("click", () => {
     window.ARIA_openCallOverlay?.();
     setTTSEnabled(true);
   });
-
-  initAudioAnalyzer();
-}
-
-function initAudioAnalyzer() {
-  const waveformBars = document.querySelectorAll("#callWaveform .waveBar");
-  const spectrogramBars = document.querySelectorAll(
-    "#callSpectrogram .specBar",
-  );
-
-  if (!waveformBars.length && !spectrogramBars.length) return;
-
-  navigator.mediaDevices
-    .getUserMedia({ audio: true })
-    .then((stream) => {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 64;
-      const data = new Uint8Array(analyser.frequencyBinCount);
-
-      const src = ctx.createMediaStreamSource(stream);
-      src.connect(analyser);
-
-      function loop() {
-        requestAnimationFrame(loop);
-        analyser.getByteFrequencyData(data);
-
-        waveformBars.forEach((bar, i) => {
-          const v = data[i] || 0;
-          bar.style.height = `${Math.max(10, v / 4)}px`;
-        });
-
-        spectrogramBars.forEach((bar, i) => {
-          const v = data[i] || 0;
-          bar.style.height = `${Math.max(6, v / 5)}px`;
-        });
-      }
-
-      loop();
-    })
-    .catch(() => {
-      console.warn("Mic access denied for analyzer");
-    });
 }

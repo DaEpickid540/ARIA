@@ -1202,7 +1202,7 @@ body {
 
 #ttsBtn.active,
 #vttBtn.active {
-  background-color: #ff1a1a !important;
+  background: #ff2b2b !important;
   color: white !important;
-  border-color: #ff1a1a !important;
+  border-color: #ff2b2b !important;
 }
