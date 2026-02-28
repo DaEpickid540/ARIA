@@ -61,4 +61,19 @@ window.speechSynthesis.onvoiceschanged = () => {
     opt.textContent = `${v.name} (${v.lang})`;
     select.appendChild(opt);
   });
+
+  // AUTO‑SELECT FEMALE VOICE IF NO SAVED SETTING
+  if (!select.value) {
+    const femaleVoice = voices.find(
+      (v) =>
+        v.lang.startsWith("en") &&
+        /female|woman|zira|susan|emma|samantha|google uk english female/i.test(
+          v.name,
+        ),
+    );
+
+    if (femaleVoice) {
+      select.value = femaleVoice.name;
+    }
+  }
 };

@@ -53,12 +53,16 @@ const DEFAULT_PRESET = "hacker";
 ----------------------------- */
 export function loadSettings() {
   const raw = localStorage.getItem(SETTINGS_KEY);
+
   if (!raw) {
     return {
       personality: DEFAULT_PRESET,
       provider: "openrouter",
       ttsEnabled: true,
       vttEnabled: true,
+      voice: "", // NEW
+      rate: 1, // NEW
+      pitch: 1, // NEW
     };
   }
 
@@ -69,6 +73,11 @@ export function loadSettings() {
       provider: parsed.provider || "openrouter",
       ttsEnabled: parsed.ttsEnabled !== false,
       vttEnabled: parsed.vttEnabled !== false,
+
+      // NEW FIELDS (with safe fallbacks)
+      voice: parsed.voice || "",
+      rate: parsed.rate ?? 1,
+      pitch: parsed.pitch ?? 1,
     };
   } catch {
     return {
@@ -76,6 +85,9 @@ export function loadSettings() {
       provider: "openrouter",
       ttsEnabled: true,
       vttEnabled: true,
+      voice: "", // NEW
+      rate: 1, // NEW
+      pitch: 1, // NEW
     };
   }
 }
@@ -85,6 +97,7 @@ export function loadSettings() {
 ----------------------------- */
 export function saveSettings(settings) {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  settings.voice = document.getElementById("voiceSelect").value;
 }
 
 /* -----------------------------
