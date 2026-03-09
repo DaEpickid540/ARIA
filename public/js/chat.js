@@ -67,6 +67,84 @@ function getCurrentChat() {
 }
 
 /* -----------------------------
+   MARKDOWN RENDERER
+   Converts AI markdown to styled HTML.
+   Handles: headings, bold, italic, inline code,
+   code blocks, bullet lists, numbered lists, hr, line breaks.
+----------------------------- */
+function renderMarkdown(text) {
+  if (!text) return "";
+
+  let html = text
+    // Escape raw HTML first to prevent injection
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // Fenced code blocks (``` lang\n...\n```)
+  html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+    const langLabel = lang
+      ? `<span class="codeLabel">${lang.toUpperCase()}</span>`
+      : "";
+    return `<div class="codeBlock">${langLabel}<pre><code>${code.trim()}</code></pre></div>`;
+  });
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code class="inlineCode">$1</code>');
+
+  // H1 — ## Heading (we treat # and ## as big headings in chat context)
+  html = html.replace(/^### (.+)$/gm, '<h3 class="mdH3">$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2 class="mdH2">$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1 class="mdH1">$1</h1>');
+
+  // Horizontal rule
+  html = html.replace(/^---$/gm, '<hr class="mdHr" />');
+
+  // Bold + italic (***text***)
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
+
+  // Bold (**text**)
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="mdBold">$1</strong>');
+
+  // Italic (*text*)
+  html = html.replace(/\*(.+?)\*/g, '<em class="mdItalic">$1</em>');
+
+  // Bullet lists — wrap consecutive lines starting with - or *
+  html = html.replace(/((?:^[*\-] .+\n?)+)/gm, (block) => {
+    const items = block
+      .trim()
+      .split("\n")
+      .map((line) => `<li>${line.replace(/^[*\-] /, "")}</li>`)
+      .join("");
+    return `<ul class="mdList">${items}</ul>`;
+  });
+
+  // Numbered lists
+  html = html.replace(/((?:^\d+\. .+\n?)+)/gm, (block) => {
+    const items = block
+      .trim()
+      .split("\n")
+      .map((line) => `<li>${line.replace(/^\d+\. /, "")}</li>`)
+      .join("");
+    return `<ol class="mdList">${items}</ol>`;
+  });
+
+  // Paragraphs — wrap double-newline separated blocks that aren't already tags
+  html = html
+    .split(/\n{2,}/)
+    .map((block) => {
+      const trimmed = block.trim();
+      if (!trimmed) return "";
+      // Don't wrap if it's already an HTML block element
+      if (/^<(h[1-3]|ul|ol|div|pre|hr)/.test(trimmed)) return trimmed;
+      return `<p class="mdPara">${trimmed.replace(/\n/g, "<br/>")}</p>`;
+    })
+    .join("\n");
+
+  return html;
+}
+
+/* -----------------------------
    RENDER CHAT LIST
 ----------------------------- */
 function renderChatList() {
@@ -99,9 +177,18 @@ function renderMessages() {
     const div = document.createElement("div");
     div.classList.add("msg", msg.role);
 
+    // User messages: plain text (escape HTML). ARIA messages: render markdown.
+    const bodyHTML =
+      msg.role === "aria"
+        ? renderMarkdown(msg.content)
+        : `<p class="mdPara">${msg.content
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")}</p>`;
+
     div.innerHTML = `
-      <div class="msgSender">${msg.role === "user" ? "You" : "ARIA"}</div>
-      <div class="msgText">${msg.content}</div>
+      <div class="msgSender">${msg.role === "user" ? "YOU" : "ARIA"}</div>
+      <div class="msgBody">${bodyHTML}</div>
       <div class="msgTimestamp">
         ${new Date(msg.timestamp).toLocaleTimeString([], {
           hour: "2-digit",
@@ -114,6 +201,20 @@ function renderMessages() {
   });
 
   messages.scrollTop = messages.scrollHeight;
+}
+
+/* -----------------------------
+   BUILD CONTEXT HISTORY
+   Converts stored messages into the
+   OpenAI-style array the server expects.
+   Caps at last 20 messages to stay within token limits.
+----------------------------- */
+function buildHistory(chat) {
+  const recent = chat.messages.slice(-20);
+  return recent.map((msg) => ({
+    role: msg.role === "aria" ? "assistant" : "user",
+    content: msg.content,
+  }));
 }
 
 /* -----------------------------
@@ -163,6 +264,11 @@ async function sendMessage() {
   }
 
   /* -------------------------
+     TYPING INDICATOR
+  ------------------------- */
+  const typingId = showTypingIndicator();
+
+  /* -------------------------
      SEND TO BACKEND AI
   ------------------------- */
   try {
@@ -171,6 +277,8 @@ async function sendMessage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: text,
+        // Full conversation history for context
+        history: buildHistory(chat),
         provider: currentSettings.provider || "openrouter",
         personality: currentSettings.personality || "hacker",
       }),
@@ -178,10 +286,35 @@ async function sendMessage() {
 
     const data = await res.json();
     const reply = data.reply?.trim() || "[No reply]";
+
+    removeTypingIndicator(typingId);
     addAIMessage(reply);
   } catch (err) {
+    removeTypingIndicator(typingId);
     addAIMessage("[Error contacting server]");
   }
+}
+
+/* -----------------------------
+   TYPING INDICATOR
+----------------------------- */
+function showTypingIndicator() {
+  const id = "typing_" + Date.now();
+  const div = document.createElement("div");
+  div.classList.add("msg", "aria", "typingIndicator");
+  div.id = id;
+  div.innerHTML = `
+    <div class="msgSender">ARIA</div>
+    <div class="typingDots"><span></span><span></span><span></span></div>
+  `;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+  return id;
+}
+
+function removeTypingIndicator(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
 }
 
 /* -----------------------------
