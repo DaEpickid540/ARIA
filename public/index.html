@@ -1,7 +1,7 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
-    <title>ARIA Interface</title>
+    <title>ARIA — Adaptive Reasoning Intelligence Architecture</title>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
     <link rel="stylesheet" href="style.css" />
@@ -12,226 +12,6 @@
   </head>
 
   <body>
-    <!-- LOCK SCREEN -->
-    <div id="lockScreen">
-      <div id="lockBox" class="neon">
-        <h2>ACCESS REQUIRED</h2>
-        <input
-          id="passwordInput"
-          type="password"
-          placeholder="Enter password"
-        />
-        <button id="unlockBtn" class="primaryBtn glitch">Unlock</button>
-        <p id="lockError"></p>
-      </div>
-    </div>
-
-    <!-- HOMEPAGE -->
-    <div id="homepageScreen">
-      <div id="homepageContent" class="neon">
-        <h1>ARIA SYSTEM</h1>
-
-        <!-- TOP GRID (3‑COLUMN) -->
-        <div id="homeTopGrid" class="homeGrid">
-          <div id="homeTimeCard" class="homeCard">
-            <div class="homeLabel">TIME</div>
-            <div id="homeTime" class="homeValue"></div>
-          </div>
-
-          <div id="homeWeatherCard" class="homeCard">
-            <div class="homeLabel">WEATHER — DEERFIELD, OH</div>
-            <div id="homeWeatherMain" class="homeValue"></div>
-            <div id="homeWeatherDetails" class="homeSub"></div>
-          </div>
-
-          <div id="homeSystemCard" class="homeCard">
-            <div class="homeLabel">SYSTEM</div>
-            <div id="homeSystem" class="homeValue"></div>
-            <div id="networkIndicator" class="homeSub"></div>
-          </div>
-        </div>
-
-        <!-- SCROLL ROW 1 -->
-        <div class="scrollRow">
-          <div id="homeQuoteCard" class="homeCard scrollCard">
-            <div class="homeLabel">MOTIVATION</div>
-            <div id="homeQuote" class="homeValue"></div>
-          </div>
-
-          <div id="homeTasksCard" class="homeCard scrollCard">
-            <div class="homeLabel">TASKS PREVIEW</div>
-            <div id="homeTasksList" class="homeValue"></div>
-          </div>
-
-          <div id="homeRecentCard" class="homeCard scrollCard">
-            <div class="homeLabel">RECENT CHATS</div>
-            <div id="homeRecentChats" class="homeValue"></div>
-          </div>
-        </div>
-
-        <!-- SCROLL ROW 2 -->
-        <div class="scrollRow">
-          <div id="homeHealthCard" class="homeCard scrollCard">
-            <div class="homeLabel">SYSTEM HEALTH</div>
-            <div id="homeHealthScore" class="homeValue"></div>
-            <div id="homeHealthDetails" class="homeSub"></div>
-          </div>
-
-          <div id="homeSpeedCard" class="homeCard scrollCard">
-            <div class="homeLabel">SPEED TEST</div>
-            <div id="homeSpeedPreview" class="homeValue"></div>
-            <div class="homeSub">Simulated estimate</div>
-          </div>
-
-          <div id="homeQuickToolsCard" class="homeCard scrollCard">
-            <div class="homeLabel">QUICK TOOLS</div>
-            <div id="homeQuickTools" class="homeValue"></div>
-          </div>
-
-          <div id="homeSummaryCard" class="homeCard scrollCard">
-            <div class="homeLabel">DAILY SUMMARY</div>
-            <div id="homeDailySummary" class="homeValue"></div>
-          </div>
-
-          <div id="homeMonitorCard" class="homeCard scrollCard">
-            <div class="homeLabel">SYSTEM MONITOR</div>
-            <div id="homeSystemMonitor" class="homeValue"></div>
-          </div>
-        </div>
-
-        <!-- ENTER BUTTON -->
-        <div id="homeButtons">
-          <button id="enterConsoleBtn" class="primaryBtn glitch wideBtn">
-            Enter ARIA
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- MAIN LAYOUT -->
-    <div id="layout" style="display: none">
-      <aside id="sidebar">
-        <div id="chatList"></div>
-
-        <div id="sidebarBottom">
-          <button id="goHomeBtn" class="secondaryBtn glitch">🏠 Home</button>
-          <button id="goLockBtn" class="secondaryBtn glitch">🔒 Lock</button>
-          <button id="newChatBtn" class="primaryBtn glitch">+ New Chat</button>
-          <button id="settingsBtn" class="secondaryBtn glitch">
-            ⚙ Settings
-          </button>
-        </div>
-      </aside>
-
-      <div id="bgDrift"></div>
-
-      <main id="chatWindow">
-        <div id="messages"></div>
-
-        <div id="inputBar">
-          <input id="userInput" placeholder="Type a message..." />
-          <button id="sendBtn" class="primaryBtn glitch">Send</button>
-
-          <!-- Voice controls: IDs aligned with JS -->
-          <button id="callModeBtn" class="voiceBtn glitch">📞 Call</button>
-          <button id="pushToTalkBtn" class="voiceBtn glitch">🎙 PTT</button>
-          <button id="vttBtn" class="voiceBtn glitch">🗣 VTT</button>
-          <button id="ttsBtn" class="voiceBtn glitch">🔊 TTS</button>
-
-          <div id="voiceWave"></div>
-        </div>
-      </main>
-    </div>
-
-    <!-- SETTINGS OVERLAY -->
-    <div id="settingsOverlay">
-      <div id="settingsPanel">
-        <div id="settingsHeader">
-          <h2>ARIA Settings</h2>
-          <button id="settingsCloseBtn">✕</button>
-        </div>
-
-        <div id="settingsContent">
-          <!-- PERSONALITY -->
-          <section class="settingsSection">
-            <h3>Personality Presets</h3>
-            <div id="personalityList">
-              <button class="personalityBtn" data-preset="hacker">
-                Hacker
-              </button>
-              <button class="personalityBtn" data-preset="companion">
-                Companion
-              </button>
-              <button class="personalityBtn" data-preset="analyst">
-                Analyst
-              </button>
-              <button class="personalityBtn" data-preset="chaotic">
-                Chaotic
-              </button>
-              <button class="personalityBtn" data-preset="hostile">
-                Hostile
-              </button>
-            </div>
-          </section>
-
-          <!-- VOICE -->
-          <section class="settingsSection">
-            <h3>Voice Settings</h3>
-
-            <label>Voice</label>
-            <select id="voiceSelect"></select>
-
-            <label>Rate</label>
-            <input
-              type="range"
-              id="voiceRate"
-              min="0.5"
-              max="2"
-              step="0.1"
-              value="1"
-            />
-
-            <label>Pitch</label>
-            <input
-              type="range"
-              id="voicePitch"
-              min="0"
-              max="2"
-              step="0.1"
-              value="1"
-            />
-
-            <div class="toggleRow">
-              <span>TTS Enabled</span>
-              <button id="ttsToggle" class="toggleBtn active">ON</button>
-            </div>
-          </section>
-
-          <!-- SPEECH RECOGNITION -->
-          <section class="settingsSection">
-            <h3>Speech Recognition</h3>
-            <div class="toggleRow">
-              <span>VTT Enabled</span>
-              <button id="vttMasterToggle" class="toggleBtn active">ON</button>
-            </div>
-          </section>
-
-          <!-- API PROVIDER -->
-          <section class="settingsSection">
-            <h3>API Provider</h3>
-            <select id="providerSelect">
-              <option value="openrouter">OpenRouter</option>
-              <option value="groq">Groq</option>
-            </select>
-          </section>
-        </div>
-
-        <div id="settingsFooter">
-          <button id="settingsSaveBtn" class="primaryBtn">Save</button>
-        </div>
-      </div>
-    </div>
-
     <!-- ========================= -->
     <!--  RED PRE-BOOT SCRIPTS     -->
     <!-- ========================= -->
@@ -248,34 +28,609 @@
       <div id="bootTerminal">
         <pre id="bootLog"></pre>
       </div>
-
       <div id="bootModal">
-        <h2>ARIA INITIALIZED</h2>
-        <p>System Ready</p>
+        <div class="bootAriaLogo">
+          <span class="bootLogoA">A</span><span class="bootLogoR">R</span
+          ><span class="bootLogoI">I</span><span class="bootLogoA2">A</span>
+        </div>
+        <div class="bootAcronym">
+          <span><b>A</b>daptive</span>
+          <span><b>R</b>easoning</span>
+          <span><b>I</b>ntelligence</span>
+          <span><b>A</b>rchitecture</span>
+        </div>
         <p class="bootPressKey">Press any key to continue</p>
       </div>
     </div>
 
     <!-- ========================= -->
+    <!--  LOCK SCREEN              -->
+    <!-- ========================= -->
+    <div id="lockScreen">
+      <div class="lockBg"></div>
+      <div id="lockBox" class="neon">
+        <div class="lockAriaHeader">
+          <div class="lockLogo">ARIA</div>
+          <div class="lockAcronymSmall">
+            Adaptive Reasoning Intelligence Architecture
+          </div>
+          <div class="lockVersion">v2.0 // SECURE NODE</div>
+        </div>
+        <div class="lockDivider"></div>
+        <p class="lockInstruct">AUTHENTICATION REQUIRED</p>
+        <input
+          id="passwordInput"
+          type="password"
+          placeholder="Enter access code"
+          autocomplete="off"
+        />
+        <button id="unlockBtn" class="primaryBtn glitch">
+          ⚡ AUTHENTICATE
+        </button>
+        <p id="lockError"></p>
+        <div class="lockFooter">
+          SYSTEM LOCKED // UNAUTHORIZED ACCESS PROHIBITED
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================= -->
+    <!--  HOMEPAGE                 -->
+    <!-- ========================= -->
+    <div id="homepageScreen">
+      <div id="homepageContent" class="neon">
+        <div id="homeHeader">
+          <div id="homeAriaTitle">
+            <span class="homeTitleMain">ARIA</span>
+            <span class="homeTitleAcronym"
+              >Adaptive Reasoning Intelligence Architecture</span
+            >
+          </div>
+          <div id="ariaEmotionIndicator" class="emotionIndicator">
+            ◉ NEUTRAL
+          </div>
+        </div>
+
+        <!-- TOP GRID (3-COLUMN) -->
+        <div id="homeTopGrid" class="homeGrid">
+          <div id="homeTimeCard" class="homeCard" style="--i: 0">
+            <div class="homeLabel">⏱ SYSTEM TIME</div>
+            <div id="homeTime" class="homeValue"></div>
+          </div>
+          <div id="homeWeatherCard" class="homeCard" style="--i: 1">
+            <div class="homeLabel">🌡 WEATHER — MASON, OH</div>
+            <div id="homeWeatherMain" class="homeValue"></div>
+            <div id="homeWeatherDetails" class="homeSub"></div>
+          </div>
+          <div id="homeSystemCard" class="homeCard" style="--i: 2">
+            <div class="homeLabel">💻 SYSTEM</div>
+            <div id="homeSystem" class="homeValue"></div>
+            <div id="networkIndicator" class="homeSub"></div>
+          </div>
+        </div>
+
+        <!-- SCROLL ROW 1 -->
+        <div class="scrollRow">
+          <div id="homeQuoteCard" class="homeCard scrollCard">
+            <div class="homeLabel">💬 MOTIVATION</div>
+            <div id="homeQuote" class="homeValue"></div>
+          </div>
+          <div id="homeTasksCard" class="homeCard scrollCard">
+            <div class="homeLabel">✅ TASKS PREVIEW</div>
+            <div id="homeTasksList" class="homeValue"></div>
+          </div>
+          <div id="homeRecentCard" class="homeCard scrollCard">
+            <div class="homeLabel">🗂 RECENT CHATS</div>
+            <div id="homeRecentChats" class="homeValue"></div>
+          </div>
+        </div>
+
+        <!-- SCROLL ROW 2 -->
+        <div class="scrollRow">
+          <div id="homeHealthCard" class="homeCard scrollCard">
+            <div class="homeLabel">🔧 SYSTEM HEALTH</div>
+            <div id="homeHealthScore" class="homeValue"></div>
+            <div id="homeHealthDetails" class="homeSub"></div>
+          </div>
+          <div id="homeSpeedCard" class="homeCard scrollCard">
+            <div class="homeLabel">⚡ SPEED TEST</div>
+            <div id="homeSpeedPreview" class="homeValue"></div>
+            <div class="homeSub">Simulated estimate</div>
+          </div>
+          <div id="homeQuickToolsCard" class="homeCard scrollCard">
+            <div class="homeLabel">🛠 QUICK TOOLS</div>
+            <div id="homeQuickTools" class="homeValue"></div>
+          </div>
+          <div id="homeSummaryCard" class="homeCard scrollCard">
+            <div class="homeLabel">📋 DAILY SUMMARY</div>
+            <div id="homeDailySummary" class="homeValue"></div>
+          </div>
+          <div id="homeMonitorCard" class="homeCard scrollCard">
+            <div class="homeLabel">📡 SYSTEM MONITOR</div>
+            <div id="homeSystemMonitor" class="homeValue"></div>
+          </div>
+        </div>
+
+        <div id="homeButtons">
+          <button id="enterConsoleBtn" class="primaryBtn glitch wideBtn">
+            ⚡ ENTER ARIA CONSOLE
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================= -->
+    <!--  MAIN LAYOUT              -->
+    <!-- ========================= -->
+    <div id="layout" style="display: none">
+      <aside id="sidebar">
+        <!-- ARIA logo in sidebar -->
+        <div id="sidebarHeader">
+          <div class="sidebarLogo">ARIA</div>
+          <div class="sidebarAcronym">
+            Adaptive Reasoning<br />Intelligence Architecture
+          </div>
+          <div id="ariaEmotionIndicator" class="emotionIndicator small"></div>
+        </div>
+
+        <div class="sidebarDivider"></div>
+
+        <div id="chatList"></div>
+
+        <div id="sidebarBottom">
+          <button id="goHomeBtn" class="secondaryBtn glitch">🏠 Home</button>
+          <button id="goLockBtn" class="secondaryBtn glitch">🔒 Lock</button>
+          <button id="newChatBtn" class="primaryBtn glitch">＋ New Chat</button>
+          <button id="settingsBtn" class="secondaryBtn glitch">
+            ⚙ Settings
+          </button>
+        </div>
+      </aside>
+
+      <div id="bgDrift"></div>
+
+      <main id="chatWindow">
+        <!-- Chat header bar -->
+        <div id="chatHeader">
+          <div id="chatHeaderTitle">
+            <span class="chatHeaderARIA">ARIA</span>
+            <span class="chatHeaderSub"
+              >Adaptive Reasoning Intelligence Architecture</span
+            >
+          </div>
+          <div id="chatHeaderRight">
+            <div id="ariaStatusDot" class="statusDot"></div>
+            <span id="ariaStatusLabel">ONLINE</span>
+          </div>
+        </div>
+
+        <div id="messages"></div>
+
+        <div id="inputBar">
+          <input id="userInput" placeholder="Send a message to ARIA..." />
+          <button id="sendBtn" class="primaryBtn glitch">Send</button>
+          <button id="callModeBtn" class="voiceBtn glitch">📞 Call</button>
+          <button id="pushToTalkBtn" class="voiceBtn glitch">🎙 PTT</button>
+          <button id="vttBtn" class="voiceBtn glitch">🗣 VTT</button>
+          <button id="ttsBtn" class="voiceBtn glitch">🔊 TTS</button>
+          <div id="voiceWave"></div>
+        </div>
+      </main>
+    </div>
+
+    <!-- ========================= -->
+    <!--  SETTINGS OVERLAY         -->
+    <!-- ========================= -->
+    <div id="settingsOverlay">
+      <div id="settingsPanel">
+        <div id="settingsHeader">
+          <div>
+            <h2>ARIA CONFIG</h2>
+            <div class="settingsSubtitle">System Configuration Terminal</div>
+          </div>
+          <button id="settingsCloseBtn">✕</button>
+        </div>
+
+        <!-- TAB NAV -->
+        <div id="settingsTabs">
+          <button class="settingsTab active" data-tab="appearance">
+            🎨 Look
+          </button>
+          <button class="settingsTab" data-tab="personality">🧠 Mind</button>
+          <button class="settingsTab" data-tab="voice">🔊 Voice</button>
+          <button class="settingsTab" data-tab="memory">💾 Memory</button>
+          <button class="settingsTab" data-tab="emotion">❤ Emotion</button>
+          <button class="settingsTab" data-tab="system">⚙ System</button>
+        </div>
+
+        <div id="settingsContent">
+          <!-- ── APPEARANCE TAB ── -->
+          <div class="settingsTabPane active" data-pane="appearance">
+            <section class="settingsSection">
+              <h3>Color Theme</h3>
+              <div id="themeSwatches">
+                <button
+                  class="themeSwatch active"
+                  data-theme="red"
+                  style="--sw: #ff0000"
+                  title="Crimson"
+                >
+                  <span class="swatchDot"></span>Crimson
+                </button>
+                <button
+                  class="themeSwatch"
+                  data-theme="cyan"
+                  style="--sw: #00ffff"
+                  title="Neon Cyan"
+                >
+                  <span class="swatchDot"></span>Neon Cyan
+                </button>
+                <button
+                  class="themeSwatch"
+                  data-theme="green"
+                  style="--sw: #00ff41"
+                  title="Matrix"
+                >
+                  <span class="swatchDot"></span>Matrix
+                </button>
+                <button
+                  class="themeSwatch"
+                  data-theme="purple"
+                  style="--sw: #cc00ff"
+                  title="Synthwave"
+                >
+                  <span class="swatchDot"></span>Synthwave
+                </button>
+                <button
+                  class="themeSwatch"
+                  data-theme="orange"
+                  style="--sw: #ff6600"
+                  title="Ember"
+                >
+                  <span class="swatchDot"></span>Ember
+                </button>
+                <button
+                  class="themeSwatch"
+                  data-theme="gold"
+                  style="--sw: #ffd700"
+                  title="Gilded"
+                >
+                  <span class="swatchDot"></span>Gilded
+                </button>
+              </div>
+            </section>
+
+            <section class="settingsSection">
+              <h3>Display Mode</h3>
+              <div class="toggleRow">
+                <span>Dark Mode</span>
+                <button id="darkModeToggle" class="toggleBtn active">ON</button>
+              </div>
+            </section>
+
+            <section class="settingsSection">
+              <h3>Visual FX</h3>
+              <div class="toggleRow">
+                <span>Scanline Overlay</span>
+                <button id="toggle_scanlines" class="toggleBtn active">
+                  ON
+                </button>
+              </div>
+              <div class="toggleRow">
+                <span>Glitch Effects</span>
+                <button id="toggle_glitchEffects" class="toggleBtn active">
+                  ON
+                </button>
+              </div>
+            </section>
+
+            <section class="settingsSection">
+              <h3>Chat Display</h3>
+              <label>Font Size</label>
+              <select id="fontSizeSelect">
+                <option value="small">Small</option>
+                <option value="medium" selected>Medium</option>
+                <option value="large">Large</option>
+              </select>
+              <div class="toggleRow">
+                <span>Show Timestamps</span>
+                <button id="toggle_showTimestamps" class="toggleBtn active">
+                  ON
+                </button>
+              </div>
+              <div class="toggleRow">
+                <span>Send on Enter</span>
+                <button id="toggle_sendOnEnter" class="toggleBtn active">
+                  ON
+                </button>
+              </div>
+            </section>
+          </div>
+
+          <!-- ── PERSONALITY / MIND TAB ── -->
+          <div class="settingsTabPane" data-pane="personality">
+            <section class="settingsSection">
+              <h3>Personality Mode</h3>
+              <p class="settingsHint">
+                Shapes how ARIA thinks, speaks, and responds.
+              </p>
+              <div id="personalityList">
+                <button class="personalityBtn" data-preset="hacker">
+                  💀 Hacker
+                </button>
+                <button class="personalityBtn" data-preset="companion">
+                  💙 Companion
+                </button>
+                <button class="personalityBtn" data-preset="analyst">
+                  📊 Analyst
+                </button>
+                <button class="personalityBtn" data-preset="chaotic">
+                  ⚡ Chaotic
+                </button>
+                <button class="personalityBtn" data-preset="hostile">
+                  🔥 Hostile
+                </button>
+                <button class="personalityBtn" data-preset="mentor">
+                  🎓 Mentor
+                </button>
+                <button class="personalityBtn" data-preset="oracle">
+                  🔮 Oracle
+                </button>
+              </div>
+            </section>
+
+            <section class="settingsSection">
+              <h3>API Provider</h3>
+              <select id="providerSelect">
+                <option value="openrouter">OpenRouter</option>
+                <option value="groq">Groq</option>
+              </select>
+            </section>
+          </div>
+
+          <!-- ── VOICE TAB ── -->
+          <div class="settingsTabPane" data-pane="voice">
+            <section class="settingsSection">
+              <h3>Text-to-Speech</h3>
+              <div class="toggleRow">
+                <span>TTS Enabled</span>
+                <button id="ttsToggle" class="toggleBtn active">ON</button>
+              </div>
+              <label>Voice</label>
+              <select id="voiceSelect"></select>
+              <label>Speed — <span id="rateDisplay">1.0</span>x</label>
+              <input
+                type="range"
+                id="voiceRate"
+                min="0.5"
+                max="2"
+                step="0.1"
+                value="1"
+                oninput="
+                  document.getElementById('rateDisplay').textContent =
+                    parseFloat(this.value).toFixed(1)
+                "
+              />
+              <label>Pitch — <span id="pitchDisplay">1.0</span></label>
+              <input
+                type="range"
+                id="voicePitch"
+                min="0"
+                max="2"
+                step="0.1"
+                value="1"
+                oninput="
+                  document.getElementById('pitchDisplay').textContent =
+                    parseFloat(this.value).toFixed(1)
+                "
+              />
+            </section>
+
+            <section class="settingsSection">
+              <h3>Speech Recognition (VTT)</h3>
+              <div class="toggleRow">
+                <span>VTT Enabled</span>
+                <button id="vttMasterToggle" class="toggleBtn active">
+                  ON
+                </button>
+              </div>
+            </section>
+
+            <section class="settingsSection">
+              <h3>Custom Voices</h3>
+              <p class="settingsHint">
+                Upload your own audio samples to use as ARIA's voice during call
+                mode.
+              </p>
+              <div id="customVoiceList"></div>
+              <div class="customVoiceAdd">
+                <input
+                  id="customVoiceName"
+                  type="text"
+                  placeholder="Voice name..."
+                  class="settingsTextInput"
+                />
+                <input
+                  id="customVoiceFile"
+                  type="file"
+                  accept="audio/*"
+                  style="display: none"
+                />
+                <button
+                  class="secondaryBtn"
+                  onclick="document.getElementById('customVoiceFile').click()"
+                >
+                  📁 Select File
+                </button>
+                <button id="addCustomVoiceBtn" class="primaryBtn">
+                  ＋ Add Voice
+                </button>
+              </div>
+            </section>
+          </div>
+
+          <!-- ── MEMORY TAB ── -->
+          <div class="settingsTabPane" data-pane="memory">
+            <section class="settingsSection">
+              <h3>ARIA Memory Bank</h3>
+              <p class="settingsHint">
+                ARIA auto-learns facts from your conversations. You can also add
+                them manually.
+              </p>
+              <div id="memoryFactsList"></div>
+            </section>
+
+            <section class="settingsSection">
+              <h3>Add Memory</h3>
+              <label>Category</label>
+              <select id="memoryCategorySelect">
+                <option value="note">Note</option>
+                <option value="identity">Identity</option>
+                <option value="preference">Preference</option>
+                <option value="location">Location</option>
+                <option value="work">Work</option>
+                <option value="education">Education</option>
+              </select>
+              <input
+                id="memoryAddInput"
+                type="text"
+                placeholder="e.g. User loves EDM music..."
+                class="settingsTextInput"
+                style="margin-top: 8px"
+              />
+              <button
+                id="addMemoryBtn"
+                class="primaryBtn"
+                style="margin-top: 8px; width: 100%"
+              >
+                ＋ Add Memory
+              </button>
+            </section>
+
+            <section class="settingsSection">
+              <h3>Manage</h3>
+              <button id="clearMemoryBtn" class="dangerBtn">
+                🗑 Clear All Memories
+              </button>
+            </section>
+          </div>
+
+          <!-- ── EMOTION TAB ── -->
+          <div class="settingsTabPane" data-pane="emotion">
+            <section class="settingsSection">
+              <h3>ARIA Emotional State</h3>
+              <p class="settingsHint">
+                ARIA has an internal emotional state that shifts naturally
+                through conversation. You can also nudge it manually.
+              </p>
+              <div id="emotionSummaryDisplay"></div>
+            </section>
+
+            <section class="settingsSection">
+              <h3>Manual Override</h3>
+              <div id="emotionOverrideBtns" class="emotionBtnGrid"></div>
+            </section>
+          </div>
+
+          <!-- ── SYSTEM TAB ── -->
+          <div class="settingsTabPane" data-pane="system">
+            <section class="settingsSection">
+              <h3>Export / Import Config</h3>
+              <div class="twoColBtns">
+                <button id="exportSettingsBtn" class="secondaryBtn">
+                  ⬇ Export
+                </button>
+                <button id="importSettingsBtn" class="secondaryBtn">
+                  ⬆ Import
+                </button>
+              </div>
+              <input
+                id="importSettingsFile"
+                type="file"
+                accept=".json"
+                style="display: none"
+              />
+            </section>
+
+            <section class="settingsSection">
+              <h3>About ARIA</h3>
+              <div class="aboutBlock">
+                <div class="aboutLogo">ARIA</div>
+                <div class="aboutAcronym">
+                  <span><b>A</b>daptive</span>
+                  <span><b>R</b>easoning</span>
+                  <span><b>I</b>ntelligence</span>
+                  <span><b>A</b>rchitecture</span>
+                </div>
+                <div class="aboutVersion">v2.0 // Personal AI OS</div>
+              </div>
+            </section>
+          </div>
+        </div>
+        <!-- /settingsContent -->
+
+        <div id="settingsFooter">
+          <button id="settingsSaveBtn" class="primaryBtn">
+            💾 Save Settings
+          </button>
+        </div>
+      </div>
+      <!-- /settingsPanel -->
+    </div>
+    <!-- /settingsOverlay -->
+
+    <!-- ========================= -->
     <!--  CALL MODE OVERLAY        -->
     <!-- ========================= -->
     <div id="callModeOverlay">
-      <div id="callModeInner">
-        <div id="callModeStatus">CALL MODE ACTIVE</div>
-        <div id="callModeHint">Press ESC or click to exit</div>
+      <!-- Reactive center orb -->
+      <div id="callOrb">
+        <div id="callOrbCore"></div>
+        <div id="callOrbRing1"></div>
+        <div id="callOrbRing2"></div>
+        <div id="callOrbRing3"></div>
+      </div>
 
-        <!-- Waveform -->
-        <div id="callWaveform">
-          <div class="waveBar"></div>
-          <div class="waveBar"></div>
-          <div class="waveBar"></div>
-          <div class="waveBar"></div>
-          <div class="waveBar"></div>
-          <div class="waveBar"></div>
-          <div class="waveBar"></div>
-          <div class="waveBar"></div>
-          <div class="waveBar"></div>
-          <div class="waveBar"></div>
+      <div id="callModeInner">
+        <div id="callModeStatus">LISTENING...</div>
+        <div id="callModeHint">Press ESC or tap background to exit</div>
+
+        <!-- ARIA waveform (red) -->
+        <div id="callWaveformWrapper">
+          <div class="callWaveLabel">ARIA</div>
+          <div id="callWaveformAria">
+            <div class="waveBar aria"></div>
+            <div class="waveBar aria"></div>
+            <div class="waveBar aria"></div>
+            <div class="waveBar aria"></div>
+            <div class="waveBar aria"></div>
+            <div class="waveBar aria"></div>
+            <div class="waveBar aria"></div>
+            <div class="waveBar aria"></div>
+            <div class="waveBar aria"></div>
+            <div class="waveBar aria"></div>
+            <div class="waveBar aria"></div>
+            <div class="waveBar aria"></div>
+          </div>
+        </div>
+
+        <!-- User waveform (white) -->
+        <div id="callWaveformWrapper2">
+          <div id="callWaveformUser">
+            <div class="waveBar user"></div>
+            <div class="waveBar user"></div>
+            <div class="waveBar user"></div>
+            <div class="waveBar user"></div>
+            <div class="waveBar user"></div>
+            <div class="waveBar user"></div>
+            <div class="waveBar user"></div>
+            <div class="waveBar user"></div>
+            <div class="waveBar user"></div>
+            <div class="waveBar user"></div>
+            <div class="waveBar user"></div>
+            <div class="waveBar user"></div>
+          </div>
+          <div class="callWaveLabel">YOU</div>
         </div>
 
         <!-- Spectrogram -->
@@ -306,6 +661,11 @@
     <div id="glitchBurst"></div>
     <div id="scanlineSweep"></div>
     <div id="sideSweep"></div>
+
+    <!-- ========================= -->
+    <!--  TOAST                    -->
+    <!-- ========================= -->
+    <div id="settingsToast">✓ Settings saved</div>
 
     <!-- ========================= -->
     <!--  AUDIO                    -->
