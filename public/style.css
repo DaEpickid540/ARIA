@@ -3170,3 +3170,290 @@ body.no-glitch .glitch:hover {
 .msgBody .mdList li {
   font-size: var(--chat-font-size, 13px);
 }
+
+/* ============================================================
+   SETTINGS PANEL — FULL REDESIGN ADDITIONS
+   ============================================================ */
+
+/* ── Settings panel wider + scrollable ── */
+#settingsPanel {
+  width: min(820px, 95vw) !important;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#settingsContent {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+
+/* ── Toggle rows with description ── */
+.toggleHint {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  letter-spacing: 0.05em;
+}
+
+/* ── Personality buttons — card style ── */
+#personalityList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.personalityBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  font-family: "Share Tech Mono", monospace;
+  cursor: crosshair;
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  transition: all 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.personalityBtn:hover {
+  border-color: var(--red-core);
+  color: var(--text-blaze);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.personalityBtn.active {
+  border-color: var(--red-core);
+  background: rgba(255, 0, 0, 0.07);
+  color: var(--red-neon);
+  box-shadow: var(--glow-sm);
+}
+
+.pBtnIcon {
+  font-size: 1.2rem;
+}
+.pBtnLabel {
+  font-family: "Orbitron", sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: inherit;
+}
+.pBtnDesc {
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.personalityBtn.active .pBtnDesc {
+  color: var(--red-dim);
+}
+
+/* ── ElevenLabs section ── */
+.elevenlabsSection {
+  border-left: 2px solid #ff9900 !important;
+  background: rgba(255, 153, 0, 0.02);
+}
+
+.elevenlabsSection h3 {
+  color: #ff9900 !important;
+  text-shadow: 0 0 8px rgba(255, 153, 0, 0.5) !important;
+}
+
+.elSteps {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding-left: 18px;
+  margin-bottom: 12px;
+  line-height: 1.9;
+  letter-spacing: 0.04em;
+}
+
+.elSteps strong {
+  color: var(--text-blaze);
+}
+
+.elKeyRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.elStatus {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  min-height: 16px;
+  letter-spacing: 0.08em;
+}
+.elStatus.ok {
+  color: #00ff88;
+  text-shadow: 0 0 6px #00ff88;
+}
+.elStatus.error {
+  color: #ff4444;
+  text-shadow: 0 0 6px #ff4444;
+}
+
+.elVoicePickRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.elAdvanced {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--border-cut);
+  background: var(--bg-void);
+}
+
+/* ── Voice hint text ── */
+.voiceHint {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 5px;
+  letter-spacing: 0.05em;
+}
+
+/* ── Custom voice items — full redesign ── */
+.customVoiceItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  border-left: 2px solid var(--red-dim);
+  margin-bottom: 6px;
+  gap: 8px;
+  transition: border-color 0.15s;
+}
+
+.customVoiceItem.active {
+  border-color: var(--red-core);
+  background: rgba(255, 0, 0, 0.05);
+  border-left-color: var(--red-core);
+}
+
+.cviLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.cviType {
+  font-family: "Orbitron", sans-serif;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--red-core);
+  border: 1px solid var(--red-dim);
+  padding: 2px 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cviName {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 12px;
+  color: var(--text-blaze);
+  letter-spacing: 0.05em;
+}
+
+.cviDesc {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cviActions {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.cviSelectBtn {
+  padding: 4px 10px;
+  font-family: "Orbitron", sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  background: transparent;
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  cursor: crosshair;
+  transition: all 0.15s;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100%-3px) 100%, 0% 100%);
+}
+.cviSelectBtn:hover {
+  border-color: var(--red-core);
+  color: var(--text-blaze);
+}
+.cviSelectBtn.active {
+  border-color: var(--red-core);
+  color: var(--red-core);
+  background: rgba(255, 0, 0, 0.1);
+}
+
+.cviDeleteBtn {
+  background: transparent;
+  border: 1px solid var(--red-dim);
+  color: var(--red-dim);
+  cursor: crosshair;
+  padding: 4px 8px;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+.cviDeleteBtn:hover {
+  border-color: var(--red-core);
+  color: var(--red-core);
+}
+
+/* ── File picker row ── */
+.filePickRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.fileNameDisplay {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Settings toast error state ── */
+#settingsToast.error {
+  border-color: #ff4444;
+  color: #ff6666;
+  background: rgba(255, 0, 0, 0.15);
+}
+
+/* ── ol/ul in settings ── */
+.settingsSection ol,
+.settingsSection ul {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+}

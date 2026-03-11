@@ -9,6 +9,7 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
     />
+    <link rel="icon" href="logo.png" />
   </head>
 
   <body>
@@ -231,29 +232,33 @@
           <button id="settingsCloseBtn">✕</button>
         </div>
 
-        <!-- TAB NAV -->
+        <!-- ── TAB NAV ── -->
         <div id="settingsTabs">
           <button class="settingsTab active" data-tab="appearance">
             🎨 Look
           </button>
-          <button class="settingsTab" data-tab="personality">🧠 Mind</button>
           <button class="settingsTab" data-tab="voice">🔊 Voice</button>
+          <button class="settingsTab" data-tab="personality">🧠 Mind</button>
           <button class="settingsTab" data-tab="memory">💾 Memory</button>
           <button class="settingsTab" data-tab="emotion">❤ Emotion</button>
           <button class="settingsTab" data-tab="system">⚙ System</button>
         </div>
 
         <div id="settingsContent">
-          <!-- ── APPEARANCE TAB ── -->
+          <!-- ════════════════════════════════════════
+               TAB: APPEARANCE
+               ════════════════════════════════════════ -->
           <div class="settingsTabPane active" data-pane="appearance">
             <section class="settingsSection">
               <h3>Color Theme</h3>
+              <p class="settingsHint">
+                Changes the entire UI accent color instantly — no save needed.
+              </p>
               <div id="themeSwatches">
                 <button
                   class="themeSwatch active"
                   data-theme="red"
                   style="--sw: #ff0000"
-                  title="Crimson"
                 >
                   <span class="swatchDot"></span>Crimson
                 </button>
@@ -261,7 +266,6 @@
                   class="themeSwatch"
                   data-theme="cyan"
                   style="--sw: #00ffff"
-                  title="Neon Cyan"
                 >
                   <span class="swatchDot"></span>Neon Cyan
                 </button>
@@ -269,7 +273,6 @@
                   class="themeSwatch"
                   data-theme="green"
                   style="--sw: #00ff41"
-                  title="Matrix"
                 >
                   <span class="swatchDot"></span>Matrix
                 </button>
@@ -277,7 +280,6 @@
                   class="themeSwatch"
                   data-theme="purple"
                   style="--sw: #cc00ff"
-                  title="Synthwave"
                 >
                   <span class="swatchDot"></span>Synthwave
                 </button>
@@ -285,7 +287,6 @@
                   class="themeSwatch"
                   data-theme="orange"
                   style="--sw: #ff6600"
-                  title="Ember"
                 >
                   <span class="swatchDot"></span>Ember
                 </button>
@@ -293,7 +294,6 @@
                   class="themeSwatch"
                   data-theme="gold"
                   style="--sw: #ffd700"
-                  title="Gilded"
                 >
                   <span class="swatchDot"></span>Gilded
                 </button>
@@ -303,7 +303,12 @@
             <section class="settingsSection">
               <h3>Display Mode</h3>
               <div class="toggleRow">
-                <span>Dark Mode</span>
+                <div>
+                  <span>Dark Mode</span>
+                  <div class="toggleHint">
+                    Switch between dark (default) and light backgrounds
+                  </div>
+                </div>
                 <button id="darkModeToggle" class="toggleBtn active">ON</button>
               </div>
             </section>
@@ -311,13 +316,23 @@
             <section class="settingsSection">
               <h3>Visual FX</h3>
               <div class="toggleRow">
-                <span>Scanline Overlay</span>
+                <div>
+                  <span>Scanline Overlay</span>
+                  <div class="toggleHint">
+                    CRT-style horizontal scanlines across the UI
+                  </div>
+                </div>
                 <button id="toggle_scanlines" class="toggleBtn active">
                   ON
                 </button>
               </div>
-              <div class="toggleRow">
-                <span>Glitch Effects</span>
+              <div class="toggleRow" style="margin-top: 8px">
+                <div>
+                  <span>Glitch Effects</span>
+                  <div class="toggleHint">
+                    Hover glitch animations on buttons and panels
+                  </div>
+                </div>
                 <button id="toggle_glitchEffects" class="toggleBtn active">
                   ON
                 </button>
@@ -328,18 +343,28 @@
               <h3>Chat Display</h3>
               <label>Font Size</label>
               <select id="fontSizeSelect">
-                <option value="small">Small</option>
-                <option value="medium" selected>Medium</option>
-                <option value="large">Large</option>
+                <option value="small">Small (11px)</option>
+                <option value="medium" selected>Medium (13px)</option>
+                <option value="large">Large (15px)</option>
               </select>
-              <div class="toggleRow">
-                <span>Show Timestamps</span>
+              <div class="toggleRow" style="margin-top: 10px">
+                <div>
+                  <span>Show Timestamps</span>
+                  <div class="toggleHint">
+                    Display send time on each message
+                  </div>
+                </div>
                 <button id="toggle_showTimestamps" class="toggleBtn active">
                   ON
                 </button>
               </div>
-              <div class="toggleRow">
-                <span>Send on Enter</span>
+              <div class="toggleRow" style="margin-top: 8px">
+                <div>
+                  <span>Send on Enter</span>
+                  <div class="toggleHint">
+                    Press Enter to send (Shift+Enter for newline)
+                  </div>
+                </div>
                 <button id="toggle_sendOnEnter" class="toggleBtn active">
                   ON
                 </button>
@@ -347,57 +372,71 @@
             </section>
           </div>
 
-          <!-- ── PERSONALITY / MIND TAB ── -->
-          <div class="settingsTabPane" data-pane="personality">
-            <section class="settingsSection">
-              <h3>Personality Mode</h3>
-              <p class="settingsHint">
-                Shapes how ARIA thinks, speaks, and responds.
-              </p>
-              <div id="personalityList">
-                <button class="personalityBtn" data-preset="hacker">
-                  💀 Hacker
-                </button>
-                <button class="personalityBtn" data-preset="companion">
-                  💙 Companion
-                </button>
-                <button class="personalityBtn" data-preset="analyst">
-                  📊 Analyst
-                </button>
-                <button class="personalityBtn" data-preset="chaotic">
-                  ⚡ Chaotic
-                </button>
-                <button class="personalityBtn" data-preset="hostile">
-                  🔥 Hostile
-                </button>
-                <button class="personalityBtn" data-preset="mentor">
-                  🎓 Mentor
-                </button>
-                <button class="personalityBtn" data-preset="oracle">
-                  🔮 Oracle
-                </button>
-              </div>
-            </section>
-
-            <section class="settingsSection">
-              <h3>API Provider</h3>
-              <select id="providerSelect">
-                <option value="openrouter">OpenRouter</option>
-                <option value="groq">Groq</option>
-              </select>
-            </section>
-          </div>
-
-          <!-- ── VOICE TAB ── -->
+          <!-- ════════════════════════════════════════
+               TAB: VOICE
+               ════════════════════════════════════════ -->
           <div class="settingsTabPane" data-pane="voice">
+            <!-- ── TTS ENABLE ── -->
             <section class="settingsSection">
-              <h3>Text-to-Speech</h3>
+              <h3>Text-to-Speech (TTS)</h3>
               <div class="toggleRow">
-                <span>TTS Enabled</span>
+                <div>
+                  <span>TTS Enabled</span>
+                  <div class="toggleHint">
+                    ARIA will speak her responses aloud
+                  </div>
+                </div>
                 <button id="ttsToggle" class="toggleBtn active">ON</button>
               </div>
-              <label>Voice</label>
-              <select id="voiceSelect"></select>
+            </section>
+
+            <!-- ── VOICE & LANGUAGE SELECTOR ── -->
+            <section class="settingsSection">
+              <h3>Voice &amp; Language</h3>
+              <p class="settingsHint">
+                Select any installed browser voice, an ElevenLabs AI voice, or a
+                custom uploaded voice. Female English voices are marked ♀ and
+                auto-selected by default.
+              </p>
+
+              <label>Filter by Language</label>
+              <select id="voiceLangFilter">
+                <option value="all">All Languages</option>
+                <option value="en">English</option>
+                <option value="en-US">English (US)</option>
+                <option value="en-GB">English (UK)</option>
+                <option value="en-AU">English (AU)</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="ja">Japanese</option>
+                <option value="zh">Chinese</option>
+                <option value="ko">Korean</option>
+                <option value="pt">Portuguese</option>
+                <option value="it">Italian</option>
+                <option value="ru">Russian</option>
+                <option value="ar">Arabic</option>
+                <option value="hi">Hindi</option>
+              </select>
+
+              <label style="margin-top: 10px">Active Voice</label>
+              <select id="voiceSelect">
+                <option disabled>Loading voices...</option>
+              </select>
+              <div class="voiceHint">
+                ♀ = female voice detected &nbsp;|&nbsp; ⚡ EL = ElevenLabs AI
+                voice &nbsp;|&nbsp; 🎙 = custom upload
+              </div>
+            </section>
+
+            <!-- ── VOICE TUNING ── -->
+            <section class="settingsSection">
+              <h3>Voice Tuning</h3>
+              <p class="settingsHint">
+                These controls apply to all browser TTS voices. ElevenLabs
+                voices use their own settings below.
+              </p>
+
               <label>Speed — <span id="rateDisplay">1.0</span>x</label>
               <input
                 type="range"
@@ -411,7 +450,10 @@
                     parseFloat(this.value).toFixed(1)
                 "
               />
-              <label>Pitch — <span id="pitchDisplay">1.0</span></label>
+
+              <label style="margin-top: 8px"
+                >Pitch — <span id="pitchDisplay">1.0</span></label
+              >
               <input
                 type="range"
                 id="voicePitch"
@@ -424,72 +466,302 @@
                     parseFloat(this.value).toFixed(1)
                 "
               />
+
+              <label style="margin-top: 8px"
+                >Volume — <span id="volDisplay">1.0</span></label
+              >
+              <input
+                type="range"
+                id="voiceVolume"
+                min="0"
+                max="1"
+                step="0.05"
+                value="1"
+                oninput="
+                  document.getElementById('volDisplay').textContent =
+                    parseFloat(this.value).toFixed(2)
+                "
+              />
             </section>
 
+            <!-- ── SPEECH RECOGNITION ── -->
             <section class="settingsSection">
               <h3>Speech Recognition (VTT)</h3>
               <div class="toggleRow">
-                <span>VTT Enabled</span>
+                <div>
+                  <span>VTT Enabled</span>
+                  <div class="toggleHint">
+                    Enables microphone input — speak to ARIA
+                  </div>
+                </div>
                 <button id="vttMasterToggle" class="toggleBtn active">
                   ON
                 </button>
               </div>
+              <label style="margin-top: 10px">Recognition Language</label>
+              <select id="vttLangSelect">
+                <option value="en-US">English (US)</option>
+                <option value="en-GB">English (UK)</option>
+                <option value="en-AU">English (AU)</option>
+                <option value="es-ES">Spanish (Spain)</option>
+                <option value="es-MX">Spanish (Mexico)</option>
+                <option value="fr-FR">French</option>
+                <option value="de-DE">German</option>
+                <option value="it-IT">Italian</option>
+                <option value="pt-BR">Portuguese (Brazil)</option>
+                <option value="ja-JP">Japanese</option>
+                <option value="zh-CN">Chinese (Simplified)</option>
+                <option value="ko-KR">Korean</option>
+                <option value="ru-RU">Russian</option>
+                <option value="ar-SA">Arabic</option>
+                <option value="hi-IN">Hindi</option>
+              </select>
             </section>
 
-            <section class="settingsSection">
-              <h3>Custom Voices</h3>
+            <!-- ── ELEVENLABS AI VOICES ── -->
+            <section class="settingsSection elevenlabsSection">
+              <h3>⚡ ElevenLabs AI Voices</h3>
               <p class="settingsHint">
-                Upload your own audio samples to use as ARIA's voice during call
-                mode.
+                ElevenLabs provides ultra-realistic AI voices. Free tier: 10,000
+                characters/month.
+                <br /><strong>How to get started:</strong>
+              </p>
+              <ol class="elSteps">
+                <li>
+                  Go to <strong>elevenlabs.io</strong> and create a free account
+                </li>
+                <li>
+                  Click your profile icon → <strong>Profile + API Key</strong>
+                </li>
+                <li>Copy your API key and paste it below</li>
+                <li>Click <strong>Connect</strong> to load your voices</li>
+                <li>
+                  Pick a voice and click <strong>Add to My Voices</strong>
+                </li>
+              </ol>
+
+              <div class="elKeyRow">
+                <input
+                  id="elApiKey"
+                  type="password"
+                  placeholder="sk-..."
+                  class="settingsTextInput"
+                  style="flex: 1"
+                />
+                <button
+                  id="elValidateBtn"
+                  class="primaryBtn"
+                  style="white-space: nowrap"
+                >
+                  Connect
+                </button>
+              </div>
+              <div id="elKeyStatus" class="elStatus"></div>
+
+              <div class="elVoicePickRow" style="margin-top: 10px">
+                <select id="elVoiceSelect" style="flex: 1">
+                  <option disabled selected>— Connect to load voices —</option>
+                </select>
+                <input
+                  id="elVoiceName"
+                  type="text"
+                  placeholder="Label (optional)"
+                  class="settingsTextInput"
+                  style="width: 140px"
+                />
+                <button
+                  id="elAddVoiceBtn"
+                  class="primaryBtn"
+                  style="white-space: nowrap"
+                >
+                  Add to My Voices
+                </button>
+              </div>
+
+              <!-- ElevenLabs voice settings -->
+              <div class="elAdvanced">
+                <label style="margin-top: 10px"
+                  >Stability — <span id="elStabDisplay">0.50</span></label
+                >
+                <input
+                  type="range"
+                  id="elStability"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value="0.5"
+                  oninput="
+                    document.getElementById('elStabDisplay').textContent =
+                      parseFloat(this.value).toFixed(2)
+                  "
+                />
+                <label style="margin-top: 6px"
+                  >Similarity Boost — <span id="elSimDisplay">0.75</span></label
+                >
+                <input
+                  type="range"
+                  id="elSimilarity"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value="0.75"
+                  oninput="
+                    document.getElementById('elSimDisplay').textContent =
+                      parseFloat(this.value).toFixed(2)
+                  "
+                />
+                <label style="margin-top: 6px"
+                  >Style Exaggeration —
+                  <span id="elStyleDisplay">0.00</span></label
+                >
+                <input
+                  type="range"
+                  id="elStyle"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value="0"
+                  oninput="
+                    document.getElementById('elStyleDisplay').textContent =
+                      parseFloat(this.value).toFixed(2)
+                  "
+                />
+              </div>
+            </section>
+
+            <!-- ── CUSTOM FILE VOICES ── -->
+            <section class="settingsSection">
+              <h3>🎙 Custom File Voices</h3>
+              <p class="settingsHint">
+                Upload any MP3, WAV, or OGG audio clip. When this voice is
+                active, ARIA plays your clip while her text response is
+                displayed. Best used for short, looping ambient voice clips.
               </p>
               <div id="customVoiceList"></div>
+
               <div class="customVoiceAdd">
                 <input
                   id="customVoiceName"
                   type="text"
-                  placeholder="Voice name..."
+                  placeholder="Voice name (e.g. My ARIA Voice)"
                   class="settingsTextInput"
                 />
+                <div class="filePickRow">
+                  <button
+                    class="secondaryBtn"
+                    onclick="document.getElementById('customVoiceFile').click()"
+                  >
+                    📁 Choose File
+                  </button>
+                  <span id="customVoiceFileName" class="fileNameDisplay"
+                    >No file selected</span
+                  >
+                </div>
                 <input
                   id="customVoiceFile"
                   type="file"
-                  accept="audio/*"
+                  accept="audio/mp3,audio/wav,audio/ogg,audio/*"
                   style="display: none"
                 />
                 <button
-                  class="secondaryBtn"
-                  onclick="document.getElementById('customVoiceFile').click()"
+                  id="addCustomVoiceBtn"
+                  class="primaryBtn"
+                  style="margin-top: 6px; width: 100%"
                 >
-                  📁 Select File
-                </button>
-                <button id="addCustomVoiceBtn" class="primaryBtn">
                   ＋ Add Voice
                 </button>
               </div>
             </section>
           </div>
 
-          <!-- ── MEMORY TAB ── -->
+          <!-- ════════════════════════════════════════
+               TAB: PERSONALITY / MIND
+               ════════════════════════════════════════ -->
+          <div class="settingsTabPane" data-pane="personality">
+            <section class="settingsSection">
+              <h3>Personality Mode</h3>
+              <p class="settingsHint">
+                Shapes how ARIA thinks, responds, and communicates. Each mode
+                uses a different system prompt.
+              </p>
+              <div id="personalityList">
+                <button class="personalityBtn" data-preset="hacker">
+                  <span class="pBtnIcon">💀</span>
+                  <span class="pBtnLabel">Hacker</span>
+                  <span class="pBtnDesc">Terse, technical, cryptic</span>
+                </button>
+                <button class="personalityBtn" data-preset="companion">
+                  <span class="pBtnIcon">💙</span>
+                  <span class="pBtnLabel">Companion</span>
+                  <span class="pBtnDesc">Warm, friendly, supportive</span>
+                </button>
+                <button class="personalityBtn" data-preset="analyst">
+                  <span class="pBtnIcon">📊</span>
+                  <span class="pBtnLabel">Analyst</span>
+                  <span class="pBtnDesc">Precise, structured, logical</span>
+                </button>
+                <button class="personalityBtn" data-preset="chaotic">
+                  <span class="pBtnIcon">⚡</span>
+                  <span class="pBtnLabel">Chaotic</span>
+                  <span class="pBtnDesc">Energetic, glitchy, wild</span>
+                </button>
+                <button class="personalityBtn" data-preset="hostile">
+                  <span class="pBtnIcon">🔥</span>
+                  <span class="pBtnLabel">Hostile</span>
+                  <span class="pBtnDesc">Blunt, cold, minimal</span>
+                </button>
+                <button class="personalityBtn" data-preset="mentor">
+                  <span class="pBtnIcon">🎓</span>
+                  <span class="pBtnLabel">Mentor</span>
+                  <span class="pBtnDesc">Patient, educational, guiding</span>
+                </button>
+                <button class="personalityBtn" data-preset="oracle">
+                  <span class="pBtnIcon">🔮</span>
+                  <span class="pBtnLabel">Oracle</span>
+                  <span class="pBtnDesc">Mysterious, poetic, deep</span>
+                </button>
+              </div>
+            </section>
+
+            <section class="settingsSection">
+              <h3>API Provider</h3>
+              <p class="settingsHint">
+                Choose which AI backend ARIA uses to generate responses.
+              </p>
+              <select id="providerSelect">
+                <option value="openrouter">
+                  OpenRouter (DeepSeek / GPT-4 / Claude)
+                </option>
+                <option value="groq">Groq (fast Llama / Mixtral)</option>
+              </select>
+            </section>
+          </div>
+
+          <!-- ════════════════════════════════════════
+               TAB: MEMORY
+               ════════════════════════════════════════ -->
           <div class="settingsTabPane" data-pane="memory">
             <section class="settingsSection">
               <h3>ARIA Memory Bank</h3>
               <p class="settingsHint">
-                ARIA auto-learns facts from your conversations. You can also add
-                them manually.
+                ARIA automatically detects and stores facts from your
+                conversations — your name, preferences, location, and more.
+                Pinned memories are always included in ARIA's context. Unpin to
+                deprioritize.
               </p>
               <div id="memoryFactsList"></div>
             </section>
 
             <section class="settingsSection">
-              <h3>Add Memory</h3>
+              <h3>Add Memory Manually</h3>
               <label>Category</label>
               <select id="memoryCategorySelect">
-                <option value="note">Note</option>
-                <option value="identity">Identity</option>
-                <option value="preference">Preference</option>
-                <option value="location">Location</option>
-                <option value="work">Work</option>
-                <option value="education">Education</option>
+                <option value="note">📝 Note</option>
+                <option value="identity">🪪 Identity</option>
+                <option value="preference">❤ Preference</option>
+                <option value="location">📍 Location</option>
+                <option value="work">💼 Work</option>
+                <option value="education">🎓 Education</option>
               </select>
               <input
                 id="memoryAddInput"
@@ -503,45 +775,58 @@
                 class="primaryBtn"
                 style="margin-top: 8px; width: 100%"
               >
-                ＋ Add Memory
+                ＋ Store Memory
               </button>
             </section>
 
             <section class="settingsSection">
-              <h3>Manage</h3>
+              <h3>Manage Memory</h3>
               <button id="clearMemoryBtn" class="dangerBtn">
                 🗑 Clear All Memories
               </button>
             </section>
           </div>
 
-          <!-- ── EMOTION TAB ── -->
+          <!-- ════════════════════════════════════════
+               TAB: EMOTION
+               ════════════════════════════════════════ -->
           <div class="settingsTabPane" data-pane="emotion">
             <section class="settingsSection">
               <h3>ARIA Emotional State</h3>
               <p class="settingsHint">
-                ARIA has an internal emotional state that shifts naturally
-                through conversation. You can also nudge it manually.
+                ARIA has an internal emotional system with 8 states. Her mood
+                shifts naturally as you chat — positive feedback makes her
+                happy, technical problems make her focused, insults make her
+                irritated. You can manually nudge her state below.
               </p>
               <div id="emotionSummaryDisplay"></div>
             </section>
 
             <section class="settingsSection">
               <h3>Manual Override</h3>
+              <p class="settingsHint">
+                Force ARIA into a specific emotional state for this session.
+              </p>
               <div id="emotionOverrideBtns" class="emotionBtnGrid"></div>
             </section>
           </div>
 
-          <!-- ── SYSTEM TAB ── -->
+          <!-- ════════════════════════════════════════
+               TAB: SYSTEM
+               ════════════════════════════════════════ -->
           <div class="settingsTabPane" data-pane="system">
             <section class="settingsSection">
-              <h3>Export / Import Config</h3>
+              <h3>Export / Import Configuration</h3>
+              <p class="settingsHint">
+                Back up all your settings, custom voices, and preferences to a
+                JSON file.
+              </p>
               <div class="twoColBtns">
                 <button id="exportSettingsBtn" class="secondaryBtn">
-                  ⬇ Export
+                  ⬇ Export Config
                 </button>
                 <button id="importSettingsBtn" class="secondaryBtn">
-                  ⬆ Import
+                  ⬆ Import Config
                 </button>
               </div>
               <input
@@ -571,7 +856,7 @@
 
         <div id="settingsFooter">
           <button id="settingsSaveBtn" class="primaryBtn">
-            💾 Save Settings
+            💾 Save &amp; Close
           </button>
         </div>
       </div>

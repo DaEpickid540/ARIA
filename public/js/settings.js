@@ -1,13 +1,19 @@
-// settings.js — full rebuild
+// settings.js — Complete rebuild, all features functional
 
 import { loadSettings, saveSettings } from "./personality.js";
-import { setTTSEnabled } from "./tts.js";
+import {
+  setTTSEnabled,
+  setVoiceMode,
+  setElevenLabsConfig,
+  populateVoiceSelect,
+  fetchElevenLabsVoices,
+  injectElevenLabsVoices,
+} from "./tts.js";
 import { setVTTEnabled } from "./vtt.js";
 import {
   renderMemoryPanel,
   addManualMemory,
   clearAllMemory,
-  getAllFacts,
 } from "./memory.js";
 import {
   loadEmotionState,
@@ -17,7 +23,7 @@ import {
 } from "./personality.js";
 
 /* ============================================================
-   THEME DEFINITIONS
+   THEMES
    ============================================================ */
 export const THEMES = {
   red: {
@@ -29,8 +35,6 @@ export const THEMES = {
       "--red-deep": "#cc0000",
       "--red-dim": "#660000",
       "--red-ember": "#ff6633",
-      "--accent-a": "#ff0000",
-      "--accent-b": "#ff3333",
     },
   },
   cyan: {
@@ -42,8 +46,6 @@ export const THEMES = {
       "--red-deep": "#008888",
       "--red-dim": "#004444",
       "--red-ember": "#00ffcc",
-      "--accent-a": "#00ffff",
-      "--accent-b": "#33ffff",
     },
   },
   green: {
@@ -55,8 +57,6 @@ export const THEMES = {
       "--red-deep": "#007722",
       "--red-dim": "#003311",
       "--red-ember": "#88ff00",
-      "--accent-a": "#00ff41",
-      "--accent-b": "#33ff66",
     },
   },
   purple: {
@@ -68,8 +68,6 @@ export const THEMES = {
       "--red-deep": "#660088",
       "--red-dim": "#330044",
       "--red-ember": "#ff44cc",
-      "--accent-a": "#cc00ff",
-      "--accent-b": "#ff44cc",
     },
   },
   orange: {
@@ -81,8 +79,6 @@ export const THEMES = {
       "--red-deep": "#cc3300",
       "--red-dim": "#661100",
       "--red-ember": "#ffaa00",
-      "--accent-a": "#ff6600",
-      "--accent-b": "#ffaa00",
     },
   },
   gold: {
@@ -94,24 +90,16 @@ export const THEMES = {
       "--red-deep": "#aa8800",
       "--red-dim": "#554400",
       "--red-ember": "#ffee88",
-      "--accent-a": "#ffd700",
-      "--accent-b": "#ffe033",
     },
   },
 };
 
-/* ============================================================
-   APPLY THEME
-   ============================================================ */
 export function applyTheme(themeKey, darkMode = true) {
   const theme = THEMES[themeKey] || THEMES.red;
   const root = document.documentElement;
-
-  // Apply accent color vars
-  Object.entries(theme.vars).forEach(([k, v]) => root.style.setProperty(k, v));
-
-  // Also update glow vars to match
   const core = theme.vars["--red-core"];
+
+  Object.entries(theme.vars).forEach(([k, v]) => root.style.setProperty(k, v));
   root.style.setProperty("--glow-sm", `0 0 8px ${core}99`);
   root.style.setProperty("--glow-md", `0 0 16px ${core}bb, 0 0 32px ${core}55`);
   root.style.setProperty(
@@ -125,7 +113,6 @@ export function applyTheme(themeKey, darkMode = true) {
   root.style.setProperty("--border-cut", theme.vars["--red-dim"]);
   root.style.setProperty("--border-glow", theme.vars["--red-deep"]);
 
-  // Dark / light mode
   if (darkMode) {
     root.style.setProperty("--bg-void", "#000000");
     root.style.setProperty("--bg-abyss", "#030303");
@@ -148,101 +135,31 @@ export function applyTheme(themeKey, darkMode = true) {
     root.classList.add("light-mode");
   }
 
-  // Update theme swatches active state
-  document.querySelectorAll(".themeSwatch").forEach((s) => {
-    s.classList.toggle("active", s.dataset.theme === themeKey);
-  });
+  document
+    .querySelectorAll(".themeSwatch")
+    .forEach((s) => s.classList.toggle("active", s.dataset.theme === themeKey));
 }
 
 /* ============================================================
-   DOM REFS
+   SETTINGS TABS
    ============================================================ */
-const settingsOverlay = document.getElementById("settingsOverlay");
-const settingsBtn = document.getElementById("settingsBtn");
-const settingsCloseBtn = document.getElementById("settingsCloseBtn");
-const settingsSaveBtn = document.getElementById("settingsSaveBtn");
-const personalityButtons = document.querySelectorAll(".personalityBtn");
-const providerSelect = document.getElementById("providerSelect");
-const ttsToggle = document.getElementById("ttsToggle");
-const vttMasterToggle = document.getElementById("vttMasterToggle");
-const ttsBtn = document.getElementById("ttsBtn");
-const vttBtn = document.getElementById("vttBtn");
-const voiceSelect = document.getElementById("voiceSelect");
-const voiceRate = document.getElementById("voiceRate");
-const voicePitch = document.getElementById("voicePitch");
-
-let currentSettings = loadSettings();
+export function switchSettingsTab(tabName) {
+  document
+    .querySelectorAll(".settingsTab")
+    .forEach((t) => t.classList.toggle("active", t.dataset.tab === tabName));
+  document
+    .querySelectorAll(".settingsTabPane")
+    .forEach((p) => p.classList.toggle("active", p.dataset.pane === tabName));
+  // Refresh emotion when switching to that tab
+  if (tabName === "emotion") renderEmotionSummary();
+  if (tabName === "memory") renderMemoryPanel();
+  if (tabName === "voice") populateVoiceSelect();
+}
+window.ARIA_switchSettingsTab = switchSettingsTab;
 
 /* ============================================================
-   APPLY ALL SETTINGS TO UI
+   FONT SIZE
    ============================================================ */
-function applySettingsToUI() {
-  // Personality
-  personalityButtons.forEach((btn) =>
-    btn.classList.toggle(
-      "active",
-      btn.dataset.preset === currentSettings.personality,
-    ),
-  );
-
-  // Provider
-  if (providerSelect)
-    providerSelect.value = currentSettings.provider || "openrouter";
-
-  // TTS toggle
-  if (ttsToggle) {
-    ttsToggle.classList.toggle("active", currentSettings.ttsEnabled);
-    ttsToggle.textContent = currentSettings.ttsEnabled ? "ON" : "OFF";
-  }
-  if (vttMasterToggle) {
-    vttMasterToggle.classList.toggle("active", currentSettings.vttEnabled);
-    vttMasterToggle.textContent = currentSettings.vttEnabled ? "ON" : "OFF";
-  }
-  if (ttsBtn) ttsBtn.classList.toggle("active", currentSettings.ttsEnabled);
-  if (vttBtn) vttBtn.classList.toggle("active", currentSettings.vttEnabled);
-
-  // Voice
-  if (voiceSelect && currentSettings.voice)
-    voiceSelect.value = currentSettings.voice;
-  if (voiceRate) voiceRate.value = currentSettings.rate ?? 1;
-  if (voicePitch) voicePitch.value = currentSettings.pitch ?? 1;
-
-  // Theme
-  applyTheme(
-    currentSettings.theme || "red",
-    currentSettings.darkMode !== false,
-  );
-
-  // Dark mode toggle
-  const darkToggle = document.getElementById("darkModeToggle");
-  if (darkToggle) {
-    darkToggle.classList.toggle("active", currentSettings.darkMode !== false);
-    darkToggle.textContent = currentSettings.darkMode !== false ? "ON" : "OFF";
-  }
-
-  // Feature toggles
-  ["glitchEffects", "scanlines", "sendOnEnter", "showTimestamps"].forEach(
-    (key) => {
-      const el = document.getElementById(`toggle_${key}`);
-      if (el) {
-        el.classList.toggle("active", currentSettings[key] !== false);
-        el.textContent = currentSettings[key] !== false ? "ON" : "OFF";
-      }
-    },
-  );
-
-  // Font size
-  const fsEl = document.getElementById("fontSizeSelect");
-  if (fsEl) fsEl.value = currentSettings.fontSize || "medium";
-  applyFontSize(currentSettings.fontSize || "medium");
-
-  // Custom voices list
-  renderCustomVoiceList();
-
-  // Memory panel
-  renderMemoryPanel();
-}
-
 function applyFontSize(size) {
   const map = { small: "11px", medium: "13px", large: "15px" };
   document.documentElement.style.setProperty(
@@ -252,12 +169,370 @@ function applyFontSize(size) {
 }
 
 /* ============================================================
+   CUSTOM VOICES MANAGER
+   Stores { name, type, dataUrl?, description? }
+   ============================================================ */
+function renderCustomVoiceList() {
+  const list = document.getElementById("customVoiceList");
+  if (!list) return;
+  const voices = currentSettings.customVoices || [];
+
+  if (!voices.length) {
+    list.innerHTML = `<div class="memEmpty">No custom voices added yet. Upload an MP3/WAV or add an ElevenLabs Voice ID below.</div>`;
+    return;
+  }
+
+  list.innerHTML = voices
+    .map(
+      (v, i) => `
+    <div class="customVoiceItem ${currentSettings.voice === (v.elVoiceId ? "el:" + v.elVoiceId : "custom:" + v.name) ? "active" : ""}">
+      <div class="cviLeft">
+        <span class="cviType">${v.elVoiceId ? "⚡ EL" : "🎙 FILE"}</span>
+        <div>
+          <div class="cviName">${v.name}</div>
+          <div class="cviDesc">${v.elVoiceId ? "ElevenLabs Voice ID: " + v.elVoiceId : v.fileName || "Audio file"}</div>
+        </div>
+      </div>
+      <div class="cviActions">
+        <button class="cviSelectBtn ${currentSettings.voice === (v.elVoiceId ? "el:" + v.elVoiceId : "custom:" + v.name) ? "active" : ""}"
+          onclick="window.ARIA_selectCustomVoice(${i})">
+          ${currentSettings.voice === (v.elVoiceId ? "el:" + v.elVoiceId : "custom:" + v.name) ? "✓ ACTIVE" : "USE"}
+        </button>
+        <button class="cviDeleteBtn" onclick="window.ARIA_removeCustomVoice(${i})">✕</button>
+      </div>
+    </div>
+  `,
+    )
+    .join("");
+}
+
+window.ARIA_removeCustomVoice = (idx) => {
+  currentSettings.customVoices.splice(idx, 1);
+  saveSettings(currentSettings);
+  renderCustomVoiceList();
+  populateVoiceSelect();
+};
+
+window.ARIA_selectCustomVoice = (idx) => {
+  const v = currentSettings.customVoices[idx];
+  if (!v) return;
+  const voiceValue = v.elVoiceId ? "el:" + v.elVoiceId : "custom:" + v.name;
+  currentSettings.voice = voiceValue;
+  const sel = document.getElementById("voiceSelect");
+  if (sel) sel.value = voiceValue;
+  // Set active engine
+  if (v.elVoiceId) {
+    setVoiceMode("elevenlabs");
+    setElevenLabsConfig(currentSettings.elApiKey, v.elVoiceId);
+  } else {
+    setVoiceMode("custom");
+  }
+  saveSettings(currentSettings);
+  renderCustomVoiceList();
+};
+
+/* ============================================================
+   ELEVENLABS SECTION — LIVE KEY VALIDATION
+   ============================================================ */
+async function validateAndLoadElevenLabs() {
+  const keyEl = document.getElementById("elApiKey");
+  const statusEl = document.getElementById("elKeyStatus");
+  const apiKey = keyEl?.value.trim();
+  if (!apiKey) {
+    if (statusEl) statusEl.textContent = "Enter your API key first.";
+    return;
+  }
+
+  if (statusEl) {
+    statusEl.textContent = "⏳ Validating...";
+    statusEl.className = "elStatus";
+  }
+
+  const voices = await fetchElevenLabsVoices(apiKey);
+
+  if (!voices.length) {
+    if (statusEl) {
+      statusEl.textContent = "✗ Invalid key or no voices found.";
+      statusEl.className = "elStatus error";
+    }
+    return;
+  }
+
+  // Save key
+  currentSettings.elApiKey = apiKey;
+  setElevenLabsConfig(apiKey, elevenLabsVoiceId);
+
+  if (statusEl) {
+    statusEl.textContent = `✓ Connected — ${voices.length} voice${voices.length !== 1 ? "s" : ""} found.`;
+    statusEl.className = "elStatus ok";
+  }
+
+  // Populate EL voice dropdown
+  const elSelEl = document.getElementById("elVoiceSelect");
+  if (elSelEl) {
+    elSelEl.innerHTML = voices
+      .map(
+        (v) =>
+          `<option value="${v.id}">${v.name}${v.category ? " — " + v.category : ""}</option>`,
+      )
+      .join("");
+  }
+
+  // Inject into main voiceSelect
+  injectElevenLabsVoices(voices);
+
+  // Save voices list for offline display
+  currentSettings.elVoices = voices;
+  saveSettings(currentSettings);
+}
+
+let elevenLabsVoiceId = "";
+
+function wireElevenLabsSection() {
+  // Load existing key
+  const keyEl = document.getElementById("elApiKey");
+  if (keyEl && currentSettings.elApiKey) keyEl.value = currentSettings.elApiKey;
+
+  document
+    .getElementById("elValidateBtn")
+    ?.addEventListener("click", validateAndLoadElevenLabs);
+
+  // EL voice picker — add to custom voices list
+  document.getElementById("elAddVoiceBtn")?.addEventListener("click", () => {
+    const selEl = document.getElementById("elVoiceSelect");
+    const nameEl = document.getElementById("elVoiceName");
+    const voiceId = selEl?.value;
+    const name =
+      nameEl?.value.trim() ||
+      selEl?.options[selEl?.selectedIndex]?.text ||
+      "EL Voice";
+
+    if (!voiceId) {
+      showToast("Select an ElevenLabs voice first.", true);
+      return;
+    }
+
+    if (!currentSettings.customVoices) currentSettings.customVoices = [];
+
+    // Avoid duplicates
+    if (currentSettings.customVoices.some((v) => v.elVoiceId === voiceId)) {
+      showToast("That voice is already in your list.", true);
+      return;
+    }
+
+    currentSettings.customVoices.push({ name, elVoiceId: voiceId });
+    if (nameEl) nameEl.value = "";
+    renderCustomVoiceList();
+    saveSettings(currentSettings);
+  });
+
+  // Restore EL voices if we have them
+  if (currentSettings.elVoices?.length) {
+    const elSelEl = document.getElementById("elVoiceSelect");
+    if (elSelEl) {
+      elSelEl.innerHTML = currentSettings.elVoices
+        .map(
+          (v) =>
+            `<option value="${v.id}">${v.name}${v.category ? " — " + v.category : ""}</option>`,
+        )
+        .join("");
+    }
+    injectElevenLabsVoices(currentSettings.elVoices);
+  }
+}
+
+/* ============================================================
+   FILE VOICE UPLOAD
+   ============================================================ */
+function wireFileVoiceUpload() {
+  document
+    .getElementById("addCustomVoiceBtn")
+    ?.addEventListener("click", () => {
+      const nameEl = document.getElementById("customVoiceName");
+      const fileEl = document.getElementById("customVoiceFile");
+      const name = nameEl?.value.trim();
+
+      if (!name) {
+        showToast("Enter a name for this voice.", true);
+        return;
+      }
+      if (!fileEl?.files[0]) {
+        showToast("Select an audio file.", true);
+        return;
+      }
+
+      const file = fileEl.files[0];
+      // Validate file type
+      if (!file.type.startsWith("audio/")) {
+        showToast("File must be an audio file (MP3, WAV, OGG).", true);
+        return;
+      }
+      // Warn if too large (>5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showToast("File is large — may cause slow loading.", false);
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (!currentSettings.customVoices) currentSettings.customVoices = [];
+        if (currentSettings.customVoices.some((v) => v.name === name)) {
+          showToast("A voice with that name already exists.", true);
+          return;
+        }
+        currentSettings.customVoices.push({
+          name,
+          dataUrl: e.target.result,
+          fileName: file.name,
+          fileType: file.type,
+        });
+        if (nameEl) nameEl.value = "";
+        fileEl.value = "";
+        document.getElementById("customVoiceFileName").textContent =
+          "No file selected";
+        renderCustomVoiceList();
+        populateVoiceSelect();
+        saveSettings(currentSettings);
+        showToast(`Voice "${name}" added.`);
+      };
+      reader.readAsDataURL(file);
+    });
+
+  // File input label update
+  document
+    .getElementById("customVoiceFile")
+    ?.addEventListener("change", (e) => {
+      const label = document.getElementById("customVoiceFileName");
+      if (label)
+        label.textContent = e.target.files[0]?.name || "No file selected";
+    });
+}
+
+/* ============================================================
+   MAIN SETTINGS STATE
+   ============================================================ */
+let currentSettings = loadSettings();
+
+/* ============================================================
+   APPLY EVERYTHING TO UI
+   ============================================================ */
+function applySettingsToUI() {
+  // ── Personality ──
+  document
+    .querySelectorAll(".personalityBtn")
+    .forEach((btn) =>
+      btn.classList.toggle(
+        "active",
+        btn.dataset.preset === currentSettings.personality,
+      ),
+    );
+
+  // ── Provider ──
+  const provSel = document.getElementById("providerSelect");
+  if (provSel) provSel.value = currentSettings.provider || "openrouter";
+
+  // ── TTS / VTT toggles ──
+  syncToggle("ttsToggle", currentSettings.ttsEnabled);
+  syncToggle("vttMasterToggle", currentSettings.vttEnabled);
+  const ttsBtn = document.getElementById("ttsBtn");
+  const vttBtn = document.getElementById("vttBtn");
+  if (ttsBtn) ttsBtn.classList.toggle("active", currentSettings.ttsEnabled);
+  if (vttBtn) vttBtn.classList.toggle("active", currentSettings.vttEnabled);
+
+  // ── Voice sliders ──
+  const rateEl = document.getElementById("voiceRate");
+  const pitchEl = document.getElementById("voicePitch");
+  const volEl = document.getElementById("voiceVolume");
+  if (rateEl) {
+    rateEl.value = currentSettings.rate ?? 1;
+    document.getElementById("rateDisplay") &&
+      (document.getElementById("rateDisplay").textContent = parseFloat(
+        rateEl.value,
+      ).toFixed(1));
+  }
+  if (pitchEl) {
+    pitchEl.value = currentSettings.pitch ?? 1;
+    document.getElementById("pitchDisplay") &&
+      (document.getElementById("pitchDisplay").textContent = parseFloat(
+        pitchEl.value,
+      ).toFixed(1));
+  }
+  if (volEl) {
+    volEl.value = currentSettings.volume ?? 1;
+    document.getElementById("volDisplay") &&
+      (document.getElementById("volDisplay").textContent = parseFloat(
+        volEl.value,
+      ).toFixed(1));
+  }
+
+  // ── Language filter ──
+  const langEl = document.getElementById("voiceLangFilter");
+  if (langEl && currentSettings.voiceLang)
+    langEl.value = currentSettings.voiceLang;
+
+  // ── VTT language ──
+  const vttLangEl = document.getElementById("vttLangSelect");
+  if (vttLangEl && currentSettings.vttLang)
+    vttLangEl.value = currentSettings.vttLang;
+
+  // ── Theme ──
+  applyTheme(
+    currentSettings.theme || "red",
+    currentSettings.darkMode !== false,
+  );
+  syncToggle("darkModeToggle", currentSettings.darkMode !== false);
+
+  // ── Feature toggles ──
+  ["glitchEffects", "scanlines", "sendOnEnter", "showTimestamps"].forEach((k) =>
+    syncToggle("toggle_" + k, currentSettings[k] !== false),
+  );
+  document.body.classList.toggle(
+    "no-scanlines",
+    currentSettings.scanlines === false,
+  );
+  document.body.classList.toggle(
+    "no-glitch",
+    currentSettings.glitchEffects === false,
+  );
+
+  // ── Font size ──
+  const fsEl = document.getElementById("fontSizeSelect");
+  if (fsEl) fsEl.value = currentSettings.fontSize || "medium";
+  applyFontSize(currentSettings.fontSize || "medium");
+
+  // ── EL key ──
+  const elKeyEl = document.getElementById("elApiKey");
+  if (elKeyEl && currentSettings.elApiKey)
+    elKeyEl.value = currentSettings.elApiKey;
+
+  // ── Custom voices ──
+  renderCustomVoiceList();
+
+  // ── Memory ──
+  renderMemoryPanel();
+
+  // ── Emotion ──
+  renderEmotionSummary();
+}
+
+function syncToggle(id, isOn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle("active", !!isOn);
+  el.textContent = isOn ? "ON" : "OFF";
+}
+
+/* ============================================================
    OPEN / CLOSE
    ============================================================ */
+const settingsOverlay = document.getElementById("settingsOverlay");
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsCloseBtn = document.getElementById("settingsCloseBtn");
+const settingsSaveBtn = document.getElementById("settingsSaveBtn");
+
 function openSettings() {
   applySettingsToUI();
+  populateVoiceSelect();
   settingsOverlay?.classList.add("active");
-  // Default to first tab
   switchSettingsTab("appearance");
 }
 function closeSettings() {
@@ -271,197 +546,209 @@ settingsOverlay?.addEventListener("click", (e) => {
 });
 
 /* ============================================================
-   SETTINGS TABS
+   WIRE ALL CONTROLS
    ============================================================ */
-export function switchSettingsTab(tabName) {
+function wireAllControls() {
+  // ── Tabs ──
   document
     .querySelectorAll(".settingsTab")
-    .forEach((t) => t.classList.toggle("active", t.dataset.tab === tabName));
-  document
-    .querySelectorAll(".settingsTabPane")
-    .forEach((p) => p.classList.toggle("active", p.dataset.pane === tabName));
-}
+    .forEach((t) =>
+      t.addEventListener("click", () => switchSettingsTab(t.dataset.tab)),
+    );
 
-window.ARIA_switchSettingsTab = switchSettingsTab;
+  // ── Personality ──
+  document.querySelectorAll(".personalityBtn").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      currentSettings.personality = btn.dataset.preset;
+      applySettingsToUI();
+    }),
+  );
 
-/* ============================================================
-   PERSONALITY BUTTONS
-   ============================================================ */
-personalityButtons.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    currentSettings.personality = btn.dataset.preset;
+  // ── Provider ──
+  document.getElementById("providerSelect")?.addEventListener("change", (e) => {
+    currentSettings.provider = e.target.value;
+  });
+
+  // ── TTS toggle ──
+  document.getElementById("ttsToggle")?.addEventListener("click", () => {
+    currentSettings.ttsEnabled = !currentSettings.ttsEnabled;
+    setTTSEnabled(currentSettings.ttsEnabled);
     applySettingsToUI();
   });
-});
 
-/* ============================================================
-   PROVIDER
-   ============================================================ */
-providerSelect?.addEventListener("change", () => {
-  currentSettings.provider = providerSelect.value;
-});
-
-/* ============================================================
-   TTS / VTT TOGGLES
-   ============================================================ */
-ttsToggle?.addEventListener("click", () => {
-  currentSettings.ttsEnabled = !currentSettings.ttsEnabled;
-  setTTSEnabled(currentSettings.ttsEnabled);
-  applySettingsToUI();
-});
-
-vttMasterToggle?.addEventListener("click", () => {
-  currentSettings.vttEnabled = !currentSettings.vttEnabled;
-  setVTTEnabled(currentSettings.vttEnabled);
-  applySettingsToUI();
-});
-
-/* ============================================================
-   VOICE
-   ============================================================ */
-voiceSelect?.addEventListener("change", () => {
-  currentSettings.voice = voiceSelect.value;
-});
-voiceRate?.addEventListener("input", () => {
-  currentSettings.rate = parseFloat(voiceRate.value);
-});
-voicePitch?.addEventListener("input", () => {
-  currentSettings.pitch = parseFloat(voicePitch.value);
-});
-
-/* ============================================================
-   DARK MODE TOGGLE
-   ============================================================ */
-document.getElementById("darkModeToggle")?.addEventListener("click", () => {
-  currentSettings.darkMode = !currentSettings.darkMode;
-  applySettingsToUI();
-});
-
-/* ============================================================
-   THEME SWATCHES
-   ============================================================ */
-document.querySelectorAll(".themeSwatch").forEach((swatch) => {
-  swatch.addEventListener("click", () => {
-    currentSettings.theme = swatch.dataset.theme;
-    applyTheme(currentSettings.theme, currentSettings.darkMode !== false);
-    document
-      .querySelectorAll(".themeSwatch")
-      .forEach((s) => s.classList.toggle("active", s === swatch));
+  // ── VTT toggle ──
+  document.getElementById("vttMasterToggle")?.addEventListener("click", () => {
+    currentSettings.vttEnabled = !currentSettings.vttEnabled;
+    setVTTEnabled(currentSettings.vttEnabled);
+    applySettingsToUI();
   });
-});
 
-/* ============================================================
-   FEATURE TOGGLES
-   ============================================================ */
-["glitchEffects", "scanlines", "sendOnEnter", "showTimestamps"].forEach(
-  (key) => {
-    document.getElementById(`toggle_${key}`)?.addEventListener("click", () => {
-      currentSettings[key] = currentSettings[key] === false ? true : false;
-      applySettingsToUI();
-      // Apply scanlines immediately
-      if (key === "scanlines")
-        document.body.classList.toggle("no-scanlines", !currentSettings[key]);
-      if (key === "glitchEffects")
-        document.body.classList.toggle("no-glitch", !currentSettings[key]);
+  // ── Voice select — detect mode change ──
+  document.getElementById("voiceSelect")?.addEventListener("change", (e) => {
+    const val = e.target.value;
+    currentSettings.voice = val;
+    if (val.startsWith("el:")) {
+      const vid = val.slice(3);
+      setVoiceMode("elevenlabs");
+      setElevenLabsConfig(currentSettings.elApiKey, vid);
+    } else if (val.startsWith("custom:")) {
+      setVoiceMode("custom");
+    } else {
+      setVoiceMode("browser");
+    }
+  });
+
+  // ── Voice sliders ──
+  document.getElementById("voiceRate")?.addEventListener("input", (e) => {
+    currentSettings.rate = parseFloat(e.target.value);
+    const d = document.getElementById("rateDisplay");
+    if (d) d.textContent = currentSettings.rate.toFixed(1);
+  });
+  document.getElementById("voicePitch")?.addEventListener("input", (e) => {
+    currentSettings.pitch = parseFloat(e.target.value);
+    const d = document.getElementById("pitchDisplay");
+    if (d) d.textContent = currentSettings.pitch.toFixed(1);
+  });
+  document.getElementById("voiceVolume")?.addEventListener("input", (e) => {
+    currentSettings.volume = parseFloat(e.target.value);
+    const d = document.getElementById("volDisplay");
+    if (d) d.textContent = currentSettings.volume.toFixed(1);
+  });
+
+  // ── Language filter for voice list ──
+  document
+    .getElementById("voiceLangFilter")
+    ?.addEventListener("change", (e) => {
+      currentSettings.voiceLang = e.target.value;
+      filterVoicesByLanguage(e.target.value);
     });
-  },
-);
 
-/* ============================================================
-   FONT SIZE
-   ============================================================ */
-document.getElementById("fontSizeSelect")?.addEventListener("change", (e) => {
-  currentSettings.fontSize = e.target.value;
-  applyFontSize(e.target.value);
-});
+  // ── VTT language ──
+  document.getElementById("vttLangSelect")?.addEventListener("change", (e) => {
+    currentSettings.vttLang = e.target.value;
+    window.ARIA_setVTTLanguage?.(e.target.value);
+  });
 
-/* ============================================================
-   CUSTOM VOICE UPLOAD
-   ============================================================ */
-function renderCustomVoiceList() {
-  const list = document.getElementById("customVoiceList");
-  if (!list) return;
-  const voices = currentSettings.customVoices || [];
-  if (!voices.length) {
-    list.innerHTML = `<div class="memEmpty">No custom voices added yet.</div>`;
-    return;
-  }
-  list.innerHTML = voices
-    .map(
-      (v, i) => `
-    <div class="customVoiceItem">
-      <span class="memCategory">custom</span>
-      <span class="memText">${v.name}</span>
-      <button class="memDelete" onclick="window.ARIA_removeCustomVoice(${i})">✕</button>
-    </div>
-  `,
-    )
-    .join("");
+  // ── Dark mode ──
+  document.getElementById("darkModeToggle")?.addEventListener("click", () => {
+    currentSettings.darkMode = !currentSettings.darkMode;
+    applySettingsToUI();
+  });
+
+  // ── Theme swatches ──
+  document.querySelectorAll(".themeSwatch").forEach((s) =>
+    s.addEventListener("click", () => {
+      currentSettings.theme = s.dataset.theme;
+      applyTheme(currentSettings.theme, currentSettings.darkMode !== false);
+    }),
+  );
+
+  // ── Feature toggles ──
+  ["glitchEffects", "scanlines", "sendOnEnter", "showTimestamps"].forEach(
+    (key) => {
+      document
+        .getElementById("toggle_" + key)
+        ?.addEventListener("click", () => {
+          currentSettings[key] = currentSettings[key] === false;
+          applySettingsToUI();
+        });
+    },
+  );
+
+  // ── Font size ──
+  document.getElementById("fontSizeSelect")?.addEventListener("change", (e) => {
+    currentSettings.fontSize = e.target.value;
+    applyFontSize(e.target.value);
+  });
+
+  // ── Memory ──
+  document.getElementById("addMemoryBtn")?.addEventListener("click", () => {
+    const inp = document.getElementById("memoryAddInput");
+    const cat =
+      document.getElementById("memoryCategorySelect")?.value || "note";
+    if (!inp?.value.trim()) return;
+    addManualMemory(inp.value.trim(), cat);
+    inp.value = "";
+  });
+  document.getElementById("clearMemoryBtn")?.addEventListener("click", () => {
+    if (confirm("Clear ALL of ARIA's memories? This cannot be undone."))
+      clearAllMemory();
+  });
+
+  // ── Save ──
+  settingsSaveBtn?.addEventListener("click", () => {
+    // Capture voice select value
+    const sel = document.getElementById("voiceSelect");
+    if (sel) currentSettings.voice = sel.value;
+    saveSettings(currentSettings);
+    closeSettings();
+    showToast("✓ Settings saved");
+  });
+
+  // ── Export / Import ──
+  document
+    .getElementById("exportSettingsBtn")
+    ?.addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(currentSettings, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "aria-settings.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  document
+    .getElementById("importSettingsBtn")
+    ?.addEventListener("click", () =>
+      document.getElementById("importSettingsFile")?.click(),
+    );
+  document
+    .getElementById("importSettingsFile")
+    ?.addEventListener("change", (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = (ev) => {
+        try {
+          const imp = JSON.parse(ev.target.result);
+          currentSettings = { ...currentSettings, ...imp };
+          applySettingsToUI();
+          showToast("Settings imported.");
+        } catch {
+          showToast("Invalid settings file.", true);
+        }
+      };
+      r.readAsText(f);
+    });
+
+  // ── ElevenLabs ──
+  wireElevenLabsSection();
+
+  // ── Custom file voice ──
+  wireFileVoiceUpload();
 }
 
-window.ARIA_removeCustomVoice = (idx) => {
-  currentSettings.customVoices.splice(idx, 1);
-  renderCustomVoiceList();
-};
-
-document.getElementById("addCustomVoiceBtn")?.addEventListener("click", () => {
-  const nameEl = document.getElementById("customVoiceName");
-  const fileEl = document.getElementById("customVoiceFile");
-  const name = nameEl?.value.trim();
-  if (!name || !fileEl?.files[0]) {
-    alert("Please enter a name and select an audio file.");
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    if (!currentSettings.customVoices) currentSettings.customVoices = [];
-    currentSettings.customVoices.push({ name, dataUrl: e.target.result });
-    if (nameEl) nameEl.value = "";
-    renderCustomVoiceList();
-    // Add to voice select
-    addCustomVoiceToSelect(name, e.target.result);
-  };
-  reader.readAsDataURL(fileEl.files[0]);
-});
-
-function addCustomVoiceToSelect(name, dataUrl) {
+/* ============================================================
+   LANGUAGE FILTER FOR VOICE SELECT
+   ============================================================ */
+function filterVoicesByLanguage(lang) {
   const sel = document.getElementById("voiceSelect");
   if (!sel) return;
-  const existing = sel.querySelector(`[data-custom="${name}"]`);
-  if (existing) return;
-  const opt = document.createElement("option");
-  opt.value = "custom:" + name;
-  opt.textContent = `⚡ ${name} (Custom)`;
-  opt.dataset.custom = name;
-  opt.dataset.url = dataUrl;
-  sel.appendChild(opt);
-}
-
-/* Load custom voices into select on init */
-function loadCustomVoicesIntoSelect() {
-  (currentSettings.customVoices || []).forEach((v) =>
-    addCustomVoiceToSelect(v.name, v.dataUrl),
-  );
+  Array.from(sel.querySelectorAll("optgroup")).forEach((grp) => {
+    if (grp.id === "elVoiceGroup") return; // never hide EL group
+    if (!lang || lang === "all") {
+      grp.style.display = "";
+    } else {
+      // optgroup label = "🌐 en-US" etc.
+      grp.style.display = grp.label.includes(lang) ? "" : "none";
+    }
+  });
 }
 
 /* ============================================================
-   MEMORY PANEL — ADD / CLEAR
-   ============================================================ */
-document.getElementById("addMemoryBtn")?.addEventListener("click", () => {
-  const input = document.getElementById("memoryAddInput");
-  const catEl = document.getElementById("memoryCategorySelect");
-  if (!input?.value.trim()) return;
-  addManualMemory(input.value, catEl?.value || "note");
-  input.value = "";
-});
-
-document.getElementById("clearMemoryBtn")?.addEventListener("click", () => {
-  if (confirm("Clear ALL of ARIA's memories? This cannot be undone."))
-    clearAllMemory();
-});
-
-/* ============================================================
-   EMOTION DISPLAY
+   EMOTION
    ============================================================ */
 function renderEmotionSummary() {
   const el = document.getElementById("emotionSummaryDisplay");
@@ -472,15 +759,13 @@ function renderEmotionSummary() {
     <div class="emotionCurrent" style="color:${e.color}; text-shadow: 0 0 8px ${e.color}">
       ${e.icon} ${e.label.toUpperCase()}
     </div>
-    <div style="font-size:10px; color: var(--text-muted); margin-top:4px;">
-      ARIA's current emotional state — shifts naturally with conversation
+    <div class="settingsHint" style="margin-top:6px">
+      ARIA's internal emotional state. Shifts naturally through conversation.
     </div>
   `;
-
-  // Manual override buttons
-  const btnsEl = document.getElementById("emotionOverrideBtns");
-  if (btnsEl) {
-    btnsEl.innerHTML = Object.entries(EMOTIONS)
+  const btns = document.getElementById("emotionOverrideBtns");
+  if (btns) {
+    btns.innerHTML = Object.entries(EMOTIONS)
       .map(
         ([key, val]) => `
       <button class="emotionOverrideBtn ${current === key ? "active" : ""}"
@@ -492,77 +777,49 @@ function renderEmotionSummary() {
       .join("");
   }
 }
-
 window.ARIA_setEmotion = (key) => {
   setEmotion(key);
   renderEmotionSummary();
 };
 
 /* ============================================================
-   SAVE
+   TOAST
    ============================================================ */
-settingsSaveBtn?.addEventListener("click", () => {
-  saveSettings(currentSettings);
-  closeSettings();
-
-  // Toast notification
+function showToast(msg, isError = false) {
   const toast = document.getElementById("settingsToast");
-  if (toast) {
-    toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 2200);
-  }
-});
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.className = "show" + (isError ? " error" : "");
+  setTimeout(() => {
+    toast.classList.remove("show", "error");
+  }, 3000);
+}
+window.ARIA_showToast = showToast;
 
 /* ============================================================
-   EXPORT / IMPORT SETTINGS
-   ============================================================ */
-document.getElementById("exportSettingsBtn")?.addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify(currentSettings, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "aria-settings.json";
-  a.click();
-  URL.revokeObjectURL(url);
-});
-
-document.getElementById("importSettingsBtn")?.addEventListener("click", () => {
-  document.getElementById("importSettingsFile")?.click();
-});
-
-document
-  .getElementById("importSettingsFile")
-  ?.addEventListener("change", (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const imported = JSON.parse(ev.target.result);
-        currentSettings = { ...currentSettings, ...imported };
-        applySettingsToUI();
-      } catch {
-        alert("Invalid settings file.");
-      }
-    };
-    reader.readAsText(file);
-  });
-
-/* ============================================================
-   INIT ON DOM READY
+   INIT
    ============================================================ */
 window.addEventListener("DOMContentLoaded", () => {
   setTTSEnabled(currentSettings.ttsEnabled);
   setVTTEnabled(currentSettings.vttEnabled);
+
+  // Set initial voice mode
+  const v = currentSettings.voice || "";
+  if (v.startsWith("el:")) {
+    setVoiceMode("elevenlabs");
+    setElevenLabsConfig(currentSettings.elApiKey, v.slice(3));
+  } else if (v.startsWith("custom:")) {
+    setVoiceMode("custom");
+  } else {
+    setVoiceMode("browser");
+  }
+
+  // Wire VTT language into recognition if available
+  if (currentSettings.vttLang)
+    window.ARIA_setVTTLanguage?.(currentSettings.vttLang);
+
   applySettingsToUI();
   loadEmotionState();
-  loadCustomVoicesIntoSelect();
-  renderEmotionSummary();
-
-  // Open settings tabs on click
-  document.querySelectorAll(".settingsTab").forEach((t) => {
-    t.addEventListener("click", () => switchSettingsTab(t.dataset.tab));
-  });
+  wireAllControls();
+  populateVoiceSelect();
 });
