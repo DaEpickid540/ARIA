@@ -3457,3 +3457,27 @@ body.no-glitch .glitch:hover {
   font-size: 10px;
   color: var(--text-muted);
 }
+
+/* ============================================================
+   BRIGHTNESS SLIDER + SLIDER HINTS
+   ============================================================ */
+.sliderHintRow {
+  display: flex;
+  justify-content: space-between;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  letter-spacing: 0.06em;
+}
+
+/* inlineCode used in settings hints */
+code.inlineCode {
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid var(--red-dim);
+  color: var(--red-neon);
+  padding: 1px 5px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}

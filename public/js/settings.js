@@ -1,4 +1,4 @@
-// settings.js — Complete rebuild, all features functional
+// settings.js — fixed: all DOM access deferred to DOMContentLoaded
 
 import { loadSettings, saveSettings } from "./personality.js";
 import {
@@ -8,6 +8,7 @@ import {
   populateVoiceSelect,
   fetchElevenLabsVoices,
   injectElevenLabsVoices,
+  loadEnvVoiceKey,
 } from "./tts.js";
 import { setVTTEnabled } from "./vtt.js";
 import {
@@ -140,8 +141,14 @@ export function applyTheme(themeKey, darkMode = true) {
     .forEach((s) => s.classList.toggle("active", s.dataset.theme === themeKey));
 }
 
+export function applyBrightness(val) {
+  // val = 0.3 (dim) to 1.5 (bright). 1.0 = normal
+  document.documentElement.style.setProperty("--brightness", String(val));
+  document.body.style.filter = val === 1 ? "" : `brightness(${val})`;
+}
+
 /* ============================================================
-   SETTINGS TABS
+   TAB SWITCHING — pure function, no DOM cached at top level
    ============================================================ */
 export function switchSettingsTab(tabName) {
   document
@@ -150,7 +157,6 @@ export function switchSettingsTab(tabName) {
   document
     .querySelectorAll(".settingsTabPane")
     .forEach((p) => p.classList.toggle("active", p.dataset.pane === tabName));
-  // Refresh emotion when switching to that tab
   if (tabName === "emotion") renderEmotionSummary();
   if (tabName === "memory") renderMemoryPanel();
   if (tabName === "voice") populateVoiceSelect();
@@ -158,8 +164,20 @@ export function switchSettingsTab(tabName) {
 window.ARIA_switchSettingsTab = switchSettingsTab;
 
 /* ============================================================
-   FONT SIZE
+   SETTINGS STATE — loaded once at module level (no DOM needed)
    ============================================================ */
+let currentSettings = loadSettings();
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function syncToggle(id, isOn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle("active", !!isOn);
+  el.textContent = isOn ? "ON" : "OFF";
+}
+
 function applyFontSize(size) {
   const map = { small: "11px", medium: "13px", large: "15px" };
   document.documentElement.style.setProperty(
@@ -168,255 +186,24 @@ function applyFontSize(size) {
   );
 }
 
-/* ============================================================
-   CUSTOM VOICES MANAGER
-   Stores { name, type, dataUrl?, description? }
-   ============================================================ */
-function renderCustomVoiceList() {
-  const list = document.getElementById("customVoiceList");
-  if (!list) return;
-  const voices = currentSettings.customVoices || [];
-
-  if (!voices.length) {
-    list.innerHTML = `<div class="memEmpty">No custom voices added yet. Upload an MP3/WAV or add an ElevenLabs Voice ID below.</div>`;
-    return;
-  }
-
-  list.innerHTML = voices
-    .map(
-      (v, i) => `
-    <div class="customVoiceItem ${currentSettings.voice === (v.elVoiceId ? "el:" + v.elVoiceId : "custom:" + v.name) ? "active" : ""}">
-      <div class="cviLeft">
-        <span class="cviType">${v.elVoiceId ? "⚡ EL" : "🎙 FILE"}</span>
-        <div>
-          <div class="cviName">${v.name}</div>
-          <div class="cviDesc">${v.elVoiceId ? "ElevenLabs Voice ID: " + v.elVoiceId : v.fileName || "Audio file"}</div>
-        </div>
-      </div>
-      <div class="cviActions">
-        <button class="cviSelectBtn ${currentSettings.voice === (v.elVoiceId ? "el:" + v.elVoiceId : "custom:" + v.name) ? "active" : ""}"
-          onclick="window.ARIA_selectCustomVoice(${i})">
-          ${currentSettings.voice === (v.elVoiceId ? "el:" + v.elVoiceId : "custom:" + v.name) ? "✓ ACTIVE" : "USE"}
-        </button>
-        <button class="cviDeleteBtn" onclick="window.ARIA_removeCustomVoice(${i})">✕</button>
-      </div>
-    </div>
-  `,
-    )
-    .join("");
+function showToast(msg, isError = false) {
+  const toast = document.getElementById("settingsToast");
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.className = "show" + (isError ? " error" : "");
+  setTimeout(() => {
+    toast.classList.remove("show", "error");
+    toast.textContent = "✓ Settings saved";
+  }, 3000);
 }
-
-window.ARIA_removeCustomVoice = (idx) => {
-  currentSettings.customVoices.splice(idx, 1);
-  saveSettings(currentSettings);
-  renderCustomVoiceList();
-  populateVoiceSelect();
-};
-
-window.ARIA_selectCustomVoice = (idx) => {
-  const v = currentSettings.customVoices[idx];
-  if (!v) return;
-  const voiceValue = v.elVoiceId ? "el:" + v.elVoiceId : "custom:" + v.name;
-  currentSettings.voice = voiceValue;
-  const sel = document.getElementById("voiceSelect");
-  if (sel) sel.value = voiceValue;
-  // Set active engine
-  if (v.elVoiceId) {
-    setVoiceMode("elevenlabs");
-    setElevenLabsConfig(currentSettings.elApiKey, v.elVoiceId);
-  } else {
-    setVoiceMode("custom");
-  }
-  saveSettings(currentSettings);
-  renderCustomVoiceList();
-};
+window.ARIA_showToast = showToast;
 
 /* ============================================================
-   ELEVENLABS SECTION — LIVE KEY VALIDATION
-   ============================================================ */
-async function validateAndLoadElevenLabs() {
-  const keyEl = document.getElementById("elApiKey");
-  const statusEl = document.getElementById("elKeyStatus");
-  const apiKey = keyEl?.value.trim();
-  if (!apiKey) {
-    if (statusEl) statusEl.textContent = "Enter your API key first.";
-    return;
-  }
-
-  if (statusEl) {
-    statusEl.textContent = "⏳ Validating...";
-    statusEl.className = "elStatus";
-  }
-
-  const voices = await fetchElevenLabsVoices(apiKey);
-
-  if (!voices.length) {
-    if (statusEl) {
-      statusEl.textContent = "✗ Invalid key or no voices found.";
-      statusEl.className = "elStatus error";
-    }
-    return;
-  }
-
-  // Save key
-  currentSettings.elApiKey = apiKey;
-  setElevenLabsConfig(apiKey, elevenLabsVoiceId);
-
-  if (statusEl) {
-    statusEl.textContent = `✓ Connected — ${voices.length} voice${voices.length !== 1 ? "s" : ""} found.`;
-    statusEl.className = "elStatus ok";
-  }
-
-  // Populate EL voice dropdown
-  const elSelEl = document.getElementById("elVoiceSelect");
-  if (elSelEl) {
-    elSelEl.innerHTML = voices
-      .map(
-        (v) =>
-          `<option value="${v.id}">${v.name}${v.category ? " — " + v.category : ""}</option>`,
-      )
-      .join("");
-  }
-
-  // Inject into main voiceSelect
-  injectElevenLabsVoices(voices);
-
-  // Save voices list for offline display
-  currentSettings.elVoices = voices;
-  saveSettings(currentSettings);
-}
-
-let elevenLabsVoiceId = "";
-
-function wireElevenLabsSection() {
-  // Load existing key
-  const keyEl = document.getElementById("elApiKey");
-  if (keyEl && currentSettings.elApiKey) keyEl.value = currentSettings.elApiKey;
-
-  document
-    .getElementById("elValidateBtn")
-    ?.addEventListener("click", validateAndLoadElevenLabs);
-
-  // EL voice picker — add to custom voices list
-  document.getElementById("elAddVoiceBtn")?.addEventListener("click", () => {
-    const selEl = document.getElementById("elVoiceSelect");
-    const nameEl = document.getElementById("elVoiceName");
-    const voiceId = selEl?.value;
-    const name =
-      nameEl?.value.trim() ||
-      selEl?.options[selEl?.selectedIndex]?.text ||
-      "EL Voice";
-
-    if (!voiceId) {
-      showToast("Select an ElevenLabs voice first.", true);
-      return;
-    }
-
-    if (!currentSettings.customVoices) currentSettings.customVoices = [];
-
-    // Avoid duplicates
-    if (currentSettings.customVoices.some((v) => v.elVoiceId === voiceId)) {
-      showToast("That voice is already in your list.", true);
-      return;
-    }
-
-    currentSettings.customVoices.push({ name, elVoiceId: voiceId });
-    if (nameEl) nameEl.value = "";
-    renderCustomVoiceList();
-    saveSettings(currentSettings);
-  });
-
-  // Restore EL voices if we have them
-  if (currentSettings.elVoices?.length) {
-    const elSelEl = document.getElementById("elVoiceSelect");
-    if (elSelEl) {
-      elSelEl.innerHTML = currentSettings.elVoices
-        .map(
-          (v) =>
-            `<option value="${v.id}">${v.name}${v.category ? " — " + v.category : ""}</option>`,
-        )
-        .join("");
-    }
-    injectElevenLabsVoices(currentSettings.elVoices);
-  }
-}
-
-/* ============================================================
-   FILE VOICE UPLOAD
-   ============================================================ */
-function wireFileVoiceUpload() {
-  document
-    .getElementById("addCustomVoiceBtn")
-    ?.addEventListener("click", () => {
-      const nameEl = document.getElementById("customVoiceName");
-      const fileEl = document.getElementById("customVoiceFile");
-      const name = nameEl?.value.trim();
-
-      if (!name) {
-        showToast("Enter a name for this voice.", true);
-        return;
-      }
-      if (!fileEl?.files[0]) {
-        showToast("Select an audio file.", true);
-        return;
-      }
-
-      const file = fileEl.files[0];
-      // Validate file type
-      if (!file.type.startsWith("audio/")) {
-        showToast("File must be an audio file (MP3, WAV, OGG).", true);
-        return;
-      }
-      // Warn if too large (>5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        showToast("File is large — may cause slow loading.", false);
-      }
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (!currentSettings.customVoices) currentSettings.customVoices = [];
-        if (currentSettings.customVoices.some((v) => v.name === name)) {
-          showToast("A voice with that name already exists.", true);
-          return;
-        }
-        currentSettings.customVoices.push({
-          name,
-          dataUrl: e.target.result,
-          fileName: file.name,
-          fileType: file.type,
-        });
-        if (nameEl) nameEl.value = "";
-        fileEl.value = "";
-        document.getElementById("customVoiceFileName").textContent =
-          "No file selected";
-        renderCustomVoiceList();
-        populateVoiceSelect();
-        saveSettings(currentSettings);
-        showToast(`Voice "${name}" added.`);
-      };
-      reader.readAsDataURL(file);
-    });
-
-  // File input label update
-  document
-    .getElementById("customVoiceFile")
-    ?.addEventListener("change", (e) => {
-      const label = document.getElementById("customVoiceFileName");
-      if (label)
-        label.textContent = e.target.files[0]?.name || "No file selected";
-    });
-}
-
-/* ============================================================
-   MAIN SETTINGS STATE
-   ============================================================ */
-let currentSettings = loadSettings();
-
-/* ============================================================
-   APPLY EVERYTHING TO UI
+   APPLY ALL SETTINGS TO UI
+   (called every time settings panel opens or a value changes)
    ============================================================ */
 function applySettingsToUI() {
-  // ── Personality ──
+  // Personality
   document
     .querySelectorAll(".personalityBtn")
     .forEach((btn) =>
@@ -426,62 +213,63 @@ function applySettingsToUI() {
       ),
     );
 
-  // ── Provider ──
+  // Provider
   const provSel = document.getElementById("providerSelect");
   if (provSel) provSel.value = currentSettings.provider || "openrouter";
 
-  // ── TTS / VTT toggles ──
+  // TTS / VTT toggles
   syncToggle("ttsToggle", currentSettings.ttsEnabled);
   syncToggle("vttMasterToggle", currentSettings.vttEnabled);
   const ttsBtn = document.getElementById("ttsBtn");
   const vttBtn = document.getElementById("vttBtn");
-  if (ttsBtn) ttsBtn.classList.toggle("active", currentSettings.ttsEnabled);
-  if (vttBtn) vttBtn.classList.toggle("active", currentSettings.vttEnabled);
+  if (ttsBtn) ttsBtn.classList.toggle("active", !!currentSettings.ttsEnabled);
+  if (vttBtn) vttBtn.classList.toggle("active", !!currentSettings.vttEnabled);
 
-  // ── Voice sliders ──
+  // Voice sliders
   const rateEl = document.getElementById("voiceRate");
   const pitchEl = document.getElementById("voicePitch");
   const volEl = document.getElementById("voiceVolume");
   if (rateEl) {
     rateEl.value = currentSettings.rate ?? 1;
     document.getElementById("rateDisplay") &&
-      (document.getElementById("rateDisplay").textContent = parseFloat(
-        rateEl.value,
-      ).toFixed(1));
+      (rateDisplay.textContent = parseFloat(rateEl.value).toFixed(1));
   }
   if (pitchEl) {
     pitchEl.value = currentSettings.pitch ?? 1;
     document.getElementById("pitchDisplay") &&
-      (document.getElementById("pitchDisplay").textContent = parseFloat(
-        pitchEl.value,
-      ).toFixed(1));
+      (pitchDisplay.textContent = parseFloat(pitchEl.value).toFixed(1));
   }
   if (volEl) {
     volEl.value = currentSettings.volume ?? 1;
     document.getElementById("volDisplay") &&
-      (document.getElementById("volDisplay").textContent = parseFloat(
-        volEl.value,
-      ).toFixed(1));
+      (volDisplay.textContent = parseFloat(volEl.value).toFixed(2));
   }
 
-  // ── Language filter ──
+  // Language filters
   const langEl = document.getElementById("voiceLangFilter");
   if (langEl && currentSettings.voiceLang)
     langEl.value = currentSettings.voiceLang;
-
-  // ── VTT language ──
   const vttLangEl = document.getElementById("vttLangSelect");
   if (vttLangEl && currentSettings.vttLang)
     vttLangEl.value = currentSettings.vttLang;
 
-  // ── Theme ──
+  // Theme & dark mode
   applyTheme(
     currentSettings.theme || "red",
     currentSettings.darkMode !== false,
   );
   syncToggle("darkModeToggle", currentSettings.darkMode !== false);
 
-  // ── Feature toggles ──
+  // Brightness
+  const brightEl = document.getElementById("brightnessSlider");
+  if (brightEl) {
+    brightEl.value = currentSettings.brightness ?? 1;
+    const bd = document.getElementById("brightnessDisplay");
+    if (bd) bd.textContent = parseFloat(brightEl.value).toFixed(2);
+  }
+  applyBrightness(currentSettings.brightness ?? 1);
+
+  // Feature toggles
   ["glitchEffects", "scanlines", "sendOnEnter", "showTimestamps"].forEach((k) =>
     syncToggle("toggle_" + k, currentSettings[k] !== false),
   );
@@ -494,62 +282,244 @@ function applySettingsToUI() {
     currentSettings.glitchEffects === false,
   );
 
-  // ── Font size ──
+  // Font size
   const fsEl = document.getElementById("fontSizeSelect");
   if (fsEl) fsEl.value = currentSettings.fontSize || "medium";
   applyFontSize(currentSettings.fontSize || "medium");
 
-  // ── EL key ──
+  // EL key
   const elKeyEl = document.getElementById("elApiKey");
   if (elKeyEl && currentSettings.elApiKey)
     elKeyEl.value = currentSettings.elApiKey;
 
-  // ── Custom voices ──
+  // Custom voices list
   renderCustomVoiceList();
 
-  // ── Memory ──
+  // Memory & emotion
   renderMemoryPanel();
-
-  // ── Emotion ──
   renderEmotionSummary();
 }
 
-function syncToggle(id, isOn) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.classList.toggle("active", !!isOn);
-  el.textContent = isOn ? "ON" : "OFF";
+/* ============================================================
+   CUSTOM VOICES
+   ============================================================ */
+function renderCustomVoiceList() {
+  const list = document.getElementById("customVoiceList");
+  if (!list) return;
+  const voices = currentSettings.customVoices || [];
+  if (!voices.length) {
+    list.innerHTML = `<div class="memEmpty">No custom voices yet. Add an ElevenLabs voice or upload an audio file below.</div>`;
+    return;
+  }
+  list.innerHTML = voices
+    .map((v, i) => {
+      const val = v.elVoiceId ? "el:" + v.elVoiceId : "custom:" + v.name;
+      const active = currentSettings.voice === val;
+      return `
+      <div class="customVoiceItem ${active ? "active" : ""}">
+        <div class="cviLeft">
+          <span class="cviType">${v.elVoiceId ? "⚡ EL" : "🎙 FILE"}</span>
+          <div>
+            <div class="cviName">${v.name}</div>
+            <div class="cviDesc">${v.elVoiceId ? "ElevenLabs: " + v.elVoiceId : v.fileName || "audio file"}</div>
+          </div>
+        </div>
+        <div class="cviActions">
+          <button class="cviSelectBtn ${active ? "active" : ""}" onclick="window.ARIA_selectCustomVoice(${i})">
+            ${active ? "✓ ACTIVE" : "USE"}
+          </button>
+          <button class="cviDeleteBtn" onclick="window.ARIA_removeCustomVoice(${i})">✕</button>
+        </div>
+      </div>`;
+    })
+    .join("");
+}
+
+window.ARIA_removeCustomVoice = (idx) => {
+  currentSettings.customVoices.splice(idx, 1);
+  saveSettings(currentSettings);
+  renderCustomVoiceList();
+  populateVoiceSelect();
+};
+
+window.ARIA_selectCustomVoice = (idx) => {
+  const v = currentSettings.customVoices?.[idx];
+  if (!v) return;
+  const val = v.elVoiceId ? "el:" + v.elVoiceId : "custom:" + v.name;
+  currentSettings.voice = val;
+  const sel = document.getElementById("voiceSelect");
+  if (sel) sel.value = val;
+  if (v.elVoiceId) {
+    setVoiceMode("elevenlabs");
+    setElevenLabsConfig(currentSettings.elApiKey, v.elVoiceId);
+  } else {
+    setVoiceMode("custom");
+  }
+  saveSettings(currentSettings);
+  renderCustomVoiceList();
+};
+
+/* ============================================================
+   ELEVENLABS
+   ============================================================ */
+async function validateAndLoadElevenLabs() {
+  const keyEl = document.getElementById("elApiKey");
+  const statusEl = document.getElementById("elKeyStatus");
+  const apiKey = keyEl?.value.trim();
+  if (!apiKey) {
+    if (statusEl) statusEl.textContent = "Enter your API key first.";
+    return;
+  }
+  if (statusEl) {
+    statusEl.textContent = "⏳ Validating...";
+    statusEl.className = "elStatus";
+  }
+
+  const voices = await fetchElevenLabsVoices(apiKey);
+  if (!voices.length) {
+    if (statusEl) {
+      statusEl.textContent = "✗ Invalid key or no voices found.";
+      statusEl.className = "elStatus error";
+    }
+    return;
+  }
+
+  currentSettings.elApiKey = apiKey;
+  setElevenLabsConfig(
+    apiKey,
+    currentSettings.voice?.startsWith("el:")
+      ? currentSettings.voice.slice(3)
+      : "",
+  );
+  if (statusEl) {
+    statusEl.textContent = `✓ Connected — ${voices.length} voice${voices.length !== 1 ? "s" : ""} found.`;
+    statusEl.className = "elStatus ok";
+  }
+
+  const elSelEl = document.getElementById("elVoiceSelect");
+  if (elSelEl) {
+    elSelEl.innerHTML = voices
+      .map(
+        (v) =>
+          `<option value="${v.id}">${v.name}${v.category ? " — " + v.category : ""}</option>`,
+      )
+      .join("");
+  }
+  injectElevenLabsVoices(voices);
+  currentSettings.elVoices = voices;
+  saveSettings(currentSettings);
 }
 
 /* ============================================================
-   OPEN / CLOSE
+   FILE VOICE UPLOAD
    ============================================================ */
-const settingsOverlay = document.getElementById("settingsOverlay");
-const settingsBtn = document.getElementById("settingsBtn");
-const settingsCloseBtn = document.getElementById("settingsCloseBtn");
-const settingsSaveBtn = document.getElementById("settingsSaveBtn");
+function handleFileVoiceAdd() {
+  const nameEl = document.getElementById("customVoiceName");
+  const fileEl = document.getElementById("customVoiceFile");
+  const name = nameEl?.value.trim();
+  if (!name) {
+    showToast("Enter a name for this voice.", true);
+    return;
+  }
+  if (!fileEl?.files[0]) {
+    showToast("Select an audio file.", true);
+    return;
+  }
+  const file = fileEl.files[0];
+  if (!file.type.startsWith("audio/")) {
+    showToast("Must be an audio file (MP3, WAV, OGG).", true);
+    return;
+  }
 
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    if (!currentSettings.customVoices) currentSettings.customVoices = [];
+    if (currentSettings.customVoices.some((v) => v.name === name)) {
+      showToast("A voice with that name already exists.", true);
+      return;
+    }
+    currentSettings.customVoices.push({
+      name,
+      dataUrl: e.target.result,
+      fileName: file.name,
+    });
+    if (nameEl) nameEl.value = "";
+    if (fileEl) fileEl.value = "";
+    const fnEl = document.getElementById("customVoiceFileName");
+    if (fnEl) fnEl.textContent = "No file selected";
+    renderCustomVoiceList();
+    populateVoiceSelect();
+    saveSettings(currentSettings);
+    showToast(`Voice "${name}" added.`);
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ============================================================
+   EMOTION
+   ============================================================ */
+function renderEmotionSummary() {
+  const el = document.getElementById("emotionSummaryDisplay");
+  if (!el) return;
+  const current = getEmotion();
+  const e = EMOTIONS[current] || EMOTIONS.neutral;
+  el.innerHTML = `
+    <div class="emotionCurrent" style="color:${e.color}; text-shadow: 0 0 8px ${e.color}">
+      ${e.icon} ${e.label.toUpperCase()}
+    </div>
+    <div class="settingsHint" style="margin-top:6px">
+      Shifts naturally through conversation. Override below.
+    </div>`;
+  const btns = document.getElementById("emotionOverrideBtns");
+  if (btns) {
+    btns.innerHTML = Object.entries(EMOTIONS)
+      .map(
+        ([key, val]) => `
+      <button class="emotionOverrideBtn ${current === key ? "active" : ""}"
+        style="--em-color:${val.color}"
+        onclick="window.ARIA_setEmotion('${key}')"
+      >${val.icon} ${val.label}</button>`,
+      )
+      .join("");
+  }
+}
+window.ARIA_setEmotion = (key) => {
+  setEmotion(key);
+  renderEmotionSummary();
+};
+
+/* ============================================================
+   OPEN / CLOSE  — defined inside init so DOM is guaranteed ready
+   ============================================================ */
 function openSettings() {
   applySettingsToUI();
   populateVoiceSelect();
-  settingsOverlay?.classList.add("active");
+  document.getElementById("settingsOverlay")?.classList.add("active");
   switchSettingsTab("appearance");
 }
 function closeSettings() {
-  settingsOverlay?.classList.remove("active");
+  document.getElementById("settingsOverlay")?.classList.remove("active");
 }
-
-settingsBtn?.addEventListener("click", openSettings);
-settingsCloseBtn?.addEventListener("click", closeSettings);
-settingsOverlay?.addEventListener("click", (e) => {
-  if (e.target === settingsOverlay) closeSettings();
-});
+window.ARIA_openSettings = openSettings;
+window.ARIA_closeSettings = closeSettings;
 
 /* ============================================================
-   WIRE ALL CONTROLS
+   WIRE ALL EVENT LISTENERS — called once inside DOMContentLoaded
    ============================================================ */
 function wireAllControls() {
-  // ── Tabs ──
+  // ── Settings open / close ──
+  document
+    .getElementById("settingsBtn")
+    ?.addEventListener("click", openSettings);
+  document
+    .getElementById("settingsCloseBtn")
+    ?.addEventListener("click", closeSettings);
+  document.getElementById("settingsOverlay")?.addEventListener("click", (e) => {
+    if (e.target === document.getElementById("settingsOverlay"))
+      closeSettings();
+  });
+
+  // ── Tab buttons ──
   document
     .querySelectorAll(".settingsTab")
     .forEach((t) =>
@@ -573,24 +543,27 @@ function wireAllControls() {
   document.getElementById("ttsToggle")?.addEventListener("click", () => {
     currentSettings.ttsEnabled = !currentSettings.ttsEnabled;
     setTTSEnabled(currentSettings.ttsEnabled);
-    applySettingsToUI();
+    syncToggle("ttsToggle", currentSettings.ttsEnabled);
+    const ttsBtn = document.getElementById("ttsBtn");
+    if (ttsBtn) ttsBtn.classList.toggle("active", currentSettings.ttsEnabled);
   });
 
   // ── VTT toggle ──
   document.getElementById("vttMasterToggle")?.addEventListener("click", () => {
     currentSettings.vttEnabled = !currentSettings.vttEnabled;
     setVTTEnabled(currentSettings.vttEnabled);
-    applySettingsToUI();
+    syncToggle("vttMasterToggle", currentSettings.vttEnabled);
+    const vttBtn = document.getElementById("vttBtn");
+    if (vttBtn) vttBtn.classList.toggle("active", currentSettings.vttEnabled);
   });
 
-  // ── Voice select — detect mode change ──
+  // ── Voice select ──
   document.getElementById("voiceSelect")?.addEventListener("change", (e) => {
     const val = e.target.value;
     currentSettings.voice = val;
     if (val.startsWith("el:")) {
-      const vid = val.slice(3);
       setVoiceMode("elevenlabs");
-      setElevenLabsConfig(currentSettings.elApiKey, vid);
+      setElevenLabsConfig(currentSettings.elApiKey, val.slice(3));
     } else if (val.startsWith("custom:")) {
       setVoiceMode("custom");
     } else {
@@ -612,10 +585,10 @@ function wireAllControls() {
   document.getElementById("voiceVolume")?.addEventListener("input", (e) => {
     currentSettings.volume = parseFloat(e.target.value);
     const d = document.getElementById("volDisplay");
-    if (d) d.textContent = currentSettings.volume.toFixed(1);
+    if (d) d.textContent = currentSettings.volume.toFixed(2);
   });
 
-  // ── Language filter for voice list ──
+  // ── Language filter ──
   document
     .getElementById("voiceLangFilter")
     ?.addEventListener("change", (e) => {
@@ -632,8 +605,19 @@ function wireAllControls() {
   // ── Dark mode ──
   document.getElementById("darkModeToggle")?.addEventListener("click", () => {
     currentSettings.darkMode = !currentSettings.darkMode;
-    applySettingsToUI();
+    applyTheme(currentSettings.theme || "red", currentSettings.darkMode);
+    syncToggle("darkModeToggle", currentSettings.darkMode);
   });
+
+  // ── Brightness slider ──
+  document
+    .getElementById("brightnessSlider")
+    ?.addEventListener("input", (e) => {
+      currentSettings.brightness = parseFloat(e.target.value);
+      const d = document.getElementById("brightnessDisplay");
+      if (d) d.textContent = currentSettings.brightness.toFixed(2);
+      applyBrightness(currentSettings.brightness);
+    });
 
   // ── Theme swatches ──
   document.querySelectorAll(".themeSwatch").forEach((s) =>
@@ -649,8 +633,15 @@ function wireAllControls() {
       document
         .getElementById("toggle_" + key)
         ?.addEventListener("click", () => {
-          currentSettings[key] = currentSettings[key] === false;
-          applySettingsToUI();
+          currentSettings[key] = currentSettings[key] === false ? true : false;
+          syncToggle("toggle_" + key, currentSettings[key]);
+          if (key === "scanlines")
+            document.body.classList.toggle(
+              "no-scanlines",
+              !currentSettings[key],
+            );
+          if (key === "glitchEffects")
+            document.body.classList.toggle("no-glitch", !currentSettings[key]);
         });
     },
   );
@@ -660,6 +651,65 @@ function wireAllControls() {
     currentSettings.fontSize = e.target.value;
     applyFontSize(e.target.value);
   });
+
+  // ── ElevenLabs ──
+  document
+    .getElementById("elValidateBtn")
+    ?.addEventListener("click", validateAndLoadElevenLabs);
+  document.getElementById("elAddVoiceBtn")?.addEventListener("click", () => {
+    const selEl = document.getElementById("elVoiceSelect");
+    const nameEl = document.getElementById("elVoiceName");
+    const vid = selEl?.value;
+    const name =
+      nameEl?.value.trim() ||
+      selEl?.options[selEl?.selectedIndex]?.text ||
+      "EL Voice";
+    if (!vid || vid === "none") {
+      showToast("Select a voice first.", true);
+      return;
+    }
+    if (!currentSettings.customVoices) currentSettings.customVoices = [];
+    if (currentSettings.customVoices.some((v) => v.elVoiceId === vid)) {
+      showToast("Already in your list.", true);
+      return;
+    }
+    currentSettings.customVoices.push({ name, elVoiceId: vid });
+    if (nameEl) nameEl.value = "";
+    renderCustomVoiceList();
+    saveSettings(currentSettings);
+    showToast(`EL voice "${name}" added.`);
+  });
+
+  // Restore saved EL voices into select
+  if (currentSettings.elVoices?.length) {
+    const elSelEl = document.getElementById("elVoiceSelect");
+    if (elSelEl) {
+      elSelEl.innerHTML = currentSettings.elVoices
+        .map(
+          (v) =>
+            `<option value="${v.id}">${v.name}${v.category ? " — " + v.category : ""}</option>`,
+        )
+        .join("");
+    }
+    injectElevenLabsVoices(currentSettings.elVoices);
+  }
+
+  // ── Custom file voice ──
+  document
+    .getElementById("addCustomVoiceBtn")
+    ?.addEventListener("click", handleFileVoiceAdd);
+  document
+    .getElementById("customVoiceFile")
+    ?.addEventListener("change", (e) => {
+      const label = document.getElementById("customVoiceFileName");
+      if (label)
+        label.textContent = e.target.files[0]?.name || "No file selected";
+    });
+  document
+    .getElementById("customVoiceFileBtn")
+    ?.addEventListener("click", () => {
+      document.getElementById("customVoiceFile")?.click();
+    });
 
   // ── Memory ──
   document.getElementById("addMemoryBtn")?.addEventListener("click", () => {
@@ -676,8 +726,7 @@ function wireAllControls() {
   });
 
   // ── Save ──
-  settingsSaveBtn?.addEventListener("click", () => {
-    // Capture voice select value
+  document.getElementById("settingsSaveBtn")?.addEventListener("click", () => {
     const sel = document.getElementById("voiceSelect");
     if (sel) currentSettings.voice = sel.value;
     saveSettings(currentSettings);
@@ -712,8 +761,10 @@ function wireAllControls() {
       const r = new FileReader();
       r.onload = (ev) => {
         try {
-          const imp = JSON.parse(ev.target.result);
-          currentSettings = { ...currentSettings, ...imp };
+          currentSettings = {
+            ...currentSettings,
+            ...JSON.parse(ev.target.result),
+          };
           applySettingsToUI();
           showToast("Settings imported.");
         } catch {
@@ -722,104 +773,81 @@ function wireAllControls() {
       };
       r.readAsText(f);
     });
-
-  // ── ElevenLabs ──
-  wireElevenLabsSection();
-
-  // ── Custom file voice ──
-  wireFileVoiceUpload();
 }
 
 /* ============================================================
-   LANGUAGE FILTER FOR VOICE SELECT
+   VOICE LANGUAGE FILTER
    ============================================================ */
 function filterVoicesByLanguage(lang) {
   const sel = document.getElementById("voiceSelect");
   if (!sel) return;
   Array.from(sel.querySelectorAll("optgroup")).forEach((grp) => {
-    if (grp.id === "elVoiceGroup") return; // never hide EL group
-    if (!lang || lang === "all") {
-      grp.style.display = "";
-    } else {
-      // optgroup label = "🌐 en-US" etc.
-      grp.style.display = grp.label.includes(lang) ? "" : "none";
-    }
+    if (grp.id === "elVoiceGroup" || grp.label.includes("Custom")) return;
+    grp.style.display =
+      !lang || lang === "all" || grp.label.includes(lang) ? "" : "none";
   });
 }
 
 /* ============================================================
-   EMOTION
-   ============================================================ */
-function renderEmotionSummary() {
-  const el = document.getElementById("emotionSummaryDisplay");
-  if (!el) return;
-  const current = getEmotion();
-  const e = EMOTIONS[current] || EMOTIONS.neutral;
-  el.innerHTML = `
-    <div class="emotionCurrent" style="color:${e.color}; text-shadow: 0 0 8px ${e.color}">
-      ${e.icon} ${e.label.toUpperCase()}
-    </div>
-    <div class="settingsHint" style="margin-top:6px">
-      ARIA's internal emotional state. Shifts naturally through conversation.
-    </div>
-  `;
-  const btns = document.getElementById("emotionOverrideBtns");
-  if (btns) {
-    btns.innerHTML = Object.entries(EMOTIONS)
-      .map(
-        ([key, val]) => `
-      <button class="emotionOverrideBtn ${current === key ? "active" : ""}"
-        style="--em-color: ${val.color}"
-        onclick="window.ARIA_setEmotion('${key}')"
-      >${val.icon} ${val.label}</button>
-    `,
-      )
-      .join("");
-  }
-}
-window.ARIA_setEmotion = (key) => {
-  setEmotion(key);
-  renderEmotionSummary();
-};
-
-/* ============================================================
-   TOAST
-   ============================================================ */
-function showToast(msg, isError = false) {
-  const toast = document.getElementById("settingsToast");
-  if (!toast) return;
-  toast.textContent = msg;
-  toast.className = "show" + (isError ? " error" : "");
-  setTimeout(() => {
-    toast.classList.remove("show", "error");
-  }, 3000);
-}
-window.ARIA_showToast = showToast;
-
-/* ============================================================
-   INIT
+   INIT — everything DOM-related goes here
    ============================================================ */
 window.addEventListener("DOMContentLoaded", () => {
+  // Apply saved settings to engines immediately
   setTTSEnabled(currentSettings.ttsEnabled);
   setVTTEnabled(currentSettings.vttEnabled);
+  applyBrightness(currentSettings.brightness ?? 1);
 
-  // Set initial voice mode
-  const v = currentSettings.voice || "";
-  if (v.startsWith("el:")) {
+  // Set voice mode from saved value
+  const savedVoice = currentSettings.voice || "";
+  if (savedVoice.startsWith("el:")) {
     setVoiceMode("elevenlabs");
-    setElevenLabsConfig(currentSettings.elApiKey, v.slice(3));
-  } else if (v.startsWith("custom:")) {
+    setElevenLabsConfig(currentSettings.elApiKey, savedVoice.slice(3));
+  } else if (savedVoice.startsWith("custom:")) {
     setVoiceMode("custom");
   } else {
     setVoiceMode("browser");
   }
 
-  // Wire VTT language into recognition if available
+  // Apply VTT language
   if (currentSettings.vttLang)
     window.ARIA_setVTTLanguage?.(currentSettings.vttLang);
 
-  applySettingsToUI();
-  loadEmotionState();
+  // Apply visual settings
+  applyTheme(
+    currentSettings.theme || "red",
+    currentSettings.darkMode !== false,
+  );
+  applyFontSize(currentSettings.fontSize || "medium");
+  document.body.classList.toggle(
+    "no-scanlines",
+    currentSettings.scanlines === false,
+  );
+  document.body.classList.toggle(
+    "no-glitch",
+    currentSettings.glitchEffects === false,
+  );
+
+  // Wire all controls (all DOM queries happen inside here)
   wireAllControls();
-  populateVoiceSelect();
+
+  // Load emotion state
+  loadEmotionState();
+
+  // Auto-load CUSTOM_VOICE env var from Render server
+  loadEnvVoiceKey().then((key) => {
+    if (!key) return;
+    // Pre-fill the EL API key input if it's empty
+    const keyEl = document.getElementById("elApiKey");
+    if (keyEl && !keyEl.value) keyEl.value = key;
+    // Store it in settings so it's used for API calls
+    if (!currentSettings.elApiKey) {
+      currentSettings.elApiKey = key;
+      setElevenLabsConfig(
+        key,
+        currentSettings.voice?.startsWith("el:")
+          ? currentSettings.voice.slice(3)
+          : "",
+      );
+    }
+  });
 });

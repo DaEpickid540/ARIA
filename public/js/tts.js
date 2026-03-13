@@ -467,9 +467,27 @@ export function injectElevenLabsVoices(voices) {
 
 /* ============================================================
    INIT
+   Auto-loads CUSTOM_VOICE env var from Render as EL API key
+   via the /api/config endpoint (server exposes it safely).
    ============================================================ */
 if (window.speechSynthesis) {
   window.speechSynthesis.onvoiceschanged = populateVoiceSelect;
-  // Immediate call (Chrome may have voices ready)
   if (window.speechSynthesis.getVoices().length > 0) populateVoiceSelect();
+}
+
+/* Try to load CUSTOM_VOICE key from server (Render env var) */
+export async function loadEnvVoiceKey() {
+  try {
+    const res = await fetch("/api/config");
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.customVoiceKey) {
+      elevenLabsApiKey = data.customVoiceKey;
+      console.log("[TTS] CUSTOM_VOICE key loaded from server.");
+      return data.customVoiceKey;
+    }
+  } catch {
+    // Server may not have this endpoint — that is fine
+  }
+  return null;
 }

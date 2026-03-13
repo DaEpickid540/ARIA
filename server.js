@@ -191,6 +191,18 @@ app.get("/api/news", async (req, res) => {
 });
 
 /* ============================================================
+   CONFIG — expose safe public config (env vars the frontend needs)
+   CUSTOM_VOICE is your ElevenLabs API key set in Render environment.
+   ============================================================ */
+app.get("/api/config", (req, res) => {
+  res.json({
+    // Only expose what the frontend explicitly needs.
+    // Never expose OpenRouter/Groq keys here.
+    customVoiceKey: process.env.CUSTOM_VOICE || null,
+  });
+});
+
+/* ============================================================
    FALLBACK — SERVE index.html
    ============================================================ */
 app.get("*", (req, res) => {
