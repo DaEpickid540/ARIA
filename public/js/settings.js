@@ -791,7 +791,7 @@ function filterVoicesByLanguage(lang) {
 /* ============================================================
    INIT — everything DOM-related goes here
    ============================================================ */
-window.addEventListener("DOMContentLoaded", () => {
+export function initSettings() {
   // Apply saved settings to engines immediately
   setTTSEnabled(currentSettings.ttsEnabled);
   setVTTEnabled(currentSettings.vttEnabled);
@@ -850,4 +850,4 @@ window.addEventListener("DOMContentLoaded", () => {
       );
     }
   });
-});
+}

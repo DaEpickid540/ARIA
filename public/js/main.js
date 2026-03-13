@@ -201,9 +201,11 @@ window.addEventListener("DOMContentLoaded", () => {
           await import("./tools.js");
           await import("./tts.js");
           await import("./vtt.js");
-          await import("./settings.js");
           await import("./personality.js");
           await import("./pages.js");
+
+          const { initSettings } = await import("./settings.js");
+          initSettings();
 
           // NEW: Call engine
           const { initCallEngine } = await import("./callEngine.js");
