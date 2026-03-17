@@ -154,6 +154,20 @@ app.post("/api/chat", async (req, res) => {
         max_tokens: 4096,
         stream: false,
       };
+    } else if (provider === "deepseek") {
+      // DEEPSEEK direct API
+      url = "https://api.deepseek.com/v1/chat/completions";
+      headers = {
+        Authorization: `Bearer ${process.env.DEEPSEEK_KEY}`,
+        "Content-Type": "application/json",
+      };
+      body = {
+        model: "deepseek-chat", // deepseek-chat = DeepSeek-V3, deepseek-reasoner = R1
+        messages: conversationMessages,
+        temperature: 0.7,
+        max_tokens: 4096,
+        stream: false,
+      };
     } else {
       // OPENROUTER (default)
       url = "https://openrouter.ai/api/v1/chat/completions";
