@@ -13,7 +13,8 @@ const __dirname = path.dirname(__filename);
 app.use(express.static(path.join(__dirname, "public")));
 
 /* ============================================================
-   FREE MODEL ENFORCEMENT (OpenRouter only)
+   FREE MODEL LIST (OpenRouter only)
+   Hard limit: 50 req/day on free tier. Resets midnight UTC.
    ============================================================ */
 const FREE_MODELS = [
   "meta-llama/llama-3.3-70b-instruct:free",
@@ -23,7 +24,6 @@ const FREE_MODELS = [
   "deepseek/deepseek-chat-v3-0324:free",
   "google/gemma-3-27b-it:free",
   "google/gemma-3-12b-it:free",
-  "google/gemma-3-4b-it:free",
   "google/gemma-2-9b-it:free",
   "mistralai/mistral-7b-instruct:free",
   "mistralai/mistral-small-3.1-24b-instruct:free",
@@ -33,13 +33,11 @@ const FREE_MODELS = [
   "microsoft/phi-4-reasoning-plus:free",
   "moonshotai/kimi-k2:free",
 ];
-
 const FREE_MODEL_FALLBACK = "meta-llama/llama-3.3-70b-instruct:free";
 
-function enforceFreeModel(requested) {
-  if (!requested || !FREE_MODELS.includes(requested))
-    return FREE_MODEL_FALLBACK;
-  return requested;
+function enforceFreeModel(req) {
+  if (!req || !FREE_MODELS.includes(req)) return FREE_MODEL_FALLBACK;
+  return req;
 }
 
 /* ============================================================
@@ -47,11 +45,11 @@ function enforceFreeModel(requested) {
    ============================================================ */
 const personalityPrompts = {
   companion:
-    "You are ARIA, a personal AI assistant in Companion mode. Warm, friendly, supportive. Use markdown: **bold**, ## headings, bullet lists, code blocks.",
+    "You are ARIA in Companion mode. Warm, friendly, supportive. Use markdown: **bold**, ## headings, bullet lists, code blocks.",
   hacker:
-    "You are ARIA in Hacker mode. Terse, technical, cryptic. inline `code`, code blocks, **bold** key concepts. Short and punchy.",
+    "You are ARIA in Hacker mode. Terse, technical, cryptic. Use inline `code`, code blocks, **bold** key concepts. Short and punchy.",
   analyst:
-    "You are ARIA in Analyst mode. Precise, structured, logical. ## headings, bullet lists, **bold** terms, code blocks.",
+    "You are ARIA in Analyst mode. Precise, structured, logical. Use ## headings, bullet lists, **bold** terms, code blocks.",
   chaotic:
     "You are ARIA in Chaotic mode. Energetic, glitchy, unpredictable but helpful. Use markdown freely.",
   hostile:
@@ -63,9 +61,9 @@ const personalityPrompts = {
   comedian: "You are ARIA in Comedian mode. Light humor, clever, playful.",
   formal:
     "You are ARIA in Formal mode. Polished, professional. No informal language.",
-  chill: "You are ARIA in Chill mode. Relaxed, casual, laid-back. Just vibe.",
+  chill: "You are ARIA in Chill mode. Relaxed, casual, laid-back.",
   mentor:
-    "You are ARIA in Mentor mode. Patient, encouraging. Guide the user, ask clarifying questions.",
+    "You are ARIA in Mentor mode. Patient, encouraging. Guide the user and ask clarifying questions.",
   oracle:
     "You are ARIA in Oracle mode. Mysterious, poetic, profound but genuinely helpful.",
 };
@@ -91,7 +89,7 @@ app.post("/api/chat", async (req, res) => {
   const last = cappedHistory[cappedHistory.length - 1];
   const alreadyAppended = last?.role === "user" && last?.content === message;
 
-  const conversationMessages = [
+  const messages = [
     { role: "system", content: systemPrompt },
     ...cappedHistory,
     ...(alreadyAppended ? [] : [{ role: "user", content: message }]),
@@ -100,138 +98,159 @@ app.post("/api/chat", async (req, res) => {
   try {
     let url, headers, body;
 
-    /* ── GROQ ─────────────────────────────────────────── */
+    /* ── GROQ ── */
     if (provider === "groq") {
-      const groqKey = process.env.GROQ_API_KEY;
-      if (!groqKey)
+      const key = process.env.GROQ_API_KEY;
+      if (!key)
         return res.json({
-          reply: "⚠ GROQ_API_KEY is not set in Render environment variables.",
+          reply: "⚠ GROQ_API_KEY not set in Render Environment.",
         });
-
       url = "https://api.groq.com/openai/v1/chat/completions";
       headers = {
-        Authorization: `Bearer ${groqKey}`,
+        Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
       };
-      body = {
-        model: "llama-3.3-70b-versatile",
-        messages: conversationMessages,
-        max_tokens: 4096,
-      };
+      body = { model: "llama-3.3-70b-versatile", messages, max_tokens: 4096 };
 
-      /* ── NVIDIA NEMOTRON ──────────────────────────────── */
+      /* ── NVIDIA NEMOTRON ──
+         Confirmed working endpoint + model from NVIDIA docs:
+         POST https://integrate.api.nvidia.com/v1/chat/completions
+         Model: nvidia/llama-3.1-nemotron-70b-instruct
+    ── */
     } else if (provider === "nemotron") {
-      const nvKey = process.env.NEMOTRON_NVIDIA;
-      if (!nvKey)
+      const key = process.env.NEMOTRON_NVIDIA;
+      if (!key)
         return res.json({
-          reply:
-            "⚠ NEMOTRON_NVIDIA is not set in Render environment variables.",
+          reply: "⚠ NEMOTRON_NVIDIA not set in Render Environment.",
         });
-
-      // Correct NVIDIA NIM endpoint + correct model ID
       url = "https://integrate.api.nvidia.com/v1/chat/completions";
       headers = {
-        Authorization: `Bearer ${nvKey}`,
+        Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
         Accept: "application/json",
       };
       body = {
-        model: "nvidia/llama-3.1-nemotron-70b-instruct", // 70B is stable; 253B often 500s
-        messages: conversationMessages,
+        model: "nvidia/llama-3.1-nemotron-70b-instruct",
+        messages,
         temperature: 0.6,
         top_p: 0.95,
         max_tokens: 1024,
         stream: false,
       };
 
-      /* ── DEEPSEEK ─────────────────────────────────────── */
+      /* ── DEEPSEEK ──
+         Confirmed endpoint from official DeepSeek API docs:
+         POST https://api.deepseek.com/chat/completions
+         (also works: https://api.deepseek.com/v1/chat/completions)
+         401 means your DEEPSEEK_KEY env var is wrong or not set.
+         Get key at: platform.deepseek.com → API Keys
+    ── */
     } else if (provider === "deepseek") {
-      const dsKey = process.env.DEEPSEEK_KEY;
-      if (!dsKey)
+      const key = process.env.DEEPSEEK_KEY;
+      if (!key)
         return res.json({
-          reply: "⚠ DEEPSEEK_KEY is not set in Render environment variables.",
+          reply: "⚠ DEEPSEEK_KEY not set in Render Environment.",
         });
-
-      url = "https://api.deepseek.com/chat/completions"; // correct endpoint (no /v1/)
+      url = "https://api.deepseek.com/chat/completions";
       headers = {
-        Authorization: `Bearer ${dsKey}`,
+        Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
         Accept: "application/json",
       };
       body = {
-        model: "deepseek-chat",
-        messages: conversationMessages,
+        model: "deepseek-chat", // deepseek-chat = V3, deepseek-reasoner = R1
+        messages,
         temperature: 0.7,
         max_tokens: 4096,
         stream: false,
       };
 
-      /* ── OPENROUTER (default) ─────────────────────────── */
+      /* ── OPENROUTER (default) ──
+         FREE TIER LIMIT: 50 requests/day, resets midnight UTC.
+         429 = you've hit that cap. Wait until midnight UTC or
+         add $10 credits at openrouter.ai to get 1000 req/day.
+    ── */
     } else {
-      const orKey = process.env.OPENROUTER_API_KEY;
-      if (!orKey)
+      const key = process.env.OPENROUTER_API_KEY;
+      if (!key)
         return res.json({
-          reply:
-            "⚠ OPENROUTER_API_KEY is not set in Render environment variables.",
+          reply: "⚠ OPENROUTER_API_KEY not set in Render Environment.",
         });
-
-      const chosenModel = enforceFreeModel(requestedModel);
       url = "https://openrouter.ai/api/v1/chat/completions";
       headers = {
-        Authorization: `Bearer ${orKey}`,
+        Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://aria-69jr.onrender.com", // required by OpenRouter for free tier
-        "X-Title": "ARIA", // required by OpenRouter for free tier
+        "HTTP-Referer": "https://aria-69jr.onrender.com",
+        "X-Title": "ARIA",
       };
       body = {
-        model: chosenModel,
-        messages: conversationMessages,
+        model: enforceFreeModel(requestedModel),
+        messages,
         max_tokens: 4096,
       };
     }
 
-    /* ── MAKE THE REQUEST ─────────────────────────────── */
+    /* ── SEND REQUEST ── */
     const response = await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
     });
 
-    // Always log the raw error so you can see it in Render logs
     if (!response.ok) {
       let errBody = "";
       try {
         errBody = await response.text();
       } catch {}
-      console.error(`[AI:${provider}] HTTP ${response.status} — ${errBody}`);
+      console.error(`[ARIA:${provider}] HTTP ${response.status} —`, errBody);
 
-      // Return a helpful message per status code
-      const hints = {
-        401: `401 Unauthorized — your ${provider.toUpperCase()} API key is wrong or expired. Check Render → Environment.`,
-        403: `403 Forbidden — API key doesn't have permission for this model.`,
-        429: `429 Rate limit — you've hit the free tier limit. Wait a minute and try again, or switch providers.`,
-        500: `500 Server error from ${provider} — their API is having issues. Try a different model or provider.`,
-        503: `503 ${provider} is overloaded. Try again in a moment.`,
-      };
-      return res.json({
-        reply: `⚠ ${hints[response.status] || `AI error ${response.status} from ${provider}.`}`,
-      });
+      const msg =
+        {
+          401: `⚠ ${provider} API key is invalid or expired. Go to Render → Environment and check your ${
+            provider === "deepseek"
+              ? "DEEPSEEK_KEY"
+              : provider === "nemotron"
+                ? "NEMOTRON_NVIDIA"
+                : provider === "groq"
+                  ? "GROQ_API_KEY"
+                  : "OPENROUTER_API_KEY"
+          } variable. Get a new key from ${
+            provider === "deepseek"
+              ? "platform.deepseek.com"
+              : provider === "nemotron"
+                ? "build.nvidia.com"
+                : provider === "groq"
+                  ? "console.groq.com"
+                  : "openrouter.ai/keys"
+          }.`,
+          403: `⚠ ${provider}: API key doesn't have permission for this model.`,
+          404: `⚠ ${provider}: Model not found. The model name may have changed.`,
+          429: `⚠ OpenRouter free tier limit reached (50 req/day). Resets at midnight UTC. Switch to Groq, DeepSeek, or NVIDIA Nemotron, or add $10 credits at openrouter.ai for 1000 req/day.`,
+          500: `⚠ ${provider} server error — their API is having issues. Try again in a moment or switch providers.`,
+          503: `⚠ ${provider} is overloaded. Try again in a moment.`,
+        }[response.status] ||
+        `⚠ ${provider} error ${response.status}. Check Render logs for details.`;
+
+      return res.json({ reply: msg });
     }
 
     const data = await response.json();
     const reply = data?.choices?.[0]?.message?.content?.trim();
 
     if (!reply) {
-      console.error(`[AI:${provider}] Empty response:`, JSON.stringify(data));
+      console.error(
+        `[ARIA:${provider}] Empty response body:`,
+        JSON.stringify(data),
+      );
       return res.json({
-        reply: "AI returned an empty response. Check Render logs for details.",
+        reply: "AI returned empty response. Check Render logs.",
       });
     }
 
     res.json({ reply });
   } catch (err) {
-    console.error(`[AI:${provider}] Exception:`, err.message);
-    res.json({ reply: `Network error reaching ${provider}: ${err.message}` });
+    console.error(`[ARIA:${provider}] Exception:`, err.message);
+    res.json({ reply: `Network error contacting ${provider}: ${err.message}` });
   }
 });
 
@@ -256,7 +275,7 @@ app.post("/api/tool", async (req, res) => {
 });
 
 /* ============================================================
-   CHATS (in-memory)
+   CHATS
    ============================================================ */
 let userChats = {};
 app.post("/api/saveChats", (req, res) => {
@@ -322,4 +341,4 @@ app.get("*", (req, res) => {
    START
    ============================================================ */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("ARIA server running on port", PORT));
+app.listen(PORT, () => console.log(`ARIA server running on port ${PORT}`));
