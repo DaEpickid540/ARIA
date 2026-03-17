@@ -13,6 +13,60 @@ const __dirname = path.dirname(__filename);
 app.use(express.static(path.join(__dirname, "public")));
 
 /* ============================================================
+   FREE MODEL ENFORCEMENT
+   Only models on this list can ever be used. Any request for
+   a model not on the list is silently swapped to the fallback.
+   ============================================================ */
+const FREE_MODELS = [
+  "hunter-alpha",
+  "healer-alpha",
+  "nvidia/llama-3.1-nemotron-ultra-253b-v1:free",
+  "minimax/minimax-m1:extended",
+  "step-3.5-flash",
+  "trinity-large-preview",
+  "lfm-2.5:1.2b-thinking",
+  "lfm-2.5:1.2b",
+  "black-forest-labs/flux-2-schnell:free",
+  "nemotron-nano-30b",
+  "riverflow-v2-fast",
+  "riverflow-v2-pro",
+  "trinity-mini",
+  "nvidia/llama-3.3-nemotron-super-49b-v1:free",
+  "qwen/qwen3-235b-a22b:free",
+  "nvidia/nemotron-nano-8b-instruct:free",
+  "moonshotai/kimi-k2:free",
+  "openai/gpt-4.1-nano",
+  "zhipuai/glm-4.5-air:free",
+  "qwen/qwen3-coder:free",
+  "venice-uncensored",
+  "google/gemma-3n-e2b-it:free",
+  "google/gemma-3n-e4b-it:free",
+  "qwen/qwen3-4b:free",
+  "mistralai/mistral-small-3.1-24b-instruct:free",
+  "google/gemma-3-4b-it:free",
+  "google/gemma-3-12b-it:free",
+  "google/gemma-3-27b-it:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "meta-llama/llama-3.2-3b-instruct:free",
+  "nousresearch/hermes-3-llama-3.1-405b:free",
+  "deepseek/deepseek-r1:free",
+  "deepseek/deepseek-chat-v3-0324:free",
+  "mistralai/mistral-7b-instruct:free",
+  "google/gemma-2-9b-it:free",
+  "qwen/qwen2.5-vl-7b-instruct:free",
+  "meta-llama/llama-3.1-8b-instruct:free",
+];
+
+const FREE_MODEL_FALLBACK = "meta-llama/llama-3.3-70b-instruct:free";
+
+function enforceFreeModel(requestedModel) {
+  if (!requestedModel || !FREE_MODELS.includes(requestedModel)) {
+    return FREE_MODEL_FALLBACK;
+  }
+  return requestedModel;
+}
+
+/* ============================================================
    CHAT ROUTE — OpenRouter (default) + Groq (optional)
    Now accepts full conversation history for context.
    ============================================================ */
@@ -22,7 +76,11 @@ app.post("/api/chat", async (req, res) => {
     history = [], // array of { role: "user"|"assistant", content: string }
     provider = "openrouter",
     personality = "hacker",
+    model: requestedModel, // optional — client can request a specific free model
   } = req.body;
+
+  // Always enforce free-only — swap any paid/unknown model to the fallback
+  const model = enforceFreeModel(requestedModel);
 
   const personalityPrompts = {
     companion:
@@ -78,8 +136,23 @@ app.post("/api/chat", async (req, res) => {
         "Content-Type": "application/json",
       };
       body = {
-        model: "llama3-8b-8192",
+        model: model, // enforced free model
         messages: conversationMessages,
+      };
+    } else if (provider === "nemotron") {
+      // NVIDIA Nemotron via NVIDIA NIM API
+      url = "https://integrate.api.nvidia.com/v1/chat/completions";
+      headers = {
+        Authorization: `Bearer ${process.env.NEMOTRON_NVIDIA}`,
+        "Content-Type": "application/json",
+      };
+      body = {
+        model: "nvidia/llama-3.1-nemotron-ultra-253b-v1",
+        messages: conversationMessages,
+        temperature: 0.6,
+        top_p: 0.95,
+        max_tokens: 4096,
+        stream: false,
       };
     } else {
       // OPENROUTER (default)
@@ -89,7 +162,7 @@ app.post("/api/chat", async (req, res) => {
         "Content-Type": "application/json",
       };
       body = {
-        model: "openai/gpt-3.5-turbo",
+        model: model, // enforced free model
         messages: conversationMessages,
       };
     }
@@ -199,6 +272,8 @@ app.get("/api/config", (req, res) => {
     // Only expose what the frontend explicitly needs.
     // Never expose OpenRouter/Groq keys here.
     customVoiceKey: process.env.CUSTOM_VOICE || null,
+    freeModels: FREE_MODELS, // lets the frontend build a model picker
+    defaultModel: FREE_MODEL_FALLBACK,
   });
 });
 
