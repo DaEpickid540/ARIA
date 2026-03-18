@@ -4,15 +4,11 @@ console.log("MAIN JS LOADED");
 
 // Lock screen loads immediately
 import "./lock.js";
-import { applyVersion, ARIA_VERSION } from "./version.js";
 
 window.addEventListener("DOMContentLoaded", () => {
   /* ============================================================
      CLEANUP: REMOVE OLD LOADING SCREEN IF PRESENT
      ============================================================ */
-  // Stamp version number into all UI locations
-  applyVersion();
-
   const loading = document.getElementById("loadingScreen");
   if (loading) loading.style.display = "none";
 
@@ -130,7 +126,6 @@ window.addEventListener("DOMContentLoaded", () => {
       "[WIRE] Binding UI surfaces...",
       "[OK]  Lock, homepage, console linked.",
       "[FINAL] Preparing ARIA shell...",
-      `[BOOT ] ${ARIA_VERSION.full} — system ready.`,
     ];
 
     let idx = 0;
@@ -206,7 +201,8 @@ window.addEventListener("DOMContentLoaded", () => {
           await import("./tools.js");
           await import("./tts.js");
           await import("./vtt.js");
-          await import("./settings.js");
+          const { initSettings } = await import("./settings.js");
+          initSettings();
           await import("./personality.js");
           await import("./pages.js");
 
