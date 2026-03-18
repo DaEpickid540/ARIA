@@ -814,6 +814,10 @@ h3 {
   margin-bottom: 20px;
 }
 
+#userIdInput {
+  margin-bottom: 10px;
+}
+
 #lockBox input {
   width: 100%;
   padding: 12px 14px;
