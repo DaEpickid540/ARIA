@@ -361,7 +361,7 @@ async function syncToServer() {
     await fetch("/api/saveChats", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: "sarvin", chats }),
+      body: JSON.stringify({ userId: window.ARIA_userId || "sarvin", chats }),
     });
   } catch {}
 }
@@ -371,7 +371,7 @@ async function syncToServer() {
 ----------------------------- */
 async function loadFromServer() {
   try {
-    const res = await fetch("/api/loadChats?userId=sarvin");
+    const res = await fetch(`/api/loadChats?userId=${window.ARIA_userId || "sarvin"}`);
     const data = await res.json();
 
     if (data.chats && data.chats.length) {
