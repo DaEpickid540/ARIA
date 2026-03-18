@@ -3481,3 +3481,16 @@ code.inlineCode {
   font-size: 10px;
   letter-spacing: 0.05em;
 }
+
+/* ============================================================
+   VERSION DISPLAY
+   ============================================================ */
+.bootVersion {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--red-dim);
+  text-align: center;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}

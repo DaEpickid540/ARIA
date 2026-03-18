@@ -2,22 +2,17 @@
 
 console.log("MAIN JS LOADED");
 
-// Register service worker for PWA / home screen install
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js")
-      .then(reg => console.log("[SW] Registered:", reg.scope))
-      .catch(err => console.warn("[SW] Failed:", err));
-  });
-}
-
 // Lock screen loads immediately
 import "./lock.js";
+import { applyVersion, ARIA_VERSION } from "./version.js";
 
 window.addEventListener("DOMContentLoaded", () => {
   /* ============================================================
      CLEANUP: REMOVE OLD LOADING SCREEN IF PRESENT
      ============================================================ */
+  // Stamp version number into all UI locations
+  applyVersion();
+
   const loading = document.getElementById("loadingScreen");
   if (loading) loading.style.display = "none";
 
@@ -135,6 +130,7 @@ window.addEventListener("DOMContentLoaded", () => {
       "[WIRE] Binding UI surfaces...",
       "[OK]  Lock, homepage, console linked.",
       "[FINAL] Preparing ARIA shell...",
+      `[BOOT ] ${ARIA_VERSION.full} — system ready.`,
     ];
 
     let idx = 0;
@@ -210,11 +206,9 @@ window.addEventListener("DOMContentLoaded", () => {
           await import("./tools.js");
           await import("./tts.js");
           await import("./vtt.js");
+          await import("./settings.js");
           await import("./personality.js");
           await import("./pages.js");
-
-          const { initSettings } = await import("./settings.js");
-          initSettings();
 
           // NEW: Call engine
           const { initCallEngine } = await import("./callEngine.js");
