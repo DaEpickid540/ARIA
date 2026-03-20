@@ -25,13 +25,11 @@ export const tools = {
 
 export async function runToolServer(toolName, input) {
   const tool = tools[toolName];
-  if (!tool || typeof tool.run !== "function") {
+  if (!tool || typeof tool.run !== "function")
     return `Unknown tool: ${toolName}`;
-  }
-
   try {
     return await tool.run(input);
   } catch (err) {
-    return `Tool error: ${err.message}`;
+    return `Tool error (${toolName}): ${err.message}`;
   }
 }

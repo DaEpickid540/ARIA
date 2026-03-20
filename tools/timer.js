@@ -1,27 +1,45 @@
 // tools/timer.js
-let timers = [];
+const activeTimers = new Map();
+let timerIdCounter = 1;
 
 export async function run(input = "") {
-  const [cmd, value] = input.split(" ");
+  const parts = input.trim().split(" ");
+  const cmd = parts[0]?.toLowerCase();
 
   if (cmd === "start") {
-    const seconds = parseInt(value);
-    if (isNaN(seconds)) return "Usage: /timer start <seconds>";
+    const secs = parseInt(parts[1]);
+    if (isNaN(secs) || secs <= 0) return "Usage: /timer start <seconds>";
+    if (secs > 3600) return "Max timer duration is 3600 seconds (1 hour).";
 
-    const ms = seconds * 1000;
-    const id = Date.now();
-    timers.push(id);
+    const id = timerIdCounter++;
+    const timeout = setTimeout(() => {
+      activeTimers.delete(id);
+      console.log(`[TIMER #${id}] Done!`);
+    }, secs * 1000);
 
-    setTimeout(() => {
-      console.log(`Timer ${id} finished.`);
-    }, ms);
-
-    return `Timer started for ${seconds} seconds.`;
+    activeTimers.set(id, { secs, ends: Date.now() + secs * 1000, timeout });
+    return `✓ Timer #${id} started for ${secs} second${secs !== 1 ? "s" : ""}.`;
   }
 
   if (cmd === "list") {
-    return timers.length ? timers.join("\n") : "No timers running.";
+    if (!activeTimers.size) return "No active timers.";
+    const now = Date.now();
+    return Array.from(activeTimers.entries())
+      .map(([id, t]) => {
+        const remaining = Math.max(0, Math.ceil((t.ends - now) / 1000));
+        return `Timer #${id}: ${remaining}s remaining`;
+      })
+      .join("\n");
   }
 
-  return "Timer commands: start <seconds>, list";
+  if (cmd === "cancel") {
+    const id = parseInt(parts[1]);
+    const t = activeTimers.get(id);
+    if (!t) return `Timer #${id} not found.`;
+    clearTimeout(t.timeout);
+    activeTimers.delete(id);
+    return `✓ Timer #${id} cancelled.`;
+  }
+
+  return "Timer commands:\n  /timer start <seconds>\n  /timer list\n  /timer cancel <id>";
 }

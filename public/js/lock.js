@@ -3,29 +3,27 @@
 // ── AUTHORISED USERS ─────────────────────────────────────────
 // Add more users here as { id, password } if needed later.
 // userId is case-insensitive. Password is exact match.
-const USERS = [
-  { id: "sarvin", password: "727846" },
-];
+const USERS = [{ id: "sarvin", password: "727846" }];
 // ─────────────────────────────────────────────────────────────
 
 window.addEventListener("DOMContentLoaded", () => {
-  const lockScreen     = document.getElementById("lockScreen");
+  const lockScreen = document.getElementById("lockScreen");
   const homepageScreen = document.getElementById("homepageScreen");
-  const layout         = document.getElementById("layout");
+  const layout = document.getElementById("layout");
 
-  const userIdInput    = document.getElementById("userIdInput");
-  const passwordInput  = document.getElementById("passwordInput");
-  const unlockBtn      = document.getElementById("unlockBtn");
-  const lockError      = document.getElementById("lockError");
+  const userIdInput = document.getElementById("userIdInput");
+  const passwordInput = document.getElementById("passwordInput");
+  const unlockBtn = document.getElementById("unlockBtn");
+  const lockError = document.getElementById("lockError");
 
   // Start locked
-  lockScreen.style.display     = "flex";
+  lockScreen.style.display = "flex";
   homepageScreen.style.display = "none";
-  layout.style.display         = "none";
+  layout.style.display = "none";
 
   // Track failed attempts for lockout
   let failedAttempts = 0;
-  let lockedUntil    = 0;
+  let lockedUntil = 0;
 
   async function unlock() {
     // Lockout check
@@ -36,7 +34,7 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const enteredId   = userIdInput.value.trim().toLowerCase();
+    const enteredId = userIdInput.value.trim().toLowerCase();
     const enteredPass = passwordInput.value.trim();
 
     // Blank field checks
@@ -52,7 +50,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     // Find matching user (case-insensitive ID)
-    const user = USERS.find(u => u.id.toLowerCase() === enteredId);
+    const user = USERS.find((u) => u.id.toLowerCase() === enteredId);
 
     if (!user) {
       failedAttempts++;
@@ -82,15 +80,15 @@ window.addEventListener("DOMContentLoaded", () => {
     const lockBox = document.getElementById("lockBox");
     if (lockBox) {
       lockBox.style.borderColor = "#00ff88";
-      lockBox.style.boxShadow   = "0 0 24px #00ff88";
+      lockBox.style.boxShadow = "0 0 24px #00ff88";
     }
 
-    await new Promise(r => setTimeout(r, 350));
+    await new Promise((r) => setTimeout(r, 350));
 
     lockScreen.style.display = "none";
-    layout.style.display     = "none";
-    passwordInput.value      = "";
-    userIdInput.value        = "";
+    layout.style.display = "none";
+    passwordInput.value = "";
+    userIdInput.value = "";
 
     const { initHomepage } = await import("./homepage.js");
     initHomepage();
@@ -110,14 +108,18 @@ window.addEventListener("DOMContentLoaded", () => {
     lockBox.style.animation = "none";
     lockBox.offsetHeight; // reflow
     lockBox.style.animation = "lockShake 0.4s ease";
-    setTimeout(() => { lockBox.style.animation = ""; }, 400);
+    setTimeout(() => {
+      lockBox.style.animation = "";
+    }, 400);
   }
 
   function shakeInput(el) {
     el.style.animation = "none";
     el.offsetHeight;
     el.style.animation = "lockShake 0.3s ease";
-    setTimeout(() => { el.style.animation = ""; }, 300);
+    setTimeout(() => {
+      el.style.animation = "";
+    }, 300);
   }
 
   // ── WIRE CONTROLS ──

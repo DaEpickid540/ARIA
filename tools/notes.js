@@ -2,27 +2,35 @@
 let notes = [];
 
 export async function run(input = "") {
-  const [cmd, ...rest] = input.split(" ");
-  const text = rest.join(" ").trim();
+  const parts = input.trim().split(" ");
+  const cmd = parts[0]?.toLowerCase();
+  const text = parts.slice(1).join(" ").trim();
 
   switch (cmd) {
     case "add":
       if (!text) return "Usage: /notes add <text>";
-      notes.push(text);
-      return `Added note: ${text}`;
+      notes.push({ text, created: new Date().toLocaleTimeString() });
+      return `✓ Note saved (#${notes.length}): "${text}"`;
 
     case "list":
-      if (notes.length === 0) return "No notes.";
-      return notes.map((n, i) => `${i + 1}. ${n}`).join("\n");
+      if (!notes.length) return "No notes saved.";
+      return notes
+        .map((n, i) => `${i + 1}. ${n.text}  [${n.created}]`)
+        .join("\n");
 
     case "delete": {
-      const index = parseInt(text) - 1;
-      if (isNaN(index) || !notes[index]) return "Invalid note number.";
-      const removed = notes.splice(index, 1);
-      return `Deleted: ${removed}`;
+      const idx = parseInt(text) - 1;
+      if (isNaN(idx) || !notes[idx])
+        return `Note #${text} not found. Use /notes list to see notes.`;
+      const removed = notes.splice(idx, 1)[0];
+      return `✓ Deleted: "${removed.text}"`;
     }
 
+    case "clear":
+      notes = [];
+      return "✓ All notes cleared.";
+
     default:
-      return "Notes commands: add <text>, list, delete <number>";
+      return "Notes commands:\n  /notes add <text>\n  /notes list\n  /notes delete <number>\n  /notes clear";
   }
 }
