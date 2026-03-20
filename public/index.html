@@ -98,14 +98,6 @@
         <div class="lockDivider"></div>
         <p class="lockInstruct">AUTHENTICATION REQUIRED</p>
         <input
-          id="userIdInput"
-          type="text"
-          placeholder="User ID"
-          autocomplete="off"
-          autocapitalize="none"
-          spellcheck="false"
-        />
-        <input
           id="passwordInput"
           type="password"
           placeholder="Enter access code"
@@ -210,6 +202,7 @@
     <!--  MAIN LAYOUT              -->
     <!-- ========================= -->
     <div id="layout" style="display: none">
+      <div id="sidebarOverlay"></div>
       <aside id="sidebar">
         <!-- ARIA logo in sidebar -->
         <div id="sidebarHeader">
@@ -254,13 +247,20 @@
         <div id="messages"></div>
 
         <div id="inputBar">
-          <input id="userInput" placeholder="Send a message to ARIA..." />
-          <button id="sendBtn" class="primaryBtn glitch">Send</button>
-          <button id="callModeBtn" class="voiceBtn glitch">📞 Call</button>
-          <button id="pushToTalkBtn" class="voiceBtn glitch">🎙 PTT</button>
-          <button id="vttBtn" class="voiceBtn glitch">🗣 VTT</button>
-          <button id="ttsBtn" class="voiceBtn glitch">🔊 TTS</button>
-          <div id="voiceWave"></div>
+          <!-- Row 1: always visible — text input + send -->
+          <div id="inputTopRow">
+            <button id="sidebarToggleBtn" class="voiceBtn glitch mobileOnly">☰</button>
+            <input id="userInput" placeholder="Send a message to ARIA..." />
+            <button id="sendBtn" class="primaryBtn glitch">Send</button>
+          </div>
+          <!-- Row 2: voice/tool buttons — single row desktop, scrollable row mobile -->
+          <div id="inputBtnRow">
+            <button id="callModeBtn" class="voiceBtn glitch">📞 Call</button>
+            <button id="pushToTalkBtn" class="voiceBtn glitch">🎙 PTT</button>
+            <button id="vttBtn" class="voiceBtn glitch">🗣 VTT</button>
+            <button id="ttsBtn" class="voiceBtn glitch">🔊 TTS</button>
+            <div id="voiceWave"></div>
+          </div>
         </div>
       </main>
     </div>
@@ -1035,4 +1035,3 @@
     <script type="module" src="js/main.js"></script>
   </body>
 </html>
-
