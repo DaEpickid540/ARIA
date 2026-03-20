@@ -3483,44 +3483,38 @@ code.inlineCode {
 }
 
 /* ============================================================
-   USER ID INPUT — inherits from #lockBox input, just spacing
+   INPUT BAR — DESKTOP: all buttons in one row
+                MOBILE:  top row (sidebar btn + input + send)
+                         bottom row (voice buttons, scrollable)
    ============================================================ */
-#userIdInput {
-  margin-bottom: 12px;
+
+/* Desktop: flat single flex row (original behaviour) */
+#inputBar {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 10px 14px !important;
 }
 
-/* ============================================================
-   SHAKE ANIMATION (lock screen wrong credentials)
-   ============================================================ */
-@keyframes lockShake {
-  0% {
-    transform: translateX(0);
-  }
-  15% {
-    transform: translateX(-8px);
-  }
-  30% {
-    transform: translateX(8px);
-  }
-  45% {
-    transform: translateX(-6px);
-  }
-  60% {
-    transform: translateX(6px);
-  }
-  75% {
-    transform: translateX(-3px);
-  }
-  90% {
-    transform: translateX(3px);
-  }
-  100% {
-    transform: translateX(0);
-  }
+#inputTopRow {
+  display: contents; /* children join the flex row directly on desktop */
 }
 
+#inputBtnRow {
+  display: contents; /* same — all buttons in one row on desktop */
+}
+
+/* Mobile sidebar toggle — hidden on desktop */
+.mobileOnly { display: none !important; }
+
+/* ── Desktop: input fills remaining space ── */
+#inputTopRow #userInput,
+#userInput { flex: 1; min-width: 120px; }
+
 /* ============================================================
-   CHAT ROW — delete + rename action buttons
+   CHAT ROW — rename + delete action buttons
    ============================================================ */
 .chatRow {
   display: flex;
@@ -3535,14 +3529,13 @@ code.inlineCode {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding-right: 50px; /* room for 2 action buttons */
+  padding-right: 50px;
 }
 
 .chatActionBtn {
   display: none;
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+  width: 20px; height: 20px;
   padding: 0;
   background: transparent;
   border: 1px solid transparent;
@@ -3551,747 +3544,179 @@ code.inlineCode {
   cursor: crosshair;
   align-items: center;
   justify-content: center;
+  line-height: 1;
   transition: all 0.15s;
   position: absolute;
 }
-
-.chatRenameBtn {
-  right: 24px;
-}
-.chatDeleteBtn {
-  right: 2px;
-}
+.chatRenameBtn { right: 24px; }
+.chatDeleteBtn  { right: 2px; }
 
 .chatRow:hover .chatActionBtn,
-.chatRow.active .chatActionBtn {
-  display: flex;
-}
+.chatRow.active .chatActionBtn { display: flex; }
 
-.chatRenameBtn:hover {
-  color: var(--red-neon);
-  border-color: var(--red-dim);
-  background: rgba(255, 0, 0, 0.08);
-}
-
-.chatDeleteBtn:hover {
-  color: #ff4444;
-  border-color: #ff4444;
-  background: rgba(255, 0, 0, 0.12);
-}
+.chatRenameBtn:hover { color: var(--red-neon); border-color: var(--red-dim); background: rgba(255,0,0,0.08); }
+.chatDeleteBtn:hover  { color: #ff4444; border-color: #ff4444; background: rgba(255,0,0,0.12); }
 
 /* ============================================================
-   INPUT BAR — two-row layout (input+send / voice buttons)
+   MESSAGE — header with sender + timestamp + delete btn
    ============================================================ */
-#inputBar {
-  flex-direction: column !important;
-  padding: 8px 12px 10px !important;
-  gap: 6px !important;
-}
-
-#inputRow {
+.msgHeader {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
   gap: 8px;
-  width: 100%;
 }
 
-#inputRow #userInput {
-  flex: 1;
-}
-
-#voiceRow {
+.msgMeta {
   display: flex;
   align-items: center;
   gap: 6px;
-  width: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-#voiceRow::-webkit-scrollbar {
-  display: none;
-}
-
-/* ============================================================
-   CALL MODE OVERLAY — FULL REDESIGN
-   Deep cinematic dark, glowing reactive orb,
-   ARIA (red) + user (white) dual waveforms
-   ============================================================ */
-
-/* Replace old overlay styles */
-#callModeOverlay {
-  position: fixed;
-  inset: 0;
-  background: #000;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 99990;
   opacity: 0;
-  transition: opacity 0.4s ease;
-  overflow: hidden;
+  transition: opacity 0.15s;
 }
 
-#callModeOverlay.active {
-  display: flex;
-  opacity: 1;
-}
+.msg:hover .msgMeta { opacity: 1; }
 
-/* Ambient background glow — shifts color based on state */
-#callModeOverlay::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse at 50% 40%,
-    rgba(120, 0, 0, 0.35) 0%,
-    #000 65%
-  );
-  transition: background 0.5s ease;
-  pointer-events: none;
-}
-
-#callModeOverlay.user-speaking::before {
-  background: radial-gradient(
-    ellipse at 50% 40%,
-    rgba(60, 80, 200, 0.25) 0%,
-    #000 65%
-  );
-}
-
-#callModeOverlay.aria-speaking::before {
-  background: radial-gradient(
-    ellipse at 50% 40%,
-    rgba(255, 30, 0, 0.45) 0%,
-    #000 60%
-  );
-  animation: callBgPulse 0.6s ease-in-out infinite alternate;
-}
-
-@keyframes callBgPulse {
-  from {
-    opacity: 0.85;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* Scanline overlay on the call screen */
-#callModeOverlay::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 3px,
-    rgba(255, 0, 0, 0.03) 3px,
-    rgba(255, 0, 0, 0.03) 4px
-  );
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* ── ORB ── */
-#callOrb {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -55%);
-  pointer-events: none;
-  z-index: 1;
-}
-
-#callOrbCore {
-  width: 110px;
-  height: 110px;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(255, 0, 0, 0.8) 0%,
-    rgba(180, 0, 0, 0.3) 50%,
-    transparent 70%
-  );
-  box-shadow:
-    0 0 30px rgba(255, 0, 0, 0.5),
-    0 0 60px rgba(255, 0, 0, 0.2),
-    inset 0 0 20px rgba(255, 80, 0, 0.3);
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  transition:
-    width 0.1s ease,
-    height 0.1s ease,
-    background 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-#callOrbRing1,
-#callOrbRing2,
-#callOrbRing3 {
-  border-radius: 50%;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation: orbRingPulse 3s ease-in-out infinite;
-}
-
-#callOrbRing1 {
-  width: 170px;
-  height: 170px;
-  border: 1px solid rgba(255, 0, 0, 0.5);
-  animation-delay: 0s;
-}
-#callOrbRing2 {
-  width: 240px;
-  height: 240px;
-  border: 1px solid rgba(255, 0, 0, 0.25);
-  animation-delay: 0.7s;
-}
-#callOrbRing3 {
-  width: 320px;
-  height: 320px;
-  border: 1px solid rgba(255, 0, 0, 0.12);
-  animation-delay: 1.4s;
-}
-
-@keyframes orbRingPulse {
-  0%,
-  100% {
-    opacity: 0.2;
-    transform: translate(-50%, -50%) scale(0.96);
-  }
-  50% {
-    opacity: 0.7;
-    transform: translate(-50%, -50%) scale(1.04);
-  }
-}
-
-/* Orb — ARIA speaking */
-#callModeOverlay.aria-speaking #callOrbCore {
-  width: 170px;
-  height: 170px;
-  background: radial-gradient(
-    circle,
-    rgba(255, 60, 0, 1) 0%,
-    rgba(255, 0, 0, 0.5) 40%,
-    transparent 70%
-  );
-  box-shadow:
-    0 0 50px rgba(255, 0, 0, 0.8),
-    0 0 100px rgba(255, 0, 0, 0.3),
-    inset 0 0 30px rgba(255, 120, 0, 0.4);
-}
-#callModeOverlay.aria-speaking #callOrbRing1,
-#callModeOverlay.aria-speaking #callOrbRing2,
-#callModeOverlay.aria-speaking #callOrbRing3 {
-  animation: orbRingFast 0.45s ease-in-out infinite;
-  opacity: 0.8;
-}
-@keyframes orbRingFast {
-  0%,
-  100% {
-    opacity: 0.5;
-    transform: translate(-50%, -50%) scale(0.95);
-  }
-  50% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1.08);
-  }
-}
-
-/* Orb — user speaking */
-#callModeOverlay.user-speaking #callOrbCore {
-  width: 130px;
-  height: 130px;
-  background: radial-gradient(
-    circle,
-    rgba(180, 210, 255, 0.9) 0%,
-    rgba(80, 120, 255, 0.4) 50%,
-    transparent 70%
-  );
-  box-shadow:
-    0 0 40px rgba(100, 150, 255, 0.5),
-    0 0 80px rgba(80, 120, 255, 0.2);
-}
-#callModeOverlay.user-speaking #callOrbRing1 {
-  border-color: rgba(180, 210, 255, 0.6);
-}
-#callModeOverlay.user-speaking #callOrbRing2 {
-  border-color: rgba(180, 210, 255, 0.3);
-}
-#callModeOverlay.user-speaking #callOrbRing3 {
-  border-color: rgba(180, 210, 255, 0.15);
-}
-
-/* ── STATUS + HINT ── */
-#callModeInner {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  padding: 0 24px;
-  /* Push content below the orb */
-  margin-top: 260px;
-}
-
-#callModeStatus {
-  font-family: "Orbitron", sans-serif;
-  font-size: 1.1rem;
-  letter-spacing: 0.35em;
-  color: var(--text-blaze);
-  text-shadow: var(--glow-md);
-  margin-bottom: 6px;
-  animation: callStatusFlicker 4s ease-in-out infinite;
-}
-
-@keyframes callStatusFlicker {
-  0%,
-  88%,
-  100% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 0.5;
-  }
-  93% {
-    opacity: 1;
-  }
-  96% {
-    opacity: 0.3;
-  }
-}
-
-#callModeHint {
-  font-size: 0.75rem;
+.msgDeleteBtn {
+  background: transparent;
+  border: 1px solid transparent;
   color: var(--text-muted);
-  letter-spacing: 0.12em;
-  font-family: "Share Tech Mono", monospace;
-  margin-bottom: 20px;
+  font-size: 10px;
+  cursor: crosshair;
+  padding: 1px 4px;
+  line-height: 1;
+  transition: all 0.15s;
 }
+.msgDeleteBtn:hover { color: #ff4444; border-color: #ff4444; background: rgba(255,0,0,0.1); }
 
-/* ── DUAL WAVEFORMS ── */
-#callWaveformWrapper,
-#callWaveformWrapper2 {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 6px 0;
-  width: 100%;
-  max-width: 360px;
-  justify-content: center;
-}
+/* ============================================================
+   LOCK SCREEN — userId input spacing
+   ============================================================ */
+#userIdInput { margin-bottom: 12px; }
 
-.callWaveLabel {
-  font-family: "Orbitron", sans-serif;
-  font-size: 9px;
-  letter-spacing: 0.2em;
-  color: var(--text-muted);
-  width: 32px;
-  flex-shrink: 0;
-  text-align: center;
-}
-
-#callWaveformAria,
-#callWaveformUser {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  height: 44px;
-  flex: 1;
-  justify-content: center;
-}
-
-/* ARIA bars — red */
-.waveBar.aria {
-  width: 3px;
-  min-height: 4px;
-  background: var(--red-core);
-  box-shadow:
-    0 0 5px var(--red-core),
-    0 0 10px rgba(255, 0, 0, 0.4);
-  border-radius: 1px;
-  transition: height 0.09s ease;
-}
-
-/* User bars — white/blue */
-.waveBar.user {
-  width: 3px;
-  min-height: 3px;
-  background: rgba(200, 220, 255, 0.85);
-  box-shadow: 0 0 5px rgba(180, 210, 255, 0.6);
-  border-radius: 1px;
-  transition: height 0.09s ease;
-}
-
-/* Idle animation — ARIA bars when not speaking */
-.waveBar.aria:nth-child(1) {
-  animation: waveBarAriaIdle 1.3s 0s ease-in-out infinite;
-}
-.waveBar.aria:nth-child(2) {
-  animation: waveBarAriaIdle 1.3s 0.1s ease-in-out infinite;
-}
-.waveBar.aria:nth-child(3) {
-  animation: waveBarAriaIdle 1.3s 0.2s ease-in-out infinite;
-}
-.waveBar.aria:nth-child(4) {
-  animation: waveBarAriaIdle 1.3s 0.3s ease-in-out infinite;
-}
-.waveBar.aria:nth-child(5) {
-  animation: waveBarAriaIdle 1.3s 0.15s ease-in-out infinite;
-}
-.waveBar.aria:nth-child(6) {
-  animation: waveBarAriaIdle 1.3s 0.25s ease-in-out infinite;
-}
-.waveBar.aria:nth-child(7) {
-  animation: waveBarAriaIdle 1.3s 0.08s ease-in-out infinite;
-}
-.waveBar.aria:nth-child(8) {
-  animation: waveBarAriaIdle 1.3s 0.33s ease-in-out infinite;
-}
-.waveBar.aria:nth-child(9) {
-  animation: waveBarAriaIdle 1.3s 0.12s ease-in-out infinite;
-}
-.waveBar.aria:nth-child(10) {
-  animation: waveBarAriaIdle 1.3s 0.22s ease-in-out infinite;
-}
-.waveBar.aria:nth-child(11) {
-  animation: waveBarAriaIdle 1.3s 0.07s ease-in-out infinite;
-}
-.waveBar.aria:nth-child(12) {
-  animation: waveBarAriaIdle 1.3s 0.18s ease-in-out infinite;
-}
-
-@keyframes waveBarAriaIdle {
-  0%,
-  100% {
-    height: 4px;
-    opacity: 0.4;
-  }
-  50% {
-    height: 18px;
-    opacity: 0.9;
-  }
-}
-
-/* Idle animation — user bars */
-.waveBar.user:nth-child(1) {
-  animation: waveBarUserIdle 1.6s 0.05s ease-in-out infinite;
-}
-.waveBar.user:nth-child(2) {
-  animation: waveBarUserIdle 1.6s 0.15s ease-in-out infinite;
-}
-.waveBar.user:nth-child(3) {
-  animation: waveBarUserIdle 1.6s 0.25s ease-in-out infinite;
-}
-.waveBar.user:nth-child(4) {
-  animation: waveBarUserIdle 1.6s 0.35s ease-in-out infinite;
-}
-.waveBar.user:nth-child(5) {
-  animation: waveBarUserIdle 1.6s 0.1s ease-in-out infinite;
-}
-.waveBar.user:nth-child(6) {
-  animation: waveBarUserIdle 1.6s 0.2s ease-in-out infinite;
-}
-.waveBar.user:nth-child(7) {
-  animation: waveBarUserIdle 1.6s 0.3s ease-in-out infinite;
-}
-.waveBar.user:nth-child(8) {
-  animation: waveBarUserIdle 1.6s 0.4s ease-in-out infinite;
-}
-.waveBar.user:nth-child(9) {
-  animation: waveBarUserIdle 1.6s 0.08s ease-in-out infinite;
-}
-.waveBar.user:nth-child(10) {
-  animation: waveBarUserIdle 1.6s 0.18s ease-in-out infinite;
-}
-.waveBar.user:nth-child(11) {
-  animation: waveBarUserIdle 1.6s 0.28s ease-in-out infinite;
-}
-.waveBar.user:nth-child(12) {
-  animation: waveBarUserIdle 1.6s 0.38s ease-in-out infinite;
-}
-
-@keyframes waveBarUserIdle {
-  0%,
-  100% {
-    height: 3px;
-    opacity: 0.25;
-  }
-  50% {
-    height: 12px;
-    opacity: 0.65;
-  }
-}
-
-/* ── SPECTROGRAM ── */
-#callSpectrogram {
-  display: flex;
-  gap: 3px;
-  margin-top: 10px;
-  justify-content: center;
-  max-width: 300px;
-}
-
-.specBar {
-  width: 3px;
-  height: 8px;
-  background: linear-gradient(180deg, var(--red-ember), var(--red-dim));
-  opacity: 0.5;
-  border-radius: 1px;
-  box-shadow: 0 0 3px var(--red-ember);
-  animation: specIdle 2s ease-in-out infinite;
-}
-.specBar:nth-child(odd) {
-  animation-delay: 0.2s;
-}
-.specBar:nth-child(3n) {
-  animation-delay: 0.5s;
-}
-.specBar:nth-child(5n) {
-  animation-delay: 0.9s;
-}
-.specBar:nth-child(7n) {
-  animation-delay: 1.3s;
-}
-
-@keyframes specIdle {
-  0%,
-  100% {
-    height: 4px;
-    opacity: 0.3;
-  }
-  50% {
-    height: 20px;
-    opacity: 0.8;
-  }
+@keyframes lockShake {
+  0%   { transform: translateX(0); }
+  15%  { transform: translateX(-8px); }
+  30%  { transform: translateX(8px); }
+  45%  { transform: translateX(-6px); }
+  60%  { transform: translateX(6px); }
+  75%  { transform: translateX(-3px); }
+  90%  { transform: translateX(3px); }
+  100% { transform: translateX(0); }
 }
 
 /* ============================================================
-   HAMBURGER — hidden on desktop
+   SIDEBAR OVERLAY
    ============================================================ */
-#hamburgerBtn {
-  display: none;
-}
-#sidebarOverlay {
-  display: none;
-}
+#sidebarOverlay { display: none; }
 
 /* ============================================================
    MOBILE ≤ 768px
    ============================================================ */
 @media (max-width: 768px) {
-  #layout {
-    position: relative;
-    overflow: hidden;
-  }
 
-  /* Sidebar — slide-out drawer */
+  /* ── Layout ── */
+  #layout { position: relative; overflow: hidden; }
+
+  /* ── Sidebar drawer ── */
   #sidebar {
     position: fixed;
-    top: 0;
-    left: 0;
-    height: 100%;
-    width: 280px;
+    top: 0; left: 0;
+    height: 100%; width: 280px;
     z-index: 1000;
     transform: translateX(-100%);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 4px 0 40px rgba(255, 0, 0, 0.35);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: 4px 0 40px rgba(255,0,0,0.35);
   }
-  #sidebar.open {
-    transform: translateX(0);
-  }
+  #sidebar.open { transform: translateX(0); }
 
-  /* Overlay */
+  /* ── Dark overlay ── */
   #sidebarOverlay {
     display: block;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.75);
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
     z-index: 999;
-    opacity: 0;
-    pointer-events: none;
+    opacity: 0; pointer-events: none;
     transition: opacity 0.3s ease;
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
   }
-  #sidebarOverlay.active {
-    opacity: 1;
-    pointer-events: all;
-  }
+  #sidebarOverlay.active { opacity: 1; pointer-events: all; }
 
-  /* Hamburger */
-  #hamburgerBtn {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 5px;
-    position: fixed;
-    top: 12px;
-    left: 12px;
-    z-index: 1001;
-    width: 38px;
-    height: 38px;
-    padding: 7px;
-    background: var(--bg-abyss);
-    border: 1px solid var(--red-dim);
-    cursor: pointer;
-    clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
-    transition:
-      border-color 0.2s,
-      box-shadow 0.2s;
-  }
-  #hamburgerBtn:hover,
-  #hamburgerBtn.open {
-    border-color: var(--red-core);
-    box-shadow: var(--glow-sm);
-  }
-  #hamburgerBtn span {
-    display: block;
-    height: 2px;
-    background: var(--red-core);
-    box-shadow: 0 0 4px var(--red-core);
-    transition:
-      transform 0.25s ease,
-      opacity 0.2s ease;
-    transform-origin: center;
-  }
-  #hamburgerBtn.open span:nth-child(1) {
-    transform: translateY(7px) rotate(45deg);
-  }
-  #hamburgerBtn.open span:nth-child(2) {
-    opacity: 0;
-    transform: scaleX(0);
-  }
-  #hamburgerBtn.open span:nth-child(3) {
-    transform: translateY(-7px) rotate(-45deg);
-  }
-
-  /* Chat window */
-  #chatWindow {
-    width: 100%;
-    flex: 1;
-  }
-  #chatHeader {
-    padding-left: 58px !important;
-  }
-  .chatHeaderSub {
-    display: none;
-  }
-
-  /* Messages */
-  #messages {
-    padding: 10px 8px;
-  }
-  .msg {
-    max-width: 94%;
-  }
-
-  /* Input bar — sticky bottom, notch-safe */
+  /* ── INPUT BAR: 2 rows ── */
   #inputBar {
-    position: sticky;
-    bottom: 0;
-    z-index: 10;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
     padding: 8px 10px !important;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom)) !important;
-  }
-  #userInput {
-    font-size: 14px !important;
-  }
-  #sendBtn {
-    white-space: nowrap;
-    padding: 10px 12px !important;
-    font-size: 10px !important;
-  }
-  .voiceBtn {
-    padding: 6px 8px !important;
-    font-size: 10px !important;
-    white-space: nowrap;
-    flex-shrink: 0;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+    gap: 6px !important;
+    position: sticky;
+    bottom: 0; z-index: 10;
   }
 
-  /* Settings — full screen */
+  /* Row 1: sidebar btn + input + send — actual flex row */
+  #inputTopRow {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+  }
+
+  /* Row 2: voice buttons — horizontal scroll */
+  #inputBtnRow {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  #inputBtnRow::-webkit-scrollbar { display: none; }
+
+  /* Show mobile-only sidebar toggle */
+  .mobileOnly { display: flex !important; }
+
+  /* Shrink buttons for mobile */
+  #userInput  { font-size: 14px !important; }
+  #sendBtn    { white-space: nowrap; padding: 10px 12px !important; font-size: 10px !important; }
+  .voiceBtn   { padding: 6px 8px !important; font-size: 10px !important; white-space: nowrap; flex-shrink: 0; }
+
+  /* ── Chat window ── */
+  #chatWindow { width: 100%; flex: 1; }
+  #chatHeader { padding-left: 8px !important; }
+  .chatHeaderSub { display: none; }
+  #messages   { padding: 10px 8px; }
+  .msg        { max-width: 94%; }
+
+  /* ── Always show chat action buttons on mobile ── */
+  .chatActionBtn { display: flex !important; }
+  .chatRow .chatItem { padding-right: 54px !important; }
+
+  /* ── Message delete always visible on mobile ── */
+  .msgMeta { opacity: 1 !important; }
+
+  /* ── Settings full screen ── */
   #settingsPanel {
-    width: 100% !important;
-    max-width: 100% !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
+    width: 100% !important; max-width: 100% !important;
+    height: 100dvh !important; max-height: 100dvh !important;
     border-radius: 0 !important;
   }
-  #settingsTabs {
-    overflow-x: auto;
-    flex-wrap: nowrap !important;
-    scrollbar-width: none;
-  }
-  #settingsTabs::-webkit-scrollbar {
-    display: none;
-  }
-  .settingsTab {
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
+  #settingsTabs { overflow-x: auto; flex-wrap: nowrap !important; scrollbar-width: none; }
+  #settingsTabs::-webkit-scrollbar { display: none; }
+  .settingsTab  { white-space: nowrap; flex-shrink: 0; }
 
-  /* Always show chat action buttons on mobile */
-  .chatActionBtn {
-    display: flex !important;
-  }
-  .chatRow .chatItem {
-    padding-right: 54px !important;
-  }
-
-  /* Homepage */
-  #homepageContent {
-    padding: 12px;
-  }
-  #homeHeader {
-    flex-direction: column;
-    gap: 6px;
-  }
-  .homeTitleMain {
-    font-size: 1.4rem;
-  }
-  .homeGrid {
-    grid-template-columns: 1fr !important;
-  }
-  #personalityList {
-    grid-template-columns: 1fr 1fr !important;
-  }
-  #lockBox {
-    width: 90vw;
-    max-width: 360px;
-  }
-
-  /* Call mode — adjust for smaller screens */
-  #callModeInner {
-    margin-top: 200px;
-  }
-  #callOrbRing3 {
-    display: none;
-  }
+  /* ── Homepage ── */
+  #homepageContent { padding: 12px; }
+  #homeHeader      { flex-direction: column; gap: 6px; }
+  .homeTitleMain   { font-size: 1.4rem; }
+  .homeGrid        { grid-template-columns: 1fr !important; }
+  #personalityList { grid-template-columns: 1fr 1fr !important; }
+  #lockBox         { width: 90vw; max-width: 360px; }
 }
 
 @media (max-width: 380px) {
-  .voiceBtn {
-    padding: 5px 6px !important;
-    font-size: 9px !important;
-  }
-  #sendBtn {
-    padding: 9px 8px !important;
-    font-size: 9px !important;
-  }
-  #chatHeader {
-    padding-left: 50px !important;
-  }
-  .homeTitleMain {
-    font-size: 1.1rem;
-  }
-  #callModeInner {
-    margin-top: 160px;
-  }
+  .voiceBtn  { padding: 5px 6px !important; font-size: 9px !important; }
+  #sendBtn   { padding: 9px 8px !important; font-size: 9px !important; }
 }
