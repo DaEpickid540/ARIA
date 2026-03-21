@@ -3483,38 +3483,47 @@ code.inlineCode {
 }
 
 /* ============================================================
-   INPUT BAR — DESKTOP: all buttons in one row
-                MOBILE:  top row (sidebar btn + input + send)
-                         bottom row (voice buttons, scrollable)
+   INPUT BAR — TWO CHILD DIVS
+   Desktop: both rows sit side-by-side in one line
+   Mobile:  stacked — row1 (input+send), row2 (buttons)
    ============================================================ */
 
-/* Desktop: flat single flex row (original behaviour) */
+/* Override the base single-flex-row so our divs control layout */
 #inputBar {
-  display: flex !important;
-  flex-direction: row !important;
   flex-wrap: wrap !important;
+  padding: 8px 14px 10px !important;
+  gap: 6px !important;
   align-items: center !important;
-  gap: 8px !important;
-  padding: 10px 14px !important;
 }
 
+/* Row 1: input + send — takes all available width on desktop */
 #inputTopRow {
-  display: contents; /* children join the flex row directly on desktop */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;           /* grow to fill horizontal space alongside btn row */
+  min-width: 200px;  /* won't collapse too small */
 }
 
+#inputTopRow #userInput {
+  flex: 1;
+}
+
+/* Row 2: voice buttons — sits on same line as row1 on desktop */
 #inputBtnRow {
-  display: contents; /* same — all buttons in one row on desktop */
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 /* Mobile sidebar toggle — hidden on desktop */
-.mobileOnly { display: none !important; }
-
-/* ── Desktop: input fills remaining space ── */
-#inputTopRow #userInput,
-#userInput { flex: 1; min-width: 120px; }
+#sidebarToggleBtn {
+  display: none !important;
+}
 
 /* ============================================================
-   CHAT ROW — rename + delete action buttons
+   CHAT ROW — rename + delete buttons
    ============================================================ */
 .chatRow {
   display: flex;
@@ -3522,7 +3531,6 @@ code.inlineCode {
   position: relative;
   width: 100%;
 }
-
 .chatRow .chatItem {
   flex: 1;
   min-width: 0;
@@ -3531,7 +3539,6 @@ code.inlineCode {
   white-space: nowrap;
   padding-right: 50px;
 }
-
 .chatActionBtn {
   display: none;
   flex-shrink: 0;
@@ -3544,30 +3551,25 @@ code.inlineCode {
   cursor: crosshair;
   align-items: center;
   justify-content: center;
-  line-height: 1;
   transition: all 0.15s;
   position: absolute;
 }
 .chatRenameBtn { right: 24px; }
 .chatDeleteBtn  { right: 2px; }
-
 .chatRow:hover .chatActionBtn,
 .chatRow.active .chatActionBtn { display: flex; }
-
 .chatRenameBtn:hover { color: var(--red-neon); border-color: var(--red-dim); background: rgba(255,0,0,0.08); }
 .chatDeleteBtn:hover  { color: #ff4444; border-color: #ff4444; background: rgba(255,0,0,0.12); }
 
 /* ============================================================
-   MESSAGE — header with sender + timestamp + delete btn
+   MESSAGE HEADER — sender + timestamp + delete btn
    ============================================================ */
 .msgHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 4px;
-  gap: 8px;
 }
-
 .msgMeta {
   display: flex;
   align-items: center;
@@ -3575,9 +3577,7 @@ code.inlineCode {
   opacity: 0;
   transition: opacity 0.15s;
 }
-
 .msg:hover .msgMeta { opacity: 1; }
-
 .msgDeleteBtn {
   background: transparent;
   border: 1px solid transparent;
@@ -3591,7 +3591,8 @@ code.inlineCode {
 .msgDeleteBtn:hover { color: #ff4444; border-color: #ff4444; background: rgba(255,0,0,0.1); }
 
 /* ============================================================
-   LOCK SCREEN — userId input spacing
+   LOCK SCREEN — userId input spacing only
+   (shape/color inherited from #lockBox input)
    ============================================================ */
 #userIdInput { margin-bottom: 12px; }
 
@@ -3607,7 +3608,7 @@ code.inlineCode {
 }
 
 /* ============================================================
-   SIDEBAR OVERLAY
+   SIDEBAR OVERLAY — hidden on desktop
    ============================================================ */
 #sidebarOverlay { display: none; }
 
@@ -3616,10 +3617,9 @@ code.inlineCode {
    ============================================================ */
 @media (max-width: 768px) {
 
-  /* ── Layout ── */
+  /* Sidebar becomes fixed slide-out drawer */
   #layout { position: relative; overflow: hidden; }
 
-  /* ── Sidebar drawer ── */
   #sidebar {
     position: fixed;
     top: 0; left: 0;
@@ -3631,73 +3631,73 @@ code.inlineCode {
   }
   #sidebar.open { transform: translateX(0); }
 
-  /* ── Dark overlay ── */
+  /* Dark tap-to-close overlay */
   #sidebarOverlay {
     display: block;
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.75);
     z-index: 999;
-    opacity: 0; pointer-events: none;
+    opacity: 0;
+    pointer-events: none;
     transition: opacity 0.3s ease;
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
   }
   #sidebarOverlay.active { opacity: 1; pointer-events: all; }
 
-  /* ── INPUT BAR: 2 rows ── */
+  /* Chat window fills full width */
+  #chatWindow { width: 100%; flex: 1; }
+  #chatHeader { padding-left: 8px !important; }
+  .chatHeaderSub { display: none; }
+
+  /* INPUT BAR: stack into 2 rows */
   #inputBar {
     flex-direction: column !important;
     flex-wrap: nowrap !important;
     padding: 8px 10px !important;
     padding-bottom: calc(8px + env(safe-area-inset-bottom)) !important;
-    gap: 6px !important;
     position: sticky;
     bottom: 0; z-index: 10;
   }
 
-  /* Row 1: sidebar btn + input + send — actual flex row */
+  /* Row 1 fills full width */
   #inputTopRow {
-    display: flex !important;
-    align-items: center;
-    gap: 6px;
     width: 100%;
+    flex: none;
+    min-width: unset;
   }
 
-  /* Row 2: voice buttons — horizontal scroll */
+  /* Row 2 fills full width, scrollable */
   #inputBtnRow {
-    display: flex !important;
-    align-items: center;
-    gap: 6px;
     width: 100%;
     overflow-x: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    flex-shrink: 0;
   }
   #inputBtnRow::-webkit-scrollbar { display: none; }
 
-  /* Show mobile-only sidebar toggle */
-  .mobileOnly { display: flex !important; }
+  /* Show the mobile sidebar toggle button */
+  #sidebarToggleBtn {
+    display: flex !important;
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 6px 10px !important;
+  }
 
-  /* Shrink buttons for mobile */
+  /* Scale down buttons */
   #userInput  { font-size: 14px !important; }
   #sendBtn    { white-space: nowrap; padding: 10px 12px !important; font-size: 10px !important; }
   .voiceBtn   { padding: 6px 8px !important; font-size: 10px !important; white-space: nowrap; flex-shrink: 0; }
 
-  /* ── Chat window ── */
-  #chatWindow { width: 100%; flex: 1; }
-  #chatHeader { padding-left: 8px !important; }
-  .chatHeaderSub { display: none; }
-  #messages   { padding: 10px 8px; }
-  .msg        { max-width: 94%; }
-
-  /* ── Always show chat action buttons on mobile ── */
+  /* Chat action buttons always visible on mobile */
   .chatActionBtn { display: flex !important; }
   .chatRow .chatItem { padding-right: 54px !important; }
 
-  /* ── Message delete always visible on mobile ── */
+  /* Message delete always visible on mobile */
   .msgMeta { opacity: 1 !important; }
 
-  /* ── Settings full screen ── */
+  /* Settings full screen */
   #settingsPanel {
     width: 100% !important; max-width: 100% !important;
     height: 100dvh !important; max-height: 100dvh !important;
@@ -3705,18 +3705,21 @@ code.inlineCode {
   }
   #settingsTabs { overflow-x: auto; flex-wrap: nowrap !important; scrollbar-width: none; }
   #settingsTabs::-webkit-scrollbar { display: none; }
-  .settingsTab  { white-space: nowrap; flex-shrink: 0; }
+  .settingsTab { white-space: nowrap; flex-shrink: 0; }
 
-  /* ── Homepage ── */
+  /* Homepage */
   #homepageContent { padding: 12px; }
   #homeHeader      { flex-direction: column; gap: 6px; }
   .homeTitleMain   { font-size: 1.4rem; }
   .homeGrid        { grid-template-columns: 1fr !important; }
   #personalityList { grid-template-columns: 1fr 1fr !important; }
   #lockBox         { width: 90vw; max-width: 360px; }
+
+  .msg { max-width: 94%; }
+  #messages { padding: 10px 8px; }
 }
 
 @media (max-width: 380px) {
-  .voiceBtn  { padding: 5px 6px !important; font-size: 9px !important; }
-  #sendBtn   { padding: 9px 8px !important; font-size: 9px !important; }
+  .voiceBtn { padding: 5px 6px !important; font-size: 9px !important; }
+  #sendBtn  { padding: 9px 8px !important; font-size: 9px !important; }
 }
