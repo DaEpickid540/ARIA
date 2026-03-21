@@ -210,6 +210,7 @@
     <!--  MAIN LAYOUT              -->
     <!-- ========================= -->
     <div id="layout" style="display: none">
+      <div id="sidebarOverlay"></div>
       <aside id="sidebar">
         <!-- ARIA logo in sidebar -->
         <div id="sidebarHeader">
@@ -254,13 +255,20 @@
         <div id="messages"></div>
 
         <div id="inputBar">
-          <input id="userInput" placeholder="Send a message to ARIA..." />
-          <button id="sendBtn" class="primaryBtn glitch">Send</button>
-          <button id="callModeBtn" class="voiceBtn glitch">📞 Call</button>
-          <button id="pushToTalkBtn" class="voiceBtn glitch">🎙 PTT</button>
-          <button id="vttBtn" class="voiceBtn glitch">🗣 VTT</button>
-          <button id="ttsBtn" class="voiceBtn glitch">🔊 TTS</button>
-          <div id="voiceWave"></div>
+          <!-- Row 1: type + send -->
+          <div id="inputTopRow">
+            <input id="userInput" placeholder="Send a message to ARIA..." />
+            <button id="sendBtn" class="primaryBtn glitch">Send</button>
+          </div>
+          <!-- Row 2: voice/tool buttons + mobile sidebar toggle -->
+          <div id="inputBtnRow">
+            <button id="sidebarToggleBtn" class="voiceBtn glitch" style="display:none">☰ Menu</button>
+            <button id="callModeBtn" class="voiceBtn glitch">📞 Call</button>
+            <button id="pushToTalkBtn" class="voiceBtn glitch">🎙 PTT</button>
+            <button id="vttBtn" class="voiceBtn glitch">🗣 VTT</button>
+            <button id="ttsBtn" class="voiceBtn glitch">🔊 TTS</button>
+            <div id="voiceWave"></div>
+          </div>
         </div>
       </main>
     </div>
