@@ -1,4 +1,4 @@
-// ui.js — runs immediately after dynamic import (no DOMContentLoaded needed)
+// ui.js — mobile sidebar + voice wave. Runs immediately after dynamic import.
 
 /* ── VOICE WAVE BARS ── */
 const voiceWave = document.getElementById("voiceWave");
@@ -9,30 +9,35 @@ if (voiceWave && !voiceWave.children.length) {
 /* ── MOBILE SIDEBAR ── */
 const sidebar        = document.getElementById("sidebar");
 const sidebarOverlay = document.getElementById("sidebarOverlay");
-const sidebarToggle  = document.getElementById("sidebarToggleBtn");
+const toggleBtn      = document.getElementById("sidebarToggleBtn");
 
 function openSidebar() {
   sidebar?.classList.add("open");
   sidebarOverlay?.classList.add("active");
-  if (sidebarToggle) sidebarToggle.textContent = "✕";
+  if (toggleBtn) toggleBtn.textContent = "✕ Close";
   document.body.style.overflow = "hidden";
 }
 
 function closeSidebar() {
   sidebar?.classList.remove("open");
   sidebarOverlay?.classList.remove("active");
-  if (sidebarToggle) sidebarToggle.textContent = "☰";
+  if (toggleBtn) toggleBtn.textContent = "☰ Menu";
   document.body.style.overflow = "";
 }
 
-function toggleSidebar() {
+toggleBtn?.addEventListener("click", () => {
   sidebar?.classList.contains("open") ? closeSidebar() : openSidebar();
-}
+});
 
-sidebarToggle?.addEventListener("click", toggleSidebar);
+// Tap overlay to close
 sidebarOverlay?.addEventListener("click", closeSidebar);
-document.addEventListener("keydown", e => { if (e.key === "Escape") closeSidebar(); });
-window.addEventListener("resize",    () => { if (window.innerWidth > 768) closeSidebar(); });
 
+// ESC to close
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSidebar(); });
+
+// Auto-close on resize to desktop
+window.addEventListener("resize", () => { if (window.innerWidth > 768) closeSidebar(); });
+
+// Expose globally so chat.js can close sidebar when switching chats
 window.ARIA_openSidebar  = openSidebar;
 window.ARIA_closeSidebar = closeSidebar;
