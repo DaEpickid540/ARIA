@@ -3483,310 +3483,246 @@ code.inlineCode {
 }
 
 /* ============================================================
-   INPUT BAR RESTRUCTURE
-   Desktop: single flex row — [input+send] [buttons] side by side
-   Mobile:  two rows — row1: input+send, row2: buttons (scrollable)
+   KEYBOARD / WHITE BAR FIX + MOBILE LAYOUT
    ============================================================ */
 
-/* --- Desktop base --- */
+/* Desktop inputBar — flat single flex row */
 #inputBar {
   flex-wrap: wrap !important;
   align-items: center !important;
   padding: 8px 14px 10px !important;
   gap: 0 8px !important;
 }
-
 #inputTopRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 180px;
+  display: flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 180px;
 }
 #inputTopRow #userInput { flex: 1; }
-
 #inputBtnRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+}
+#sidebarToggleBtn    { display: none !important; }
+#sidebarOverlay      { display: none; }
+
+/* Textarea auto-resize */
+#userInput {
+  resize: none !important;
+  overflow: hidden !important;
+  min-height: 38px !important;
+  max-height: 120px !important;
+  font-size: 13px;
 }
 
-/* Sidebar toggle hidden on desktop */
-#sidebarToggleBtn { display: none !important; }
-
-/* ============================================================
-   CHAT MESSAGE BUBBLES — paragraph style for user messages
-   ============================================================ */
-
-/* User bubble: comfortable paragraph feel */
-.msg.user {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-  font-size: 14px !important;
-  line-height: 1.6 !important;
-  letter-spacing: 0 !important;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-/* ARIA bubble: keep monospace for code feel but readable */
-.msg.aria {
-  font-family: "Share Tech Mono", monospace !important;
-  font-size: 13px !important;
-  line-height: 1.65 !important;
-}
-
-/* Message body paragraph spacing */
-.msgBody .mdPara {
-  margin-bottom: 10px !important;
-  line-height: 1.7 !important;
-}
-.msgBody .mdPara:last-child { margin-bottom: 0 !important; }
-
-/* ============================================================
-   CHAT ROW — rename + delete buttons
-   ============================================================ */
-.chatRow {
-  display: flex; align-items: center;
-  position: relative; width: 100%;
-}
+/* Chat action buttons */
+.chatRow { display: flex; align-items: center; position: relative; width: 100%; }
 .chatRow .chatItem {
-  flex: 1; min-width: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  padding-right: 50px;
+  flex: 1; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; padding-right: 50px;
 }
 .chatActionBtn {
-  display: none; flex-shrink: 0;
-  width: 20px; height: 20px; padding: 0;
+  display: none; flex-shrink: 0; width: 20px; height: 20px; padding: 0;
   background: transparent; border: 1px solid transparent;
   color: var(--text-muted); font-size: 11px; cursor: crosshair;
   align-items: center; justify-content: center;
   transition: all 0.15s; position: absolute;
 }
-.chatRenameBtn { right: 24px; }
-.chatDeleteBtn  { right: 2px; }
+.chatRenameBtn { right: 24px; } .chatDeleteBtn { right: 2px; }
 .chatRow:hover .chatActionBtn,
 .chatRow.active .chatActionBtn { display: flex; }
 .chatRenameBtn:hover { color: var(--red-neon); border-color: var(--red-dim); background: rgba(255,0,0,0.08); }
-.chatDeleteBtn:hover  { color: #ff4444; border-color: #ff4444; background: rgba(255,0,0,0.12); }
+.chatDeleteBtn:hover { color: #ff4444; border-color: #ff4444; background: rgba(255,0,0,0.12); }
 
-/* ============================================================
-   MESSAGE HEADER — sender + timestamp + delete btn
-   ============================================================ */
-.msgHeader {
-  display: flex; align-items: center;
-  justify-content: space-between; margin-bottom: 4px;
-}
-.msgMeta {
-  display: flex; align-items: center; gap: 6px;
-  opacity: 0; transition: opacity 0.15s;
-}
+/* Message action buttons */
+.msgHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.msgMeta { display: flex; align-items: center; gap: 5px; opacity: 0; transition: opacity 0.15s; }
 .msg:hover .msgMeta { opacity: 1; }
-.msgDeleteBtn {
+.msgActionBtn {
   background: transparent; border: 1px solid transparent;
-  color: var(--text-muted); font-size: 10px; cursor: crosshair;
-  padding: 1px 4px; line-height: 1; transition: all 0.15s;
+  color: var(--text-muted); font-size: 11px; cursor: crosshair;
+  padding: 2px 5px; line-height: 1; transition: all 0.15s;
 }
-.msgDeleteBtn:hover { color: #ff4444; border-color: #ff4444; background: rgba(255,0,0,0.1); }
+.msgActionBtn:hover   { color: var(--text-blaze); border-color: var(--border-cut); }
+.msgCopyBtn:hover     { color: var(--red-neon); }
+.msgRegenBtn:hover    { color: #88ff88; border-color: #88ff88; }
+.msgDeleteBtn:hover   { color: #ff4444; border-color: #ff4444; }
 
-/* ============================================================
-   LOCK SCREEN — userId input spacing
-   ============================================================ */
+/* User message paragraph */
+.userPara {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px; line-height: 1.65; letter-spacing: 0;
+  word-break: break-word; white-space: pre-wrap; margin: 0;
+}
+
+/* Lock screen */
 #userIdInput { margin-bottom: 12px; }
 @keyframes lockShake {
-  0%   { transform: translateX(0); }   15% { transform: translateX(-8px); }
-  30%  { transform: translateX(8px); } 45% { transform: translateX(-6px); }
-  60%  { transform: translateX(6px); } 75% { transform: translateX(-3px); }
-  90%  { transform: translateX(3px); } 100%{ transform: translateX(0); }
+  0%,100%{ transform:translateX(0); } 15%{ transform:translateX(-8px); }
+  30%{ transform:translateX(8px); } 45%{ transform:translateX(-6px); }
+  60%{ transform:translateX(6px); } 75%{ transform:translateX(-3px); }
+  90%{ transform:translateX(3px); }
+}
+
+/* Stop generating button */
+#stopGenBtn { text-align: center; padding: 8px; }
+#stopGenBtn button {
+  background: rgba(255,0,0,0.08); border: 1px solid var(--red-dim);
+  color: var(--red-neon); font-family: "Share Tech Mono",monospace;
+  font-size: 11px; letter-spacing: 0.1em; padding: 6px 16px; cursor: crosshair;
+  clip-path: polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);
 }
 
 /* ============================================================
-   SIDEBAR OVERLAY
-   ============================================================ */
-#sidebarOverlay { display: none; }
-
-/* ============================================================
-   MOBILE ≤ 768px
-   KEY FIX: Use dvh (dynamic viewport height) so the layout
-   shrinks correctly when the virtual keyboard opens, and the
-   input bar doesn't get hidden underneath it.
+   MOBILE ≤ 768px — THE KEY FIXES
    ============================================================ */
 @media (max-width: 768px) {
 
-  /* Use dynamic viewport — shrinks when keyboard opens */
+  /* ZOOM fix already in viewport meta, but belt-and-suspenders */
+  html, body { touch-action: pan-x pan-y; }
+
+  /* Use dvh so layout shrinks with keyboard */
+  html { height: 100%; }
+  body { height: 100%; overflow: hidden; }
+
   #layout {
     height: 100dvh !important;
-    min-height: 100dvh !important;
-    position: relative;
     overflow: hidden;
-  }
-
-  #chatWindow {
-    width: 100%;
-    flex: 1;
-    min-height: 0;      /* allows flex shrink when keyboard opens */
+    position: relative;
     display: flex;
-    flex-direction: column;
   }
 
-  /* Messages scroll area shrinks to make room for keyboard */
+  /* Chat window takes remaining height */
+  #chatWindow {
+    width: 100% !important;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Messages scroll area — shrinks when keyboard opens */
   #messages {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
+    padding: 10px 8px !important;
   }
 
-  /* INPUT BAR — always visible, at bottom of dvh container */
+  /* INPUT BAR — two stacked rows, never hidden */
   #inputBar {
     flex-direction: column !important;
     flex-wrap: nowrap !important;
-    padding: 8px 10px !important;
-    padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
-    gap: 6px !important;
-    flex-shrink: 0;     /* NEVER shrink — always visible */
-    position: relative; /* let the flex column push it to bottom */
-    z-index: 10;
-    background: var(--bg-abyss);
-    border-top: 1px solid var(--border-cut);
+    flex-shrink: 0 !important;      /* NEVER shrink */
+    padding: 6px 10px !important;
+    padding-bottom: env(safe-area-inset-bottom, 8px) !important;
+    gap: 5px !important;
+    background: var(--bg-abyss) !important;
+    border-top: 1px solid var(--red-dim) !important;
+    /* No position:sticky — let flexbox handle it naturally */
   }
 
-  /* Row 1: input + send — full width */
+  /* Row 1: textarea + send */
   #inputTopRow {
-    width: 100%; flex: none; min-width: unset;
-    display: flex; align-items: center; gap: 6px;
-  }
-  #inputTopRow #userInput {
-    flex: 1;
-    font-size: 16px !important; /* exactly 16px prevents iOS zoom */
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    width: 100% !important;
+    flex: none !important;
+    min-width: unset !important;
   }
 
-  /* Row 2: buttons — horizontal scroll */
+  #userInput {
+    flex: 1 !important;
+    /* 16px prevents iOS auto-zoom on focus */
+    font-size: 16px !important;
+    min-height: 36px !important;
+    max-height: 96px !important;
+  }
+
+  #sendBtn {
+    white-space: nowrap;
+    padding: 10px 14px !important;
+    font-size: 10px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Row 2: voice buttons, scrollable */
   #inputBtnRow {
-    width: 100%;
-    display: flex; align-items: center; gap: 6px;
-    overflow-x: auto; flex-shrink: 0;
-    scrollbar-width: none; -ms-overflow-style: none;
-    padding-bottom: 2px;
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    width: 100% !important;
+    flex-shrink: 0 !important;
+    overflow-x: auto !important;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
   #inputBtnRow::-webkit-scrollbar { display: none; }
 
-  /* Show sidebar toggle */
-  #sidebarToggleBtn {
-    display: flex !important;
-    flex-shrink: 0; white-space: nowrap;
-    padding: 6px 10px !important;
+  /* Show sidebar toggle button */
+  #sidebarToggleBtn { display: flex !important; flex-shrink: 0 !important; }
+
+  /* Scale voice buttons */
+  .voiceBtn {
+    padding: 6px 9px !important;
+    font-size: 10px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
   }
 
-  /* Scale buttons */
-  #sendBtn  { white-space: nowrap; padding: 10px 14px !important; font-size: 10px !important; }
-  .voiceBtn { padding: 6px 9px !important; font-size: 10px !important; white-space: nowrap; flex-shrink: 0; }
+  /* FIX: message bubble max-width so user bubbles don't dominate */
+  .msg      { max-width: 88% !important; }
+  .msg.user { max-width: 80% !important; }
 
   /* Sidebar drawer */
   #sidebar {
-    position: fixed; top: 0; left: 0;
-    height: 100%; width: 280px; z-index: 1000;
-    transform: translateX(-100%);
-    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    position: fixed !important; top: 0; left: 0;
+    height: 100% !important; width: 280px !important;
+    z-index: 1000 !important;
+    transform: translateX(-100%) !important;
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1) !important;
     box-shadow: 4px 0 40px rgba(255,0,0,0.35);
   }
-  #sidebar.open { transform: translateX(0); }
+  #sidebar.open { transform: translateX(0) !important; }
 
+  /* Overlay */
   #sidebarOverlay {
-    display: block; position: fixed; inset: 0;
+    display: block !important; position: fixed; inset: 0;
     background: rgba(0,0,0,0.75); z-index: 999;
     opacity: 0; pointer-events: none;
     transition: opacity 0.3s ease;
     backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
   }
-  #sidebarOverlay.active { opacity: 1; pointer-events: all; }
+  #sidebarOverlay.active { opacity: 1 !important; pointer-events: all !important; }
 
-  /* Misc */
-  #chatHeader  { padding-left: 8px !important; }
+  /* Chat header */
+  #chatHeader   { padding-left: 8px !important; }
   .chatHeaderSub { display: none; }
-  .msg { max-width: 94%; }
+
+  /* Chat actions always visible on mobile */
   .chatActionBtn { display: flex !important; }
   .chatRow .chatItem { padding-right: 54px !important; }
   .msgMeta { opacity: 1 !important; }
 
+  /* Settings fullscreen */
   #settingsPanel {
     width: 100% !important; max-width: 100% !important;
     height: 100dvh !important; max-height: 100dvh !important;
     border-radius: 0 !important;
   }
-  #settingsTabs { overflow-x: auto; flex-wrap: nowrap !important; scrollbar-width: none; }
+  #settingsTabs { overflow-x: auto; flex-wrap: nowrap !important; }
   #settingsTabs::-webkit-scrollbar { display: none; }
-  .settingsTab { white-space: nowrap; flex-shrink: 0; }
+  .settingsTab  { white-space: nowrap; flex-shrink: 0; }
 
+  /* Homepage */
   #homepageContent { padding: 12px; }
   .homeTitleMain   { font-size: 1.4rem; }
   .homeGrid        { grid-template-columns: 1fr !important; }
-  #personalityList { grid-template-columns: 1fr 1fr !important; }
   #lockBox         { width: 90vw; max-width: 360px; }
 }
 
 @media (max-width: 380px) {
   .voiceBtn { padding: 5px 6px !important; font-size: 9px !important; }
   #sendBtn  { padding: 9px 8px !important; font-size: 9px !important; }
-}
-
-/* ============================================================
-   MESSAGE ACTION BUTTONS (copy, regenerate, delete)
-   ============================================================ */
-.msgActionBtn {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-muted);
-  font-size: 11px;
-  cursor: crosshair;
-  padding: 2px 5px;
-  line-height: 1;
-  transition: all 0.15s;
-  border-radius: 2px;
-}
-.msgActionBtn:hover     { color: var(--text-blaze); border-color: var(--border-cut); }
-.msgCopyBtn:hover       { color: var(--red-neon); }
-.msgRegenBtn:hover      { color: #88ff88; border-color: #88ff88; }
-.msgDeleteBtn:hover     { color: #ff4444; border-color: #ff4444; }
-
-/* ── User message paragraph style ── */
-.userPara {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 14px;
-  line-height: 1.65;
-  letter-spacing: 0;
-  word-break: break-word;
-  white-space: pre-wrap;
-  margin: 0;
-}
-
-/* ── Stop generating button ── */
-#stopGenBtn {
-  text-align: center;
-  padding: 8px;
-}
-#stopGenBtn button {
-  background: rgba(255,0,0,0.08);
-  border: 1px solid var(--red-dim);
-  color: var(--red-neon);
-  font-family: "Share Tech Mono", monospace;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  padding: 6px 16px;
-  cursor: crosshair;
-  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
-  transition: all 0.15s;
-}
-#stopGenBtn button:hover {
-  background: rgba(255,0,0,0.18);
-  border-color: var(--red-core);
-  box-shadow: var(--glow-sm);
-}
-
-/* ── Textarea auto-resize ── */
-#userInput {
-  resize: none;
-  overflow: hidden;
-  min-height: 38px;
-  max-height: 120px;
 }
