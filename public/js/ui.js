@@ -1,4 +1,4 @@
-// ui.js — mobile sidebar + voice wave. Runs immediately after dynamic import.
+// ui.js — runs immediately after dynamic import (no DOMContentLoaded needed)
 
 /* ── VOICE WAVE BARS ── */
 const voiceWave = document.getElementById("voiceWave");
@@ -29,15 +29,9 @@ toggleBtn?.addEventListener("click", () => {
   sidebar?.classList.contains("open") ? closeSidebar() : openSidebar();
 });
 
-// Tap overlay to close
 sidebarOverlay?.addEventListener("click", closeSidebar);
-
-// ESC to close
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeSidebar(); });
-
-// Auto-close on resize to desktop
 window.addEventListener("resize", () => { if (window.innerWidth > 768) closeSidebar(); });
 
-// Expose globally so chat.js can close sidebar when switching chats
 window.ARIA_openSidebar  = openSidebar;
 window.ARIA_closeSidebar = closeSidebar;
