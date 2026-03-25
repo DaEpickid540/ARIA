@@ -3483,6 +3483,2902 @@ code.inlineCode {
 }
 
 /* ============================================================
+   KEYBOARD / WHITE BAR FIX + MOBILE LAYOUT
+   ============================================================ */
+
+/* Desktop inputBar — flat single flex row */
+#inputBar {
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  padding: 8px 14px 10px !important;
+  gap: 0 8px !important;
+}
+#inputTopRow {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 180px;
+}
+#inputTopRow #userInput { flex: 1; }
+#inputBtnRow {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+}
+#sidebarToggleBtn    { display: none !important; }
+#sidebarOverlay      { display: none; }
+
+/* Textarea auto-resize */
+#userInput {
+  resize: none !important;
+  overflow: hidden !important;
+  min-height: 38px !important;
+  max-height: 120px !important;
+  font-size: 13px;
+<<<<<<< HEAD
+  font-family: "Share Tech Mono", monospace;
+  letter-spacing: 0.06em;
+  caret-color: var(--red-core);
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+}
+
+#userInput::placeholder {
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+}
+
+#userInput:focus {
+  border-color: var(--red-core);
+  border-bottom-color: var(--red-hot);
+  box-shadow:
+    var(--glow-sm),
+    inset 0 0 12px rgba(255, 0, 0, 0.05);
+  background: rgba(30, 0, 0, 0.5);
+}
+
+#sendBtn {
+  clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+}
+
+/* VOICE BUTTONS */
+.voiceBtn {
+  padding: 8px 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  border-radius: 2px;
+  color: var(--text-hot);
+  cursor: crosshair;
+  font-size: 11px;
+  font-family: "Share Tech Mono", monospace;
+  letter-spacing: 0.04em;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+}
+
+.voiceBtn:hover {
+  border-color: var(--red-core);
+  background: rgba(255, 0, 0, 0.1);
+  color: var(--text-blaze);
+  box-shadow: var(--glow-sm);
+}
+
+#callModeBtn.active {
+  background: rgba(255, 0, 0, 0.18);
+  border-color: var(--red-core);
+  color: var(--red-neon);
+  box-shadow: var(--glow-md);
+  animation: callPulse 1s ease-in-out infinite;
+}
+
+@keyframes callPulse {
+  0%,
+  100% {
+    box-shadow: var(--glow-sm);
+  }
+  50% {
+    box-shadow: var(--glow-lg);
+  }
+}
+
+#ttsBtn.active,
+#vttBtn.active {
+  background: var(--red-core) !important;
+  color: #fff !important;
+  border-color: var(--red-neon) !important;
+  box-shadow: var(--glow-md) !important;
+}
+
+/* VOICE WAVE */
+#voiceWave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 28px;
+  padding: 0 6px;
+}
+
+#voiceWave span {
+  display: inline-block;
+  width: 3px;
+  height: 4px;
+  background: var(--red-core);
+  border-radius: 1px;
+  box-shadow: 0 0 4px var(--red-core);
+}
+
+/* Active wave bars: driven by JS; fallback animation */
+#voiceWave.active span:nth-child(1) {
+  animation: wave 0.6s 0s ease-in-out infinite alternate;
+}
+#voiceWave.active span:nth-child(2) {
+  animation: wave 0.6s 0.1s ease-in-out infinite alternate;
+}
+#voiceWave.active span:nth-child(3) {
+  animation: wave 0.6s 0.2s ease-in-out infinite alternate;
+}
+#voiceWave.active span:nth-child(4) {
+  animation: wave 0.6s 0.1s ease-in-out infinite alternate;
+}
+#voiceWave.active span:nth-child(5) {
+  animation: wave 0.6s 0.3s ease-in-out infinite alternate;
+}
+#voiceWave.active span:nth-child(6) {
+  animation: wave 0.6s 0.05s ease-in-out infinite alternate;
+}
+
+@keyframes wave {
+  from {
+    height: 4px;
+    opacity: 0.5;
+  }
+  to {
+    height: 22px;
+    opacity: 1;
+  }
+}
+
+/* ============================================================
+   LOCK SCREEN
+   ============================================================ */
+#lockScreen {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(255, 0, 0, 0.12) 0%,
+      transparent 60%
+    ),
+    var(--bg-void);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+/* Animated red border pulse on lock screen background */
+#lockScreen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(255, 0, 0, 0.025) 3px,
+    rgba(255, 0, 0, 0.025) 4px
+  );
+  pointer-events: none;
+}
+
+#lockBox {
+  background: var(--bg-panel);
+  padding: 36px 32px;
+  text-align: center;
+  width: 340px;
+  border: 1px solid var(--red-core);
+  box-shadow:
+    var(--glow-lg),
+    inset 0 0 40px rgba(255, 0, 0, 0.05);
+  position: relative;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 16px) 0,
+    100% 16px,
+    100% 100%,
+    16px 100%,
+    0 calc(100% - 16px)
+  );
+  animation: lockBoxEnter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes lockBoxEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.88) translateY(20px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+}
+
+#lockBox h2 {
+  font-family: "Orbitron", sans-serif;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  color: var(--red-core);
+  text-shadow: var(--glow-md);
+  margin-bottom: 20px;
+}
+
+#lockBox input {
+  width: 100%;
+  padding: 12px 14px;
+  margin-top: 0;
+  border: 1px solid var(--border-cut);
+  border-bottom: 2px solid var(--red-dim);
+  background: var(--bg-abyss);
+  color: var(--text-blaze);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 14px;
+  letter-spacing: 0.2em;
+  outline: none;
+  caret-color: var(--red-core);
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+}
+
+#lockBox input:focus {
+  border-color: var(--red-core);
+  box-shadow: var(--glow-sm);
+  background: rgba(20, 0, 0, 0.6);
+}
+
+#lockBox button {
+  margin-top: 16px;
+  width: 100%;
+  padding: 12px;
+}
+
+#lockError {
+  color: var(--red-neon);
+  margin-top: 12px;
+  height: 18px;
+  font-size: 12px;
+  font-family: "Share Tech Mono", monospace;
+  letter-spacing: 0.1em;
+  animation: errorFlash 0.5s ease;
+}
+
+@keyframes errorFlash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ============================================================
+   HOMEPAGE
+   ============================================================ */
+#homepageScreen {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse at 50% 0%,
+      rgba(255, 0, 0, 0.1) 0%,
+      transparent 55%
+    ),
+    var(--bg-void);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 5000;
+  transition: opacity 0.4s ease;
+  overflow-y: auto;
+}
+
+#homepageContent {
+  background: rgba(5, 0, 0, 0.95);
+  padding: 28px;
+  border: 1px solid var(--red-core);
+  box-shadow:
+    var(--glow-lg),
+    inset 0 0 60px rgba(255, 0, 0, 0.03);
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  position: relative;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 24px) 0,
+    100% 24px,
+    100% 100%,
+    24px 100%,
+    0 calc(100% - 24px)
+  );
+  animation: contentSlideIn 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+@keyframes contentSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Corner decorations */
+#homepageContent::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: 22px;
+  width: 60px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--red-neon), transparent);
+  animation: cornerScan 3s ease-in-out infinite;
+}
+
+@keyframes cornerScan {
+  0%,
+  100% {
+    opacity: 0.3;
+    width: 40px;
+  }
+  50% {
+    opacity: 1;
+    width: 100px;
+  }
+}
+
+#homepageContent h1 {
+  margin: 0 0 20px 0;
+  text-align: center;
+  font-size: 2.2rem;
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  color: var(--red-core);
+  text-shadow: var(--glow-ultra);
+  animation: titlePulse 2s ease-in-out infinite;
+}
+
+@keyframes titlePulse {
+  0%,
+  100% {
+    text-shadow: var(--glow-md);
+  }
+  50% {
+    text-shadow: var(--glow-ultra);
+  }
+}
+
+/* HOME GRID */
+.homeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+/* CARDS */
+.homeCard {
+  flex: 1;
+  background: var(--bg-abyss);
+  border: 1px solid var(--border-cut);
+  border-top: 2px solid var(--red-dim);
+  padding: 12px 14px;
+  position: relative;
+  overflow: hidden;
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - 8px),
+    calc(100% - 8px) 100%,
+    0 100%
+  );
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    transform 0.2s;
+}
+
+.homeCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--red-core), transparent);
+  animation: cardSweep 4s linear infinite;
+  animation-delay: calc(var(--i, 0) * 0.5s);
+}
+
+@keyframes cardSweep {
+  0% {
+    left: -60%;
+  }
+  100% {
+    left: 120%;
+  }
+}
+
+.homeCard:hover {
+  border-color: var(--red-core);
+  box-shadow:
+    var(--glow-sm),
+    inset 0 0 20px rgba(255, 0, 0, 0.04);
+  transform: translateY(-2px);
+}
+
+.homeLabel {
+  font-size: 9px;
+  color: var(--red-core);
+  margin-bottom: 6px;
+  font-family: "Orbitron", sans-serif;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.homeValue {
+  font-size: 14px;
+  font-family: "Share Tech Mono", monospace;
+  color: var(--text-blaze);
+  line-height: 1.4;
+}
+
+.homeSub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 5px;
+  font-family: "Share Tech Mono", monospace;
+}
+
+/* SCROLL ROWS */
+.scrollRow {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+
+.scrollRow::-webkit-scrollbar {
+  height: 3px;
+}
+.scrollRow::-webkit-scrollbar-thumb {
+  background: var(--red-dim);
+  border-radius: 2px;
+}
+.scrollRow::-webkit-scrollbar-thumb:hover {
+  background: var(--red-core);
+}
+
+.scrollCard {
+  min-width: 260px;
+  scroll-snap-align: start;
+}
+
+@media (min-width: 900px) {
+  .scrollCard {
+    min-width: 300px;
+  }
+}
+@media (max-width: 700px) {
+  .homeGrid {
+    grid-template-columns: 1fr;
+  }
+  .scrollCard {
+    min-width: 220px;
+  }
+}
+
+/* HOME BUTTONS */
+#homeButtons {
+  display: flex;
+  justify-content: center;
+  margin-top: 22px;
+}
+
+.wideBtn {
+  width: 100%;
+  max-width: 460px;
+  font-size: 1.1rem;
+  padding: 16px 0;
+  letter-spacing: 0.3em;
+}
+
+.enterToChat {
+  animation: morphToChat 0.7s forwards ease-in-out;
+}
+
+@keyframes morphToChat {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  40% {
+    transform: scale(1.1) skewX(-2deg);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(0.05) skewX(0deg);
+    opacity: 0;
+  }
+}
+
+#enterConsoleBtn {
+  width: 100%;
+  max-width: 420px;
+  font-size: 1.2rem;
+  padding: 16px 0;
+}
+
+/* ============================================================
+   SETTINGS OVERLAY
+   ============================================================ */
+#settingsOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  display: none;
+  align-items: center;
+  justify-content: flex-end;
+  z-index: 9000;
+  backdrop-filter: blur(2px);
+}
+
+#settingsOverlay.active {
+  display: flex;
+}
+
+@keyframes panelSlideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+#settingsPanel {
+  width: 360px;
+  height: 100%;
+  background: linear-gradient(180deg, #0a0000, var(--bg-abyss));
+  border-left: 1px solid var(--red-core);
+  box-shadow: -12px 0 40px rgba(255, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  animation: panelSlideIn 0.35s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+#settingsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-cut);
+  background: rgba(255, 0, 0, 0.05);
+}
+
+#settingsHeader h2 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--red-core);
+  letter-spacing: 0.2em;
+  text-shadow: var(--glow-sm);
+}
+
+#settingsCloseBtn {
+  background: transparent;
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  cursor: crosshair;
+  font-size: 14px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+#settingsCloseBtn:hover {
+  border-color: var(--red-core);
+  color: var(--red-neon);
+  box-shadow: var(--glow-sm);
+}
+
+#settingsContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 18px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+
+.settingsSection {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-cut);
+}
+
+.settingsSection h3 {
+  margin: 0 0 10px 0;
+  font-size: 10px;
+  color: var(--red-core);
+  letter-spacing: 0.25em;
+  text-shadow: var(--glow-sm);
+}
+
+.settingsSection label {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  margin-bottom: 3px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.settingsSection select {
+  width: 100%;
+  margin-bottom: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  color: var(--text-blaze);
+  border-radius: 1px;
+  padding: 6px 8px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 12px;
+  outline: none;
+  cursor: crosshair;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.settingsSection select:focus {
+  border-color: var(--red-core);
+  box-shadow: var(--glow-sm);
+}
+
+/* Range input — separate from select to avoid padding conflict */
+.settingsSection input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  margin-bottom: 6px;
+  height: 3px;
+  padding: 0;
+  border: none;
+  outline: none;
+  cursor: crosshair;
+  background: linear-gradient(
+    90deg,
+    var(--red-core) 0%,
+    var(--border-cut) 100%
+  );
+}
+.settingsSection input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+  background: var(--red-core);
+  box-shadow: var(--glow-sm);
+  cursor: crosshair;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+/* TOGGLES */
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 11px;
+  font-family: "Share Tech Mono", monospace;
+  color: var(--text-hot);
+  letter-spacing: 0.06em;
+}
+
+.toggleBtn {
+  min-width: 52px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-cut);
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  cursor: crosshair;
+  font-size: 10px;
+  font-family: "Orbitron", sans-serif;
+  letter-spacing: 0.1em;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+  transition: all 0.15s;
+}
+
+.toggleBtn.active {
+  background: var(--red-core);
+  border-color: var(--red-neon);
+  color: #000;
+  box-shadow: var(--glow-sm);
+}
+
+/* PERSONALITY BUTTONS */
+#personalityList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.personalityBtn {
+  flex: 1 1 45%;
+  padding: 7px 8px;
+  border: 1px solid var(--border-cut);
+  background: var(--bg-raised);
+  color: var(--text-hot);
+  cursor: crosshair;
+  font-size: 10px;
+  font-family: "Share Tech Mono", monospace;
+  text-align: center;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  transition: all 0.15s;
+}
+
+.personalityBtn:hover {
+  border-color: var(--red-core);
+  color: var(--text-blaze);
+  box-shadow: var(--glow-sm);
+  background: rgba(255, 0, 0, 0.08);
+}
+
+.personalityBtn.active {
+  border-color: var(--red-neon);
+  background: rgba(255, 0, 0, 0.15);
+  color: var(--red-neon);
+  box-shadow: var(--glow-md);
+}
+
+/* SETTINGS FOOTER */
+#settingsFooter {
+  padding: 12px 18px;
+  border-top: 1px solid var(--border-cut);
+  background: rgba(255, 0, 0, 0.03);
+}
+
+/* ============================================================
+   BACKGROUND DRIFT
+   ============================================================ */
+#bgDrift {
+  position: fixed;
+  top: 40%;
+  left: 55%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(
+    circle,
+    rgba(255, 0, 0, 0.18) 0%,
+    transparent 70%
+  );
+  filter: blur(70px);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+  animation: drift 18s infinite linear;
+}
+
+/* Second orb */
+#bgDrift::after {
+  content: "";
+  position: absolute;
+  top: 30%;
+  left: 20%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(
+    circle,
+    rgba(255, 50, 0, 0.12) 0%,
+    transparent 70%
+  );
+  filter: blur(40px);
+  animation: drift2 12s infinite linear reverse;
+}
+
+@keyframes drift {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  25% {
+    transform: translate(-35%, -65%) scale(1.25);
+  }
+  50% {
+    transform: translate(-65%, -35%) scale(0.85);
+  }
+  75% {
+    transform: translate(-40%, -58%) scale(1.15);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes drift2 {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(60px, -40px) scale(1.3);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+/* ============================================================
+   BOOT SCREENS
+   ============================================================ */
+#preBootScreen,
+#bootScreen {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  z-index: 99999;
+  color: var(--red-core);
+  font-family: "Share Tech Mono", monospace;
+  opacity: 1;
+  transition: opacity 0.6s ease;
+}
+
+#preBootScreen.fade-out,
+#bootScreen.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#preBootTerminal,
+#bootTerminal {
+  width: 80%;
+  max-width: 900px;
+  height: 280px;
+  background: rgba(10, 0, 0, 0.95);
+  border: 1px solid var(--red-core);
+  box-shadow: var(--glow-lg);
+  padding: 16px;
+  overflow: hidden;
+  font-size: 12px;
+  position: relative;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 20px) 0,
+    100% 20px,
+    100% 100%,
+    20px 100%,
+    0 calc(100% - 20px)
+  );
+}
+
+/* Scrolling scanline inside terminal */
+#preBootTerminal::after,
+#bootTerminal::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(255, 0, 0, 0.05),
+    transparent
+  );
+  animation: terminalScan 2s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes terminalScan {
+  from {
+    top: -30px;
+  }
+  to {
+    top: 100%;
+  }
+}
+
+#preBootLog,
+#bootLog {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--red-neon);
+  text-shadow: 0 0 4px var(--red-core);
+}
+
+/* ============================================================
+   BOOT MODAL
+   ============================================================ */
+#bootModal {
+  margin-top: 28px;
+  padding: 22px 36px;
+  border: 1px solid var(--red-neon);
+  background: rgba(8, 0, 0, 0.95);
+  color: var(--red-neon);
+  text-align: center;
+  opacity: 0;
+  transform: translateY(14px) scale(0.96);
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+  box-shadow: var(--glow-lg);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 16px) 0,
+    100% 16px,
+    100% 100%,
+    16px 100%,
+    0 calc(100% - 16px)
+  );
+}
+
+#bootModal.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+#bootModal h2 {
+  margin: 0 0 6px 0;
+  font-size: 18px;
+  font-family: "Orbitron", sans-serif;
+  letter-spacing: 0.25em;
+  text-shadow: var(--glow-md);
+}
+
+.bootPressKey {
+  margin-top: 8px;
+  font-size: 13px;
+  opacity: 0.7;
+  letter-spacing: 0.15em;
+  animation: pressKeyPulse 1.2s infinite ease-in-out;
+}
+
+@keyframes pressKeyPulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+    text-shadow: var(--glow-sm);
+  }
+}
+
+/* ============================================================
+   CALL MODE OVERLAY
+   ============================================================ */
+#callModeOverlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 99990;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+#callModeOverlay.active {
+  display: flex;
+  opacity: 1;
+}
+
+#callModeOverlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at center,
+    rgba(180, 0, 0, 0.4) 0%,
+    #000 55%
+  );
+  transition: background 0.25s ease;
+}
+
+#callModeOverlay.user-speaking::before {
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 0, 0, 0.7) 0%,
+    #000 55%
+  );
+  animation: speakPulse 0.4s ease-in-out infinite alternate;
+}
+
+@keyframes speakPulse {
+  from {
+    opacity: 0.8;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+#callModeOverlay.aria-speaking::before {
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 80, 0, 0.5) 0%,
+    #000 55%
+  );
+}
+
+#callModeInner {
+  text-align: center;
+  color: var(--text-blaze);
+  z-index: 1;
+}
+
+#callModeStatus {
+  font-size: 1.5rem;
+  font-family: "Orbitron", sans-serif;
+  letter-spacing: 0.3em;
+  text-shadow: var(--glow-lg);
+  margin-bottom: 10px;
+  animation: callStatusFlicker 3s ease-in-out infinite;
+}
+
+@keyframes callStatusFlicker {
+  0%,
+  90%,
+  100% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 0.6;
+  }
+  95% {
+    opacity: 1;
+  }
+  97% {
+    opacity: 0.4;
+  }
+}
+
+#callModeHint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  letter-spacing: 0.15em;
+  font-family: "Share Tech Mono", monospace;
+}
+
+/* CALL WAVEFORM */
+#callWaveform {
+  display: flex;
+  gap: 4px;
+  margin-top: 24px;
+  justify-content: center;
+  align-items: center;
+  height: 60px;
+}
+
+.waveBar {
+  width: 4px;
+  background: var(--red-core);
+  box-shadow: 0 0 6px var(--red-core);
+  border-radius: 1px;
+  animation: waveBarIdle 1.2s ease-in-out infinite;
+}
+
+.waveBar:nth-child(1) {
+  animation-delay: 0s;
+}
+.waveBar:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.waveBar:nth-child(3) {
+  animation-delay: 0.2s;
+}
+.waveBar:nth-child(4) {
+  animation-delay: 0.3s;
+}
+.waveBar:nth-child(5) {
+  animation-delay: 0.15s;
+}
+.waveBar:nth-child(6) {
+  animation-delay: 0.25s;
+}
+.waveBar:nth-child(7) {
+  animation-delay: 0.05s;
+}
+.waveBar:nth-child(8) {
+  animation-delay: 0.35s;
+}
+.waveBar:nth-child(9) {
+  animation-delay: 0.1s;
+}
+.waveBar:nth-child(10) {
+  animation-delay: 0.2s;
+}
+
+@keyframes waveBarIdle {
+  0%,
+  100% {
+    height: 6px;
+    opacity: 0.4;
+  }
+  50% {
+    height: 40px;
+    opacity: 1;
+  }
+}
+
+/* CALL SPECTROGRAM */
+#callSpectrogram {
+  display: flex;
+  gap: 3px;
+  margin-top: 14px;
+  justify-content: center;
+}
+
+.specBar {
+  width: 4px;
+  height: 10px;
+  background: var(--red-ember);
+  opacity: 0.5;
+  animation: specIdle 1.8s infinite ease-in-out;
+  border-radius: 1px;
+  box-shadow: 0 0 4px var(--red-ember);
+}
+
+.specBar:nth-child(odd) {
+  animation-delay: 0.2s;
+}
+.specBar:nth-child(3n) {
+  animation-delay: 0.5s;
+}
+.specBar:nth-child(5n) {
+  animation-delay: 0.8s;
+}
+
+@keyframes specIdle {
+  0%,
+  100% {
+    height: 6px;
+    opacity: 0.3;
+  }
+  50% {
+    height: 22px;
+    opacity: 1;
+  }
+}
+
+/* ============================================================
+   FX LAYERS — CHROMATIC, GLITCH, SWEEPS
+   ============================================================ */
+#chromaticFlash,
+#glitchBurst,
+#scanlineSweep,
+#sideSweep {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 99995;
+}
+
+.chromatic-active {
+  animation: chromaticFlash 0.35s ease-out forwards;
+}
+
+@keyframes chromaticFlash {
+  0% {
+    opacity: 0.9;
+    background:
+      radial-gradient(circle at 25% 25%, rgba(255, 0, 0, 0.7), transparent 50%),
+      radial-gradient(
+        circle at 75% 75%,
+        rgba(255, 255, 255, 0.3),
+        transparent 40%
+      );
+    transform: translate(0, 0) scale(1);
+  }
+  30% {
+    opacity: 0.7;
+    transform: translate(-3px, 2px) scale(1.01);
+  }
+  70% {
+    opacity: 0.3;
+    transform: translate(2px, -2px) scale(0.99);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+.glitch-active {
+  animation: glitchBurst 0.3s steps(3) forwards;
+}
+
+@keyframes glitchBurst {
+  0% {
+    opacity: 0.9;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(255, 0, 0, 0.5) 0,
+      rgba(255, 0, 0, 0.5) 2px,
+      transparent 2px,
+      transparent 5px
+    );
+    transform: skewX(-2deg);
+  }
+  50% {
+    opacity: 0.5;
+    transform: skewX(2deg) translateX(3px);
+  }
+  100% {
+    opacity: 0;
+    transform: skewX(0);
+  }
+}
+
+.scanline-active {
+  animation: scanlineSweep 0.5s ease-out forwards;
+}
+
+@keyframes scanlineSweep {
+  0% {
+    opacity: 0.8;
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 0, 0, 0.6) 0%,
+      transparent 25%
+    );
+    transform: translateY(-100%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(110%);
+  }
+}
+
+.side-active {
+  animation: sideSweep 0.4s ease-out forwards;
+}
+
+@keyframes sideSweep {
+  0% {
+    opacity: 0.7;
+    background: linear-gradient(
+      to right,
+      rgba(255, 0, 0, 0.7) 0%,
+      transparent 45%
+    );
+    transform: translateX(-100%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+}
+
+/* ============================================================
+   SYSTEM INFO / NETWORK
+   ============================================================ */
+#networkIndicator {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--red-neon);
+  font-family: "Share Tech Mono", monospace;
+  letter-spacing: 0.08em;
+}
+
+/* ============================================================
+   SCROLLBARS — GLOBAL
+   ============================================================ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--red-dim);
+  border-radius: 2px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--red-core);
+}
+
+/* ============================================================
+   SELECTION
+   ============================================================ */
+::selection {
+  background: rgba(255, 0, 0, 0.4);
+  color: #fff;
+}
+
+/* ============================================================
+   HOMEPAGE SPECIAL CARDS ANIMATION STAGGER
+   ============================================================ */
+#homeTopGrid .homeCard:nth-child(1) {
+  animation: cardReveal 0.4s 0.05s ease forwards;
+  opacity: 0;
+}
+#homeTopGrid .homeCard:nth-child(2) {
+  animation: cardReveal 0.4s 0.15s ease forwards;
+  opacity: 0;
+}
+#homeTopGrid .homeCard:nth-child(3) {
+  animation: cardReveal 0.4s 0.25s ease forwards;
+  opacity: 0;
+}
+
+@keyframes cardReveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================
+   MARKDOWN RENDERING — ARIA MESSAGE BODY
+   ============================================================ */
+
+.msgBody {
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.msgBody .mdH1 {
+  font-family: "Orbitron", sans-serif;
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--red-core);
+  text-shadow: var(--glow-sm);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin: 14px 0 6px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-cut);
+}
+
+.msgBody .mdH2 {
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--red-neon);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 12px 0 5px 0;
+}
+
+.msgBody .mdH3 {
+  font-family: "Rajdhani", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-hot);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 10px 0 4px 0;
+}
+
+.msgBody .mdPara {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-blaze);
+}
+
+.msgBody .mdPara:last-child {
+  margin-bottom: 0;
+}
+
+.msgBody .mdBold {
+  color: var(--red-neon);
+  font-weight: 700;
+}
+
+.msgBody .mdItalic {
+  color: var(--text-hot);
+  font-style: italic;
+}
+
+.msgBody .mdHr {
+  border: none;
+  border-top: 1px solid var(--border-cut);
+  margin: 10px 0;
+  opacity: 0.6;
+}
+
+.msgBody .mdList {
+  margin: 6px 0 8px 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.msgBody .mdList li {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-blaze);
+  position: relative;
+}
+
+.msgBody ul.mdList {
+  list-style: none;
+  padding-left: 14px;
+}
+
+.msgBody ul.mdList li::before {
+  content: "▸";
+  color: var(--red-core);
+  position: absolute;
+  left: -14px;
+  font-size: 10px;
+  top: 3px;
+}
+
+.msgBody ol.mdList {
+  list-style: none;
+  counter-reset: mdCounter;
+  padding-left: 22px;
+}
+
+.msgBody ol.mdList li {
+  counter-increment: mdCounter;
+}
+
+.msgBody ol.mdList li::before {
+  content: counter(mdCounter) ".";
+  color: var(--red-core);
+  font-family: "Orbitron", sans-serif;
+  font-size: 10px;
+  position: absolute;
+  left: -22px;
+  top: 2px;
+}
+
+.msgBody .inlineCode {
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid var(--border-cut);
+  color: var(--red-neon);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 12px;
+  padding: 1px 6px;
+  border-radius: 2px;
+  letter-spacing: 0.04em;
+}
+
+.msgBody .codeBlock {
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--border-cut);
+  border-left: 3px solid var(--red-core);
+  border-radius: 2px;
+  margin: 10px 0;
+  overflow: hidden;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.msgBody .codeLabel {
+  display: block;
+  padding: 3px 10px;
+  font-family: "Orbitron", sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--red-core);
+  background: rgba(255, 0, 0, 0.07);
+  border-bottom: 1px solid var(--border-cut);
+}
+
+.msgBody .codeBlock pre {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+
+.msgBody .codeBlock code {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 12px;
+  color: #e8e8e8;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+/* ============================================================
+   TYPING INDICATOR
+   ============================================================ */
+.typingIndicator {
+  opacity: 0.7;
+  max-width: 120px !important;
+}
+
+.typingDots {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  padding: 4px 0;
+  height: 24px;
+}
+
+.typingDots span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: var(--red-core);
+  box-shadow: 0 0 6px var(--red-core);
+  animation: typingBounce 1s ease-in-out infinite;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.typingDots span:nth-child(1) {
+  animation-delay: 0s;
+}
+.typingDots span:nth-child(2) {
+  animation-delay: 0.18s;
+}
+.typingDots span:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@keyframes typingBounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-7px) scale(1.3);
+    opacity: 1;
+  }
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 700px) {
+  #sidebar {
+    width: 200px;
+  }
+  .homeGrid {
+    grid-template-columns: 1fr;
+  }
+  .scrollCard {
+    min-width: 220px;
+  }
+  #homepageContent {
+    padding: 16px;
+  }
+}
+
+/* ============================================================
+   THEME SYSTEM — light mode body class
+   ============================================================ */
+html.light-mode body {
+  background: var(--bg-void);
+  color: var(--text-blaze);
+}
+html.light-mode body::before {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.06) 2px,
+    rgba(0, 0, 0, 0.06) 4px
+  );
+}
+body.no-scanlines::before {
+  display: none;
+}
+body.no-glitch .glitch:hover {
+  animation: none;
+}
+
+/* ============================================================
+   SETTINGS TABS
+   ============================================================ */
+#settingsTabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 12px 0;
+  background: rgba(255, 0, 0, 0.03);
+  border-bottom: 1px solid var(--border-cut);
+  flex-wrap: wrap;
+}
+
+.settingsTab {
+  padding: 6px 10px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  color: var(--text-muted);
+  cursor: crosshair;
+  transition: all 0.15s;
+  position: relative;
+  top: 1px;
+  white-space: nowrap;
+}
+
+.settingsTab:hover {
+  color: var(--text-hot);
+  border-color: var(--border-cut);
+}
+
+.settingsTab.active {
+  color: var(--red-core);
+  border-color: var(--border-cut);
+  border-bottom: 1px solid var(--bg-abyss);
+  background: var(--bg-abyss);
+  text-shadow: var(--glow-sm);
+}
+
+.settingsTabPane {
+  display: none;
+  animation: tabFadeIn 0.2s ease;
+}
+
+.settingsTabPane.active {
+  display: block;
+}
+
+@keyframes tabFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================
+   SETTINGS EXTRAS
+   ============================================================ */
+.settingsSubtitle {
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  font-family: "Share Tech Mono", monospace;
+  margin-top: 2px;
+}
+
+.settingsHint {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  line-height: 1.5;
+  font-family: "Share Tech Mono", monospace;
+}
+
+.settingsTextInput {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  color: var(--text-blaze);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 12px;
+  outline: none;
+  caret-color: var(--red-core);
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+}
+.settingsTextInput:focus {
+  border-color: var(--red-core);
+  box-shadow: var(--glow-sm);
+}
+
+.twoColBtns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.dangerBtn {
+  width: 100%;
+  padding: 9px;
+  background: rgba(255, 0, 0, 0.08);
+  border: 1px solid var(--red-dim);
+  color: var(--red-neon);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  cursor: crosshair;
+  letter-spacing: 0.08em;
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  transition: all 0.15s;
+}
+.dangerBtn:hover {
+  background: rgba(255, 0, 0, 0.18);
+  border-color: var(--red-core);
+  box-shadow: var(--glow-sm);
+}
+
+/* ============================================================
+   THEME SWATCHES
+   ============================================================ */
+#themeSwatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+.themeSwatch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  cursor: crosshair;
+  letter-spacing: 0.06em;
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  transition: all 0.15s;
+}
+
+.swatchDot {
+  width: 8px;
+  height: 8px;
+  background: var(--sw);
+  border-radius: 0;
+  box-shadow: 0 0 6px var(--sw);
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  flex-shrink: 0;
+}
+
+.themeSwatch:hover {
+  border-color: var(--sw);
+  color: var(--text-blaze);
+}
+
+.themeSwatch.active {
+  border-color: var(--sw);
+  color: var(--text-blaze);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 8px var(--sw);
+}
+
+/* ============================================================
+   ABOUT BLOCK
+   ============================================================ */
+.aboutBlock {
+  text-align: center;
+  padding: 14px;
+  border: 1px solid var(--border-cut);
+  background: var(--bg-void);
+}
+
+.aboutLogo {
+  font-family: "Orbitron", sans-serif;
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--red-core);
+  text-shadow: var(--glow-lg);
+  letter-spacing: 0.4em;
+}
+
+.aboutAcronym {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.aboutAcronym span {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+
+.aboutAcronym span b {
+  color: var(--red-core);
+  text-shadow: var(--glow-sm);
+}
+
+.aboutVersion {
+  margin-top: 8px;
+  font-size: 9px;
+  color: var(--text-muted);
+  font-family: "Share Tech Mono", monospace;
+  letter-spacing: 0.15em;
+}
+
+/* ============================================================
+   CUSTOM VOICE
+   ============================================================ */
+.customVoiceAdd {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.customVoiceItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+/* ============================================================
+   MEMORY PANEL
+   ============================================================ */
+#memoryFactsList {
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+
+.memEmpty {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 12px;
+  text-align: center;
+  font-family: "Share Tech Mono", monospace;
+  border: 1px dashed var(--border-cut);
+}
+
+.memFact {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  border-left: 2px solid var(--red-dim);
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-family: "Share Tech Mono", monospace;
+  transition: border-color 0.15s;
+}
+
+.memFact.pinned {
+  border-left-color: var(--red-core);
+  background: rgba(255, 0, 0, 0.05);
+}
+
+.memCategory {
+  font-size: 9px;
+  color: var(--red-core);
+  font-family: "Orbitron", sans-serif;
+  letter-spacing: 0.1em;
+  padding: 2px 5px;
+  border: 1px solid var(--red-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.memText {
+  flex: 1;
+  color: var(--text-blaze);
+  line-height: 1.4;
+  font-size: 11px;
+}
+
+.memActions {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.memPin,
+.memDelete {
+  background: transparent;
+  border: none;
+  cursor: crosshair;
+  font-size: 12px;
+  padding: 0 3px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.memPin:hover,
+.memDelete:hover {
+  opacity: 1;
+}
+
+/* ============================================================
+   EMOTION SYSTEM
+   ============================================================ */
+.emotionIndicator {
+  font-family: "Orbitron", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  color: #888;
+  transition:
+    color 0.4s ease,
+    text-shadow 0.4s ease;
+}
+
+.emotionIndicator.small {
+  font-size: 9px;
+}
+
+.emotionCurrent {
+  font-family: "Orbitron", sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  padding: 12px;
+  text-align: center;
+  border: 1px solid var(--border-cut);
+  margin-bottom: 8px;
+}
+
+.emotionBtnGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.emotionOverrideBtn {
+  flex: 1 1 40%;
+  padding: 6px 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  cursor: crosshair;
+  letter-spacing: 0.06em;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+  transition: all 0.15s;
+}
+.emotionOverrideBtn:hover {
+  border-color: var(--em-color, var(--red-core));
+  color: var(--text-blaze);
+  box-shadow: 0 0 8px var(--em-color, var(--red-core));
+}
+.emotionOverrideBtn.active {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--em-color, var(--red-core));
+  color: var(--text-blaze);
+  box-shadow: 0 0 10px var(--em-color, var(--red-core));
+}
+
+/* ============================================================
+   BOOT LOGO / ACRONYM
+   ============================================================ */
+.bootAriaLogo {
+  font-family: "Orbitron", sans-serif;
+  font-size: 3.5rem;
+  font-weight: 900;
+  letter-spacing: 0.4em;
+  color: var(--red-core);
+  text-shadow: var(--glow-ultra);
+  margin-bottom: 8px;
+  animation: titlePulse 1.5s ease-in-out infinite;
+}
+
+.bootLogoA,
+.bootLogoR,
+.bootLogoI,
+.bootLogoA2 {
+  display: inline-block;
+  animation: letterDrop 0.5s ease backwards;
+}
+.bootLogoR {
+  animation-delay: 0.08s;
+}
+.bootLogoI {
+  animation-delay: 0.16s;
+}
+.bootLogoA2 {
+  animation-delay: 0.24s;
+}
+
+@keyframes letterDrop {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bootAcronym {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.bootAcronym span {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+
+.bootAcronym span b {
+  color: var(--red-neon);
+  text-shadow: var(--glow-sm);
+}
+
+/* ============================================================
+   LOCK SCREEN REDESIGN
+   ============================================================ */
+.lockBg {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(255, 0, 0, 0.015) 3px,
+    rgba(255, 0, 0, 0.015) 4px
+  );
+  pointer-events: none;
+}
+
+.lockAriaHeader {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.lockLogo {
+  font-family: "Orbitron", sans-serif;
+  font-size: 2.8rem;
+  font-weight: 900;
+  letter-spacing: 0.5em;
+  color: var(--red-core);
+  text-shadow: var(--glow-ultra);
+  animation: titlePulse 2s ease-in-out infinite;
+}
+
+.lockAcronymSmall {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+
+.lockVersion {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--red-dim);
+  letter-spacing: 0.15em;
+  margin-top: 4px;
+}
+
+.lockDivider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--red-core), transparent);
+  margin: 12px 0;
+  animation: inputGlow 3s ease-in-out infinite;
+}
+
+.lockInstruct {
+  font-family: "Orbitron", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--red-dim);
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.lockFooter {
+  margin-top: 16px;
+  font-size: 9px;
+  color: var(--text-dim);
+  font-family: "Share Tech Mono", monospace;
+  letter-spacing: 0.12em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   HOMEPAGE HEADER
+   ============================================================ */
+#homeHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+#homeAriaTitle {
+  line-height: 1.1;
+}
+
+.homeTitleMain {
+  font-family: "Orbitron", sans-serif;
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 0.4em;
+  color: var(--red-core);
+  text-shadow: var(--glow-lg);
+  display: block;
+  animation: titlePulse 2.5s ease-in-out infinite;
+}
+
+.homeTitleAcronym {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  display: block;
+}
+
+/* ============================================================
+   SIDEBAR HEADER
+   ============================================================ */
+#sidebarHeader {
+  padding: 8px 4px 10px;
+  text-align: center;
+  border-bottom: 1px solid var(--border-cut);
+  margin-bottom: 10px;
+}
+
+.sidebarLogo {
+  font-family: "Orbitron", sans-serif;
+  font-size: 1.4rem;
+  font-weight: 900;
+  letter-spacing: 0.35em;
+  color: var(--red-core);
+  text-shadow: var(--glow-md);
+}
+
+.sidebarAcronym {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 8px;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.sidebarDivider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--red-dim), transparent);
+  margin: 0 0 10px;
+}
+
+/* ============================================================
+   CHAT HEADER BAR
+   ============================================================ */
+#chatHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 18px;
+  background: var(--bg-abyss);
+  border-bottom: 1px solid var(--border-cut);
+  position: relative;
+  flex-shrink: 0;
+}
+
+#chatHeader::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--red-core), transparent);
+  animation: inputGlow 4s ease-in-out infinite;
+}
+
+.chatHeaderARIA {
+  font-family: "Orbitron", sans-serif;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.35em;
+  color: var(--red-core);
+  text-shadow: var(--glow-sm);
+  margin-right: 8px;
+}
+
+.chatHeaderSub {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+
+#chatHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+}
+
+.statusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--red-core);
+  box-shadow: 0 0 6px var(--red-core);
+  animation: callPulse 2s ease-in-out infinite;
+}
+
+/* ============================================================
+   CALL MODE OVERLAY — FULL REBUILD
+   ============================================================ */
+
+/* Orb — reactive center circle */
+#callOrb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+#callOrbCore {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 0, 0, 0.7) 0%, transparent 70%);
+  transition:
+    width 0.08s ease,
+    height 0.08s ease,
+    background 0.2s ease;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+#callOrbRing1,
+#callOrbRing2,
+#callOrbRing3 {
+  border-radius: 50%;
+  border: 1px solid var(--red-core);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: orbRingPulse 3s ease-in-out infinite;
+  opacity: 0.4;
+}
+
+#callOrbRing1 {
+  width: 160px;
+  height: 160px;
+  animation-delay: 0s;
+}
+#callOrbRing2 {
+  width: 220px;
+  height: 220px;
+  animation-delay: 0.6s;
+  border-color: rgba(255, 0, 0, 0.5);
+}
+#callOrbRing3 {
+  width: 290px;
+  height: 290px;
+  animation-delay: 1.2s;
+  border-color: rgba(255, 0, 0, 0.25);
+}
+
+@keyframes orbRingPulse {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  50% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+}
+
+/* ARIA speaking — orb turns brighter red */
+#callModeOverlay.aria-speaking #callOrbCore {
+  background: radial-gradient(
+    circle,
+    rgba(255, 0, 0, 0.95) 0%,
+    rgba(255, 50, 0, 0.4) 50%,
+    transparent 70%
+  );
+  width: 180px;
+  height: 180px;
+  box-shadow: 0 0 60px rgba(255, 0, 0, 0.6);
+}
+#callModeOverlay.aria-speaking #callOrbRing1,
+#callModeOverlay.aria-speaking #callOrbRing2,
+#callModeOverlay.aria-speaking #callOrbRing3 {
+  animation: orbRingFast 0.5s ease-in-out infinite;
+  opacity: 0.7;
+}
+@keyframes orbRingFast {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translate(-50%, -50%) scale(0.97);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
+/* User speaking — orb turns white-blue */
+#callModeOverlay.user-speaking #callOrbCore {
+  background: radial-gradient(
+    circle,
+    rgba(200, 220, 255, 0.8) 0%,
+    rgba(100, 150, 255, 0.3) 50%,
+    transparent 70%
+  );
+  width: 150px;
+  height: 150px;
+}
+#callModeOverlay.user-speaking #callOrbRing1 {
+  border-color: rgba(200, 220, 255, 0.7);
+}
+#callModeOverlay.user-speaking #callOrbRing2 {
+  border-color: rgba(200, 220, 255, 0.4);
+}
+#callModeOverlay.user-speaking #callOrbRing3 {
+  border-color: rgba(200, 220, 255, 0.2);
+}
+
+/* Waveform containers */
+#callWaveformWrapper,
+#callWaveformWrapper2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  position: relative;
+  z-index: 1;
+}
+
+.callWaveLabel {
+  font-family: "Orbitron", sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--text-muted);
+  width: 32px;
+  flex-shrink: 0;
+}
+
+#callWaveformAria,
+#callWaveformUser {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  height: 50px;
+}
+
+/* ARIA bars — red */
+.waveBar.aria {
+  width: 3px;
+  background: var(--red-core);
+  box-shadow: 0 0 5px var(--red-core);
+  border-radius: 1px;
+  transition: height 0.1s ease;
+}
+
+/* User bars — white/blue */
+.waveBar.user {
+  width: 3px;
+  background: rgba(200, 220, 255, 0.9);
+  box-shadow: 0 0 5px rgba(180, 210, 255, 0.6);
+  border-radius: 1px;
+  transition: height 0.1s ease;
+}
+
+/* Idle animations for ARIA bars */
+#callModeOverlay:not(.aria-speaking) .waveBar.aria {
+  animation: waveBarIdle 1.4s ease-in-out infinite;
+}
+.waveBar.aria:nth-child(1) {
+  animation-delay: 0s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(2) {
+  animation-delay: 0.1s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(3) {
+  animation-delay: 0.2s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(4) {
+  animation-delay: 0.3s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(5) {
+  animation-delay: 0.15s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(6) {
+  animation-delay: 0.25s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(7) {
+  animation-delay: 0.05s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(8) {
+  animation-delay: 0.35s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(9) {
+  animation-delay: 0.12s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(10) {
+  animation-delay: 0.22s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(11) {
+  animation-delay: 0.08s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(12) {
+  animation-delay: 0.18s;
+  height: 6px;
+}
+
+/* Idle animations for user bars */
+#callModeOverlay:not(.user-speaking) .waveBar.user {
+  animation: waveBarUserIdle 1.6s ease-in-out infinite;
+}
+.waveBar.user:nth-child(1) {
+  animation-delay: 0.05s;
+  height: 4px;
+}
+.waveBar.user:nth-child(2) {
+  animation-delay: 0.15s;
+  height: 4px;
+}
+.waveBar.user:nth-child(3) {
+  animation-delay: 0.25s;
+  height: 4px;
+}
+.waveBar.user:nth-child(4) {
+  animation-delay: 0.35s;
+  height: 4px;
+}
+.waveBar.user:nth-child(5) {
+  animation-delay: 0.1s;
+  height: 4px;
+}
+.waveBar.user:nth-child(6) {
+  animation-delay: 0.2s;
+  height: 4px;
+}
+.waveBar.user:nth-child(7) {
+  animation-delay: 0.3s;
+  height: 4px;
+}
+.waveBar.user:nth-child(8) {
+  animation-delay: 0.4s;
+  height: 4px;
+}
+.waveBar.user:nth-child(9) {
+  animation-delay: 0.08s;
+  height: 4px;
+}
+.waveBar.user:nth-child(10) {
+  animation-delay: 0.18s;
+  height: 4px;
+}
+.waveBar.user:nth-child(11) {
+  animation-delay: 0.28s;
+  height: 4px;
+}
+.waveBar.user:nth-child(12) {
+  animation-delay: 0.38s;
+  height: 4px;
+}
+
+@keyframes waveBarUserIdle {
+  0%,
+  100% {
+    height: 3px;
+    opacity: 0.3;
+  }
+  50% {
+    height: 16px;
+    opacity: 0.8;
+  }
+}
+
+/* ============================================================
+   SETTINGS TOAST
+   ============================================================ */
+#settingsToast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(30px);
+  background: var(--bg-raised);
+  border: 1px solid var(--red-core);
+  color: var(--red-neon);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  padding: 8px 20px;
+  box-shadow: var(--glow-sm);
+  opacity: 0;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+  z-index: 99999;
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  pointer-events: none;
+}
+#settingsToast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ============================================================
+   CHAT VAR FONT SIZE
+   ============================================================ */
+.msg,
+.msgBody,
+.msgBody .mdPara,
+.msgBody .mdList li {
+  font-size: var(--chat-font-size, 13px);
+}
+
+/* ============================================================
+   SETTINGS PANEL — FULL REDESIGN ADDITIONS
+   ============================================================ */
+
+/* ── Settings panel wider + scrollable ── */
+#settingsPanel {
+  width: min(820px, 95vw) !important;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#settingsContent {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+
+/* ── Toggle rows with description ── */
+.toggleHint {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  letter-spacing: 0.05em;
+}
+
+/* ── Personality buttons — card style ── */
+#personalityList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.personalityBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  font-family: "Share Tech Mono", monospace;
+  cursor: crosshair;
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  transition: all 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.personalityBtn:hover {
+  border-color: var(--red-core);
+  color: var(--text-blaze);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.personalityBtn.active {
+  border-color: var(--red-core);
+  background: rgba(255, 0, 0, 0.07);
+  color: var(--red-neon);
+  box-shadow: var(--glow-sm);
+}
+
+.pBtnIcon {
+  font-size: 1.2rem;
+}
+.pBtnLabel {
+  font-family: "Orbitron", sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: inherit;
+}
+.pBtnDesc {
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.personalityBtn.active .pBtnDesc {
+  color: var(--red-dim);
+}
+
+/* ── ElevenLabs section ── */
+.elevenlabsSection {
+  border-left: 2px solid #ff9900 !important;
+  background: rgba(255, 153, 0, 0.02);
+}
+
+.elevenlabsSection h3 {
+  color: #ff9900 !important;
+  text-shadow: 0 0 8px rgba(255, 153, 0, 0.5) !important;
+}
+
+.elSteps {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding-left: 18px;
+  margin-bottom: 12px;
+  line-height: 1.9;
+  letter-spacing: 0.04em;
+}
+
+.elSteps strong {
+  color: var(--text-blaze);
+}
+
+.elKeyRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.elStatus {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  min-height: 16px;
+  letter-spacing: 0.08em;
+}
+.elStatus.ok {
+  color: #00ff88;
+  text-shadow: 0 0 6px #00ff88;
+}
+.elStatus.error {
+  color: #ff4444;
+  text-shadow: 0 0 6px #ff4444;
+}
+
+.elVoicePickRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.elAdvanced {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--border-cut);
+  background: var(--bg-void);
+}
+
+/* ── Voice hint text ── */
+.voiceHint {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 5px;
+  letter-spacing: 0.05em;
+}
+
+/* ── Custom voice items — full redesign ── */
+.customVoiceItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  border-left: 2px solid var(--red-dim);
+  margin-bottom: 6px;
+  gap: 8px;
+  transition: border-color 0.15s;
+}
+
+.customVoiceItem.active {
+  border-color: var(--red-core);
+  background: rgba(255, 0, 0, 0.05);
+  border-left-color: var(--red-core);
+}
+
+.cviLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.cviType {
+  font-family: "Orbitron", sans-serif;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--red-core);
+  border: 1px solid var(--red-dim);
+  padding: 2px 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cviName {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 12px;
+  color: var(--text-blaze);
+  letter-spacing: 0.05em;
+}
+
+.cviDesc {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cviActions {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.cviSelectBtn {
+  padding: 4px 10px;
+  font-family: "Orbitron", sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  background: transparent;
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  cursor: crosshair;
+  transition: all 0.15s;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100%-3px) 100%, 0% 100%);
+}
+.cviSelectBtn:hover {
+  border-color: var(--red-core);
+  color: var(--text-blaze);
+}
+.cviSelectBtn.active {
+  border-color: var(--red-core);
+  color: var(--red-core);
+  background: rgba(255, 0, 0, 0.1);
+}
+
+.cviDeleteBtn {
+  background: transparent;
+  border: 1px solid var(--red-dim);
+  color: var(--red-dim);
+  cursor: crosshair;
+  padding: 4px 8px;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+.cviDeleteBtn:hover {
+  border-color: var(--red-core);
+  color: var(--red-core);
+}
+
+/* ── File picker row ── */
+.filePickRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.fileNameDisplay {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Settings toast error state ── */
+#settingsToast.error {
+  border-color: #ff4444;
+  color: #ff6666;
+  background: rgba(255, 0, 0, 0.15);
+}
+
+/* ── ol/ul in settings ── */
+.settingsSection ol,
+.settingsSection ul {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   BRIGHTNESS SLIDER + SLIDER HINTS
+   ============================================================ */
+.sliderHintRow {
+  display: flex;
+  justify-content: space-between;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  letter-spacing: 0.06em;
+}
+
+/* inlineCode used in settings hints */
+code.inlineCode {
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid var(--red-dim);
+  color: var(--red-neon);
+  padding: 1px 5px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================================
    AGGRESSIVE CYBERPUNK OVERRIDES
    ============================================================ */
 
@@ -4125,33 +7021,59 @@ details.thinkBlock[open] summary::before {
   text-overflow: ellipsis;
   white-space: nowrap;
   padding-right: 50px;
+=======
+}
+
+/* Chat action buttons */
+.chatRow { display: flex; align-items: center; position: relative; width: 100%; }
+.chatRow .chatItem {
+  flex: 1; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; padding-right: 50px;
+>>>>>>> 244b24b6258139849561495221c42d6ae70cda70
 }
 .chatActionBtn {
-  display: none;
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-muted);
-  font-size: 11px;
-  cursor: crosshair;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-  position: absolute;
+  display: none; flex-shrink: 0; width: 20px; height: 20px; padding: 0;
+  background: transparent; border: 1px solid transparent;
+  color: var(--text-muted); font-size: 11px; cursor: crosshair;
+  align-items: center; justify-content: center;
+  transition: all 0.15s; position: absolute;
 }
+<<<<<<< HEAD
 .chatRenameBtn {
   right: 24px;
 }
 .chatDeleteBtn {
   right: 2px;
 }
+=======
+.chatRenameBtn { right: 24px; } .chatDeleteBtn { right: 2px; }
+>>>>>>> 244b24b6258139849561495221c42d6ae70cda70
 .chatRow:hover .chatActionBtn,
-.chatRow.active .chatActionBtn {
-  display: flex;
+.chatRow.active .chatActionBtn { display: flex; }
+.chatRenameBtn:hover { color: var(--red-neon); border-color: var(--red-dim); background: rgba(255,0,0,0.08); }
+.chatDeleteBtn:hover { color: #ff4444; border-color: #ff4444; background: rgba(255,0,0,0.12); }
+
+/* Message action buttons */
+.msgHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.msgMeta { display: flex; align-items: center; gap: 5px; opacity: 0; transition: opacity 0.15s; }
+.msg:hover .msgMeta { opacity: 1; }
+.msgActionBtn {
+  background: transparent; border: 1px solid transparent;
+  color: var(--text-muted); font-size: 11px; cursor: crosshair;
+  padding: 2px 5px; line-height: 1; transition: all 0.15s;
 }
+.msgActionBtn:hover   { color: var(--text-blaze); border-color: var(--border-cut); }
+.msgCopyBtn:hover     { color: var(--red-neon); }
+.msgRegenBtn:hover    { color: #88ff88; border-color: #88ff88; }
+.msgDeleteBtn:hover   { color: #ff4444; border-color: #ff4444; }
+
+/* User message paragraph */
+.userPara {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px; line-height: 1.65; letter-spacing: 0;
+  word-break: break-word; white-space: pre-wrap; margin: 0;
+}
+<<<<<<< HEAD
 .chatRenameBtn:hover {
   color: var(--red-neon);
   border-color: var(--red-dim);
@@ -4252,11 +7174,45 @@ details.thinkBlock[open] summary::before {
     overflow: hidden;
     touch-action: pan-x pan-y;
   }
+=======
+
+/* Lock screen */
+#userIdInput { margin-bottom: 12px; }
+@keyframes lockShake {
+  0%,100%{ transform:translateX(0); } 15%{ transform:translateX(-8px); }
+  30%{ transform:translateX(8px); } 45%{ transform:translateX(-6px); }
+  60%{ transform:translateX(6px); } 75%{ transform:translateX(-3px); }
+  90%{ transform:translateX(3px); }
+}
+
+/* Stop generating button */
+#stopGenBtn { text-align: center; padding: 8px; }
+#stopGenBtn button {
+  background: rgba(255,0,0,0.08); border: 1px solid var(--red-dim);
+  color: var(--red-neon); font-family: "Share Tech Mono",monospace;
+  font-size: 11px; letter-spacing: 0.1em; padding: 6px 16px; cursor: crosshair;
+  clip-path: polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);
+}
+
+/* ============================================================
+   MOBILE ≤ 768px — THE KEY FIXES
+   ============================================================ */
+@media (max-width: 768px) {
+
+  /* ZOOM fix already in viewport meta, but belt-and-suspenders */
+  html, body { touch-action: pan-x pan-y; }
+
+  /* Use dvh so layout shrinks with keyboard */
+  html { height: 100%; }
+  body { height: 100%; overflow: hidden; }
+
+>>>>>>> 244b24b6258139849561495221c42d6ae70cda70
   #layout {
     height: 100dvh !important;
     overflow: hidden;
     position: relative;
     display: flex;
+<<<<<<< HEAD
   }
   #chatWindow {
     width: 100% !important;
@@ -5231,8 +8187,143 @@ details.thinkBlock > summary::-webkit-details-marker {
   .chatHeaderSub {
     display: none;
   }
+=======
+  }
+
+  /* Chat window takes remaining height */
+  #chatWindow {
+    width: 100% !important;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Messages scroll area — shrinks when keyboard opens */
+  #messages {
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 8px !important;
+  }
+
+  /* INPUT BAR — two stacked rows, never hidden */
+  #inputBar {
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    flex-shrink: 0 !important;      /* NEVER shrink */
+    padding: 6px 10px !important;
+    padding-bottom: env(safe-area-inset-bottom, 8px) !important;
+    gap: 5px !important;
+    background: var(--bg-abyss) !important;
+    border-top: 1px solid var(--red-dim) !important;
+    /* No position:sticky — let flexbox handle it naturally */
+  }
+
+  /* Row 1: textarea + send */
+  #inputTopRow {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    width: 100% !important;
+    flex: none !important;
+    min-width: unset !important;
+  }
+
+  #userInput {
+    flex: 1 !important;
+    /* 16px prevents iOS auto-zoom on focus */
+    font-size: 16px !important;
+    min-height: 36px !important;
+    max-height: 96px !important;
+  }
+
+  #sendBtn {
+    white-space: nowrap;
+    padding: 10px 14px !important;
+    font-size: 10px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Row 2: voice buttons, scrollable */
+  #inputBtnRow {
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    width: 100% !important;
+    flex-shrink: 0 !important;
+    overflow-x: auto !important;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  #inputBtnRow::-webkit-scrollbar { display: none; }
+
+  /* Show sidebar toggle button */
+  #sidebarToggleBtn { display: flex !important; flex-shrink: 0 !important; }
+
+  /* Scale voice buttons */
+  .voiceBtn {
+    padding: 6px 9px !important;
+    font-size: 10px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* FIX: message bubble max-width so user bubbles don't dominate */
+  .msg      { max-width: 88% !important; }
+  .msg.user { max-width: 80% !important; }
+
+  /* Sidebar drawer */
+  #sidebar {
+    position: fixed !important; top: 0; left: 0;
+    height: 100% !important; width: 280px !important;
+    z-index: 1000 !important;
+    transform: translateX(-100%) !important;
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1) !important;
+    box-shadow: 4px 0 40px rgba(255,0,0,0.35);
+  }
+  #sidebar.open { transform: translateX(0) !important; }
+
+  /* Overlay */
+  #sidebarOverlay {
+    display: block !important; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75); z-index: 999;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s ease;
+    backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  }
+  #sidebarOverlay.active { opacity: 1 !important; pointer-events: all !important; }
+
+  /* Chat header */
+  #chatHeader   { padding-left: 8px !important; }
+  .chatHeaderSub { display: none; }
+
+  /* Chat actions always visible on mobile */
+  .chatActionBtn { display: flex !important; }
+  .chatRow .chatItem { padding-right: 54px !important; }
+  .msgMeta { opacity: 1 !important; }
+
+  /* Settings fullscreen */
+  #settingsPanel {
+    width: 100% !important; max-width: 100% !important;
+    height: 100dvh !important; max-height: 100dvh !important;
+    border-radius: 0 !important;
+  }
+  #settingsTabs { overflow-x: auto; flex-wrap: nowrap !important; }
+  #settingsTabs::-webkit-scrollbar { display: none; }
+  .settingsTab  { white-space: nowrap; flex-shrink: 0; }
+
+  /* Homepage */
+  #homepageContent { padding: 12px; }
+  .homeTitleMain   { font-size: 1.4rem; }
+  .homeGrid        { grid-template-columns: 1fr !important; }
+  #lockBox         { width: 90vw; max-width: 360px; }
+>>>>>>> 244b24b6258139849561495221c42d6ae70cda70
 }
 @media (max-width: 380px) {
+<<<<<<< HEAD
   .voiceBtn {
     padding: 4px 5px !important;
     font-size: 8px !important;
@@ -5240,4 +8331,8 @@ details.thinkBlock > summary::-webkit-details-marker {
   #sendBtn {
     padding: 9px 8px !important;
   }
+=======
+  .voiceBtn { padding: 5px 6px !important; font-size: 9px !important; }
+  #sendBtn  { padding: 9px 8px !important; font-size: 9px !important; }
+>>>>>>> 244b24b6258139849561495221c42d6ae70cda70
 }
