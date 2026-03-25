@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width,initial-scale=1.0,viewport-fit=cover"
+      content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content"
     />
 
     <!-- PWA manifest -->
@@ -97,6 +97,13 @@
         </div>
         <div class="lockDivider"></div>
         <p class="lockInstruct">AUTHENTICATION REQUIRED</p>
+        <input
+          id="userIdInput"
+          type="text"
+          placeholder="User ID"
+          autocomplete="off"
+          autocapitalize="none"
+        />
         <input
           id="passwordInput"
           type="password"
@@ -203,10 +210,6 @@
     <!-- ========================= -->
     <div id="layout" style="display: none">
       <div id="sidebarOverlay"></div>
-      <button id="hamburgerBtn" aria-label="Open menu">
-        <span></span><span></span><span></span>
-      </button>
-
       <aside id="sidebar">
         <!-- ARIA logo in sidebar -->
         <div id="sidebarHeader">
@@ -251,15 +254,49 @@
         <div id="messages"></div>
 
         <div id="inputBar">
-          <div id="inputRow">
-            <input id="userInput" placeholder="Send a message to ARIA..." />
+          <div id="inputTopRow">
+            <textarea
+              id="userInput"
+              placeholder="Send a message to ARIA..."
+              rows="1"
+            ></textarea>
             <button id="sendBtn" class="primaryBtn glitch">Send</button>
           </div>
-          <div id="voiceRow">
-            <button id="callModeBtn" class="voiceBtn glitch">📞 Call</button>
-            <button id="pushToTalkBtn" class="voiceBtn glitch">🎙 PTT</button>
-            <button id="vttBtn" class="voiceBtn glitch">🗣 VTT</button>
-            <button id="ttsBtn" class="voiceBtn glitch">🔊 TTS</button>
+          <div id="inputBtnRow">
+            <button id="sidebarToggleBtn" class="voiceBtn glitch">Menu</button>
+            <button id="callModeBtn" class="voiceBtn glitch">Call</button>
+            <button id="pushToTalkBtn" class="voiceBtn glitch">PTT</button>
+            <button id="vttBtn" class="voiceBtn glitch">VTT</button>
+            <button id="ttsBtn" class="voiceBtn glitch">TTS</button>
+            <label
+              class="voiceBtn glitch"
+              title="Upload file"
+              style="cursor: pointer"
+            >
+              Upload
+              <input
+                type="file"
+                id="fileUploadBtn"
+                accept=".txt,.md,.pdf,.docx,.png,.jpg,.jpeg,.webp"
+                style="display: none"
+              />
+            </label>
+            <button id="mathModeBtn" class="voiceBtn glitch" title="Math mode">
+              Math
+            </button>
+            <button
+              id="webSearchBtn"
+              class="voiceBtn glitch"
+              title="Web search"
+            >
+              Search
+            </button>
+            <button id="imagineBtn" class="voiceBtn glitch" title="Image gen">
+              Image
+            </button>
+            <button id="calendarBtn" class="voiceBtn glitch" title="Calendar">
+              Cal
+            </button>
             <div id="voiceWave"></div>
           </div>
         </div>
