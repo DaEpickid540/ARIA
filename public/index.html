@@ -210,7 +210,12 @@
     <!-- ========================= -->
     <div id="layout" style="display: none">
       <div id="sidebarOverlay"></div>
+      <div id="ariaHalo"></div>
       <aside id="sidebar">
+        <!-- Collapse toggle strip (always visible) -->
+        <button id="sidebarCollapseBtn" title="Toggle sidebar">
+          <span id="sidebarCollapseIcon">‹‹</span>
+        </button>
         <!-- ARIA logo in sidebar -->
         <div id="sidebarHeader">
           <div class="sidebarLogo">ARIA</div>
@@ -228,6 +233,12 @@
           <button id="goHomeBtn" class="secondaryBtn glitch">🏠 Home</button>
           <button id="goLockBtn" class="secondaryBtn glitch">🔒 Lock</button>
           <button id="newChatBtn" class="primaryBtn glitch">＋ New Chat</button>
+          <button id="commandsBtn" class="secondaryBtn glitch">
+            📋 Commands
+          </button>
+          <button id="bgTasksListBtn" class="secondaryBtn glitch">
+            ⚙ BG Tasks
+          </button>
           <button id="settingsBtn" class="secondaryBtn glitch">
             ⚙ Settings
           </button>
@@ -235,6 +246,19 @@
       </aside>
 
       <div id="bgDrift"></div>
+      <div id="codePanel">
+        <div id="codePanelHeader">
+          <span id="codePanelLang">CODE</span>
+          <div class="codePanelActions">
+            <button id="codePanelCopyBtn">⎘ Copy</button>
+            <button id="codePanelDownloadBtn">⬇ Download</button>
+            <button id="codePanelCloseBtn">✕ Close</button>
+          </div>
+        </div>
+        <div id="codePanelBody">
+          <pre id="codePanelContent"><code id="codePanelCode"></code></pre>
+        </div>
+      </div>
 
       <main id="chatWindow">
         <!-- Chat header bar -->
@@ -254,12 +278,25 @@
         <div id="messages"></div>
 
         <div id="inputBar">
+          <div id="attachPreviewRow" style="display: none"></div>
           <div id="inputTopRow">
-            <textarea
-              id="userInput"
-              placeholder="Send a message to ARIA..."
-              rows="1"
-            ></textarea>
+            <div id="textareaWrap">
+              <textarea
+                id="userInput"
+                placeholder="Message ARIA..."
+                rows="1"
+              ></textarea>
+              <label class="attachInline" title="Attach file">
+                📎
+                <input
+                  type="file"
+                  id="fileUploadBtn"
+                  accept=".txt,.md,.pdf,.docx,.png,.jpg,.jpeg,.webp"
+                  style="display: none"
+                  multiple
+                />
+              </label>
+            </div>
             <button id="sendBtn" class="primaryBtn glitch">Send</button>
           </div>
           <div id="inputBtnRow">
@@ -268,41 +305,38 @@
             <button id="pushToTalkBtn" class="voiceBtn glitch">PTT</button>
             <button id="vttBtn" class="voiceBtn glitch">VTT</button>
             <button id="ttsBtn" class="voiceBtn glitch">TTS</button>
-            <label
-              class="voiceBtn glitch"
-              title="Upload file"
-              style="cursor: pointer"
-            >
-              Upload
-              <input
-                type="file"
-                id="fileUploadBtn"
-                accept=".txt,.md,.pdf,.docx,.png,.jpg,.jpeg,.webp"
-                style="display: none"
-              />
-            </label>
-            <button id="mathModeBtn" class="voiceBtn glitch" title="Math mode">
-              Math
-            </button>
-            <button
-              id="webSearchBtn"
-              class="voiceBtn glitch"
-              title="Web search"
-            >
-              Search
-            </button>
-            <button id="imagineBtn" class="voiceBtn glitch" title="Image gen">
-              Image
-            </button>
-            <button id="calendarBtn" class="voiceBtn glitch" title="Calendar">
-              Cal
-            </button>
+            <button id="mathModeBtn" class="voiceBtn glitch">∑ Math</button>
+            <button id="codeAssistBtn" class="voiceBtn glitch">Code</button>
+            <button id="studyModeBtn" class="voiceBtn glitch">Study</button>
+            <button id="webSearchBtn" class="voiceBtn glitch">🔍</button>
+            <button id="imagineBtn" class="voiceBtn glitch">🎨</button>
+            <button id="calendarBtn" class="voiceBtn glitch">📅</button>
+            <button id="thinkingBtn" class="voiceBtn glitch">🧠</button>
+            <button id="bgTaskBtn" class="voiceBtn glitch">⚙</button>
             <div id="voiceWave"></div>
           </div>
         </div>
       </main>
     </div>
 
+    <div id="commandsModal" style="display: none">
+      <div id="commandsPanel">
+        <div id="commandsHeader">
+          <h2>ARIA COMMANDS</h2>
+          <button id="commandsCloseBtn">✕</button>
+        </div>
+        <div id="commandsList"></div>
+      </div>
+    </div>
+    <div id="bgTasksModal" style="display: none">
+      <div id="bgTasksPanel">
+        <div id="bgTasksHeader">
+          <h2>BACKGROUND TASKS</h2>
+          <button id="bgTasksCloseBtn">✕</button>
+        </div>
+        <div id="bgTasksList"></div>
+      </div>
+    </div>
     <!-- ========================= -->
     <!--  SETTINGS OVERLAY         -->
     <!-- ========================= -->

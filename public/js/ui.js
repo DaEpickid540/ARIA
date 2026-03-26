@@ -1,4 +1,4 @@
-// ui.js — keyboard fix, sidebar, textarea resize, animation settle
+// ui.js — sidebar collapse, keyboard fix, textarea resize
 
 /* ── VOICE WAVE BARS ── */
 const voiceWave = document.getElementById("voiceWave");
@@ -7,7 +7,7 @@ if (voiceWave && !voiceWave.children.length) {
     voiceWave.appendChild(document.createElement("span"));
 }
 
-/* ── KEYBOARD WHITE BAR FIX ── */
+/* ── KEYBOARD WHITE BAR FIX (mobile) ── */
 function fixViewportHeight() {
   const vh = window.visualViewport?.height ?? window.innerHeight;
   const layout = document.getElementById("layout");
@@ -20,38 +20,103 @@ if (window.visualViewport) {
 window.addEventListener("resize", fixViewportHeight);
 fixViewportHeight();
 
-/* ── MOBILE SIDEBAR ── */
+/* ============================================================
+   DESKTOP SIDEBAR — collapse/expand in-flow strip
+   The sidebar stays in the DOM as a flex child.
+   Collapsing it via CSS width makes #chatWindow auto-expand.
+   ============================================================ */
 const sidebar = document.getElementById("sidebar");
-const overlay = document.getElementById("sidebarOverlay");
-const toggle = document.getElementById("sidebarToggleBtn");
+const collapseBtn = document.getElementById("sidebarCollapseBtn");
+const collapseIcon = document.getElementById("sidebarCollapseIcon");
 
-function openSidebar() {
+function isMobile() {
+  return window.innerWidth <= 768;
+}
+
+function collapseSidebar() {
+  if (isMobile()) return; // mobile uses open/close instead
+  sidebar?.classList.add("collapsed");
+  if (collapseIcon) collapseIcon.textContent = "»»";
+  localStorage.setItem("aria_sidebar_collapsed", "1");
+}
+
+function expandSidebar() {
+  if (isMobile()) return;
+  sidebar?.classList.remove("collapsed");
+  if (collapseIcon) collapseIcon.textContent = "‹‹";
+  localStorage.setItem("aria_sidebar_collapsed", "0");
+}
+
+function toggleSidebarCollapse() {
+  if (sidebar?.classList.contains("collapsed")) {
+    expandSidebar();
+  } else {
+    collapseSidebar();
+  }
+}
+
+collapseBtn?.addEventListener("click", toggleSidebarCollapse);
+
+// Restore persisted collapsed state
+if (!isMobile() && localStorage.getItem("aria_sidebar_collapsed") === "1") {
+  sidebar?.classList.add("collapsed");
+  if (collapseIcon) collapseIcon.textContent = "»»";
+}
+
+// Expose for chat.js to use when code panel opens
+window.ARIA_collapseSidebar = collapseSidebar;
+window.ARIA_expandSidebar = expandSidebar;
+
+/* ============================================================
+   MOBILE SIDEBAR — overlay drawer
+   On mobile, use position:fixed open/close (not collapsed class)
+   ============================================================ */
+const overlay = document.getElementById("sidebarOverlay");
+const mobileToggle = document.getElementById("sidebarToggleBtn");
+
+function openMobileSidebar() {
   sidebar?.classList.add("open");
   overlay?.classList.add("active");
-  if (toggle) toggle.textContent = "✕";
+  if (mobileToggle) mobileToggle.textContent = "✕";
   document.body.style.overflow = "hidden";
 }
-function closeSidebar() {
+
+function closeMobileSidebar() {
   sidebar?.classList.remove("open");
   overlay?.classList.remove("active");
-  if (toggle) toggle.textContent = "Menu";
+  if (mobileToggle) mobileToggle.textContent = "Menu";
   document.body.style.overflow = "";
 }
-toggle?.addEventListener("click", () =>
-  sidebar?.classList.contains("open") ? closeSidebar() : openSidebar(),
-);
-overlay?.addEventListener("click", closeSidebar);
+
+mobileToggle?.addEventListener("click", () => {
+  sidebar?.classList.contains("open")
+    ? closeMobileSidebar()
+    : openMobileSidebar();
+});
+overlay?.addEventListener("click", closeMobileSidebar);
+
+// ESC closes everything
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
-    closeSidebar();
+    closeMobileSidebar();
     window.ARIA_closeCodePanel?.();
   }
 });
+
+// Close mobile drawer on resize to desktop
 window.addEventListener("resize", () => {
-  if (window.innerWidth > 768) closeSidebar();
+  if (!isMobile()) closeMobileSidebar();
 });
-window.ARIA_openSidebar = openSidebar;
-window.ARIA_closeSidebar = closeSidebar;
+
+// Expose unified close (used by chat.js when switching chats on mobile)
+window.ARIA_closeSidebar = () => {
+  if (isMobile()) closeMobileSidebar();
+  // On desktop, don't auto-collapse — let the user control it
+};
+window.ARIA_openSidebar = () => {
+  if (isMobile()) openMobileSidebar();
+  else expandSidebar();
+};
 
 /* ── TEXTAREA AUTO-RESIZE ── */
 const userInput = document.getElementById("userInput");
@@ -60,7 +125,7 @@ userInput?.addEventListener("input", () => {
   userInput.style.height = Math.min(userInput.scrollHeight, 120) + "px";
 });
 
-/* ── SETTLE MSG ANIMATIONS (free GPU will-change) ── */
+/* ── SETTLE MESSAGE ANIMATIONS ── */
 const msgsEl = document.getElementById("messages");
 if (msgsEl) {
   new MutationObserver((mutations) => {
