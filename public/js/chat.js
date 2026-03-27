@@ -8,18 +8,18 @@ let currentChatId = null;
 let currentSettings = loadSettings();
 let isGenerating = false;
 let documentContext = "";
-let documentName = "";
 let mathMode = false;
 let programmingMode = false;
 let studyMode = false;
 let thinkingMode = false;
-let pendingFiles = []; // files queued for next send
+let pendingFiles = [];
 
 const newChatBtn = document.getElementById("newChatBtn");
 const sendBtn = document.getElementById("sendBtn");
 const userInput = document.getElementById("userInput");
 const messages = document.getElementById("messages");
 const chatList = document.getElementById("chatList");
+const layout = document.getElementById("layout");
 
 /* ── LOAD ── */
 try {
@@ -37,7 +37,56 @@ renderMessages();
 loadFromServer();
 
 /* ============================================================
-   CODE PANEL — splits chat left / code right
+   HALO EFFECTS
+   ============================================================ */
+const halo = document.getElementById("ariaHalo");
+let haloTimer = null;
+
+function triggerHalo(type, durationMs = 0) {
+  const s = loadSettings();
+  if (s.haloEffects === false) return;
+  const intensity = s.haloIntensity ?? 0.5;
+  if (!halo) return;
+  halo.className = "";
+  void halo.offsetWidth;
+  halo.classList.add(type);
+  halo.style.setProperty("--halo-intensity", intensity);
+  if (durationMs > 0) {
+    clearTimeout(haloTimer);
+    haloTimer = setTimeout(() => {
+      if (halo) halo.className = "";
+    }, durationMs);
+  }
+}
+function clearHalo() {
+  if (halo) halo.className = "";
+  clearTimeout(haloTimer);
+}
+window.ARIA_triggerHalo = triggerHalo;
+window.ARIA_clearHalo = clearHalo;
+
+// Wire halo intensity slider
+document.getElementById("haloIntensity")?.addEventListener("input", (e) => {
+  const s = loadSettings();
+  s.haloIntensity = parseFloat(e.target.value);
+  import("./personality.js").then((m) => m.saveSettings?.(s));
+  triggerHalo("pulse", 800);
+});
+document
+  .getElementById("toggle_haloEffects")
+  ?.addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    const on = btn.textContent.trim() === "ON";
+    btn.textContent = on ? "OFF" : "ON";
+    btn.classList.toggle("active", !on);
+    const s = loadSettings();
+    s.haloEffects = !on;
+    import("./personality.js").then((m) => m.saveSettings?.(s));
+    if (!on) triggerHalo("pulse", 700);
+  });
+
+/* ============================================================
+   CODE PANEL — side by side with chat
    ============================================================ */
 const codePanelEl = document.getElementById("codePanel");
 const codePanelCode = document.getElementById("codePanelCode");
@@ -45,8 +94,6 @@ const codePanelLang = document.getElementById("codePanelLang");
 const codePanelCopy = document.getElementById("codePanelCopyBtn");
 const codePanelDl = document.getElementById("codePanelDownloadBtn");
 const codePanelClose = document.getElementById("codePanelCloseBtn");
-const layout = document.getElementById("layout");
-const sidebar = document.getElementById("sidebar");
 
 let currentCodeContent = "";
 let currentCodeLang = "";
@@ -54,54 +101,48 @@ let currentCodeLang = "";
 function openCodePanel(code, lang) {
   currentCodeContent = code;
   currentCodeLang = lang || "code";
-
   if (codePanelCode) codePanelCode.textContent = code;
   if (codePanelLang) codePanelLang.textContent = (lang || "CODE").toUpperCase();
-
   codePanelEl?.classList.add("open");
-
-  // Collapse sidebar so chat+panel fill the full width side by side
   layout?.classList.add("code-split");
   window.ARIA_collapseSidebar?.();
 }
-
 function closeCodePanel() {
   codePanelEl?.classList.remove("open");
   layout?.classList.remove("code-split");
   window.ARIA_expandSidebar?.();
 }
 
-// Wire panel buttons
 codePanelCopy?.addEventListener("click", () => {
   navigator.clipboard?.writeText(currentCodeContent);
   if (codePanelCopy) {
-    codePanelCopy.textContent = "✓ Copied";
+    codePanelCopy.textContent = "✓ Copied!";
     setTimeout(() => (codePanelCopy.textContent = "⎘ Copy"), 1500);
   }
 });
-
 codePanelDl?.addEventListener("click", () => {
-  const ext =
-    currentCodeLang === "javascript"
-      ? "js"
-      : currentCodeLang === "python"
-        ? "py"
-        : currentCodeLang === "html"
-          ? "html"
-          : currentCodeLang === "css"
-            ? "css"
-            : currentCodeLang === "json"
-              ? "json"
-              : currentCodeLang || "txt";
+  const extMap = {
+    javascript: "js",
+    typescript: "ts",
+    python: "py",
+    html: "html",
+    css: "css",
+    json: "json",
+    bash: "sh",
+    shell: "sh",
+    java: "java",
+    cpp: "cpp",
+    c: "c",
+    rust: "rs",
+  };
+  const ext = extMap[currentCodeLang] || currentCodeLang || "txt";
   downloadText(currentCodeContent, `aria-code.${ext}`);
 });
-
 codePanelClose?.addEventListener("click", closeCodePanel);
 
 window.ARIA_openCodePanel = openCodePanel;
 window.ARIA_closeCodePanel = closeCodePanel;
 
-/* ── HELPER: download text ── */
 function downloadText(content, filename) {
   const blob = new Blob([content], { type: "text/plain" });
   const url = URL.createObjectURL(blob);
@@ -114,122 +155,177 @@ function downloadText(content, filename) {
 window.ARIA_downloadCode = downloadText;
 
 /* ============================================================
-   HALO EFFECTS
+   TOOLS DROPDOWN (sidebar)
+   Each tool uses the SAME chat box — no separate messages
    ============================================================ */
-const halo = document.getElementById("ariaHalo");
-let haloTimeout = null;
+const toolsDropBtn = document.getElementById("toolsDropdownBtn");
+const toolsDropMenu = document.getElementById("toolsDropdown");
 
-function triggerHalo(type, durationMs = 0) {
-  const settings = loadSettings();
-  if (settings.haloEffects === false) return;
-  if (!halo) return;
-  halo.className = "";
-  void halo.offsetWidth; // reflow
-  halo.classList.add(type);
-  if (durationMs > 0) {
-    clearTimeout(haloTimeout);
-    haloTimeout = setTimeout(() => {
-      halo.className = "";
-    }, durationMs);
-  }
+toolsDropBtn?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const open = toolsDropMenu?.style.display !== "none";
+  if (toolsDropMenu) toolsDropMenu.style.display = open ? "none" : "block";
+  toolsDropBtn.classList.toggle("active", !open);
+  triggerHalo("pulse", 600);
+});
+document.addEventListener("click", () => {
+  if (toolsDropMenu) toolsDropMenu.style.display = "none";
+  toolsDropBtn?.classList.remove("active");
+});
+
+// Tool dropdown item actions — trigger the hidden buttons
+function toolAction(id) {
+  document.getElementById(id)?.click();
+  if (toolsDropMenu) toolsDropMenu.style.display = "none";
+  toolsDropBtn?.classList.remove("active");
 }
-function clearHalo() {
-  if (halo) halo.className = "";
-  clearTimeout(haloTimeout);
+document
+  .getElementById("tool_math")
+  ?.addEventListener("click", () => toolAction("mathModeBtn"));
+document
+  .getElementById("tool_code")
+  ?.addEventListener("click", () => toolAction("codeAssistBtn"));
+document
+  .getElementById("tool_study")
+  ?.addEventListener("click", () => toolAction("studyModeBtn"));
+document
+  .getElementById("tool_think")
+  ?.addEventListener("click", () => toolAction("thinkingBtn"));
+document.getElementById("tool_commands")?.addEventListener("click", () => {
+  toolAction("commandsBtn");
+});
+
+// Web search — prompt user in the textarea
+document.getElementById("tool_search")?.addEventListener("click", () => {
+  if (toolsDropMenu) toolsDropMenu.style.display = "none";
+  promptToolInput(
+    "🔍 Web Search — type your query in the box and press Send to search:",
+  );
+});
+
+// Image generation — prompt user
+document.getElementById("tool_imagine")?.addEventListener("click", () => {
+  if (toolsDropMenu) toolsDropMenu.style.display = "none";
+  promptToolInput(
+    "🎨 Image Generation — describe the image you want and press Send:",
+  );
+});
+
+// Calendar
+document
+  .getElementById("tool_calendar")
+  ?.addEventListener("click", async () => {
+    if (toolsDropMenu) toolsDropMenu.style.display = "none";
+    await fetchAndShowCalendar();
+  });
+
+// Background task
+document.getElementById("tool_bg")?.addEventListener("click", () => {
+  if (toolsDropMenu) toolsDropMenu.style.display = "none";
+  promptToolInput(
+    "⚙ Background Task — describe what you want ARIA to do in the background:",
+  );
+});
+
+function promptToolInput(hint) {
+  setInputHint(hint);
+  userInput?.focus();
 }
 
-window.ARIA_triggerHalo = triggerHalo;
-window.ARIA_clearHalo = clearHalo;
+function setInputHint(text) {
+  if (!userInput) return;
+  userInput.placeholder = text;
+  setTimeout(() => {
+    userInput.placeholder = "Message ARIA...";
+  }, 8000);
+}
 
-/* ============================================================
-   MODE BUTTONS
-   ============================================================ */
-function wireMode(btnId, flag, label, onMsg, offMsg) {
+/* ── MODE TOGGLE BUTTONS (hidden, triggered from dropdown) ── */
+function wireMode(btnId, flagSetter, onMsg, offMsg) {
   document.getElementById(btnId)?.addEventListener("click", () => {
-    // All modes exclusive except thinkingMode
-    if (flag !== "thinkingMode") {
-      mathMode = false;
-      programmingMode = false;
-      studyMode = false;
-    }
-    if (flag === "mathMode") {
-      mathMode = !mathMode;
-    }
-    if (flag === "programmingMode") {
-      programmingMode = !programmingMode;
-    }
-    if (flag === "studyMode") {
-      studyMode = !studyMode;
-    }
-    if (flag === "thinkingMode") {
-      thinkingMode = !thinkingMode;
-    }
-
-    // Update button visuals
-    ["mathModeBtn", "codeAssistBtn", "studyModeBtn"].forEach((id) => {
-      const b = document.getElementById(id);
-      if (!b) return;
-      const active =
-        id === "mathModeBtn"
-          ? mathMode
-          : id === "codeAssistBtn"
-            ? programmingMode
-            : studyMode;
-      b.classList.toggle("active", active);
-    });
-    const thinkBtn = document.getElementById("thinkingBtn");
-    if (thinkBtn) thinkBtn.classList.toggle("active", thinkingMode);
-
-    const isOn =
-      flag === "mathMode"
-        ? mathMode
-        : flag === "programmingMode"
-          ? programmingMode
-          : flag === "studyMode"
-            ? studyMode
-            : thinkingMode;
+    flagSetter();
+    renderChatList(); // update active indicator
+    const isOn = flagSetter.isOn();
     addSystemMessage(isOn ? onMsg : offMsg);
-    triggerHalo("pulse", 800);
+    triggerHalo("pulse", 700);
   });
 }
 
+// Mode toggle logic — mutual exclusion for main modes
+function toggleMath() {
+  mathMode = !mathMode;
+  if (mathMode) {
+    programmingMode = false;
+    studyMode = false;
+  }
+}
+toggleMath.isOn = () => mathMode;
+function toggleCode() {
+  programmingMode = !programmingMode;
+  if (programmingMode) {
+    mathMode = false;
+    studyMode = false;
+  }
+}
+toggleCode.isOn = () => programmingMode;
+function toggleStudy() {
+  studyMode = !studyMode;
+  if (studyMode) {
+    mathMode = false;
+    programmingMode = false;
+  }
+}
+toggleStudy.isOn = () => studyMode;
+function toggleThink() {
+  thinkingMode = !thinkingMode;
+}
+toggleThink.isOn = () => thinkingMode;
+
 wireMode(
   "mathModeBtn",
-  "mathMode",
-  "Math",
-  "📐 **Math/Homework mode ON.** Step-by-step working guaranteed.",
+  toggleMath,
+  "📐 **Math mode ON** — step-by-step working for every problem.",
   "Math mode off.",
 );
 wireMode(
   "codeAssistBtn",
-  "programmingMode",
-  "Code",
-  "💻 **Programming mode ON.** Full runnable code with comments.",
+  toggleCode,
+  "💻 **Programming mode ON** — full runnable code with comments.",
   "Programming mode off.",
 );
 wireMode(
   "studyModeBtn",
-  "studyMode",
-  "Study",
-  "📚 **Study mode ON.** Upload your notes and I'll quiz you.",
+  toggleStudy,
+  "📚 **Study mode ON** — upload notes and I'll quiz you.",
   "Study mode off.",
 );
 wireMode(
   "thinkingBtn",
-  "thinkingMode",
-  "Think",
-  "🧠 **Thinking mode ON.** ARIA will show her reasoning process.",
+  toggleThink,
+  "🧠 **Thinking mode ON** — ARIA will show her reasoning.",
   "Thinking mode off.",
 );
 
-/* ── SEARCH BUTTON ── */
+/* ── WEB SEARCH button (hidden — triggered by slash cmd or AI) ── */
 document.getElementById("webSearchBtn")?.addEventListener("click", async () => {
   const q = userInput?.value.trim();
-  if (!q) {
-    addSystemMessage("Type a query first, then click 🔍");
-    return;
-  }
-  addSystemMessage(`🔍 Searching: **${q}**…`);
+  if (!q) return;
+  await doWebSearch(q);
+});
+
+async function doWebSearch(q) {
+  const chat = getCurrentChat();
+  if (!chat) return;
+  // Add user query + searching status in ONE message thread
+  chat.messages.push({
+    role: "user",
+    content: `🔍 Search: ${q}`,
+    timestamp: Date.now(),
+  });
+  saveChats();
+  renderMessages();
+  // Show typing
+  const tid = showTypingIndicator();
   try {
     const res = await fetch("/api/search", {
       method: "POST",
@@ -237,27 +333,39 @@ document.getElementById("webSearchBtn")?.addEventListener("click", async () => {
       body: JSON.stringify({ query: q }),
     });
     const data = await res.json();
+    removeTypingIndicator(tid);
     if (data.error) {
-      addSystemMessage(`Search error: ${data.error}`);
+      addAIMessage(`Search error: ${data.error}`);
       return;
     }
     const txt = (data.results || [])
-      .map((r, i) => `**${i + 1}. [${r.title}](${r.url})**\n${r.snippet}`)
+      .map((r, i) => `**${i + 1}. [${r.title}](${r.url})**\n${r.snippet || ""}`)
       .join("\n\n");
-    addSystemMessage(`**Results for "${q}":**\n\n${txt}`);
+    addAIMessage(`**Search results for "${q}":**\n\n${txt}`);
   } catch (e) {
-    addSystemMessage(`Search error: ${e.message}`);
+    removeTypingIndicator(tid);
+    addAIMessage(`Search error: ${e.message}`);
   }
-});
+}
 
-/* ── IMAGE BUTTON ── */
+/* ── IMAGE GEN button (hidden) ── */
 document.getElementById("imagineBtn")?.addEventListener("click", async () => {
   const prompt = userInput?.value.trim();
-  if (!prompt) {
-    addSystemMessage("Type an image description first, then click 🎨");
-    return;
-  }
-  addSystemMessage(`🎨 Generating: **${prompt.slice(0, 60)}**…`);
+  if (!prompt) return;
+  await doImagine(prompt);
+});
+
+async function doImagine(prompt) {
+  const chat = getCurrentChat();
+  if (!chat) return;
+  chat.messages.push({
+    role: "user",
+    content: `🎨 Generate image: ${prompt}`,
+    timestamp: Date.now(),
+  });
+  saveChats();
+  renderMessages();
+  const tid = showTypingIndicator();
   try {
     const res = await fetch("/api/imagine", {
       method: "POST",
@@ -265,32 +373,54 @@ document.getElementById("imagineBtn")?.addEventListener("click", async () => {
       body: JSON.stringify({ prompt }),
     });
     const data = await res.json();
+    removeTypingIndicator(tid);
     if (data.error) {
-      addSystemMessage(`Image error: ${data.error}`);
+      addAIMessage(`Image error: ${data.error}`);
       return;
     }
-    addImageMessage(data.url, prompt);
+    // Add image + download link in SAME conversation
+    const chat2 = getCurrentChat();
+    if (chat2) {
+      chat2.messages.push({
+        role: "aria",
+        type: "image",
+        imageUrl: data.url,
+        content: `Generated: ${prompt}`,
+        prompt,
+        timestamp: Date.now(),
+      });
+      saveChats();
+      renderMessages();
+    }
   } catch (e) {
-    addSystemMessage(`Image error: ${e.message}`);
+    removeTypingIndicator(tid);
+    addAIMessage(`Image error: ${e.message}`);
   }
-});
+}
 
-/* ── CALENDAR BUTTON ── */
-document.getElementById("calendarBtn")?.addEventListener("click", async () => {
-  addSystemMessage("📅 Loading calendar…");
+/* ── CALENDAR ── */
+document
+  .getElementById("calendarBtn")
+  ?.addEventListener("click", fetchAndShowCalendar);
+
+async function fetchAndShowCalendar() {
+  const chat = getCurrentChat();
+  if (!chat) return;
+  const tid = showTypingIndicator();
   try {
     const res = await fetch("/api/calendar/events");
     const data = await res.json();
+    removeTypingIndicator(tid);
     if (data.error) {
-      addSystemMessage(`Calendar: ${data.error}`);
+      addAIMessage(`Calendar: ${data.error}`);
       return;
     }
     if (!data.events?.length) {
-      addSystemMessage("No upcoming events.");
+      addAIMessage("No upcoming events in the next 7 days.");
       return;
     }
-    addSystemMessage(
-      "**Upcoming events:**\n\n" +
+    addAIMessage(
+      "**📅 Upcoming events:**\n\n" +
         data.events
           .map((e) => {
             const d = new Date(e.start).toLocaleString("en-US", {
@@ -300,25 +430,35 @@ document.getElementById("calendarBtn")?.addEventListener("click", async () => {
               hour: "2-digit",
               minute: "2-digit",
             });
-            return `📅 **${e.title}** — ${d}`;
+            return `📅 **${e.title}** — ${d}${e.location ? ` @ ${e.location}` : ""}`;
           })
           .join("\n"),
     );
   } catch (e) {
-    addSystemMessage(`Calendar error: ${e.message}`);
+    removeTypingIndicator(tid);
+    addAIMessage(`Calendar error: ${e.message}`);
   }
-});
+}
 
-/* ── BG TASK BUTTON ── */
+/* ── BG TASK ── */
 document.getElementById("bgTaskBtn")?.addEventListener("click", async () => {
   const task = userInput?.value.trim();
-  if (!task) {
-    addSystemMessage("Type a task description first, then click ⚙");
-    return;
-  }
+  if (!task) return;
+  await doBgTask(task);
+});
+
+async function doBgTask(task) {
+  const chat = getCurrentChat();
+  if (!chat) return;
+  chat.messages.push({
+    role: "user",
+    content: `⚙ Background task: ${task}`,
+    timestamp: Date.now(),
+  });
   userInput.value = "";
   userInput.style.height = "auto";
-  addSystemMessage(`⚙ Running in background: **${task.slice(0, 60)}**…`);
+  saveChats();
+  renderMessages();
   try {
     const cs = loadSettings();
     const res = await fetch("/api/background", {
@@ -332,86 +472,81 @@ document.getElementById("bgTaskBtn")?.addEventListener("click", async () => {
     });
     const data = await res.json();
     if (data.error) {
-      addSystemMessage(`BG error: ${data.error}`);
+      addAIMessage(`BG error: ${data.error}`);
       return;
     }
-    const taskId = data.id;
-    addSystemMessage(
-      `⚙ Task **${taskId}** started. I'll notify you when done.`,
+    addAIMessage(
+      `⚙ Task \`${data.id}\` started — running in background. I'll show the result here when done.`,
     );
-    // Poll for completion
     const poll = setInterval(async () => {
       try {
-        const r = await fetch(`/api/background/${taskId}`);
+        const r = await fetch(`/api/background/${data.id}`);
         const d = await r.json();
         if (d.status === "done") {
           clearInterval(poll);
-          addAIMessage(`✅ **Background task complete:**\n\n${d.result}`);
+          addAIMessage(`✅ **Task complete:**\n\n${d.result}`);
         } else if (d.status === "error") {
           clearInterval(poll);
-          addSystemMessage(`❌ BG task failed: ${d.result}`);
+          addAIMessage(`❌ Task failed: ${d.result}`);
         }
       } catch {}
     }, 3000);
   } catch (e) {
-    addSystemMessage(`BG error: ${e.message}`);
+    addAIMessage(`BG error: ${e.message}`);
   }
-});
+}
 
 /* ── COMMANDS MODAL ── */
-document.getElementById("commandsBtn")?.addEventListener("click", async () => {
-  const modal = document.getElementById("commandsModal");
-  const list = document.getElementById("commandsList");
-  if (!modal || !list) return;
-
-  // Load tool list from server
-  try {
-    const res = await fetch("/api/tools");
-    const data = await res.json();
-    const tools = data.tools || [];
-    const slashCmds = [
-      { name: "/calc <expr>", desc: "Calculator — e.g. /calc sqrt(144)" },
-      { name: "/time", desc: "Current server time" },
-      { name: "/weather", desc: "Weather for Mason OH (or /weather lat,lon)" },
-      { name: "/notes add|list|delete|clear", desc: "Session notes" },
-      { name: "/todo add|list|done|delete", desc: "Task list" },
-      { name: "/timer start|list|cancel", desc: "Countdown timers" },
-      { name: "/search <query>", desc: "Returns search links" },
-      { name: "/news [topic]", desc: "Latest headlines" },
-      { name: "/system", desc: "Server info" },
-      { name: "/scrape <url>", desc: "Extract text from a webpage" },
-      {
-        name: "/imagine <desc>",
-        desc: "Generate an image (Pollinations/DALL-E)",
-      },
-      { name: "/calendar", desc: "Show upcoming Google Calendar events" },
-      {
-        name: "/calendar add Title | date | date",
-        desc: "Add a calendar event",
-      },
-      { name: "/gdoc <doc-id>", desc: "Read a Google Doc" },
-      { name: "/help", desc: "Show this list in chat" },
-    ];
-    list.innerHTML = slashCmds
-      .map(
-        (c) => `
-      <div class="commandItem">
-        <span class="commandName">${c.name}</span>
-        <span class="commandDesc">${c.desc}</span>
-      </div>`,
-      )
-      .join("");
-  } catch {
-    list.innerHTML =
-      "<div style='color:var(--text-muted);font-size:11px;padding:12px'>Could not load commands.</div>";
-  }
-
-  modal.style.display = "flex";
-  triggerHalo("pulse", 600);
-});
+document
+  .getElementById("commandsBtn")
+  ?.addEventListener("click", openCommandsModal);
+document
+  .getElementById("tool_commands")
+  ?.addEventListener("click", openCommandsModal);
 document.getElementById("commandsCloseBtn")?.addEventListener("click", () => {
   document.getElementById("commandsModal").style.display = "none";
 });
+
+async function openCommandsModal() {
+  const modal = document.getElementById("commandsModal");
+  const list = document.getElementById("commandsList");
+  if (!modal || !list) return;
+  const cmds = [
+    { name: "/calc <expr>", desc: "Calculator — e.g. /calc sqrt(144)" },
+    { name: "/time", desc: "Current server time" },
+    { name: "/weather [lat,lon]", desc: "Weather (default: Mason OH)" },
+    { name: "/notes add|list|delete", desc: "Session notes" },
+    { name: "/todo add|list|done|delete", desc: "Task list" },
+    { name: "/timer start|list|cancel", desc: "Countdown timers" },
+    { name: "/search <query>", desc: "Web search" },
+    { name: "/news [topic]", desc: "Latest headlines" },
+    { name: "/system", desc: "Server info" },
+    { name: "/scrape <url>", desc: "Extract text from webpage" },
+    { name: "/imagine <desc>", desc: "Generate an image" },
+    { name: "/calendar", desc: "View Google Calendar events" },
+    { name: "/gdoc <doc-id>", desc: "Read a Google Doc" },
+    { name: "/help", desc: "Show this list in chat" },
+    { name: "∑ Math Mode", desc: "Step-by-step homework solver" },
+    { name: "💻 Code Mode", desc: "Full runnable code with comments" },
+    { name: "📚 Study Mode", desc: "Quiz from uploaded documents" },
+    { name: "🧠 Thinking Mode", desc: "ARIA shows reasoning before answering" },
+    { name: "🔍 Web Search", desc: "Type query → ARIA searches the web" },
+    { name: "🎨 Generate Image", desc: "Type description → image generated" },
+    { name: "📅 Calendar", desc: "Show upcoming events" },
+    { name: "⚙ Background Task", desc: "Long tasks run in background" },
+  ];
+  list.innerHTML = cmds
+    .map(
+      (c) => `
+    <div class="commandItem">
+      <span class="commandName">${c.name}</span>
+      <span class="commandDesc">${c.desc}</span>
+    </div>`,
+    )
+    .join("");
+  modal.style.display = "flex";
+  triggerHalo("pulse", 600);
+}
 
 /* ── BG TASKS MODAL ── */
 document
@@ -421,22 +556,15 @@ document
     const list = document.getElementById("bgTasksList");
     if (!modal || !list) return;
     try {
-      const res = await fetch("/api/background");
-      const tasks = await res.json();
-      if (!tasks.length) {
-        list.innerHTML =
-          "<div style='color:var(--text-muted);font-size:11px;padding:12px'>No background tasks.</div>";
-      } else {
-        list.innerHTML = tasks
-          .map(
-            (t) => `
-        <div class="bgTaskItem ${t.status}">
-          <div style="color:var(--text-blaze);font-size:11px">${t.task}</div>
-          <div style="color:var(--text-muted);font-size:10px;margin-top:3px">${t.status.toUpperCase()} — ${new Date(t.started).toLocaleTimeString()}</div>
-        </div>`,
-          )
-          .join("");
-      }
+      const tasks = await (await fetch("/api/background")).json();
+      list.innerHTML = !tasks.length
+        ? "<div style='color:var(--text-muted);font-size:11px;padding:12px'>No background tasks yet.</div>"
+        : tasks
+            .map(
+              (t) =>
+                `<div class="bgTaskItem ${t.status}"><div style="color:var(--text-blaze);font-size:11px">${t.task}</div><div style="color:var(--text-muted);font-size:10px;margin-top:3px">${t.status.toUpperCase()} — ${new Date(t.started).toLocaleTimeString()}</div></div>`,
+            )
+            .join("");
     } catch {
       list.innerHTML =
         "<div style='color:#ff4444;padding:12px'>Error loading tasks.</div>";
@@ -448,28 +576,21 @@ document.getElementById("bgTasksCloseBtn")?.addEventListener("click", () => {
 });
 
 /* ============================================================
-   FILE UPLOAD (inline attach button)
+   FILE UPLOAD — attach inside textarea
    ============================================================ */
 document
   .getElementById("fileUploadBtn")
   ?.addEventListener("change", async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-
-    for (const file of files) {
-      const formData = new FormData();
-      formData.append("file", file);
+    for (const file of Array.from(e.target.files || [])) {
+      const fd = new FormData();
+      fd.append("file", file);
       try {
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
+        const res = await fetch("/api/upload", { method: "POST", body: fd });
         const data = await res.json();
         if (data.error) {
           addSystemMessage(`Upload failed: ${data.error}`);
           continue;
         }
-
         if (data.type === "image") {
           pendingFiles.push({
             type: "image",
@@ -477,15 +598,14 @@ document
             base64: data.base64,
             text: data.text,
           });
-          documentContext += `\n[Image uploaded: ${file.name}]`;
+          documentContext += `\n[Image: ${file.name}]`;
         } else {
           pendingFiles.push({
             type: "document",
             name: file.name,
             text: data.text,
           });
-          documentContext += `\n[Document: ${file.name}]\n${data.text.slice(0, 2000)}`;
-          documentName = file.name;
+          documentContext += `\n[Doc: ${file.name}]\n${data.text.slice(0, 2000)}`;
         }
         renderAttachPreviews();
       } catch (err) {
@@ -528,7 +648,6 @@ function createNewChat() {
   chats.unshift({ id, title: "New Chat", messages: [], createdAt: Date.now() });
   currentChatId = id;
   documentContext = "";
-  documentName = "";
   pendingFiles = [];
   saveChats();
   syncToServer();
@@ -572,22 +691,20 @@ export function deleteMessage(chatId, idx) {
   renderMessages();
 }
 export function copyMessage(content) {
-  navigator.clipboard
-    ?.writeText(content)
-    .then(() => window.ARIA_showToast?.("Copied"));
+  navigator.clipboard?.writeText(content);
 }
 export function regenerateMessage(chatId, idx) {
   const chat = chats.find((c) => c.id === chatId);
   if (!chat) return;
-  const userMsg = [...chat.messages]
+  const um = [...chat.messages]
     .slice(0, idx)
     .reverse()
     .find((m) => m.role === "user");
-  if (!userMsg) return;
+  if (!um) return;
   chat.messages = chat.messages.slice(0, idx);
   saveChats();
   renderMessages();
-  sendMessageContent(userMsg.content, chat);
+  sendMessageContent(um.content, chat);
 }
 
 window.ARIA_deleteChat = deleteChat;
@@ -599,7 +716,6 @@ window.ARIA_regenerateMsg = regenerateMessage;
 window.ARIA_renderChatList = renderChatList;
 window.ARIA_loadFromServer = loadFromServer;
 
-/* ── EVENTS ── */
 newChatBtn?.addEventListener("click", () => {
   createNewChat();
   renderChatList();
@@ -667,7 +783,7 @@ function renderChatList() {
 }
 
 /* ============================================================
-   RENDER MESSAGES — with think blocks + auto code panel
+   RENDER MESSAGES
    ============================================================ */
 function renderMessages() {
   if (!messages) return;
@@ -675,32 +791,55 @@ function renderMessages() {
   const chat = getCurrentChat();
   if (!chat) return;
 
-  let hasCode = false;
-  let lastCodeContent = "";
-  let lastCodeLang = "";
-
   chat.messages.forEach((msg, idx) => {
     const div = document.createElement("div");
     div.classList.add("msg", msg.role);
 
     let bodyHTML;
     if (msg.type === "image" && msg.imageUrl) {
-      bodyHTML = `<div class="msgImageWrap"><img src="${msg.imageUrl}" alt="Generated" class="msgImage" onclick="window.open('${msg.imageUrl}','_blank')"><div class="imgActions"><a href="${msg.imageUrl}" download="aria-image.png" class="msgActionBtn">⬇ Download</a></div></div>`;
+      bodyHTML = `<div class="msgImageWrap">
+        <img src="${msg.imageUrl}" alt="Generated" class="msgImage" onclick="window.open('${msg.imageUrl}','_blank')">
+        <div class="imgActions">
+          <a href="${msg.imageUrl}" download="aria-image.png" class="fileDownloadBtn">⬇ Download Image</a>
+        </div>
+      </div>`;
     } else if (msg.role === "user") {
-      // Render attach thumbnails
       const thumbs = (msg.attachments || [])
         .map((a) =>
           a.type === "image"
             ? `<div class="msgAttachThumb"><img src="${a.base64}" alt="${a.name}"></div>`
-            : `<div class="msgAttachThumb" style="display:flex;align-items:center;justify-content:center;font-size:9px;padding:3px">${a.name.slice(0, 10)}</div>`,
+            : `<div class="msgAttachThumb docThumb">${a.name.slice(0, 10)}</div>`,
         )
         .join("");
-      const attachRow = thumbs
-        ? `<div class="msgAttachments">${thumbs}</div>`
-        : "";
-      bodyHTML = `${attachRow}<p class="userPara">${escapeHtml(msg.content).replace(/\n/g, "<br>")}</p>`;
+      bodyHTML = `${thumbs ? `<div class="msgAttachments">${thumbs}</div>` : ""}
+        <p class="userPara">${escapeHtml(msg.content).replace(/\n/g, "<br>")}</p>`;
     } else {
       bodyHTML = renderMarkdown(msg.content);
+      // Append download links for any code blocks
+      const codeMatches = [
+        ...msg.content.matchAll(/```(\w*)\n?([\s\S]*?)```/g),
+      ];
+      if (codeMatches.length) {
+        const extMap = {
+          javascript: "js",
+          typescript: "ts",
+          python: "py",
+          html: "html",
+          css: "css",
+          json: "json",
+          bash: "sh",
+          shell: "sh",
+        };
+        const dlLinks = codeMatches
+          .map((m, i) => {
+            const lang = m[1] || "txt";
+            const ext = extMap[lang] || lang || "txt";
+            const enc = encodeURIComponent(m[2].trim());
+            return `<button class="fileDownloadBtn" onclick="window.ARIA_downloadCode(decodeURIComponent('${enc}'),'aria-code-${i + 1}.${ext}')">⬇ Download .${ext}</button>`;
+          })
+          .join(" ");
+        bodyHTML += `<div class="codeDownloadRow">${dlLinks}</div>`;
+      }
     }
 
     const time = new Date(msg.timestamp).toLocaleTimeString([], {
@@ -708,7 +847,6 @@ function renderMessages() {
       minute: "2-digit",
     });
     const isAria = msg.role === "aria";
-
     div.innerHTML = `
       <div class="msgHeader">
         <div class="msgSender">${msg.role === "user" ? "YOU" : "ARIA"}</div>
@@ -720,26 +858,14 @@ function renderMessages() {
         </div>
       </div>
       <div class="msgBody">${bodyHTML}</div>`;
-
     messages.appendChild(div);
-
-    // Track if this message has code — auto-open panel for most recent code
-    if (isAria && msg.content) {
-      const codeMatch = msg.content.match(/```(\w*)\n?([\s\S]*?)```/);
-      if (codeMatch) {
-        hasCode = true;
-        lastCodeContent = codeMatch[2].trim();
-        lastCodeLang = codeMatch[1] || "code";
-      }
-    }
   });
 
-  // Wire code panel buttons on rendered blocks
+  // Wire code panel buttons
   messages.querySelectorAll(".codePanelBtn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const code = decodeURIComponent(btn.dataset.code);
-      openCodePanel(code, btn.dataset.lang);
-    });
+    btn.addEventListener("click", () =>
+      openCodePanel(decodeURIComponent(btn.dataset.code), btn.dataset.lang),
+    );
   });
 
   if (isGenerating) {
@@ -750,12 +876,8 @@ function renderMessages() {
   }
 
   messages.scrollTop = messages.scrollHeight;
-
-  // NOTE: Code panel does NOT auto-open — user clicks the "⤢ Panel" button on any code block.
-  // This prevents the panel from popping open unexpectedly on history loads or re-renders.
 }
 
-/* ── SYSTEM + IMAGE MESSAGE HELPERS ── */
 function addSystemMessage(content) {
   const chat = getCurrentChat();
   if (!chat) return;
@@ -763,19 +885,7 @@ function addSystemMessage(content) {
   saveChats();
   renderMessages();
 }
-function addImageMessage(url, prompt) {
-  const chat = getCurrentChat();
-  if (!chat) return;
-  chat.messages.push({
-    role: "aria",
-    content: `Image: ${prompt}`,
-    type: "image",
-    imageUrl: url,
-    timestamp: Date.now(),
-  });
-  saveChats();
-  renderMessages();
-}
+
 function addAIMessage(content) {
   const chat = getCurrentChat();
   if (!chat) return;
@@ -796,7 +906,6 @@ async function sendMessage() {
   const chat = getCurrentChat();
   if (!chat) return;
 
-  // Capture pending files before clearing
   const attachments = [...pendingFiles];
   pendingFiles = [];
   renderAttachPreviews();
@@ -817,7 +926,7 @@ async function sendMessage() {
   syncToServer();
   renderMessages();
 
-  // Slash command shortcuts
+  // Slash commands
   const cmds = [
     [/^\/calc (.+)/i, (m) => runTool("calc", m[1])],
     [/^\/time/i, (_) => runTool("time", "")],
@@ -825,7 +934,20 @@ async function sendMessage() {
     [/^\/notes (.+)/i, (m) => runTool("notes", m[1])],
     [/^\/todo (.+)/i, (m) => runTool("todo", m[1])],
     [/^\/timer (.+)/i, (m) => runTool("timer", m[1])],
-    [/^\/search (.+)/i, (m) => runTool("search", m[1])],
+    [
+      /^\/search (.+)/i,
+      (m) => {
+        doWebSearch(m[1]);
+        return null;
+      },
+    ],
+    [
+      /^\/imagine (.+)/i,
+      (m) => {
+        doImagine(m[1]);
+        return null;
+      },
+    ],
     [/^\/news(.*)/i, (m) => runTool("news", m[1].trim())],
     [/^\/system/i, (_) => runTool("system", "")],
     [/^\/help/i, (_) => Promise.resolve(HELP_TEXT)],
@@ -833,7 +955,8 @@ async function sendMessage() {
   for (const [re, fn] of cmds) {
     const match = text.match(re);
     if (match) {
-      addSystemMessage(await fn(match));
+      const r = await fn(match);
+      if (r) addAIMessage(r);
       return;
     }
   }
@@ -842,22 +965,22 @@ async function sendMessage() {
 }
 
 const HELP_TEXT = `**ARIA Commands**
-\`/calc <expr>\` /time /weather [lat,lon] /notes /todo /timer /search /news /system /help
+/calc /time /weather /notes /todo /timer /search /news /system /imagine /help
 
-**Buttons:** 📎 Attach file | ∑ Math | 💻 Code | 📚 Study | 🔍 Search | 🎨 Image | 📅 Calendar | 🧠 Think | ⚙ Background`;
+Open **🔧 Tools** in the sidebar for mode toggles and tool shortcuts.`;
 
 async function sendMessageContent(text, chat, attachments = []) {
   isGenerating = true;
   setSendState(true);
   triggerHalo("thinking");
-  const typingId = showTypingIndicator();
-  let abortController = new AbortController();
+  const tid = showTypingIndicator();
+  let abort = new AbortController();
   window.ARIA_stopGeneration = () => {
-    abortController.abort();
+    abort.abort();
     isGenerating = false;
     setSendState(false);
     clearHalo();
-    removeTypingIndicator(typingId);
+    removeTypingIndicator(tid);
     renderMessages();
   };
 
@@ -867,7 +990,7 @@ async function sendMessageContent(text, chat, attachments = []) {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      signal: abortController.signal,
+      signal: abort.signal,
       body: JSON.stringify({
         message: text,
         history: chat.messages
@@ -886,26 +1009,28 @@ async function sendMessageContent(text, chat, attachments = []) {
       }),
     });
     const data = await res.json();
-    removeTypingIndicator(typingId);
+    removeTypingIndicator(tid);
     clearHalo();
 
-    // Handle image result from agentic pipeline
     if (data.imageUrl) {
-      addImageMessage(data.imageUrl, data.imagePrompt || text);
+      const chat2 = getCurrentChat();
+      if (chat2) {
+        chat2.messages.push({
+          role: "aria",
+          type: "image",
+          imageUrl: data.imageUrl,
+          content: `Generated: ${data.imagePrompt || text}`,
+          timestamp: Date.now(),
+        });
+        saveChats();
+        renderMessages();
+      }
       if (data.reply) addAIMessage(data.reply);
     } else {
       addAIMessage(data.reply?.trim() || "[No reply]");
     }
-
-    // Tool steps info (optional debug)
-    if (data.steps?.length) {
-      console.log(
-        "[ARIA tools used]:",
-        data.steps.map((s) => `${s.tool}: ${s.input}`).join(", "),
-      );
-    }
   } catch (err) {
-    removeTypingIndicator(typingId);
+    removeTypingIndicator(tid);
     clearHalo();
     if (err.name !== "AbortError") addAIMessage("[Error contacting server]");
   } finally {
@@ -937,7 +1062,7 @@ function removeTypingIndicator(id) {
 }
 
 /* ============================================================
-   MARKDOWN — with think blocks + code panel buttons
+   MARKDOWN
    ============================================================ */
 function escapeHtml(t) {
   return String(t)
@@ -949,45 +1074,42 @@ function escapeHtml(t) {
 function renderMarkdown(text) {
   if (!text) return "";
 
-  // ── THINK BLOCKS ── render before escaping
+  // Think blocks first (before escaping)
   text = text.replace(/<think>([\s\S]*?)<\/think>/gi, (_, inner) => {
     const escaped = escapeHtml(inner.trim());
-    return `__THINKBLOCK__${btoa(unescape(encodeURIComponent(escaped)))}__THINKBLOCK__`;
+    const b64 = btoa(unescape(encodeURIComponent(escaped)));
+    return `__THINK__${b64}__THINK__`;
   });
 
   let h = escapeHtml(text);
 
-  // Restore think blocks as collapsible details
-  h = h.replace(/__THINKBLOCK__([A-Za-z0-9+/=]+)__THINKBLOCK__/g, (_, b64) => {
-    const content = decodeURIComponent(escape(atob(b64)));
-    return `<details class="thinkBlock"><summary>🧠 ARIA is thinking…</summary><div class="thinkContent">${content}</div></details>`;
+  // Restore think blocks as collapsible
+  h = h.replace(/__THINK__([A-Za-z0-9+/=]+)__THINK__/g, (_, b64) => {
+    const c = decodeURIComponent(escape(atob(b64)));
+    return `<details class="thinkBlock"><summary>🧠 ARIA is thinking…</summary><div class="thinkContent">${c}</div></details>`;
   });
 
-  // Code blocks with Panel + Copy + Download buttons
+  // Code blocks — with Panel + Copy + Download
   h = h.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
     const clean = code.trim();
-    const encoded = encodeURIComponent(clean);
-    const ext =
-      {
-        javascript: "js",
-        python: "py",
-        html: "html",
-        css: "css",
-        json: "json",
-        typescript: "ts",
-        bash: "sh",
-        shell: "sh",
-      }[lang] ||
-      lang ||
-      "txt";
-    const isHTML = lang === "html" || lang === "HTML";
+    const enc = encodeURIComponent(clean);
+    const extMap = {
+      javascript: "js",
+      typescript: "ts",
+      python: "py",
+      html: "html",
+      css: "css",
+      json: "json",
+      bash: "sh",
+      shell: "sh",
+    };
+    const ext = extMap[lang] || lang || "txt";
     return `<div class="codeBlock">
       ${lang ? `<span class="codeLabel">${lang.toUpperCase()}</span>` : ""}
       <div class="codeActions">
-        <button class="codePanelBtn codeActionBtn" data-code="${encoded}" data-lang="${lang}" title="Open in side panel">⤢ Panel</button>
-        <button class="codeActionBtn" onclick="navigator.clipboard?.writeText(decodeURIComponent('${encoded}'));this.textContent='✓';setTimeout(()=>this.textContent='⎘',1200)" title="Copy">⎘</button>
-        <button class="codeActionBtn" onclick="window.ARIA_downloadCode(decodeURIComponent('${encoded}'),'aria-code.${ext}')" title="Download">⬇ .${ext}</button>
-
+        <button class="codePanelBtn codeActionBtn" data-code="${enc}" data-lang="${lang}">⤢ Panel</button>
+        <button class="codeActionBtn" onclick="navigator.clipboard?.writeText(decodeURIComponent('${enc}'));this.textContent='✓';setTimeout(()=>this.textContent='⎘',1300)">⎘ Copy</button>
+        <button class="codeActionBtn" onclick="window.ARIA_downloadCode(decodeURIComponent('${enc}'),'aria-code.${ext}')">⬇ .${ext}</button>
       </div>
       <pre><code>${escapeHtml(clean)}</code></pre>
     </div>`;
@@ -1004,7 +1126,7 @@ function renderMarkdown(text) {
   h = h.replace(
     /!\[([^\]]*)\]\(([^)]+)\)/g,
     (_, alt, src) =>
-      `<div class="msgImageWrap"><img src="${src}" alt="${alt}" class="msgImage"><div class="imgActions"><a href="${src}" download="aria-image.png" class="msgActionBtn">⬇</a></div></div>`,
+      `<div class="msgImageWrap"><img src="${src}" alt="${alt}" class="msgImage"><div class="imgActions"><a href="${src}" download class="fileDownloadBtn">⬇ Download</a></div></div>`,
   );
   h = h.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,

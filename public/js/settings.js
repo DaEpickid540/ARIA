@@ -93,6 +93,83 @@ export const THEMES = {
       "--red-ember": "#ffee88",
     },
   },
+  pink: {
+    label: "Hot Pink",
+    vars: {
+      "--red-core": "#ff0099",
+      "--red-hot": "#ff33aa",
+      "--red-neon": "#ff55bb",
+      "--red-deep": "#aa0066",
+      "--red-dim": "#550033",
+      "--red-ember": "#ff66cc",
+    },
+  },
+  ice: {
+    label: "Ice Blue",
+    vars: {
+      "--red-core": "#00aaff",
+      "--red-hot": "#00ccff",
+      "--red-neon": "#33bbff",
+      "--red-deep": "#006699",
+      "--red-dim": "#002244",
+      "--red-ember": "#00ddff",
+    },
+  },
+  toxic: {
+    label: "Toxic",
+    vars: {
+      "--red-core": "#aaff00",
+      "--red-hot": "#bbff33",
+      "--red-neon": "#ccff44",
+      "--red-deep": "#558800",
+      "--red-dim": "#224400",
+      "--red-ember": "#ddff88",
+    },
+  },
+  mono: {
+    label: "Ghost",
+    vars: {
+      "--red-core": "#cccccc",
+      "--red-hot": "#dddddd",
+      "--red-neon": "#eeeeee",
+      "--red-deep": "#888888",
+      "--red-dim": "#333333",
+      "--red-ember": "#aaaaaa",
+    },
+  },
+  blood: {
+    label: "Blood",
+    vars: {
+      "--red-core": "#880000",
+      "--red-hot": "#aa0000",
+      "--red-neon": "#aa1111",
+      "--red-deep": "#550000",
+      "--red-dim": "#220000",
+      "--red-ember": "#cc2222",
+    },
+  },
+  teal: {
+    label: "Teal",
+    vars: {
+      "--red-core": "#00ffcc",
+      "--red-hot": "#00ddaa",
+      "--red-neon": "#33ffdd",
+      "--red-deep": "#008866",
+      "--red-dim": "#003322",
+      "--red-ember": "#00ffaa",
+    },
+  },
+  solar: {
+    label: "Solar",
+    vars: {
+      "--red-core": "#ffaa00",
+      "--red-hot": "#ff8800",
+      "--red-neon": "#ffbb33",
+      "--red-deep": "#cc6600",
+      "--red-dim": "#553300",
+      "--red-ember": "#ffdd88",
+    },
+  },
 };
 
 export function applyTheme(themeKey, darkMode = true) {

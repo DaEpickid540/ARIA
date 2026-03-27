@@ -3483,22 +3483,196 @@ code.inlineCode {
 }
 
 /* ============================================================
-   SIDEBAR COLLAPSE SYSTEM
-   The sidebar shrinks to a thin strip (40px) when collapsed.
-   #chatWindow is flex:1 so it auto-fills the remaining space.
-   No overlay needed on desktop — it's a true in-flow split.
+   AGGRESSIVE CYBERPUNK OVERRIDES
    ============================================================ */
+body::before {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 0, 0, 0.13) 2px,
+    rgba(255, 0, 0, 0.13) 3px
+  ) !important;
+  will-change: transform;
+  contain: strict;
+}
+body::after {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 28%,
+    rgba(0, 0, 0, 0.9) 100%
+  ) !important;
+  contain: strict;
+}
+.msg.user {
+  border-right: 4px solid var(--red-hot) !important;
+  box-shadow:
+    var(--glow-lg),
+    inset 0 0 20px rgba(255, 0, 0, 0.12) !important;
+}
+.msg.aria {
+  border-left: 4px solid var(--red-core) !important;
+  box-shadow:
+    0 2px 20px rgba(0, 0, 0, 0.9),
+    inset 2px 0 0 rgba(255, 0, 0, 0.1) !important;
+}
+#inputBar::before {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--red-core),
+    var(--red-hot),
+    var(--red-core),
+    transparent
+  ) !important;
+  height: 2px !important;
+}
 
-/* Make layout a proper flex row */
+/* ── USER MESSAGE FONT — sans-serif paragraph style ── */
+.userPara {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif !important;
+  font-size: 14px !important;
+  line-height: 1.65 !important;
+  letter-spacing: 0 !important;
+  word-break: break-word;
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+/* ── EXTRA THEMES ── */
+:root[data-theme="pink"] {
+  --red-core: #ff0099;
+  --red-hot: #ff33aa;
+  --red-neon: #ff55bb;
+  --red-deep: #aa0066;
+  --red-dim: #550033;
+  --red-ember: #ff66cc;
+}
+:root[data-theme="ice"] {
+  --red-core: #00aaff;
+  --red-hot: #00ccff;
+  --red-neon: #33bbff;
+  --red-deep: #006699;
+  --red-dim: #002244;
+  --red-ember: #00ddff;
+}
+:root[data-theme="toxic"] {
+  --red-core: #aaff00;
+  --red-hot: #bbff33;
+  --red-neon: #ccff44;
+  --red-deep: #558800;
+  --red-dim: #224400;
+  --red-ember: #ddff88;
+}
+:root[data-theme="mono"] {
+  --red-core: #cccccc;
+  --red-hot: #dddddd;
+  --red-neon: #eeeeee;
+  --red-deep: #888888;
+  --red-dim: #333333;
+  --red-ember: #aaaaaa;
+}
+:root[data-theme="blood"] {
+  --red-core: #880000;
+  --red-hot: #aa0000;
+  --red-neon: #aa1111;
+  --red-deep: #550000;
+  --red-dim: #220000;
+  --red-ember: #cc2222;
+}
+:root[data-theme="teal"] {
+  --red-core: #00ffcc;
+  --red-hot: #00ddaa;
+  --red-neon: #33ffdd;
+  --red-deep: #008866;
+  --red-dim: #003322;
+  --red-ember: #00ffaa;
+}
+:root[data-theme="solar"] {
+  --red-core: #ffaa00;
+  --red-hot: #ff8800;
+  --red-neon: #ffbb33;
+  --red-deep: #cc6600;
+  --red-dim: #553300;
+  --red-ember: #ffdd88;
+}
+
+/* ============================================================
+   ARIA HALO EFFECT
+   ============================================================ */
+#ariaHalo {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99995;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  --halo-intensity: 0.5;
+}
+#ariaHalo.thinking {
+  box-shadow:
+    inset 0 0 calc(60px * var(--halo-intensity, 0.5)) rgba(255, 0, 0, 0.18),
+    inset 0 0 calc(120px * var(--halo-intensity, 0.5)) rgba(255, 0, 0, 0.07);
+  border: 2px solid rgba(255, 0, 0, 0.22);
+  opacity: 1;
+  animation: haloThink 2s ease-in-out infinite;
+  will-change: opacity;
+}
+#ariaHalo.speaking {
+  box-shadow: inset 0 0 80px rgba(255, 80, 0, 0.2);
+  border: 2px solid rgba(255, 80, 0, 0.3);
+  opacity: 1;
+  animation: haloSpeak 0.5s ease-in-out infinite alternate;
+}
+#ariaHalo.pulse {
+  box-shadow:
+    inset 0 0 100px rgba(255, 0, 0, 0.28),
+    0 0 40px rgba(255, 0, 0, 0.18);
+  border: 2px solid rgba(255, 0, 0, 0.4);
+  opacity: 1;
+  animation: haloPulse 0.7s ease-out forwards;
+}
+@keyframes haloThink {
+  0%,
+  100% {
+    box-shadow: inset 0 0 40px rgba(255, 0, 0, 0.1);
+    opacity: 0.5;
+  }
+  50% {
+    box-shadow: inset 0 0 80px rgba(255, 0, 0, 0.22);
+    opacity: 1;
+  }
+}
+@keyframes haloSpeak {
+  from {
+    box-shadow: inset 0 0 60px rgba(255, 80, 0, 0.15);
+  }
+  to {
+    box-shadow: inset 0 0 100px rgba(255, 80, 0, 0.3);
+  }
+}
+@keyframes haloPulse {
+  0% {
+    opacity: 1;
+    box-shadow: inset 0 0 100px rgba(255, 0, 0, 0.3);
+  }
+  100% {
+    opacity: 0;
+    box-shadow: none;
+  }
+}
+
+/* ============================================================
+   SIDEBAR COLLAPSE SYSTEM
+   ============================================================ */
 #layout {
   display: flex !important;
   height: 100vh !important;
   width: 100vw !important;
   overflow: hidden !important;
-  position: relative;
 }
-
-/* Sidebar transitions smoothly between expanded (260px) and collapsed (40px) */
 #sidebar {
   width: 260px;
   min-width: 260px;
@@ -3507,23 +3681,19 @@ code.inlineCode {
     min-width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   flex-shrink: 0;
-  position: relative; /* NOT fixed on desktop */
+  position: relative;
 }
-
-/* Collapsed state — thin strip, content hidden except toggle */
 #sidebar.collapsed {
   width: 40px !important;
   min-width: 40px !important;
 }
-
-/* Hide all sidebar content except the collapse button when collapsed */
 #sidebar.collapsed #sidebarHeader,
 #sidebar.collapsed .sidebarDivider,
 #sidebar.collapsed #chatList,
 #sidebar.collapsed #sidebarBottom {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.12s;
 }
 #sidebar:not(.collapsed) #sidebarHeader,
 #sidebar:not(.collapsed) .sidebarDivider,
@@ -3531,10 +3701,9 @@ code.inlineCode {
 #sidebar:not(.collapsed) #sidebarBottom {
   opacity: 1;
   pointer-events: all;
-  transition: opacity 0.2s ease 0.1s; /* fade in after width expands */
+  transition: opacity 0.2s 0.1s;
 }
 
-/* Collapse toggle button — always visible strip on left edge */
 #sidebarCollapseBtn {
   position: absolute;
   top: 50%;
@@ -3552,46 +3721,87 @@ code.inlineCode {
   align-items: center;
   justify-content: center;
   z-index: 10;
-  transition:
-    background 0.15s,
-    border-color 0.15s,
-    box-shadow 0.15s;
+  transition: all 0.15s;
   clip-path: polygon(0 4px, 100% 0, 100% 100%, 0 calc(100% - 4px));
 }
 #sidebarCollapseBtn:hover {
   background: rgba(255, 0, 0, 0.12);
   border-color: var(--red-core);
-  box-shadow: -2px 0 8px rgba(255, 0, 0, 0.2);
 }
-
-/* Arrow icon flips when collapsed */
 #sidebarCollapseIcon {
   display: inline-block;
-  transition: transform 0.25s ease;
+  transition: transform 0.25s;
   font-family: "Share Tech Mono", monospace;
   letter-spacing: -2px;
 }
 #sidebar.collapsed #sidebarCollapseIcon {
   transform: rotate(180deg);
 }
-
-/* Chat window always fills remaining space via flex */
 #chatWindow {
   flex: 1 !important;
-  min-width: 0 !important; /* allow shrinking below natural size */
+  min-width: 0 !important;
   display: flex;
   flex-direction: column;
-  transition: none; /* instant — controlled by sidebar width transition */
 }
 
-/* ── CODE PANEL (right side split) ── */
 /* ============================================================
-   CODE PANEL — right-side split, pure code view, no preview
-   Sits as a flex sibling of #chatWindow inside #layout.
-   When open, chat and panel share the full width 50/50.
+   TOOLS DROPDOWN
    ============================================================ */
+#toolsDropdownWrap {
+  position: relative;
+  width: 100%;
+}
+#toolsDropdownBtn {
+  width: 100%;
+}
+#toolsDropdown {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  min-width: 180px;
+  background: var(--bg-panel);
+  border: 1px solid var(--red-core);
+  box-shadow: var(--glow-md);
+  z-index: 500;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+.toolDropItem {
+  display: block;
+  width: 100%;
+  padding: 9px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-cut);
+  color: var(--text-hot);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-align: left;
+  cursor: crosshair;
+  transition: all 0.12s;
+}
+.toolDropItem:last-child {
+  border-bottom: none;
+}
+.toolDropItem:hover {
+  background: rgba(255, 0, 0, 0.1);
+  color: var(--text-blaze);
+  padding-left: 18px;
+}
+.toolDrop-active {
+  color: var(--red-neon) !important;
+  background: rgba(255, 0, 0, 0.08) !important;
+}
+.toolDropDivider {
+  height: 1px;
+  background: var(--red-dim);
+  margin: 2px 0;
+}
 
-/* Hidden: zero width, content clips */
+/* ============================================================
+   CODE PANEL — side by side (pure code, no preview)
+   ============================================================ */
 #codePanel {
   width: 0;
   min-width: 0;
@@ -3602,22 +3812,16 @@ code.inlineCode {
   overflow: hidden;
   transition:
     width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
+    border-color 0.2s;
   display: flex;
   flex-direction: column;
-  position: relative; /* in-flow, NOT fixed */
 }
-
-/* Open: exactly half the layout width */
 #codePanel.open {
   width: 50%;
   min-width: 280px;
   border-left-color: var(--red-core);
   box-shadow: -6px 0 30px rgba(255, 0, 0, 0.18);
 }
-
-/* With code panel open, sidebar collapses so chat+panel share full width */
 #layout.code-split #sidebar {
   width: 40px !important;
   min-width: 40px !important;
@@ -3629,8 +3833,6 @@ code.inlineCode {
   opacity: 0;
   pointer-events: none;
 }
-
-/* Header bar: language label on left, buttons on right */
 #codePanelHeader {
   display: flex;
   align-items: center;
@@ -3640,9 +3842,7 @@ code.inlineCode {
   flex-shrink: 0;
   gap: 10px;
   white-space: nowrap;
-  min-height: 40px;
 }
-
 #codePanelLang {
   font-family: "Orbitron", sans-serif;
   font-size: 10px;
@@ -3651,14 +3851,11 @@ code.inlineCode {
   text-shadow: var(--glow-sm);
   flex-shrink: 0;
 }
-
 .codePanelActions {
   display: flex;
   gap: 5px;
   margin-left: auto;
-  flex-shrink: 0;
 }
-
 .codePanelActions button {
   background: transparent;
   border: 1px solid var(--border-cut);
@@ -3666,8 +3863,7 @@ code.inlineCode {
   font-family: "Share Tech Mono", monospace;
   font-size: 10px;
   cursor: crosshair;
-  padding: 4px 11px;
-  letter-spacing: 0.05em;
+  padding: 4px 10px;
   transition: all 0.15s;
   clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
 }
@@ -3676,19 +3872,14 @@ code.inlineCode {
   color: var(--text-blaze);
   box-shadow: var(--glow-sm);
 }
-
-/* Body: just a scrollable code block, nothing else */
 #codePanelBody {
   flex: 1;
   overflow: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--red-dim) transparent;
 }
-
 #codePanelContent {
   display: block;
-  width: 100%;
-  height: 100%;
   margin: 0;
   padding: 20px 18px;
   font-size: 12.5px;
@@ -3699,10 +3890,9 @@ code.inlineCode {
   white-space: pre;
   overflow-x: auto;
   tab-size: 2;
+  min-height: 100%;
   box-sizing: border-box;
 }
-
-/* Syntax-colour the code element inside */
 #codePanelCode {
   color: inherit;
   background: none;
@@ -3710,7 +3900,7 @@ code.inlineCode {
   white-space: inherit;
 }
 
-/* Code block inline action buttons */
+/* Code block in messages */
 .codeBlock {
   position: relative;
   padding-top: 30px !important;
@@ -3731,14 +3921,13 @@ code.inlineCode {
   padding: 2px 7px;
   font-family: "Share Tech Mono", monospace;
   transition: all 0.15s;
-  border-radius: 1px;
 }
 .codeActionBtn:hover {
   color: var(--red-neon);
   border-color: var(--red-core);
 }
 
-/* ── THINKING BLOCK ── */
+/* ── THINK BLOCKS ── */
 details.thinkBlock {
   background: rgba(255, 0, 0, 0.04);
   border: 1px solid var(--red-dim);
@@ -3779,121 +3968,38 @@ details.thinkBlock > summary::-webkit-details-marker {
   word-break: break-word;
 }
 
-/* ── ARIA HALO ── */
-#ariaHalo {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 99995;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-#ariaHalo.thinking {
-  box-shadow:
-    inset 0 0 60px rgba(255, 0, 0, 0.15),
-    inset 0 0 120px rgba(255, 0, 0, 0.06);
-  border: 2px solid rgba(255, 0, 0, 0.22);
-  opacity: 1;
-  animation: haloThink 2.2s ease-in-out infinite;
-}
-#ariaHalo.speaking {
-  box-shadow: inset 0 0 80px rgba(255, 80, 0, 0.2);
-  border: 2px solid rgba(255, 80, 0, 0.3);
-  opacity: 1;
-  animation: haloSpeak 0.55s ease-in-out infinite alternate;
-}
-#ariaHalo.pulse {
-  box-shadow:
-    inset 0 0 100px rgba(255, 0, 0, 0.28),
-    0 0 40px rgba(255, 0, 0, 0.18);
-  border: 2px solid rgba(255, 0, 0, 0.4);
-  opacity: 1;
-  animation: haloPulse 0.7s ease-out forwards;
-}
-@keyframes haloThink {
-  0%,
-  100% {
-    box-shadow: inset 0 0 40px rgba(255, 0, 0, 0.1);
-    opacity: 0.5;
-  }
-  50% {
-    box-shadow: inset 0 0 80px rgba(255, 0, 0, 0.2);
-    opacity: 1;
-  }
-}
-@keyframes haloSpeak {
-  from {
-    box-shadow: inset 0 0 60px rgba(255, 80, 0, 0.15);
-  }
-  to {
-    box-shadow: inset 0 0 100px rgba(255, 80, 0, 0.28);
-  }
-}
-@keyframes haloPulse {
-  0% {
-    opacity: 1;
-    box-shadow: inset 0 0 100px rgba(255, 0, 0, 0.3);
-  }
-  100% {
-    opacity: 0;
-    box-shadow: none;
-  }
-}
-
-/* ── INPUT BAR ── */
-#inputBar {
-  flex-wrap: wrap !important;
-  align-items: flex-end !important;
-  padding: 8px 14px 10px !important;
-  gap: 6px !important;
-}
-#inputTopRow {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  flex: 1;
-  min-width: 200px;
-}
-#textareaWrap {
-  flex: 1;
-  position: relative;
-}
-#textareaWrap textarea {
-  width: 100%;
-  padding-right: 34px !important;
-}
-.attachInline {
-  position: absolute;
-  right: 8px;
-  bottom: 9px;
-  cursor: pointer;
-  font-size: 15px;
-  opacity: 0.45;
-  transition: opacity 0.15s;
-  z-index: 2;
-}
-.attachInline:hover {
-  opacity: 1;
-}
-#inputBtnRow {
-  display: flex;
+/* ── FILE DOWNLOAD BUTTON ── */
+.fileDownloadBtn {
+  display: inline-flex;
   align-items: center;
   gap: 5px;
-  flex-shrink: 0;
+  background: rgba(255, 0, 0, 0.08);
+  border: 1px solid var(--red-dim);
+  color: var(--red-neon);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  padding: 5px 12px;
+  cursor: pointer;
+  text-decoration: none;
+  letter-spacing: 0.06em;
+  margin-top: 6px;
+  margin-right: 5px;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+  transition: all 0.15s;
+}
+.fileDownloadBtn:hover {
+  background: rgba(255, 0, 0, 0.18);
+  border-color: var(--red-core);
+  box-shadow: var(--glow-sm);
+}
+.codeDownloadRow {
+  margin-top: 8px;
+  display: flex;
   flex-wrap: wrap;
+  gap: 5px;
 }
-#sidebarToggleBtn {
-  display: none !important;
-} /* hidden desktop — collapse btn is on sidebar */
-#sidebarOverlay {
-  display: none;
-}
-#userInput {
-  resize: none !important;
-  overflow: hidden !important;
-  min-height: 38px !important;
-  max-height: 120px !important;
-}
+
+/* ── ATTACH PREVIEW ── */
 #attachPreviewRow {
   display: flex;
   gap: 6px;
@@ -3925,14 +4031,44 @@ details.thinkBlock > summary::-webkit-details-marker {
   position: absolute;
   top: 0;
   right: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 0.8);
   color: #ff4444;
   font-size: 9px;
   cursor: pointer;
   padding: 1px 3px;
 }
+.docThumb {
+  background: rgba(255, 0, 0, 0.08) !important;
+  text-align: center;
+  padding: 4px;
+  word-break: break-all;
+}
+.msgAttachments {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.msgAttachThumb {
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--red-dim);
+  overflow: hidden;
+  background: var(--bg-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-family: "Share Tech Mono", monospace;
+  color: var(--text-muted);
+}
+.msgAttachThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
-/* ── MESSAGE BITS ── */
+/* ── MSG BITS ── */
 .msgHeader {
   display: flex;
   align-items: center;
@@ -3960,10 +4096,7 @@ details.thinkBlock > summary::-webkit-details-marker {
   transition: all 0.15s;
   text-decoration: none;
 }
-.msgActionBtn:hover {
-  color: var(--text-blaze);
-  border-color: var(--border-cut);
-}
+.msgActionBtn:hover,
 .msgCopyBtn:hover {
   color: var(--red-neon);
 }
@@ -3979,15 +4112,15 @@ details.thinkBlock > summary::-webkit-details-marker {
   color: var(--red-neon);
   text-decoration: underline;
 }
-.userPara {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-  font-size: 14px;
-  line-height: 1.65;
-  letter-spacing: 0;
-  word-break: break-word;
-  white-space: pre-wrap;
-  margin: 0;
+.msgImage {
+  max-width: 100%;
+  max-height: 360px;
+  border: 1px solid var(--red-dim);
+  cursor: pointer;
+  display: block;
+}
+.imgActions {
+  margin-top: 5px;
 }
 #userIdInput {
   margin-bottom: 12px;
@@ -4004,39 +4137,6 @@ details.thinkBlock > summary::-webkit-details-marker {
   font-size: 11px;
   padding: 6px 16px;
   cursor: crosshair;
-}
-.msgImage {
-  max-width: 100%;
-  max-height: 360px;
-  border: 1px solid var(--red-dim);
-  cursor: pointer;
-  display: block;
-}
-.msgAttachments {
-  display: flex;
-  gap: 5px;
-  margin-bottom: 6px;
-  flex-wrap: wrap;
-}
-.msgAttachThumb {
-  width: 56px;
-  height: 56px;
-  border: 1px solid var(--red-dim);
-  overflow: hidden;
-  cursor: pointer;
-  background: var(--bg-raised);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-}
-.msgAttachThumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.imgActions {
-  margin-top: 5px;
 }
 .chatRow {
   display: flex;
@@ -4078,20 +4178,8 @@ details.thinkBlock > summary::-webkit-details-marker {
 .chatRow.active .chatActionBtn {
   display: flex;
 }
-#mathModeBtn.active,
-#codeAssistBtn.active,
-#studyModeBtn.active {
-  background: rgba(255, 0, 0, 0.15) !important;
-  border-color: var(--red-core) !important;
-  color: var(--red-neon) !important;
-}
-#thinkingBtn.active {
-  background: rgba(100, 0, 255, 0.15) !important;
-  border-color: #8844ff !important;
-  color: #aa88ff !important;
-}
 
-/* ── COMMANDS / BG MODALS ── */
+/* Commands / BG modals */
 #commandsModal,
 #bgTasksModal {
   position: fixed;
@@ -4190,53 +4278,62 @@ details.thinkBlock > summary::-webkit-details-marker {
   border-left: 3px solid #ff4444;
 }
 
-/* ── NEW THEMES ── */
-:root[data-theme="pink"] {
-  --red-core: #ff0099;
-  --red-hot: #ff33aa;
-  --red-neon: #ff44bb;
-  --red-deep: #aa0066;
-  --red-dim: #550033;
-  --red-ember: #ff66cc;
+/* ── INPUT BAR ── */
+#inputBar {
+  flex-wrap: wrap !important;
+  align-items: flex-end !important;
+  padding: 8px 14px 10px !important;
+  gap: 6px !important;
 }
-:root[data-theme="ice"] {
-  --red-core: #00aaff;
-  --red-hot: #00ccff;
-  --red-neon: #33bbff;
-  --red-deep: #006699;
-  --red-dim: #003344;
-  --red-ember: #00ddff;
+#inputTopRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex: 1;
+  min-width: 200px;
 }
-:root[data-theme="toxic"] {
-  --red-core: #aaff00;
-  --red-hot: #bbff33;
-  --red-neon: #ccff44;
-  --red-deep: #558800;
-  --red-dim: #224400;
-  --red-ember: #ddff88;
+#textareaWrap {
+  flex: 1;
+  position: relative;
 }
-:root[data-theme="mono"] {
-  --red-core: #ffffff;
-  --red-hot: #dddddd;
-  --red-neon: #eeeeee;
-  --red-deep: #888888;
-  --red-dim: #333333;
-  --red-ember: #aaaaaa;
+#textareaWrap textarea {
+  width: 100%;
+  padding-right: 34px !important;
 }
-:root[data-theme="blood"] {
-  --red-core: #990000;
-  --red-hot: #bb0000;
-  --red-neon: #aa1111;
-  --red-deep: #660000;
-  --red-dim: #330000;
-  --red-ember: #cc2222;
+.attachInline {
+  position: absolute;
+  right: 8px;
+  bottom: 9px;
+  cursor: pointer;
+  font-size: 15px;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+  z-index: 2;
+}
+.attachInline:hover {
+  opacity: 1;
+}
+#inputBtnRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+#sidebarToggleBtn {
+  display: none !important;
+}
+#sidebarOverlay {
+  display: none;
+}
+#userInput {
+  resize: none !important;
+  overflow: hidden !important;
+  min-height: 38px !important;
+  max-height: 120px !important;
 }
 
-/* ============================================================
-   MOBILE ≤ 768px
-   On mobile: sidebar is an overlay drawer (position:fixed)
-   with a Menu button in the input bar to open it
-   ============================================================ */
+/* ── MOBILE ── */
 @media (max-width: 768px) {
   html {
     height: 100%;
@@ -4250,8 +4347,6 @@ details.thinkBlock > summary::-webkit-details-marker {
     height: 100dvh !important;
     overflow: hidden;
   }
-
-  /* On mobile the sidebar goes back to fixed overlay */
   #sidebar {
     position: fixed !important;
     top: 0;
@@ -4262,17 +4357,14 @@ details.thinkBlock > summary::-webkit-details-marker {
     z-index: 1000;
     transform: translateX(-100%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    box-shadow: 4px 0 40px rgba(255, 0, 0, 0.35);
   }
   #sidebar.open {
     transform: translateX(0) !important;
   }
-  /* On mobile, collapsed class ignored — use open/close instead */
   #sidebar.collapsed {
     width: 280px !important;
     min-width: 280px !important;
   }
-  /* Show all sidebar content on mobile when open */
   #sidebar.collapsed #sidebarHeader,
   #sidebar.collapsed .sidebarDivider,
   #sidebar.collapsed #chatList,
@@ -4280,29 +4372,24 @@ details.thinkBlock > summary::-webkit-details-marker {
     opacity: 1 !important;
     pointer-events: all !important;
   }
-
-  /* Hide the collapse button on mobile (use Menu btn instead) */
   #sidebarCollapseBtn {
     display: none !important;
   }
-
-  /* Overlay */
   #sidebarOverlay {
     display: block !important;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.75);
+    background: rgba(0, 0, 0, 0.78);
     z-index: 999;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.3s;
     backdrop-filter: blur(2px);
   }
   #sidebarOverlay.active {
     opacity: 1 !important;
     pointer-events: all !important;
   }
-
   #chatWindow {
     width: 100% !important;
     flex: 1 !important;
@@ -4318,7 +4405,6 @@ details.thinkBlock > summary::-webkit-details-marker {
     -webkit-overflow-scrolling: touch;
     padding: 10px 8px !important;
   }
-
   #inputBar {
     flex-direction: column !important;
     flex-wrap: nowrap !important;
@@ -4407,6 +4493,12 @@ details.thinkBlock > summary::-webkit-details-marker {
   }
   .chatHeaderSub {
     display: none;
+  }
+  #toolsDropdown {
+    position: fixed;
+    bottom: auto;
+    top: auto;
+    width: 240px;
   }
 }
 @media (max-width: 380px) {
