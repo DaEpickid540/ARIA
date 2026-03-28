@@ -13,6 +13,9 @@ let programmingMode = false;
 let studyMode = false;
 let thinkingMode = false;
 let pendingFiles = [];
+let thinkDeeper = false;
+let musicTutorMode = false;
+let previewActive = false;
 
 const newChatBtn = document.getElementById("newChatBtn");
 const sendBtn = document.getElementById("sendBtn");
@@ -101,8 +104,27 @@ let currentCodeLang = "";
 function openCodePanel(code, lang) {
   currentCodeContent = code;
   currentCodeLang = lang || "code";
+  previewActive = false;
   if (codePanelCode) codePanelCode.textContent = code;
   if (codePanelLang) codePanelLang.textContent = (lang || "CODE").toUpperCase();
+
+  // Reset view
+  const pre = document.getElementById("codePanelContent");
+  const frame = document.getElementById("codePanelPreviewFrame");
+  if (pre) pre.style.display = "";
+  if (frame) {
+    frame.style.display = "none";
+    frame.srcdoc = "";
+  }
+
+  // Show Preview button only for HTML
+  const prevBtn = document.getElementById("codePanelPreviewBtn");
+  if (prevBtn) {
+    const isHTML = lang === "html" || lang === "HTML" || lang === "htm";
+    prevBtn.style.display = isHTML ? "" : "none";
+    prevBtn.textContent = "Preview";
+  }
+
   codePanelEl?.classList.add("open");
   layout?.classList.add("code-split");
   window.ARIA_collapseSidebar?.();
@@ -139,6 +161,26 @@ codePanelDl?.addEventListener("click", () => {
   downloadText(currentCodeContent, `aria-code.${ext}`);
 });
 codePanelClose?.addEventListener("click", closeCodePanel);
+
+document
+  .getElementById("codePanelPreviewBtn")
+  ?.addEventListener("click", () => {
+    const pre = document.getElementById("codePanelContent");
+    const frame = document.getElementById("codePanelPreviewFrame");
+    const btn = document.getElementById("codePanelPreviewBtn");
+    if (!frame) return;
+    previewActive = !previewActive;
+    if (previewActive) {
+      frame.srcdoc = currentCodeContent;
+      frame.style.display = "block";
+      if (pre) pre.style.display = "none";
+      if (btn) btn.textContent = "< Code";
+    } else {
+      frame.style.display = "none";
+      if (pre) pre.style.display = "";
+      if (btn) btn.textContent = "Preview";
+    }
+  });
 
 window.ARIA_openCodePanel = openCodePanel;
 window.ARIA_closeCodePanel = closeCodePanel;
@@ -305,6 +347,47 @@ wireMode(
   "🧠 **Thinking mode ON** — ARIA will show her reasoning.",
   "Thinking mode off.",
 );
+
+// Show math keyboard when math mode is toggled
+const _origWireMath = document.getElementById("mathModeBtn");
+_origWireMath?.addEventListener(
+  "click",
+  () => {
+    setTimeout(() => {
+      if (mathMode) showMathPanel();
+      else hideMathPanel();
+    }, 50);
+  },
+  true,
+);
+
+// Think Deeper toggle (from sidebar dropdown)
+document.getElementById("tool_deepthink")?.addEventListener("click", () => {
+  thinkDeeper = !thinkDeeper;
+  if (toolsDropMenu) toolsDropMenu.style.display = "none";
+  toolsDropBtn?.classList.remove("active");
+  addSystemMessage(
+    thinkDeeper
+      ? "🔬 **Think Deeper ON** — extended reasoning, longer comprehensive answers."
+      : "Think Deeper off.",
+  );
+  triggerHalo("pulse", 800);
+});
+
+// Music Tutor mode
+document.getElementById("tool_music")?.addEventListener("click", () => {
+  musicTutorMode = !musicTutorMode;
+  if (toolsDropMenu) toolsDropMenu.style.display = "none";
+  toolsDropBtn?.classList.remove("active");
+  addSystemMessage(
+    musicTutorMode
+      ? "🎵 **Music Tutor mode ON** — RCM-based lessons, sheet music, treble & bass clef."
+      : "Music Tutor mode off.",
+  );
+  if (musicTutorMode) showMusicPanel();
+  else hideMusicPanel();
+  triggerHalo("pulse", 800);
+});
 
 /* ── WEB SEARCH button (hidden — triggered by slash cmd or AI) ── */
 document.getElementById("webSearchBtn")?.addEventListener("click", async () => {
@@ -740,6 +823,52 @@ userInput?.addEventListener("input", () => {
   userInput.style.height = Math.min(userInput.scrollHeight, 120) + "px";
 });
 
+/* DRAG AND DROP into textarea */
+const _tw = document.getElementById("textareaWrap");
+if (_tw) {
+  _tw.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    _tw.classList.add("drag-over");
+  });
+  _tw.addEventListener("dragleave", () => _tw.classList.remove("drag-over"));
+  _tw.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    _tw.classList.remove("drag-over");
+    const files = Array.from(e.dataTransfer.files || []);
+    const imgUrl =
+      e.dataTransfer.getData("text/uri-list") ||
+      e.dataTransfer.getData("text/plain");
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append("file", file);
+      try {
+        const res = await fetch("/api/upload", { method: "POST", body: fd });
+        const data = await res.json();
+        if (data.type === "image") {
+          pendingFiles.push({
+            type: "image",
+            name: file.name,
+            base64: data.base64,
+            text: data.text,
+          });
+          documentContext += "\n[Image: " + file.name + "]";
+        } else if (data.text) {
+          pendingFiles.push({
+            type: "document",
+            name: file.name,
+            text: data.text,
+          });
+          documentContext += "\n[Doc: " + file.name + "]";
+        }
+        renderAttachPreviews();
+      } catch {}
+    }
+    if (!files.length && imgUrl && imgUrl.startsWith("http")) {
+      if (userInput) userInput.value += (userInput.value ? " " : "") + imgUrl;
+    }
+  });
+}
+
 /* ============================================================
    RENDER CHAT LIST
    ============================================================ */
@@ -878,6 +1007,66 @@ function renderMessages() {
   messages.scrollTop = messages.scrollHeight;
 }
 
+/* ── CHAT NOTIFICATION CENTER ── */
+let _notifTimer = null;
+function showChatNotification(text, ms = 3000) {
+  const el = document.getElementById("chatNotification");
+  if (!el) return;
+  el.textContent = text.replace(/\*\*/g, "");
+  el.classList.add("visible");
+  clearTimeout(_notifTimer);
+  _notifTimer = setTimeout(() => el.classList.remove("visible"), ms);
+}
+window.ARIA_showNotification = showChatNotification;
+
+/* ── MUSIC PANEL ── */
+function showMusicPanel() {
+  let panel = document.getElementById("musicPanel");
+  if (panel) {
+    panel.style.display = "flex";
+    return;
+  }
+  panel = document.createElement("div");
+  panel.id = "musicPanel";
+  panel.innerHTML = `
+    <div id="musicPanelHeader">
+      <span>MUSIC KEYBOARD</span>
+      <button onclick="document.getElementById('musicPanel').style.display='none'">✕</button>
+    </div>
+    <div id="musicPanelBody">
+      <div class="musicSection"><div class="musicSectionLabel">NOTATION</div>
+        <button class="mathKey" onclick="insertMath('♩')">♩ Quarter</button>
+        <button class="mathKey" onclick="insertMath('♪')">♪ Eighth</button>
+        <button class="mathKey" onclick="insertMath('♫')">♫ Beam</button>
+        <button class="mathKey" onclick="insertMath('𝄞')">𝄞 Treble</button>
+        <button class="mathKey" onclick="insertMath('𝄢')">𝄢 Bass</button>
+        <button class="mathKey" onclick="insertMath('𝄽')">𝄽 Rest</button>
+        <button class="mathKey" onclick="insertMath('♭')">♭ Flat</button>
+        <button class="mathKey" onclick="insertMath('♯')">♯ Sharp</button>
+        <button class="mathKey" onclick="insertMath('♮')">♮ Natural</button>
+      </div>
+      <div class="musicSection"><div class="musicSectionLabel">NOTES</div>
+        ${["C", "D", "E", "F", "G", "A", "B"].map((n) => `<button class="mathKey" onclick="insertMath('${n}')">${n}</button>`).join("")}
+        ${["C#", "Db", "Eb", "F#", "Gb", "Ab", "Bb"].map((n) => `<button class="mathKey" onclick="insertMath('${n}')">${n}</button>`).join("")}
+      </div>
+      <div class="musicSection"><div class="musicSectionLabel">INTERVALS / RCM</div>
+        ${["Unison", "2nd", "3rd", "4th", "5th", "6th", "7th", "Oct"].map((n) => `<button class="mathKey" onclick="insertMath('${n}')">${n}</button>`).join("")}
+        ${["Major", "Minor", "Perfect", "Aug", "Dim"].map((n) => `<button class="mathKey" onclick="insertMath('${n} ')">${n}</button>`).join("")}
+      </div>
+      <div class="musicSection"><div class="musicSectionLabel">DYNAMICS</div>
+        ${["pp", "p", "mp", "mf", "f", "ff", "sf", "sfz", "cresc.", "dim.", "rit.", "accel."].map((n) => `<button class="mathKey" onclick="insertMath('${n} ')">${n}</button>`).join("")}
+      </div>
+      <div class="musicSection"><div class="musicSectionLabel">TIME / KEY</div>
+        ${["4/4", "3/4", "2/4", "6/8", "2/2", "C major", "G major", "D major", "F major", "A minor", "E minor"].map((n) => `<button class="mathKey" onclick="insertMath('${n} ')">${n}</button>`).join("")}
+      </div>
+    </div>`;
+  document.body.appendChild(panel);
+}
+function hideMusicPanel() {
+  const p = document.getElementById("musicPanel");
+  if (p) p.style.display = "none";
+}
+
 function addSystemMessage(content) {
   const chat = getCurrentChat();
   if (!chat) return;
@@ -885,6 +1074,89 @@ function addSystemMessage(content) {
   saveChats();
   renderMessages();
 }
+
+/* ── MATH KEYBOARD PANEL ── */
+function showMathPanel() {
+  let panel = document.getElementById("mathPanel");
+  if (panel) {
+    panel.style.display = "flex";
+    return;
+  }
+  panel = document.createElement("div");
+  panel.id = "mathPanel";
+  panel.innerHTML = `
+    <div id="mathPanelHeader">
+      <span>MATH KEYBOARD</span>
+      <button onclick="document.getElementById('mathPanel').style.display='none'">✕</button>
+    </div>
+    <div id="mathPanelBody">
+      <div class="mathSection"><div class="mathSectionLabel">ARITHMETIC</div>
+        ${["×", "÷", "±", "√", "∛", "²", "³", "⁴", "%"].map((s) => `<button class="mathKey" onclick="insertMath('${s}')">${s}</button>`).join("")}
+      </div>
+      <div class="mathSection"><div class="mathSectionLabel">ALGEBRA</div>
+        ${["x", "y", "z", "n", "a", "b", "c", "=", "≠", "≈", "<", ">", "≤", "≥", "(", ")", "{", "}", "[", "]"].map((s) => `<button class="mathKey" onclick="insertMath('${s}')">${s}</button>`).join("")}
+      </div>
+      <div class="mathSection"><div class="mathSectionLabel">FRACTIONS / POWERS</div>
+        <button class="mathKey" onclick="insertMath('a/b')">a/b</button>
+        <button class="mathKey" onclick="insertMath('x^2')">x²</button>
+        <button class="mathKey" onclick="insertMath('x^n')">xⁿ</button>
+        <button class="mathKey" onclick="insertMath('√( )')">√()</button>
+        <button class="mathKey" onclick="insertMath('^(1/n)')">ⁿ√</button>
+        <button class="mathKey" onclick="insertMath('log( )')">log</button>
+        <button class="mathKey" onclick="insertMath('ln( )')">ln</button>
+        <button class="mathKey" onclick="insertMath('e^')">eˣ</button>
+      </div>
+      <div class="mathSection"><div class="mathSectionLabel">TRIG</div>
+        ${["sin", "cos", "tan", "csc", "sec", "cot", "sin⁻¹", "cos⁻¹", "tan⁻¹"].map((s) => `<button class="mathKey" onclick="insertMath('${s}( )')">${s}</button>`).join("")}
+      </div>
+      <div class="mathSection"><div class="mathSectionLabel">CALCULUS</div>
+        ${["d/dx", "∫", "∬", "∂", "Σ", "Π", "lim", "→", "∞", "dy/dx", "f'(x)", "f''(x)"].map((s) => `<button class="mathKey" onclick="insertMath('${s}')">${s}</button>`).join("")}
+      </div>
+      <div class="mathSection"><div class="mathSectionLabel">GREEK</div>
+        ${["α", "β", "γ", "δ", "ε", "θ", "λ", "μ", "π", "σ", "τ", "φ", "ω", "Δ", "Σ", "Ω"].map((s) => `<button class="mathKey" onclick="insertMath('${s}')">${s}</button>`).join("")}
+      </div>
+      <div class="mathSection"><div class="mathSectionLabel">SETS / LOGIC</div>
+        ${["∈", "∉", "⊂", "⊃", "∪", "∩", "∅", "∀", "∃", "¬", "∧", "∨", "⇒", "⟺"].map((s) => `<button class="mathKey" onclick="insertMath('${s}')">${s}</button>`).join("")}
+      </div>
+      <div class="mathSection"><div class="mathSectionLabel">STATS / MATRIX</div>
+        ${["P(", "C(", "!", "x̄", "σ", "μ", "r", "[a b; c d]", "det", "tr"].map((s) => `<button class="mathKey" onclick="insertMath('${s}')">${s}</button>`).join("")}
+      </div>
+      <div class="mathSection"><div class="mathSectionLabel">TI-30X / GRAPH</div>
+        <button class="mathKey" onclick="insertMath('y = ')">y=</button>
+        <button class="mathKey" onclick="insertMath('GRAPH: ')">Graph</button>
+        <button class="mathKey" onclick="insertMath('TABLE: x | y\n')">Table</button>
+        <button class="mathKey" onclick="insertMath('WINDOW: x[-10,10] y[-10,10]')">Window</button>
+        <button class="mathKey" onclick="insertMath('ZOOM ')">Zoom</button>
+        <button class="mathKey" onclick="insertMath('TRACE ')">Trace</button>
+        <button class="mathKey" onclick="insertMath('nCr(n,r)')">nCr</button>
+        <button class="mathKey" onclick="insertMath('nPr(n,r)')">nPr</button>
+        <button class="mathKey" onclick="insertMath('STAT: ')">STAT</button>
+        <button class="mathKey" onclick="insertMath('LinReg: ')">LinReg</button>
+        <button class="mathKey" onclick="insertMath('STO→')">STO→</button>
+        <button class="mathKey" onclick="insertMath('ANS')">ANS</button>
+      </div>
+    </div>`;
+  document.body.appendChild(panel);
+}
+function hideMathPanel() {
+  const p = document.getElementById("mathPanel");
+  if (p) p.style.display = "none";
+}
+
+// Show/hide math panel when math mode toggles
+const _origToggleMath = toggleMath;
+
+window.insertMath = function (sym) {
+  const inp = document.getElementById("userInput");
+  if (!inp) return;
+  const s = inp.selectionStart,
+    e = inp.selectionEnd;
+  const v = inp.value;
+  inp.value = v.slice(0, s) + sym + v.slice(e);
+  inp.selectionStart = inp.selectionEnd = s + sym.length;
+  inp.focus();
+  inp.dispatchEvent(new Event("input"));
+};
 
 function addAIMessage(content) {
   const chat = getCurrentChat();
@@ -993,18 +1265,18 @@ async function sendMessageContent(text, chat, attachments = []) {
       signal: abort.signal,
       body: JSON.stringify({
         message: text,
-        history: chat.messages
-          .slice(-20)
-          .map((m) => ({
-            role: m.role === "aria" ? "assistant" : "user",
-            content: m.content,
-          })),
+        history: chat.messages.slice(-20).map((m) => ({
+          role: m.role === "aria" ? "assistant" : "user",
+          content: m.content,
+        })),
         provider: currentSettings.provider || "openrouter",
         personality: currentSettings.personality || "hacker",
         mathMode,
         programmingMode,
         studyMode,
         thinkingMode,
+        thinkDeeper,
+        musicTutorMode,
         documentContext: docCtx,
       }),
     });

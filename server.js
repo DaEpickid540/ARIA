@@ -206,31 +206,34 @@ function detectFrustration(text) {
 /* ============================================================
    AGENTIC PIPELINE — parse ACTION from AI response, execute, re-inject
    ============================================================ */
-async function runAgenticPipeline(messages, provider, model) {
+async function runAgenticPipeline(
+  messages,
+  provider,
+  model,
+  thinkDeeper = false,
+) {
   const steps = [];
   let iteration = 0;
-  const MAX_ITER = 3;
+  const MAX_ITER = thinkDeeper ? 6 : 4;
   let currentMessages = [...messages];
 
   while (iteration < MAX_ITER) {
     const rawReply = await callAI(currentMessages, provider, model);
     iteration++;
 
-    // Check for ACTION: directive
-    // Match ACTION: anywhere in the reply, case-insensitive, handle various spacing
     const actionMatch = rawReply.match(
       /^\s*ACTION:\s*([^|\n]+?)\s*\|\s*(.*)$/im,
     );
     if (!actionMatch) {
-      // No action needed — return final reply + steps
       return { reply: rawReply, steps };
     }
 
     const toolName = actionMatch[1].trim().toLowerCase();
     const toolInput = actionMatch[2].trim();
-    steps.push({ tool: toolName, input: toolInput });
 
-    // Execute the tool
+    // Pre-action: capture any text the AI wrote before the ACTION line
+    const preText = rawReply.replace(/^\s*ACTION:.*$/m, "").trim();
+
     let toolResult;
     try {
       toolResult = await runToolServer(toolName, toolInput);
@@ -238,13 +241,18 @@ async function runAgenticPipeline(messages, provider, model) {
       toolResult = `Tool error: ${e.message}`;
     }
 
-    // Handle image results specially
+    // Image result
     if (toolResult?.startsWith?.("__IMAGE__")) {
       const urlMatch = toolResult.match(/__IMAGE__(.+?)__PROMPT__(.+)/);
       if (urlMatch) {
-        const cleanReply = rawReply.replace(/^ACTION:.*$/m, "").trim();
+        steps.push({
+          tool: toolName,
+          input: toolInput,
+          preText,
+          result: "[image]",
+        });
         return {
-          reply: cleanReply || `Here's your generated image:`,
+          reply: preText || "Here's your generated image:",
           imageUrl: urlMatch[1],
           imagePrompt: urlMatch[2],
           steps,
@@ -252,21 +260,23 @@ async function runAgenticPipeline(messages, provider, model) {
       }
     }
 
-    // Strip the ACTION line and inject result
-    const replyWithoutAction = rawReply.replace(/^ACTION:.*$/m, "").trim();
+    steps.push({
+      tool: toolName,
+      input: toolInput,
+      preText,
+      result: toolResult,
+    });
 
-    // Add tool result to context for next iteration
     currentMessages = [
       ...currentMessages,
       { role: "assistant", content: rawReply },
       {
         role: "user",
-        content: `[TOOL RESULT for "${toolName}"]:\n${toolResult}\n\nIMPORTANT: The above is REAL data just fetched. Now write your full response to the user incorporating this data naturally. Do NOT output another ACTION: line unless you genuinely need a different tool.`,
+        content: `[TOOL RESULT for "${toolName}"]:\n${toolResult}\n\nNow write your response using this real data. Do NOT output another ACTION: line unless you need a different tool.`,
       },
     ];
   }
 
-  // Fallback if we hit max iterations
   const finalReply = await callAI(currentMessages, provider, model);
   return { reply: finalReply, steps };
 }
@@ -388,7 +398,11 @@ app.post("/api/background", async (req, res) => {
       const sysPrompt =
         (BASE_PROMPTS[personality] || BASE_PROMPTS.hacker) +
         TOOL_SYSTEM +
-        buildMemoryContext();
+        buildMemoryContext() +
+        `
+
+[THINK DEEPER MODE]
+You have extended reasoning budget. Take your time. Be thorough, comprehensive, and produce the highest quality result possible. Use <think>...</think> blocks to reason through each step before acting.`;
       const messages = [
         { role: "system", content: sysPrompt },
         { role: "user", content: task },
@@ -397,6 +411,7 @@ app.post("/api/background", async (req, res) => {
         messages,
         provider || "openrouter",
         null,
+        true,
       );
       bgTasks.get(id).status = "done";
       bgTasks.get(id).result = result.reply;
@@ -440,6 +455,7 @@ app.post("/api/chat", async (req, res) => {
     studyMode = false,
     documentContext = "",
     thinkingMode = false,
+    thinkDeeper = false,
   } = req.body;
 
   if (!message) return res.json({ reply: "No message received." });
@@ -463,20 +479,33 @@ app.post("/api/chat", async (req, res) => {
     sysPrompt += `\n\n[DOCUMENT CONTEXT (user uploaded):\n${documentContext.slice(0, 8000)}\n]`;
 
   // Thinking mode prefix
-  if (thinkingMode) {
+  if (thinkingMode || thinkDeeper) {
     sysPrompt += `
 
 [THINKING MODE ENABLED]
-Before every response, you MUST wrap your reasoning in <think> tags like this:
+Before every response, wrap your reasoning in <think> tags:
 <think>
 Step 1: What is the user actually asking?
 Step 2: What do I know about this?
 Step 3: What's the best approach?
 Step 4: Draft my answer...
 </think>
-Then write your actual response after the closing </think> tag.
-This thinking is shown to the user as a collapsible "ARIA is thinking..." block.
-Be genuinely thoughtful — explore edge cases, consider multiple angles.`;
+Then write your actual response after the closing </think> tag.`;
+  }
+
+  if (thinkDeeper) {
+    sysPrompt += `
+
+[THINK DEEPER MODE]
+You have extra reasoning budget. For EVERY question:
+- Spend at least 6-8 steps in your <think> block
+- Consider alternative interpretations of the question
+- Identify potential edge cases and failure modes
+- Research your own knowledge thoroughly before answering
+- Draft, critique, and revise your answer inside the think block
+- Only output the final polished answer after </think>
+- Your final answer should be comprehensive, well-structured, and at least 3x longer than you'd normally write
+- Use headers, examples, and code snippets where helpful`;
   }
 
   const cappedHistory = history.slice(-20);
@@ -490,7 +519,12 @@ Be genuinely thoughtful — explore edge cases, consider multiple angles.`;
   ];
 
   try {
-    const result = await runAgenticPipeline(messages, provider, requestedModel);
+    const result = await runAgenticPipeline(
+      messages,
+      provider,
+      requestedModel,
+      thinkDeeper,
+    );
     res.json({
       reply: result.reply,
       frustrated,

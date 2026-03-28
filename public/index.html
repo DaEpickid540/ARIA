@@ -97,7 +97,13 @@
         </div>
         <div class="lockDivider"></div>
         <p class="lockInstruct">AUTHENTICATION REQUIRED</p>
-        <input id="userIdInput" type="text" placeholder="User ID" autocomplete="off" autocapitalize="none" />
+        <input
+          id="userIdInput"
+          type="text"
+          placeholder="User ID"
+          autocomplete="off"
+          autocapitalize="none"
+        />
         <input
           id="passwordInput"
           type="password"
@@ -191,6 +197,25 @@
           </div>
         </div>
 
+        <div class="scrollRow">
+          <div class="homeCard scrollCard">
+            <div class="homeLabel">🔌 USB DEVICES</div>
+            <div id="homeUSBDevices" class="homeValue"></div>
+          </div>
+          <div class="homeCard scrollCard">
+            <div class="homeLabel">📶 NETWORK STATUS</div>
+            <div id="homeNetworkInfo" class="homeValue"></div>
+          </div>
+          <div class="homeCard scrollCard">
+            <div class="homeLabel">⚙ BG TASKS</div>
+            <div id="homeBgTasks" class="homeValue"></div>
+          </div>
+          <div class="homeCard scrollCard">
+            <div class="homeLabel">🧠 ARIA MEMORY</div>
+            <div id="homeMemoryFacts" class="homeValue"></div>
+          </div>
+        </div>
+
         <div id="homeButtons">
           <button id="enterConsoleBtn" class="primaryBtn glitch wideBtn">
             ⚡ ENTER ARIA CONSOLE
@@ -206,7 +231,9 @@
       <div id="sidebarOverlay"></div>
       <div id="ariaHalo"></div>
       <aside id="sidebar">
-        <button id="sidebarCollapseBtn" title="Toggle sidebar"><span id="sidebarCollapseIcon">‹‹</span></button>
+        <button id="sidebarCollapseBtn" title="Toggle sidebar">
+          <span id="sidebarCollapseIcon">‹‹</span>
+        </button>
         <!-- ARIA logo in sidebar -->
         <div id="sidebarHeader">
           <div class="sidebarLogo">ARIA</div>
@@ -225,24 +252,46 @@
           <button id="goLockBtn" class="secondaryBtn glitch">🔒 Lock</button>
           <button id="newChatBtn" class="primaryBtn glitch">＋ New Chat</button>
           <div id="toolsDropdownWrap">
-            <button id="toolsDropdownBtn" class="secondaryBtn glitch">🔧 Tools ▾</button>
-            <div id="toolsDropdown" style="display:none">
+            <button id="toolsDropdownBtn" class="secondaryBtn glitch">
+              🔧 Tools ▾
+            </button>
+            <div id="toolsDropdown" style="display: none">
               <button class="toolDropItem" id="tool_math">∑ Math Mode</button>
               <button class="toolDropItem" id="tool_code">🖥 Code Mode</button>
-              <button class="toolDropItem" id="tool_study">📚 Study Mode</button>
-              <button class="toolDropItem" id="tool_think">🧠 Thinking Mode</button>
+              <button class="toolDropItem" id="tool_study">
+                📚 Study Mode
+              </button>
+              <button class="toolDropItem" id="tool_think">
+                🧠 Thinking Mode
+              </button>
               <div class="toolDropDivider"></div>
-              <button class="toolDropItem" id="tool_search">🔍 Web Search</button>
-              <button class="toolDropItem" id="tool_imagine">🎨 Generate Image</button>
-              <button class="toolDropItem" id="tool_calendar">📅 Calendar</button>
-              <button class="toolDropItem" id="tool_bg">⚙ Background Task</button>
+              <button class="toolDropItem" id="tool_search">
+                🔍 Web Search
+              </button>
+              <button class="toolDropItem" id="tool_imagine">
+                🎨 Generate Image
+              </button>
+              <button class="toolDropItem" id="tool_calendar">
+                📅 Calendar
+              </button>
+              <button class="toolDropItem" id="tool_bg">
+                ⚙ Background Task
+              </button>
               <div class="toolDropDivider"></div>
-              <button class="toolDropItem" id="tool_commands">📋 All Commands</button>
+              <button class="toolDropItem" id="tool_commands">
+                📋 All Commands
+              </button>
             </div>
           </div>
-          <button id="commandsBtn" class="secondaryBtn glitch">📋 Commands</button>
-          <button id="bgTasksListBtn" class="secondaryBtn glitch">⚙ BG Tasks</button>
-          <button id="settingsBtn" class="secondaryBtn glitch">⚙ Settings</button>
+          <button id="commandsBtn" class="secondaryBtn glitch">
+            📋 Commands
+          </button>
+          <button id="bgTasksListBtn" class="secondaryBtn glitch">
+            ⚙ BG Tasks
+          </button>
+          <button id="settingsBtn" class="secondaryBtn glitch">
+            ⚙ Settings
+          </button>
         </div>
       </aside>
 
@@ -253,13 +302,44 @@
           <div class="codePanelActions">
             <button id="codePanelCopyBtn">⎘ Copy</button>
             <button id="codePanelDownloadBtn">⬇ Download</button>
+            <button id="codePanelPreviewBtn" style="display: none">
+              Preview
+            </button>
             <button id="codePanelCloseBtn">✕ Close</button>
           </div>
         </div>
-        <div id="codePanelBody"><pre id="codePanelContent"><code id="codePanelCode"></code></pre></div>
+        <div id="codePanelBody">
+          <iframe
+            id="codePanelPreviewFrame"
+            style="
+              display: none;
+              width: 100%;
+              height: 100%;
+              border: none;
+              background: #fff;
+            "
+          ></iframe>
+          <pre id="codePanelContent"><code id="codePanelCode"></code></pre>
+        </div>
       </div>
-      <div id="commandsModal" style="display:none"><div id="commandsPanel"><div id="commandsHeader"><h2>ARIA COMMANDS</h2><button id="commandsCloseBtn">✕</button></div><div id="commandsList"></div></div></div>
-      <div id="bgTasksModal" style="display:none"><div id="bgTasksPanel"><div id="bgTasksHeader"><h2>BACKGROUND TASKS</h2><button id="bgTasksCloseBtn">✕</button></div><div id="bgTasksList"></div></div></div>
+      <div id="commandsModal" style="display: none">
+        <div id="commandsPanel">
+          <div id="commandsHeader">
+            <h2>ARIA COMMANDS</h2>
+            <button id="commandsCloseBtn">✕</button>
+          </div>
+          <div id="commandsList"></div>
+        </div>
+      </div>
+      <div id="bgTasksModal" style="display: none">
+        <div id="bgTasksPanel">
+          <div id="bgTasksHeader">
+            <h2>BACKGROUND TASKS</h2>
+            <button id="bgTasksCloseBtn">✕</button>
+          </div>
+          <div id="bgTasksList"></div>
+        </div>
+      </div>
 
       <main id="chatWindow">
         <!-- Chat header bar -->
@@ -279,11 +359,22 @@
         <div id="messages"></div>
 
         <div id="inputBar">
-          <div id="attachPreviewRow" style="display:none"></div>
+          <div id="attachPreviewRow" style="display: none"></div>
           <div id="inputTopRow">
             <div id="textareaWrap">
-              <textarea id="userInput" placeholder="Message ARIA..." rows="1"></textarea>
-              <label class="attachInline" title="Attach file">📎<input type="file" id="fileUploadBtn" accept=".txt,.md,.pdf,.docx,.png,.jpg,.jpeg,.webp" style="display:none" multiple></label>
+              <textarea
+                id="userInput"
+                placeholder="Message ARIA..."
+                rows="1"
+              ></textarea>
+              <label class="attachInline" title="Attach file"
+                >📎<input
+                  type="file"
+                  id="fileUploadBtn"
+                  accept=".txt,.md,.pdf,.docx,.png,.jpg,.jpeg,.webp"
+                  style="display: none"
+                  multiple
+              /></label>
             </div>
             <button id="sendBtn" class="primaryBtn glitch">Send</button>
           </div>
@@ -293,14 +384,14 @@
             <button id="pushToTalkBtn" class="voiceBtn glitch">🎙 PTT</button>
             <button id="vttBtn" class="voiceBtn glitch">🗣 VTT</button>
             <button id="ttsBtn" class="voiceBtn glitch">🔊 TTS</button>
-            <button id="mathModeBtn" style="display:none"></button>
-            <button id="codeAssistBtn" style="display:none"></button>
-            <button id="studyModeBtn" style="display:none"></button>
-            <button id="thinkingBtn" style="display:none"></button>
-            <button id="webSearchBtn" style="display:none"></button>
-            <button id="imagineBtn" style="display:none"></button>
-            <button id="calendarBtn" style="display:none"></button>
-            <button id="bgTaskBtn" style="display:none"></button>
+            <button id="mathModeBtn" style="display: none"></button>
+            <button id="codeAssistBtn" style="display: none"></button>
+            <button id="studyModeBtn" style="display: none"></button>
+            <button id="thinkingBtn" style="display: none"></button>
+            <button id="webSearchBtn" style="display: none"></button>
+            <button id="imagineBtn" style="display: none"></button>
+            <button id="calendarBtn" style="display: none"></button>
+            <button id="bgTaskBtn" style="display: none"></button>
             <div id="voiceWave"></div>
           </div>
         </div>
@@ -385,13 +476,55 @@
                 >
                   <span class="swatchDot"></span>Gilded
                 </button>
-                <button class="themeSwatch" data-theme="pink" style="--sw:#ff0099"><span class="swatchDot"></span>Hot Pink</button>
-                <button class="themeSwatch" data-theme="ice" style="--sw:#00aaff"><span class="swatchDot"></span>Ice Blue</button>
-                <button class="themeSwatch" data-theme="toxic" style="--sw:#aaff00"><span class="swatchDot"></span>Toxic</button>
-                <button class="themeSwatch" data-theme="mono" style="--sw:#cccccc"><span class="swatchDot"></span>Ghost</button>
-                <button class="themeSwatch" data-theme="blood" style="--sw:#880000"><span class="swatchDot"></span>Blood</button>
-                <button class="themeSwatch" data-theme="teal" style="--sw:#00ffcc"><span class="swatchDot"></span>Teal</button>
-                <button class="themeSwatch" data-theme="solar" style="--sw:#ffaa00"><span class="swatchDot"></span>Solar</button>
+                <button
+                  class="themeSwatch"
+                  data-theme="pink"
+                  style="--sw: #ff0099"
+                >
+                  <span class="swatchDot"></span>Hot Pink
+                </button>
+                <button
+                  class="themeSwatch"
+                  data-theme="ice"
+                  style="--sw: #00aaff"
+                >
+                  <span class="swatchDot"></span>Ice Blue
+                </button>
+                <button
+                  class="themeSwatch"
+                  data-theme="toxic"
+                  style="--sw: #aaff00"
+                >
+                  <span class="swatchDot"></span>Toxic
+                </button>
+                <button
+                  class="themeSwatch"
+                  data-theme="mono"
+                  style="--sw: #cccccc"
+                >
+                  <span class="swatchDot"></span>Ghost
+                </button>
+                <button
+                  class="themeSwatch"
+                  data-theme="blood"
+                  style="--sw: #880000"
+                >
+                  <span class="swatchDot"></span>Blood
+                </button>
+                <button
+                  class="themeSwatch"
+                  data-theme="teal"
+                  style="--sw: #00ffcc"
+                >
+                  <span class="swatchDot"></span>Teal
+                </button>
+                <button
+                  class="themeSwatch"
+                  data-theme="solar"
+                  style="--sw: #ffaa00"
+                >
+                  <span class="swatchDot"></span>Solar
+                </button>
               </div>
             </section>
 
@@ -431,11 +564,35 @@
             <section class="settingsSection">
               <h3>Visual FX</h3>
               <div class="toggleRow">
-                <div><span>Halo Effect</span><div class="toggleHint">Screen halo when ARIA thinks, speaks, or settings change</div></div>
-                <button id="toggle_haloEffects" class="toggleBtn active">ON</button>
+                <div>
+                  <span>Halo Effect</span>
+                  <div class="toggleHint">
+                    Screen halo when ARIA thinks, speaks, or settings change
+                  </div>
+                </div>
+                <button id="toggle_haloEffects" class="toggleBtn active">
+                  ON
+                </button>
               </div>
-              <label style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-muted);margin-top:6px;display:block">Halo Intensity</label>
-              <input type="range" id="haloIntensity" min="0.1" max="1" step="0.1" value="0.5" style="width:100%;margin-top:4px">
+              <label
+                style="
+                  font-family: &quot;Share Tech Mono&quot;, monospace;
+                  font-size: 10px;
+                  color: var(--text-muted);
+                  margin-top: 6px;
+                  display: block;
+                "
+                >Halo Intensity</label
+              >
+              <input
+                type="range"
+                id="haloIntensity"
+                min="0.1"
+                max="1"
+                step="0.1"
+                value="0.5"
+                style="width: 100%; margin-top: 4px"
+              />
 
               <div class="toggleRow">
                 <div>
@@ -1089,5 +1246,24 @@
     <audio id="bootSound" src="boot-startup.mp3" preload="auto"></audio>
 
     <script type="module" src="js/main.js"></script>
+
+    <div id="pipChat" style="display: none">
+      <div id="pipChatHeader">
+        <span>ARIA</span>
+        <div class="pipChatBtns">
+          <button id="pipChatExpand">△</button
+          ><button id="pipChatClose">✕</button>
+        </div>
+      </div>
+      <div id="pipChatMessages"></div>
+      <div id="pipChatInput">
+        <input
+          id="pipChatInputField"
+          type="text"
+          placeholder="Ask ARIA..."
+        /><button id="pipChatSend">Send</button>
+      </div>
+    </div>
+    <div id="chatNotification"></div>
   </body>
 </html>
