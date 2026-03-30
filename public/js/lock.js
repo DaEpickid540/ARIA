@@ -1,138 +1,153 @@
-// lock.js
+// lock.js  — ARIA unlock flow: lock → homepage → chat
+// Flow: unlock() shows homepageScreen, wires all nav buttons, lazy-loads chat on demand.
 
-// ── AUTHORISED USERS ─────────────────────────────────────────
-// Add more users here as { id, password } if needed later.
-// userId is case-insensitive. Password is exact match.
 const USERS = [{ id: "sarvin", password: "727846" }];
-// ─────────────────────────────────────────────────────────────
+
+let _buttonsWired = false;
+let _modulesLoaded = false;
+
+/* ── expose early so main.js can call after its boot sequence ── */
+window.ARIA_wireConsoleButtons = wireConsoleButtons;
+window.ARIA_loadChatModules    = loadChatModules;
+window.ARIA_enterConsole       = enterConsole;   // used by homepage quick-mode buttons
 
 window.addEventListener("DOMContentLoaded", () => {
-  const lockScreen = document.getElementById("lockScreen");
+  const lockScreen     = document.getElementById("lockScreen");
   const homepageScreen = document.getElementById("homepageScreen");
-  const layout = document.getElementById("layout");
+  const layout         = document.getElementById("layout");
+  const userIdInput    = document.getElementById("userIdInput");
+  const passwordInput  = document.getElementById("passwordInput");
+  const unlockBtn      = document.getElementById("unlockBtn");
+  const lockError      = document.getElementById("lockError");
 
-  const userIdInput = document.getElementById("userIdInput");
-  const passwordInput = document.getElementById("passwordInput");
-  const unlockBtn = document.getElementById("unlockBtn");
-  const lockError = document.getElementById("lockError");
+  // Ensure correct initial visibility
+  if (lockScreen)     lockScreen.style.display     = "flex";
+  if (homepageScreen) homepageScreen.style.display = "none";
+  if (layout)         layout.style.display         = "none";
 
-  // Start locked
-  lockScreen.style.display = "flex";
-  homepageScreen.style.display = "none";
-  layout.style.display = "none";
-
-  // Track failed attempts for lockout
   let failedAttempts = 0;
-  let lockedUntil = 0;
+  let lockedUntil    = 0;
 
   async function unlock() {
-    // Lockout check
     const now = Date.now();
     if (now < lockedUntil) {
       const secs = Math.ceil((lockedUntil - now) / 1000);
-      lockError.textContent = `SYSTEM LOCKED — retry in ${secs}s`;
+      if (lockError) lockError.textContent = `LOCKED — retry in ${secs}s`;
       return;
     }
 
-    const enteredId = userIdInput.value.trim().toLowerCase();
-    const enteredPass = passwordInput.value.trim();
+    const enteredId   = ((userIdInput?.value || "sarvin").trim() || "sarvin").toLowerCase();
+    const enteredPass = (passwordInput?.value || "").trim();
 
-    // Blank field checks
-    if (!enteredId) {
-      lockError.textContent = "USER ID REQUIRED";
-      shakeInput(userIdInput);
-      return;
-    }
     if (!enteredPass) {
-      lockError.textContent = "ACCESS CODE REQUIRED";
-      shakeInput(passwordInput);
+      if (lockError) lockError.textContent = "ACCESS CODE REQUIRED";
       return;
     }
 
-    // Find matching user (case-insensitive ID)
-    const user = USERS.find((u) => u.id.toLowerCase() === enteredId);
-
+    const user = USERS.find(u => u.id.toLowerCase() === enteredId);
     if (!user) {
       failedAttempts++;
-      lockError.textContent = `UNKNOWN USER: "${enteredId.toUpperCase()}" — ACCESS DENIED`;
-      shakeBox();
-      checkLockout();
-      return;
+      if (lockError) lockError.textContent = `UNKNOWN USER: "${enteredId.toUpperCase()}"`;
+      checkLockout(); return;
     }
-
     if (user.password !== enteredPass) {
       failedAttempts++;
-      lockError.textContent = "INVALID ACCESS CODE — ACCESS DENIED";
-      shakeBox();
-      checkLockout();
-      passwordInput.value = "";
-      return;
+      if (lockError) lockError.textContent = "INVALID ACCESS CODE — ACCESS DENIED";
+      if (passwordInput) passwordInput.value = "";
+      checkLockout(); return;
     }
 
     // ── SUCCESS ──
     failedAttempts = 0;
-    lockError.textContent = "";
-
-    // Store active userId globally so chat.js and server sync use it
+    if (lockError) lockError.textContent = "";
     window.ARIA_userId = user.id;
 
-    // Flash the lock box green briefly before hiding
-    const lockBox = document.getElementById("lockBox");
-    if (lockBox) {
-      lockBox.style.borderColor = "#00ff88";
-      lockBox.style.boxShadow = "0 0 24px #00ff88";
-    }
+    if (lockScreen)     lockScreen.style.display = "none";
+    if (passwordInput)  passwordInput.value = "";
+    if (userIdInput)    userIdInput.value   = "";
 
-    await new Promise((r) => setTimeout(r, 350));
+    // ── Show homepage and init it ──
+    const hp = document.getElementById("homepageScreen");
+    if (hp) { hp.style.display = "flex"; hp.style.opacity = "1"; }
 
-    lockScreen.style.display = "none";
-    layout.style.display = "none";
-    passwordInput.value = "";
-    userIdInput.value = "";
+    try {
+      const { initHomepage } = await import("./homepage.js");
+      initHomepage();
+    } catch (err) { console.error("[ARIA] Homepage init failed:", err); }
 
-    const { initHomepage } = await import("./homepage.js");
-    initHomepage();
+    // Wire all nav buttons
+    wireConsoleButtons();
   }
 
   function checkLockout() {
     if (failedAttempts >= 5) {
-      lockedUntil = Date.now() + 30_000; // 30 second lockout
+      lockedUntil = Date.now() + 30_000;
       failedAttempts = 0;
-      lockError.textContent = "TOO MANY FAILED ATTEMPTS — LOCKED FOR 30s";
+      if (lockError) lockError.textContent = "TOO MANY ATTEMPTS — LOCKED 30s";
     }
   }
 
-  function shakeBox() {
-    const lockBox = document.getElementById("lockBox");
-    if (!lockBox) return;
-    lockBox.style.animation = "none";
-    lockBox.offsetHeight; // reflow
-    lockBox.style.animation = "lockShake 0.4s ease";
-    setTimeout(() => {
-      lockBox.style.animation = "";
-    }, 400);
-  }
+  unlockBtn?.addEventListener("click", unlock);
+  passwordInput?.addEventListener("keydown", e => { if (e.key === "Enter") unlock(); });
+  userIdInput?.addEventListener("keydown",   e => { if (e.key === "Enter") passwordInput?.focus(); });
 
-  function shakeInput(el) {
-    el.style.animation = "none";
-    el.offsetHeight;
-    el.style.animation = "lockShake 0.3s ease";
-    setTimeout(() => {
-      el.style.animation = "";
-    }, 300);
-  }
-
-  // ── WIRE CONTROLS ──
-  unlockBtn.addEventListener("click", unlock);
-
-  // Enter on either field moves to next or submits
-  userIdInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") passwordInput.focus();
-  });
-  passwordInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") unlock();
-  });
-
-  // Focus user ID field on load
-  setTimeout(() => userIdInput.focus(), 100);
+  // Auto-focus
+  setTimeout(() => (userIdInput || passwordInput)?.focus(), 80);
 });
+
+/* ── Wire Enter / Home / Lock buttons — idempotent ── */
+function wireConsoleButtons() {
+  if (_buttonsWired) return;
+  _buttonsWired = true;
+
+  const hp     = () => document.getElementById("homepageScreen");
+  const lay    = () => document.getElementById("layout");
+  const lk     = () => document.getElementById("lockScreen");
+
+  // Expose enter for homepage quick-mode buttons
+  window.ARIA_enterConsole = enterConsole;
+
+  document.getElementById("enterConsoleBtn")?.addEventListener("click", enterConsole);
+
+  document.getElementById("goHomeBtn")?.addEventListener("click", () => {
+    const l = lay(); if (l) l.style.display = "none";
+    const h = hp();  if (h) { h.style.display = "flex"; h.style.opacity = "1"; }
+  });
+
+  document.getElementById("goLockBtn")?.addEventListener("click", () => {
+    const l = lay(); if (l) l.style.display = "none";
+    const h = hp();  if (h) h.style.display = "none";
+    const lkEl = lk(); if (lkEl) lkEl.style.display = "flex";
+  });
+}
+
+async function enterConsole() {
+  const hp  = document.getElementById("homepageScreen");
+  const lay = document.getElementById("layout");
+  if (!lay) return;
+  if (hp)  hp.style.display  = "none";
+  lay.style.display = "flex";
+  await loadChatModules();
+}
+
+async function loadChatModules() {
+  if (_modulesLoaded) return;
+  _modulesLoaded = true;
+  const mods = [
+    "./chat.js", "./ui.js", "./tools.js",
+    "./tts.js", "./vtt.js", "./settings.js", "./personality.js",
+  ];
+  try {
+    for (const m of mods) await import(m);
+    // Optional modules — don't crash if missing
+    const optionals = ["./pages.js", "./callEngine.js", "./voiceControls.js"];
+    for (const m of optionals) {
+      try {
+        const mod = await import(m);
+        if (m.includes("callEngine") && mod.initCallEngine) mod.initCallEngine();
+        if (m.includes("voiceControls") && mod.initVoiceControls) mod.initVoiceControls();
+      } catch {}
+    }
+    console.log("[ARIA] All chat modules loaded ✓");
+  } catch (err) { console.error("[ARIA] Module load error:", err); }
+}
