@@ -16,7 +16,7 @@ import {
   initBgTasksPreview,
   initMemoryFacts,
   initBluetooth,
-} from "./homeTools.js";
+} from "./hometools.js";
 
 export function initHomepage() {
   const screen = document.getElementById("homepageScreen");
