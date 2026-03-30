@@ -1,4 +1,4 @@
-// homepage.js — imports from unified homeTools.js (same js/ folder)
+// homepage.js — imports from homeTools.js (same js/ folder)
 import {
   initTime,
   initWeather,
@@ -15,6 +15,7 @@ import {
   initNetworkInfo,
   initBgTasksPreview,
   initMemoryFacts,
+  initBluetooth,
 } from "./homeTools.js";
 
 export function initHomepage() {
@@ -22,26 +23,30 @@ export function initHomepage() {
   if (!screen) return;
   if (screen.dataset.inited === "1") {
     screen.style.display = "flex";
-    screen.style.opacity = 1;
+    screen.style.opacity = "1";
     return;
   }
   screen.dataset.inited = "1";
   screen.style.display = "flex";
-  screen.style.opacity = 1;
+  screen.style.opacity = "1";
 
+  // Sync tools — run immediately
   initTime();
-  initWeather();
-  initSystemInfo();
   initQuote();
   initTasksPreview();
-  initRecentChats();
+  initSystemInfo();
   initSystemHealth();
-  initSpeedPreview();
-  initQuickTools();
-  initDailySummary();
   initSystemMonitor();
-  initUSBDevices();
   initNetworkInfo();
+  initQuickTools();
+  initBluetooth();
+
+  // Async tools — fire and forget
+  initWeather();
+  initSpeedPreview();
+  initRecentChats();
+  initDailySummary();
+  initUSBDevices();
   initBgTasksPreview();
   initMemoryFacts();
 }

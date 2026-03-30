@@ -170,6 +170,39 @@ export const THEMES = {
       "--red-ember": "#ffdd88",
     },
   },
+  violet: {
+    label: "Violet",
+    vars: {
+      "--red-core": "#8844ff",
+      "--red-hot": "#aa66ff",
+      "--red-neon": "#bb88ff",
+      "--red-deep": "#441188",
+      "--red-dim": "#220044",
+      "--red-ember": "#cc99ff",
+    },
+  },
+  rose: {
+    label: "Rose",
+    vars: {
+      "--red-core": "#ff4466",
+      "--red-hot": "#ff6688",
+      "--red-neon": "#ff88aa",
+      "--red-deep": "#aa1133",
+      "--red-dim": "#550011",
+      "--red-ember": "#ffaacc",
+    },
+  },
+  cobalt: {
+    label: "Cobalt",
+    vars: {
+      "--red-core": "#0066ff",
+      "--red-hot": "#3388ff",
+      "--red-neon": "#55aaff",
+      "--red-deep": "#003388",
+      "--red-dim": "#001144",
+      "--red-ember": "#88ccff",
+    },
+  },
 };
 
 export function applyTheme(themeKey, darkMode = true) {
@@ -216,6 +249,84 @@ export function applyTheme(themeKey, darkMode = true) {
   document
     .querySelectorAll(".themeSwatch")
     .forEach((s) => s.classList.toggle("active", s.dataset.theme === themeKey));
+
+  // Apply scanline color to match theme
+  const rgb = hexToRgb(core);
+  if (rgb)
+    document.documentElement.style.setProperty(
+      "--scanline-rgb",
+      `${rgb.r},${rgb.g},${rgb.b}`,
+    );
+}
+
+function hexToRgb(hex) {
+  const m = hex
+    .replace("#", "")
+    .match(/([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i);
+  return m
+    ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) }
+    : null;
+}
+
+export function applyAccentColor(hex) {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return;
+  const root = document.documentElement;
+  root.style.setProperty("--red-core", hex);
+  root.style.setProperty("--red-hot", hex + "cc");
+  root.style.setProperty("--red-neon", hex + "ee");
+  root.style.setProperty("--red-deep", hex + "88");
+  root.style.setProperty("--red-dim", hex + "44");
+  root.style.setProperty("--glow-sm", `0 0 8px ${hex}99`);
+  root.style.setProperty("--glow-md", `0 0 16px ${hex}bb, 0 0 32px ${hex}55`);
+  root.style.setProperty(
+    "--glow-lg",
+    `0 0 24px ${hex}ee, 0 0 48px ${hex}88, 0 0 80px ${hex}33`,
+  );
+  const rgb = hexToRgb(hex);
+  if (rgb)
+    root.style.setProperty("--scanline-rgb", `${rgb.r},${rgb.g},${rgb.b}`);
+}
+
+export function applyFont(fontKey) {
+  const fonts = {
+    mono: '"Share Tech Mono", "Courier New", monospace',
+    orbitron: '"Orbitron", "Share Tech Mono", monospace',
+    inter: '"Inter", "Segoe UI", Arial, sans-serif',
+    jetbrains: '"JetBrains Mono", "Share Tech Mono", monospace',
+    fira: '"Fira Code", "Share Tech Mono", monospace',
+  };
+  document.documentElement.style.setProperty(
+    "--ui-font",
+    fonts[fontKey] || fonts.mono,
+  );
+  document.body.style.fontFamily = fonts[fontKey] || fonts.mono;
+}
+
+const BG_ANIMATIONS = {
+  none: "",
+  grid: "aria-bg-grid",
+  rain: "aria-bg-rain",
+  stars: "aria-bg-stars",
+  circuit: "aria-bg-circuit",
+  pulse: "aria-bg-pulse",
+};
+
+export function applyBgAnimation(key) {
+  const body = document.body;
+  Object.values(BG_ANIMATIONS).forEach((c) => {
+    if (c) body.classList.remove(c);
+  });
+  if (BG_ANIMATIONS[key]) body.classList.add(BG_ANIMATIONS[key]);
+}
+
+export function applyAmoled(on) {
+  const root = document.documentElement;
+  if (on) {
+    root.style.setProperty("--bg-void", "#000000");
+    root.style.setProperty("--bg-abyss", "#000000");
+    root.style.setProperty("--bg-panel", "#050505");
+    root.style.setProperty("--bg-raised", "#0a0a0a");
+  }
 }
 
 export function applyBrightness(val) {
@@ -803,6 +914,44 @@ function wireAllControls() {
   });
 
   // ── Save ──
+  // Accent color picker
+  document
+    .getElementById("accentColorPicker")
+    ?.addEventListener("input", (e) => {
+      applyAccentColor(e.target.value);
+      currentSettings.accentColor = e.target.value;
+    });
+
+  // Font selector
+  document.getElementById("uiFontSelect")?.addEventListener("change", (e) => {
+    applyFont(e.target.value);
+    currentSettings.uiFont = e.target.value;
+  });
+
+  // BG animation
+  document.getElementById("bgAnimSelect")?.addEventListener("change", (e) => {
+    applyBgAnimation(e.target.value);
+    currentSettings.bgAnim = e.target.value;
+  });
+
+  // AMOLED toggle
+  document.getElementById("toggle_amoled")?.addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    const on = btn.textContent.trim() === "OFF";
+    btn.textContent = on ? "ON" : "OFF";
+    btn.classList.toggle("active", on);
+    currentSettings.amoled = on;
+    applyAmoled(on);
+  });
+
+  // Memory search/filter
+  document.getElementById("memSearchInput")?.addEventListener("input", () => {
+    import("./memory.js").then((m) => m.renderMemoryPanel?.());
+  });
+  document.getElementById("memFilterCat")?.addEventListener("change", () => {
+    import("./memory.js").then((m) => m.renderMemoryPanel?.());
+  });
+
   document.getElementById("settingsSaveBtn")?.addEventListener("click", () => {
     const sel = document.getElementById("voiceSelect");
     if (sel) currentSettings.voice = sel.value;

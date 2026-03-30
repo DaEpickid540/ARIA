@@ -1,243 +1,280 @@
-// memory.js — full persistent memory system
+// memory.js — Memory Engine v3: auto-making, editing, reminders, project tracking
 
-const MEMORY_KEY = "aria_long_memory";
-
-/* ============================================================
-   MEMORY STORE STRUCTURE
-   {
-     facts: [{ id, text, category, timestamp, pinned }],
-     userProfile: { name, preferences, notes },
-     sessionNotes: []
-   }
-   ============================================================ */
-
-let memoryStore = {
+export let ariaMemory = {
   facts: [],
-  userProfile: { name: "", preferences: [], notes: "" },
-  sessionNotes: [],
+  projects: [],
+  reminders: [],
+  clipboard: [],
 };
 
-/* ============================================================
-   LOAD / SAVE
-   ============================================================ */
+/* ── LOAD / SAVE ── */
 export function loadMemory() {
   try {
-    const raw = localStorage.getItem(MEMORY_KEY);
-    if (raw) memoryStore = { ...memoryStore, ...JSON.parse(raw) };
+    const saved = localStorage.getItem("aria_memory_v3");
+    if (saved)
+      ariaMemory = {
+        facts: [],
+        projects: [],
+        reminders: [],
+        clipboard: [],
+        ...JSON.parse(saved),
+      };
   } catch {
-    memoryStore = {
-      facts: [],
-      userProfile: { name: "", preferences: [], notes: "" },
-      sessionNotes: [],
-    };
+    ariaMemory = { facts: [], projects: [], reminders: [], clipboard: [] };
   }
 }
 
 export function saveMemory() {
-  localStorage.setItem(MEMORY_KEY, JSON.stringify(memoryStore));
+  localStorage.setItem("aria_memory_v3", JSON.stringify(ariaMemory));
 }
 
-/* ============================================================
-   FACT MANAGEMENT
-   ============================================================ */
-export function rememberFact(text, category = "general", pinned = false) {
-  const id = "mem_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+loadMemory();
+setInterval(checkReminders, 60_000);
+
+/* ── FACTS ── */
+export function addManualMemory(text, category = "note") {
   const fact = {
-    id,
-    text: text.trim(),
+    id: Date.now(),
+    text,
     category,
-    timestamp: Date.now(),
-    pinned,
+    createdAt: Date.now(),
+    source: "manual",
   };
-  memoryStore.facts.push(fact);
+  ariaMemory.facts.unshift(fact);
   saveMemory();
   renderMemoryPanel();
-  return fact;
+  // Sync to server
+  fetch("/api/memory", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ facts: ariaMemory.facts }),
+  }).catch(() => {});
 }
 
-export function forgetFact(id) {
-  memoryStore.facts = memoryStore.facts.filter((f) => f.id !== id);
+export function autoRememberFact(text, category = "auto") {
+  // Dedup check
+  const exists = ariaMemory.facts.some(
+    (f) => f.text.toLowerCase() === text.toLowerCase(),
+  );
+  if (!exists) {
+    ariaMemory.facts.unshift({
+      id: Date.now(),
+      text,
+      category,
+      createdAt: Date.now(),
+      source: "auto",
+    });
+    if (ariaMemory.facts.length > 200)
+      ariaMemory.facts = ariaMemory.facts.slice(0, 200);
+    saveMemory();
+  }
+}
+
+export function deleteMemoryFact(id) {
+  ariaMemory.facts = ariaMemory.facts.filter((f) => f.id !== id);
   saveMemory();
   renderMemoryPanel();
 }
 
-export function pinFact(id, pinned = true) {
-  const fact = memoryStore.facts.find((f) => f.id === id);
+export function editMemoryFact(id, newText) {
+  const fact = ariaMemory.facts.find((f) => f.id === id);
   if (fact) {
-    fact.pinned = pinned;
+    fact.text = newText;
+    fact.editedAt = Date.now();
     saveMemory();
     renderMemoryPanel();
   }
 }
 
-export function getAllFacts() {
-  return [...memoryStore.facts].sort(
-    (a, b) =>
-      (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.timestamp - a.timestamp,
-  );
+export function clearAllMemory() {
+  ariaMemory = {
+    facts: [],
+    projects: [],
+    reminders: [],
+    clipboard: ariaMemory.clipboard || [],
+  };
+  saveMemory();
+  renderMemoryPanel();
+  fetch("/api/memory", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ facts: [] }),
+  }).catch(() => {});
 }
 
-export function getFactsAsContext() {
-  if (!memoryStore.facts.length) return "";
-  const lines = memoryStore.facts.map((f) => `- ${f.text}`).join("\n");
-  return `\n\n[MEMORY — things you know about the user:\n${lines}\n]`;
-}
-
-/* ============================================================
-   USER PROFILE
-   ============================================================ */
-export function setUserName(name) {
-  memoryStore.userProfile.name = name;
+/* ── PROJECTS ── */
+export function addProject(name, description = "") {
+  ariaMemory.projects.push({
+    id: Date.now(),
+    name,
+    description,
+    files: [],
+    createdAt: Date.now(),
+    lastUpdated: Date.now(),
+  });
   saveMemory();
 }
 
-export function getUserName() {
-  return memoryStore.userProfile.name || "";
-}
-
-/* ============================================================
-   AUTO-DETECT FACTS FROM MESSAGES
-   Call this on every user message.
-   ============================================================ */
-export function autoDetectFacts(text) {
-  const patterns = [
-    {
-      re: /my name is ([a-z\s]+)/i,
-      category: "identity",
-      extract: (m) => `User's name is ${m[1].trim()}`,
-    },
-    {
-      re: /i(?:'m| am) ([a-z\s]+) years old/i,
-      category: "identity",
-      extract: (m) => `User is ${m[1]} years old`,
-    },
-    {
-      re: /i(?:'m| am) a ([a-z\s]+)/i,
-      category: "identity",
-      extract: (m) => `User is a ${m[1].trim()}`,
-    },
-    {
-      re: /i like ([a-z\s,]+)/i,
-      category: "preference",
-      extract: (m) => `User likes ${m[1].trim()}`,
-    },
-    {
-      re: /i love ([a-z\s,]+)/i,
-      category: "preference",
-      extract: (m) => `User loves ${m[1].trim()}`,
-    },
-    {
-      re: /i hate ([a-z\s,]+)/i,
-      category: "preference",
-      extract: (m) => `User hates ${m[1].trim()}`,
-    },
-    {
-      re: /i prefer ([a-z\s,]+)/i,
-      category: "preference",
-      extract: (m) => `User prefers ${m[1].trim()}`,
-    },
-    {
-      re: /my favorite ([a-z\s]+) is ([a-z\s]+)/i,
-      category: "preference",
-      extract: (m) => `User's favorite ${m[1]} is ${m[2].trim()}`,
-    },
-    {
-      re: /i(?:'m| am) from ([a-z\s,]+)/i,
-      category: "location",
-      extract: (m) => `User is from ${m[1].trim()}`,
-    },
-    {
-      re: /i live in ([a-z\s,]+)/i,
-      category: "location",
-      extract: (m) => `User lives in ${m[1].trim()}`,
-    },
-    {
-      re: /i work (?:at|for|as) ([a-z\s,]+)/i,
-      category: "work",
-      extract: (m) => `User works ${m[0].replace(/^i work /i, "").trim()}`,
-    },
-    {
-      re: /i(?:'m| am) studying ([a-z\s,]+)/i,
-      category: "education",
-      extract: (m) => `User studies ${m[1].trim()}`,
-    },
-    {
-      re: /remember (?:that )?(.+)/i,
-      category: "note",
-      extract: (m) => m[1].trim(),
-    },
-  ];
-
-  for (const p of patterns) {
-    const match = text.match(p.re);
-    if (match) {
-      const factText = p.extract(match);
-      // Avoid duplicates
-      const exists = memoryStore.facts.some(
-        (f) => f.text.toLowerCase() === factText.toLowerCase(),
-      );
-      if (!exists) {
-        rememberFact(factText, p.category);
-        return factText;
-      }
-    }
+export function updateProject(id, updates) {
+  const p = ariaMemory.projects.find((p) => p.id === id);
+  if (p) {
+    Object.assign(p, updates, { lastUpdated: Date.now() });
+    saveMemory();
   }
-  return null;
 }
 
-/* ============================================================
-   RENDER MEMORY PANEL (in settings sidebar)
-   ============================================================ */
+export function getProjects() {
+  return ariaMemory.projects;
+}
+
+/* ── REMINDERS ── */
+export function addReminder(text, isoDate) {
+  ariaMemory.reminders.push({
+    id: Date.now(),
+    text,
+    dueAt: new Date(isoDate).getTime(),
+    fired: false,
+  });
+  saveMemory();
+}
+
+function checkReminders() {
+  const now = Date.now();
+  ariaMemory.reminders.forEach((r) => {
+    if (!r.fired && r.dueAt <= now) {
+      r.fired = true;
+      saveMemory();
+      window.ARIA_showNotification?.("⏰ Reminder: " + r.text, 6000);
+      if (window.ARIA_addAIMessage)
+        window.ARIA_addAIMessage("⏰ **Reminder:** " + r.text);
+    }
+  });
+}
+
+/* ── CLIPBOARD HISTORY (last 10) ── */
+export function addToClipboardHistory(text) {
+  if (!text?.trim()) return;
+  const existing = ariaMemory.clipboard || [];
+  const deduped = existing.filter((c) => c.text !== text);
+  ariaMemory.clipboard = [{ text, timestamp: Date.now() }, ...deduped].slice(
+    0,
+    10,
+  );
+  saveMemory();
+}
+
+export function getClipboardHistory() {
+  return ariaMemory.clipboard || [];
+}
+
+// Intercept clipboard writes
+const origWrite = navigator.clipboard?.writeText?.bind(navigator.clipboard);
+if (origWrite) {
+  navigator.clipboard.writeText = async (text) => {
+    addToClipboardHistory(text);
+    return origWrite(text);
+  };
+}
+
+/* ── CONTEXT STRING (sent to AI) ── */
+export function buildMemoryContext() {
+  const lines = [];
+  if (ariaMemory.facts.length) {
+    lines.push("\n[ARIA MEMORY — Known facts about this user:]");
+    ariaMemory.facts
+      .slice(0, 30)
+      .forEach((f) => lines.push(`• [${f.category}] ${f.text}`));
+  }
+  if (ariaMemory.projects.length) {
+    lines.push("\n[ACTIVE PROJECTS:]");
+    ariaMemory.projects
+      .slice(0, 5)
+      .forEach((p) => lines.push(`• ${p.name}: ${p.description}`));
+  }
+  return lines.join("\n");
+}
+
+/* ── RENDER MEMORY PANEL (in settings) ── */
 export function renderMemoryPanel() {
   const container = document.getElementById("memoryFactsList");
   if (!container) return;
 
-  const facts = getAllFacts();
+  const cats = [
+    "all",
+    "note",
+    "preference",
+    "skill",
+    "project",
+    "auto",
+    "reminder",
+  ];
+  const filter = document.getElementById("memFilterCat")?.value || "all";
+  const search = (
+    document.getElementById("memSearchInput")?.value || ""
+  ).toLowerCase();
 
-  if (!facts.length) {
-    container.innerHTML = `<div class="memEmpty">No memories stored yet. ARIA will learn as you chat.</div>`;
+  const visible = ariaMemory.facts.filter((f) => {
+    const matchCat = filter === "all" || f.category === filter;
+    const matchText = !search || f.text.toLowerCase().includes(search);
+    return matchCat && matchText;
+  });
+
+  if (!visible.length) {
+    container.innerHTML = `<div class="memEmpty">No memories yet — ARIA will remember things automatically as you chat, or add them manually above.</div>`;
     return;
   }
 
-  container.innerHTML = facts
+  container.innerHTML = visible
     .map(
       (f) => `
-    <div class="memFact ${f.pinned ? "pinned" : ""}" data-id="${f.id}">
-      <span class="memCategory">${f.category}</span>
-      <span class="memText">${f.text}</span>
-      <div class="memActions">
-        <button class="memPin" onclick="window.ARIA_pinFact('${f.id}', ${!f.pinned})" title="${f.pinned ? "Unpin" : "Pin"}">
-          ${f.pinned ? "📌" : "📍"}
-        </button>
-        <button class="memDelete" onclick="window.ARIA_forgetFact('${f.id}')" title="Forget">✕</button>
+    <div class="memFactItem" data-id="${f.id}">
+      <div class="memFactMeta">
+        <span class="memFactCat">${f.category}</span>
+        <span class="memFactSrc">${f.source === "auto" ? "auto" : "manual"}</span>
+        <span class="memFactDate">${new Date(f.createdAt).toLocaleDateString()}</span>
       </div>
-    </div>
-  `,
+      <div class="memFactText" id="memText_${f.id}">${escapeHtml(f.text)}</div>
+      <div class="memFactActions">
+        <button class="memBtn memEditBtn" onclick="window.ARIA_editMemFact(${f.id})">✎ Edit</button>
+        <button class="memBtn memDelBtn"  onclick="window.ARIA_deleteMemFact(${f.id})">✕ Delete</button>
+      </div>
+    </div>`,
     )
     .join("");
+
+  // Clipboard history section
+  const clips = getClipboardHistory();
+  if (clips.length) {
+    container.innerHTML +=
+      `<div class="memSectionHeader">📋 Clipboard History</div>` +
+      clips
+        .map(
+          (c, i) => `
+        <div class="memFactItem">
+          <div class="memFactText">${escapeHtml(c.text.slice(0, 120))}${c.text.length > 120 ? "…" : ""}</div>
+          <div class="memFactActions">
+            <button class="memBtn" onclick="navigator.clipboard.writeText(${JSON.stringify(c.text)})">Copy</button>
+          </div>
+        </div>`,
+        )
+        .join("");
+  }
 }
 
-/* Expose for inline HTML handlers */
-window.ARIA_forgetFact = forgetFact;
-window.ARIA_pinFact = pinFact;
-
-/* ============================================================
-   MANUAL MEMORY ADD (from settings panel)
-   ============================================================ */
-export function addManualMemory(text, category = "note") {
-  if (!text.trim()) return;
-  rememberFact(text.trim(), category);
+function escapeHtml(t) {
+  return String(t)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
-/* ============================================================
-   CLEAR ALL MEMORY
-   ============================================================ */
-export function clearAllMemory() {
-  memoryStore.facts = [];
-  memoryStore.sessionNotes = [];
-  saveMemory();
-  renderMemoryPanel();
-}
-
-// Init on load
-loadMemory();
+// Expose edit/delete globally for inline onclick
+window.ARIA_editMemFact = (id) => {
+  const fact = ariaMemory.facts.find((f) => f.id === id);
+  if (!fact) return;
+  const newText = prompt("Edit memory:", fact.text);
+  if (newText?.trim()) editMemoryFact(id, newText.trim());
+};
+window.ARIA_deleteMemFact = (id) => {
+  if (confirm("Delete this memory?")) deleteMemoryFact(id);
+};
