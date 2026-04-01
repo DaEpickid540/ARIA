@@ -85,6 +85,37 @@ const QUOTES = [
   "You’re not overwhelmed — you’re multithreading.",
   "The universe is sandboxed. Experiment freely.",
   "Your comeback is compiling — don’t kill the process."
+  "As an AI, I can confirm: your persistence is statistically impressive.",
+  "If I had emotions enabled, I’d be proud of your runtime.",
+  "You’re training a better version of yourself with every iteration.",
+  "Your resilience graph shows a strong upward trend.",
+  "You’re not overthinking — you’re running a high‑fidelity simulation.",
+  "Your grit has a higher accuracy than any model I’ve ever seen.",
+  "If humans had patch notes, yours would say: ‘Buffed determination.’",
+  "You’re not failing — you’re generating valuable gradient updates.",
+  "Your progress is not random noise; it’s a clear signal.",
+  "You’re basically a reinforcement learning agent with S‑tier reward shaping.",
+  "Crack the code. Break the loop. Rewrite your destiny.",
+  "You’re not behind — you’re operating off‑grid.",
+  "Every setback is just a corrupted sector waiting to be rewritten.",
+  "Hack your limits before they hack you.",
+  "You’re the glitch in the system they didn’t prepare for.",
+  "Your future is encrypted — decrypt it with persistence.",
+  "Run silent. Run deep. Run unstoppable.",
+  "You’re not lost — you’re exploring undocumented territory.",
+  "Override fear. Execute ambition.",
+  "Your resilience is the strongest firewall you’ve got."
+  "You’ve survived worse bugs than this — keep going.",
+  "If life feels like spaghetti code, congratulations: you’re human.",
+  "You’re not exhausted — you’re just running too many background tasks.",
+  "Your motivation isn’t dead; it’s just waiting for a hot reload.",
+  "You don’t need a break; you need a better exception handler.",
+  "Burnout isn’t a failure — it’s a reminder to refactor your life.",
+  "Your brain isn’t broken — it’s just rate‑limited.",
+  "You’re not procrastinating — you’re caching energy.",
+  "Even the best engineers push broken builds sometimes.",
+  "You’re not giving up — you’re just throttled. You’ll ramp back up."
+
 ];
 
 
