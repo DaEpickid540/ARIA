@@ -97,13 +97,7 @@
         </div>
         <div class="lockDivider"></div>
         <p class="lockInstruct">AUTHENTICATION REQUIRED</p>
-        <input
-          id="userIdInput"
-          type="text"
-          placeholder="User ID"
-          autocomplete="off"
-          autocapitalize="none"
-        />
+        <input id="userIdInput" type="text" placeholder="User ID" autocomplete="off" autocapitalize="none" />
         <input
           id="passwordInput"
           type="password"
@@ -124,119 +118,133 @@
     <!--  HOMEPAGE                 -->
     <!-- ========================= -->
     <div id="homepageScreen">
-      <div id="homepageContent" class="neon">
-        <div id="homeHeader">
-          <div id="homeAriaTitle">
-            <span class="homeTitleMain">ARIA</span>
-            <span class="homeTitleAcronym"
-              >Adaptive Reasoning Intelligence Architecture</span
-            >
-          </div>
-          <div id="ariaEmotionIndicator" class="emotionIndicator">
-            ◉ NEUTRAL
-          </div>
+      <!-- HEADER -->
+      <div id="homeHeader">
+        <div id="homeAriaTitle">
+          <span class="homeTitleMain">ARIA</span>
+          <span class="homeTitleAcronym">Adaptive Reasoning Intelligence Architecture</span>
+        </div>
+        <div id="ariaEmotionIndicator" class="emotionIndicator">◉ NEUTRAL</div>
+      </div>
+
+      <!-- WIDGET GRID -->
+      <div id="homeWidgetGrid">
+
+        <!-- ROW 1: Time (2 cols) | Weather (2 cols) | System (2 cols) -->
+        <div class="hwCard hw-2x1" id="homeTimeCard">
+          <div class="hwIcon">⏰</div>
+          <div class="hwLabel">SYSTEM TIME</div>
+          <div id="homeTime" class="hwValue hw-xl"></div>
         </div>
 
-        <!-- TOP GRID (3-COLUMN) -->
-        <div id="homeTopGrid" class="homeGrid">
-          <div id="homeTimeCard" class="homeCard" style="--i: 0">
-            <div class="homeLabel">⏱ SYSTEM TIME</div>
-            <div id="homeTime" class="homeValue"></div>
-          </div>
-          <div id="homeWeatherCard" class="homeCard" style="--i: 1">
-            <div class="homeLabel">🌡 WEATHER — MASON, OH</div>
-            <div id="homeWeatherMain" class="homeValue"></div>
-            <div id="homeWeatherDetails" class="homeSub"></div>
-          </div>
-          <div id="homeSystemCard" class="homeCard" style="--i: 2">
-            <div class="homeLabel">💻 SYSTEM</div>
-            <div id="homeSystem" class="homeValue"></div>
-            <div id="networkIndicator" class="homeSub"></div>
-          </div>
+        <div class="hwCard hw-2x1" id="homeWeatherCard">
+          <div class="hwIcon">🌤</div>
+          <div class="hwLabel">WEATHER — MASON OH</div>
+          <div id="homeWeatherMain" class="hwValue hw-lg"></div>
+          <div id="homeWeatherDetails" class="hwSub"></div>
         </div>
 
-        <!-- SCROLL ROW 1 -->
-        <div class="scrollRow">
-          <div id="homeQuoteCard" class="homeCard scrollCard">
-            <div class="homeLabel">💬 MOTIVATION</div>
-            <div id="homeQuote" class="homeValue"></div>
-          </div>
-          <div id="homeTasksCard" class="homeCard scrollCard">
-            <div class="homeLabel">✅ TASKS PREVIEW</div>
-            <div id="homeTasksList" class="homeValue"></div>
-          </div>
-          <div id="homeRecentCard" class="homeCard scrollCard">
-            <div class="homeLabel">🗂 RECENT CHATS</div>
-            <div id="homeRecentChats" class="homeValue"></div>
-          </div>
+        <div class="hwCard hw-2x1" id="homeSystemCard">
+          <div class="hwIcon">💻</div>
+          <div class="hwLabel">SYSTEM</div>
+          <div id="homeSystem" class="hwValue"></div>
+          <div id="networkIndicator" class="hwSub"></div>
         </div>
 
-        <!-- SCROLL ROW 2 -->
-        <div class="scrollRow">
-          <div id="homeHealthCard" class="homeCard scrollCard">
-            <div class="homeLabel">🔧 SYSTEM HEALTH</div>
-            <div id="homeHealthScore" class="homeValue"></div>
-            <div id="homeHealthDetails" class="homeSub"></div>
-          </div>
-          <div id="homeSpeedCard" class="homeCard scrollCard">
-            <div class="homeLabel">⚡ SPEED TEST</div>
-            <div id="homeSpeedPreview" class="homeValue"></div>
-            <div class="homeSub">Simulated estimate</div>
-          </div>
-          <div id="homeQuickToolsCard" class="homeCard scrollCard">
-            <div class="homeLabel">🛠 QUICK TOOLS</div>
-            <div id="homeQuickTools" class="homeValue"></div>
-          </div>
-          <div id="homeSummaryCard" class="homeCard scrollCard">
-            <div class="homeLabel">📋 DAILY SUMMARY</div>
-            <div id="homeDailySummary" class="homeValue"></div>
-          </div>
-          <div id="homeMonitorCard" class="homeCard scrollCard">
-            <div class="homeLabel">📡 SYSTEM MONITOR</div>
-            <div id="homeSystemMonitor" class="homeValue"></div>
-          </div>
+        <!-- ROW 2: Health (2x2 tall) | Speed (1x1) | Quote (3x1) | Tasks (2x1) -->
+        <div class="hwCard hw-2x2" id="homeHealthCard">
+          <div class="hwIcon">💚</div>
+          <div class="hwLabel">SYSTEM HEALTH</div>
+          <div id="homeHealthScore" class="hwValue hw-xl"></div>
+          <div id="homeHealthDetails" class="hwSub"></div>
         </div>
 
-        <div class="scrollRow" id="homeRow3">
-          <div class="homeCard scrollCard">
-            <div class="homeLabel">🔌 USB DEVICES</div>
-            <div id="homeUSBDevices" class="homeValue"></div>
-          </div>
-          <div class="homeCard scrollCard">
-            <div class="homeLabel">📶 NETWORK</div>
-            <div id="homeNetworkInfo" class="homeValue"></div>
-          </div>
-          <div class="homeCard scrollCard">
-            <div class="homeLabel">⚙ BG TASKS</div>
-            <div id="homeBgTasks" class="homeValue"></div>
-          </div>
-          <div class="homeCard scrollCard">
-            <div class="homeLabel">🧠 ARIA MEMORY</div>
-            <div id="homeMemoryFacts" class="homeValue"></div>
-          </div>
-          <div
-            class="homeCard scrollCard"
-            id="homeLinkCard"
-            style="cursor: pointer"
-            onclick="window.ARIA_openLinkMode?.()"
-          >
-            <div class="homeLabel">🔗 LINK MODE</div>
-            <div id="homeLinkStatus" class="homeValue">Click to connect</div>
-          </div>
-          <div class="homeCard scrollCard">
-            <div class="homeLabel">📵 BLUETOOTH</div>
-            <div id="homeBluetooth" class="homeValue"></div>
-          </div>
+        <div class="hwCard hw-2x1" id="homeSpeedCard">
+          <div class="hwIcon">⚡</div>
+          <div class="hwLabel">SPEED TEST</div>
+          <div id="homeSpeedPreview" class="hwValue hw-lg"></div>
         </div>
 
-        <div id="homeButtons">
-          <button id="enterConsoleBtn" class="primaryBtn glitch wideBtn">
-            ⚡ ENTER ARIA CONSOLE
-          </button>
+        <div class="hwCard hw-2x1" id="homeNetworkCard">
+          <div class="hwIcon">📶</div>
+          <div class="hwLabel">NETWORK STATUS</div>
+          <div id="homeNetworkInfo" class="hwValue"></div>
         </div>
+
+        <div class="hwCard hw-4x1" id="homeQuoteCard">
+          <div class="hwIcon">💬</div>
+          <div class="hwLabel">MOTIVATION</div>
+          <div id="homeQuote" class="hwValue hw-quote"></div>
+        </div>
+
+        <!-- ROW 3: Quick Tools (3x2 big) | Tasks (3x1) | Recent Chats (3x1) -->
+        <div class="hwCard hw-3x2" id="homeQuickToolsCard">
+          <div class="hwIcon">🛠</div>
+          <div class="hwLabel">QUICK TOOLS</div>
+          <div id="homeQuickTools" class="hwValue"></div>
+        </div>
+
+        <div class="hwCard hw-3x1" id="homeTasksCard">
+          <div class="hwIcon">✅</div>
+          <div class="hwLabel">TASKS</div>
+          <div id="homeTasksList" class="hwValue"></div>
+        </div>
+
+        <div class="hwCard hw-3x1" id="homeRecentCard">
+          <div class="hwIcon">🗂</div>
+          <div class="hwLabel">RECENT CHATS</div>
+          <div id="homeRecentChats" class="hwValue"></div>
+        </div>
+
+        <!-- ROW 4: Monitor (2x1) | Summary (2x1) | USB (2x1) | BG Tasks (2x1) | Memory (2x1) | Link (2x1) -->
+        <div class="hwCard hw-2x1" id="homeMonitorCard">
+          <div class="hwIcon">📡</div>
+          <div class="hwLabel">SYSTEM MONITOR</div>
+          <div id="homeSystemMonitor" class="hwValue hw-sm"></div>
+        </div>
+
+        <div class="hwCard hw-2x1" id="homeSummaryCard">
+          <div class="hwIcon">📋</div>
+          <div class="hwLabel">DAILY SUMMARY</div>
+          <div id="homeDailySummary" class="hwValue"></div>
+        </div>
+
+        <div class="hwCard hw-2x1" id="homeUSBCard">
+          <div class="hwIcon">🔌</div>
+          <div class="hwLabel">USB DEVICES</div>
+          <div id="homeUSBDevices" class="hwValue"></div>
+        </div>
+
+        <div class="hwCard hw-2x1" id="homeBgTasksCard">
+          <div class="hwIcon">⚙</div>
+          <div class="hwLabel">BG TASKS</div>
+          <div id="homeBgTasks" class="hwValue"></div>
+        </div>
+
+        <div class="hwCard hw-2x1" id="homeMemoryCard">
+          <div class="hwIcon">🧠</div>
+          <div class="hwLabel">ARIA MEMORY</div>
+          <div id="homeMemoryFacts" class="hwValue"></div>
+        </div>
+
+        <div class="hwCard hw-2x1" id="homeLinkCard" onclick="window.ARIA_openLinkMode?.()" style="cursor:pointer">
+          <div class="hwIcon">🔗</div>
+          <div class="hwLabel">LINK MODE</div>
+          <div id="homeLinkStatus" class="hwValue">Tap to connect</div>
+        </div>
+
+        <div class="hwCard hw-2x1" id="homeBluetoothCard">
+          <div class="hwIcon">📵</div>
+          <div class="hwLabel">BLUETOOTH</div>
+          <div id="homeBluetooth" class="hwValue"></div>
+        </div>
+
+      </div><!-- end homeWidgetGrid -->
+
+      <div id="homeButtons">
+        <button id="enterConsoleBtn" class="primaryBtn glitch wideBtn">⚡ ENTER ARIA CONSOLE</button>
       </div>
     </div>
-
     <!-- ========================= -->
     <!--  MAIN LAYOUT              -->
     <!-- ========================= -->
@@ -244,9 +252,7 @@
       <div id="sidebarOverlay"></div>
       <div id="ariaHalo"></div>
       <aside id="sidebar">
-        <button id="sidebarCollapseBtn" title="Toggle sidebar">
-          <span id="sidebarCollapseIcon">‹‹</span>
-        </button>
+        <button id="sidebarCollapseBtn" title="Toggle sidebar"><span id="sidebarCollapseIcon">‹‹</span></button>
         <!-- ARIA logo in sidebar -->
         <div id="sidebarHeader">
           <div class="sidebarLogo">ARIA</div>
@@ -265,65 +271,24 @@
           <button id="goLockBtn" class="secondaryBtn glitch">🔒 Lock</button>
           <button id="newChatBtn" class="primaryBtn glitch">＋ New Chat</button>
           <div id="toolsDropdownWrap">
-            <button id="toolsDropdownBtn" class="secondaryBtn glitch">
-              🔧 Tools ▾
-            </button>
-            <div id="toolsDropdown" style="display: none">
+            <button id="toolsDropdownBtn" class="secondaryBtn glitch">🔧 Tools ▾</button>
+            <div id="toolsDropdown" style="display:none">
               <button class="toolDropItem" id="tool_math">∑ Math Mode</button>
               <button class="toolDropItem" id="tool_code">🖥 Code Mode</button>
-              <button class="toolDropItem" id="tool_study">
-                📚 Study Mode
-              </button>
-              <button class="toolDropItem" id="tool_think">
-                🧠 Thinking Mode
-              </button>
+              <button class="toolDropItem" id="tool_study">📚 Study Mode</button>
+              <button class="toolDropItem" id="tool_think">🧠 Thinking Mode</button>
               <div class="toolDropDivider"></div>
-              <button class="toolDropItem" id="tool_search">
-                🔍 Web Search
-              </button>
-              <button class="toolDropItem" id="tool_imagine">
-                🎨 Generate Image
-              </button>
-              <button class="toolDropItem" id="tool_calendar">
-                📅 Calendar
-              </button>
-              <button class="toolDropItem" id="tool_bg">
-                ⚙ Background Task
-              </button>
+              <button class="toolDropItem" id="tool_search">🔍 Web Search</button>
+              <button class="toolDropItem" id="tool_imagine">🎨 Generate Image</button>
+              <button class="toolDropItem" id="tool_calendar">📅 Calendar</button>
+              <button class="toolDropItem" id="tool_bg">⚙ Background Task</button>
               <div class="toolDropDivider"></div>
-              <button class="toolDropItem" id="tool_deepthink">
-                🔬 Think Deeper
-              </button>
-              <button class="toolDropItem" id="tool_music">
-                🎵 Music Tutor
-              </button>
-              <button class="toolDropItem" id="tool_workspace">
-                🗂 Workspace
-              </button>
-              <button class="toolDropItem" id="tool_bluetooth">
-                📵 Bluetooth
-              </button>
-              <button class="toolDropItem" id="tool_link">🔗 Link Mode</button>
-              <button class="toolDropItem" id="tool_hometools">
-                🏠 Home Tools
-              </button>
-              <button class="toolDropItem" id="tool_commands">
-                📋 All Commands
-              </button>
+              <button class="toolDropItem" id="tool_commands">📋 All Commands</button>
             </div>
           </div>
-          <button id="commandsBtn" class="secondaryBtn glitch">
-            📋 Commands
-          </button>
-          <button id="bgTasksListBtn" class="secondaryBtn glitch">
-            ⚙ BG Tasks
-          </button>
-          <button id="pipToggleBtn" class="secondaryBtn glitch">
-            💬 Mini Chat
-          </button>
-          <button id="settingsBtn" class="secondaryBtn glitch">
-            ⚙ Settings
-          </button>
+          <button id="commandsBtn" class="secondaryBtn glitch">📋 Commands</button>
+          <button id="bgTasksListBtn" class="secondaryBtn glitch">⚙ BG Tasks</button>
+          <button id="settingsBtn" class="secondaryBtn glitch">⚙ Settings</button>
         </div>
       </aside>
 
@@ -334,44 +299,13 @@
           <div class="codePanelActions">
             <button id="codePanelCopyBtn">⎘ Copy</button>
             <button id="codePanelDownloadBtn">⬇ Download</button>
-            <button id="codePanelPreviewBtn" style="display: none">
-              Preview
-            </button>
             <button id="codePanelCloseBtn">✕ Close</button>
           </div>
         </div>
-        <div id="codePanelBody">
-          <iframe
-            id="codePanelPreviewFrame"
-            style="
-              display: none;
-              width: 100%;
-              height: 100%;
-              border: none;
-              background: #fff;
-            "
-          ></iframe>
-          <pre id="codePanelContent"><code id="codePanelCode"></code></pre>
-        </div>
+        <div id="codePanelBody"><pre id="codePanelContent"><code id="codePanelCode"></code></pre></div>
       </div>
-      <div id="commandsModal" style="display: none">
-        <div id="commandsPanel">
-          <div id="commandsHeader">
-            <h2>ARIA COMMANDS</h2>
-            <button id="commandsCloseBtn">✕</button>
-          </div>
-          <div id="commandsList"></div>
-        </div>
-      </div>
-      <div id="bgTasksModal" style="display: none">
-        <div id="bgTasksPanel">
-          <div id="bgTasksHeader">
-            <h2>BACKGROUND TASKS</h2>
-            <button id="bgTasksCloseBtn">✕</button>
-          </div>
-          <div id="bgTasksList"></div>
-        </div>
-      </div>
+      <div id="commandsModal" style="display:none"><div id="commandsPanel"><div id="commandsHeader"><h2>ARIA COMMANDS</h2><button id="commandsCloseBtn">✕</button></div><div id="commandsList"></div></div></div>
+      <div id="bgTasksModal" style="display:none"><div id="bgTasksPanel"><div id="bgTasksHeader"><h2>BACKGROUND TASKS</h2><button id="bgTasksCloseBtn">✕</button></div><div id="bgTasksList"></div></div></div>
 
       <main id="chatWindow">
         <!-- Chat header bar -->
@@ -385,29 +319,17 @@
           <div id="chatHeaderRight">
             <div id="ariaStatusDot" class="statusDot"></div>
             <span id="ariaStatusLabel">ONLINE</span>
-            <span id="ariaVersionLabel"></span>
           </div>
         </div>
 
         <div id="messages"></div>
 
         <div id="inputBar">
-          <div id="attachPreviewRow" style="display: none"></div>
+          <div id="attachPreviewRow" style="display:none"></div>
           <div id="inputTopRow">
             <div id="textareaWrap">
-              <textarea
-                id="userInput"
-                placeholder="Message ARIA..."
-                rows="1"
-              ></textarea>
-              <label class="attachInline" title="Attach file"
-                >📎<input
-                  type="file"
-                  id="fileUploadBtn"
-                  accept=".txt,.md,.pdf,.docx,.png,.jpg,.jpeg,.webp"
-                  style="display: none"
-                  multiple
-              /></label>
+              <textarea id="userInput" placeholder="Message ARIA..." rows="1"></textarea>
+              <label class="attachInline" title="Attach file">📎<input type="file" id="fileUploadBtn" accept=".txt,.md,.pdf,.docx,.png,.jpg,.jpeg,.webp" style="display:none" multiple></label>
             </div>
             <button id="sendBtn" class="primaryBtn glitch">Send</button>
           </div>
@@ -417,14 +339,14 @@
             <button id="pushToTalkBtn" class="voiceBtn glitch">🎙 PTT</button>
             <button id="vttBtn" class="voiceBtn glitch">🗣 VTT</button>
             <button id="ttsBtn" class="voiceBtn glitch">🔊 TTS</button>
-            <button id="mathModeBtn" style="display: none"></button>
-            <button id="codeAssistBtn" style="display: none"></button>
-            <button id="studyModeBtn" style="display: none"></button>
-            <button id="thinkingBtn" style="display: none"></button>
-            <button id="webSearchBtn" style="display: none"></button>
-            <button id="imagineBtn" style="display: none"></button>
-            <button id="calendarBtn" style="display: none"></button>
-            <button id="bgTaskBtn" style="display: none"></button>
+            <button id="mathModeBtn" style="display:none"></button>
+            <button id="codeAssistBtn" style="display:none"></button>
+            <button id="studyModeBtn" style="display:none"></button>
+            <button id="thinkingBtn" style="display:none"></button>
+            <button id="webSearchBtn" style="display:none"></button>
+            <button id="imagineBtn" style="display:none"></button>
+            <button id="calendarBtn" style="display:none"></button>
+            <button id="bgTaskBtn" style="display:none"></button>
             <div id="voiceWave"></div>
           </div>
         </div>
@@ -509,55 +431,13 @@
                 >
                   <span class="swatchDot"></span>Gilded
                 </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="pink"
-                  style="--sw: #ff0099"
-                >
-                  <span class="swatchDot"></span>Hot Pink
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="ice"
-                  style="--sw: #00aaff"
-                >
-                  <span class="swatchDot"></span>Ice Blue
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="toxic"
-                  style="--sw: #aaff00"
-                >
-                  <span class="swatchDot"></span>Toxic
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="mono"
-                  style="--sw: #cccccc"
-                >
-                  <span class="swatchDot"></span>Ghost
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="blood"
-                  style="--sw: #880000"
-                >
-                  <span class="swatchDot"></span>Blood
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="teal"
-                  style="--sw: #00ffcc"
-                >
-                  <span class="swatchDot"></span>Teal
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="solar"
-                  style="--sw: #ffaa00"
-                >
-                  <span class="swatchDot"></span>Solar
-                </button>
+                <button class="themeSwatch" data-theme="pink" style="--sw:#ff0099"><span class="swatchDot"></span>Hot Pink</button>
+                <button class="themeSwatch" data-theme="ice" style="--sw:#00aaff"><span class="swatchDot"></span>Ice Blue</button>
+                <button class="themeSwatch" data-theme="toxic" style="--sw:#aaff00"><span class="swatchDot"></span>Toxic</button>
+                <button class="themeSwatch" data-theme="mono" style="--sw:#cccccc"><span class="swatchDot"></span>Ghost</button>
+                <button class="themeSwatch" data-theme="blood" style="--sw:#880000"><span class="swatchDot"></span>Blood</button>
+                <button class="themeSwatch" data-theme="teal" style="--sw:#00ffcc"><span class="swatchDot"></span>Teal</button>
+                <button class="themeSwatch" data-theme="solar" style="--sw:#ffaa00"><span class="swatchDot"></span>Solar</button>
               </div>
             </section>
 
@@ -597,136 +477,11 @@
             <section class="settingsSection">
               <h3>Visual FX</h3>
               <div class="toggleRow">
-                <div>
-                  <span>Halo Effect</span>
-                  <div class="toggleHint">
-                    Screen glow when ARIA thinks/speaks
-                  </div>
-                </div>
-                <button id="toggle_haloEffects" class="toggleBtn active">
-                  ON
-                </button>
+                <div><span>Halo Effect</span><div class="toggleHint">Screen halo when ARIA thinks, speaks, or settings change</div></div>
+                <button id="toggle_haloEffects" class="toggleBtn active">ON</button>
               </div>
-              <input
-                type="range"
-                id="haloIntensity"
-                min="0.1"
-                max="1"
-                step="0.1"
-                value="0.5"
-                style="width: 100%; margin-top: 6px"
-              />
-              <h3 style="margin-top: 14px">Theme Engine v2</h3>
-              <label style="font-size: 10px; color: var(--text-muted)"
-                >Custom Accent Color</label
-              >
-              <input
-                type="color"
-                id="accentColorPicker"
-                value="#ff0000"
-                style="
-                  width: 100%;
-                  height: 32px;
-                  border: 1px solid var(--border-cut);
-                  background: var(--bg-raised);
-                  cursor: pointer;
-                  margin-top: 4px;
-                "
-              />
-              <label
-                style="
-                  font-size: 10px;
-                  color: var(--text-muted);
-                  margin-top: 10px;
-                  display: block;
-                "
-                >UI Font</label
-              >
-              <select
-                id="uiFontSelect"
-                style="
-                  width: 100%;
-                  background: var(--bg-raised);
-                  border: 1px solid var(--border-cut);
-                  color: var(--text-blaze);
-                  padding: 5px;
-                  font-size: 11px;
-                  font-family: &quot;Share Tech Mono&quot;, monospace;
-                  margin-top: 4px;
-                "
-              >
-                <option value="mono">Share Tech Mono (default)</option>
-                <option value="orbitron">Orbitron</option>
-                <option value="inter">Inter</option>
-                <option value="jetbrains">JetBrains Mono</option>
-                <option value="fira">Fira Code</option>
-              </select>
-              <label
-                style="
-                  font-size: 10px;
-                  color: var(--text-muted);
-                  margin-top: 10px;
-                  display: block;
-                "
-                >Background Animation</label
-              >
-              <select
-                id="bgAnimSelect"
-                style="
-                  width: 100%;
-                  background: var(--bg-raised);
-                  border: 1px solid var(--border-cut);
-                  color: var(--text-blaze);
-                  padding: 5px;
-                  font-size: 11px;
-                  font-family: &quot;Share Tech Mono&quot;, monospace;
-                  margin-top: 4px;
-                "
-              >
-                <option value="none">None</option>
-                <option value="grid">Grid</option>
-                <option value="rain">Matrix Rain</option>
-                <option value="stars">Stars</option>
-                <option value="pulse">Pulse</option>
-              </select>
-              <div class="toggleRow" style="margin-top: 10px">
-                <div>
-                  <span>AMOLED Mode</span>
-                  <div class="toggleHint">Pure black backgrounds</div>
-                </div>
-                <button id="toggle_amoled" class="toggleBtn">OFF</button>
-              </div>
-
-              <div class="toggleRow">
-                <div>
-                  <span>Halo Effect</span>
-                  <div class="toggleHint">
-                    Screen halo when ARIA thinks, speaks, or settings change
-                  </div>
-                </div>
-                <button id="toggle_haloEffects" class="toggleBtn active">
-                  ON
-                </button>
-              </div>
-              <label
-                style="
-                  font-family: &quot;Share Tech Mono&quot;, monospace;
-                  font-size: 10px;
-                  color: var(--text-muted);
-                  margin-top: 6px;
-                  display: block;
-                "
-                >Halo Intensity</label
-              >
-              <input
-                type="range"
-                id="haloIntensity"
-                min="0.1"
-                max="1"
-                step="0.1"
-                value="0.5"
-                style="width: 100%; margin-top: 4px"
-              />
+              <label style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-muted);margin-top:6px;display:block">Halo Intensity</label>
+              <input type="range" id="haloIntensity" min="0.1" max="1" step="0.1" value="0.5" style="width:100%;margin-top:4px">
 
               <div class="toggleRow">
                 <div>
@@ -1171,31 +926,6 @@
                 Pinned memories are always included in ARIA's context. Unpin to
                 deprioritize.
               </p>
-              <div style="display: flex; gap: 6px; margin-bottom: 8px">
-                <input
-                  id="memSearchInput"
-                  type="text"
-                  placeholder="Search..."
-                  class="settingsTextInput"
-                  style="flex: 1"
-                />
-                <select
-                  id="memFilterCat"
-                  style="
-                    background: var(--bg-raised);
-                    border: 1px solid var(--border-cut);
-                    color: var(--text-blaze);
-                    padding: 4px 8px;
-                    font-size: 10px;
-                    font-family: &quot;Share Tech Mono&quot;, monospace;
-                  "
-                >
-                  <option value="all">All</option>
-                  <option value="note">Note</option>
-                  <option value="preference">Pref</option>
-                  <option value="auto">Auto</option>
-                </select>
-              </div>
               <div id="memoryFactsList"></div>
             </section>
 
@@ -1405,43 +1135,5 @@
     <audio id="bootSound" src="boot-startup.mp3" preload="auto"></audio>
 
     <script type="module" src="js/main.js"></script>
-
-    <div id="chatNotification"></div>
-    <div id="pipChat" style="display: none">
-      <div id="pipChatHeader">
-        <span>ARIA</span>
-        <div class="pipChatBtns">
-          <button id="pipChatExpand">△</button
-          ><button id="pipChatClose">✕</button>
-        </div>
-      </div>
-      <div id="pipChatMessages"></div>
-      <div id="pipChatInput">
-        <input
-          id="pipChatInputField"
-          type="text"
-          placeholder="Ask ARIA..."
-        /><button id="pipChatSend">Send</button>
-      </div>
-    </div>
-    <div id="linkModeOverlay" style="display: none">
-      <div id="linkModePanel">
-        <div id="linkModeHeader">
-          <span>🔗 ARIA LINK MODE</span><button id="linkModeCloseBtn">✕</button>
-        </div>
-        <div id="linkModeBody">
-          <canvas id="linkModeCanvas"></canvas>
-          <div id="linkModeDevices"></div>
-          <div id="linkModeActions">
-            <button class="linkBtn" id="linkSendFileBtn">📤 Send File</button>
-            <button class="linkBtn" id="linkBtScanBtn">
-              📵 Bluetooth Scan
-            </button>
-            <button class="linkBtn" id="linkWifiBtn">📶 WiFi Transfer</button>
-            <button class="linkBtn" id="linkServerBtn">☁ Via Server</button>
-          </div>
-        </div>
-      </div>
-    </div>
   </body>
 </html>
