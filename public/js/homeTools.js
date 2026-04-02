@@ -2,14 +2,22 @@
 // All home-screen widgets in one file. homepage.js imports from here.
 
 const QUOTES = [
-  "Discipline beats motivation.", "Small steps compound into impossible results.",
-  "You don't need permission. You need momentum.", "Consistency is a superpower.",
-  "Your future self is watching.", "Comfort is the enemy of progress.",
-  "You can't lose if you refuse to stop.", "Iteration beats perfection — ship it.",
-  "Your habits are the codebase of your life.", "Failure is data. Use it.",
-  "Upgrade complete: confidence module online.", "Executing protocol: Rise above.",
-  "Progress, not perfection.", "Every expert was once a beginner who refused to quit.",
-  "Ship it, then iterate.", "The gap between who you are and who you want to be is called action.",
+  "Discipline beats motivation.",
+  "Small steps compound into impossible results.",
+  "You don't need permission. You need momentum.",
+  "Consistency is a superpower.",
+  "Your future self is watching.",
+  "Comfort is the enemy of progress.",
+  "You can't lose if you refuse to stop.",
+  "Iteration beats perfection — ship it.",
+  "Your habits are the codebase of your life.",
+  "Failure is data. Use it.",
+  "Upgrade complete: confidence module online.",
+  "Executing protocol: Rise above.",
+  "Progress, not perfection.",
+  "Every expert was once a beginner who refused to quit.",
+  "Ship it, then iterate.",
+  "The gap between who you are and who you want to be is called action.",
 
   // Added quotes
   "Momentum is built, not gifted.",
@@ -26,7 +34,7 @@ const QUOTES = [
   "You’re not behind — you’re building.",
   "Courage is a habit too.",
   "The only way to fail is to stop iterating.",
-  "Your actions broadcast your priorities louder than your words."
+  "Your actions broadcast your priorities louder than your words.",
   "Resilience is a feature, not a bug.",
   "Reboot your mindset and rerun the mission.",
   "Your persistence is your competitive advantage.",
@@ -56,7 +64,7 @@ const QUOTES = [
   "Courage is choosing to continue when comfort begs you not to.",
   "You don’t need perfect conditions — you need relentless execution.",
   "Your potential expands every time you refuse to quit.",
-    "Your potential is currently commented out — time to uncomment it.",
+  "Your potential is currently commented out — time to uncomment it.",
   "Be the kind of person your future AI model would be trained on.",
   "Even the cleanest code started as a messy draft.",
   "Your progress bar isn’t stuck — it’s just processing greatness.",
@@ -84,7 +92,7 @@ const QUOTES = [
   "Debug the fear. Deploy the action.",
   "You’re not overwhelmed — you’re multithreading.",
   "The universe is sandboxed. Experiment freely.",
-  "Your comeback is compiling — don’t kill the process."
+  "Your comeback is compiling — don’t kill the process.",
   "As an AI, I can confirm: your persistence is statistically impressive.",
   "If I had emotions enabled, I’d be proud of your runtime.",
   "You’re training a better version of yourself with every iteration.",
@@ -104,7 +112,7 @@ const QUOTES = [
   "Run silent. Run deep. Run unstoppable.",
   "You’re not lost — you’re exploring undocumented territory.",
   "Override fear. Execute ambition.",
-  "Your resilience is the strongest firewall you’ve got."
+  "Your resilience is the strongest firewall you’ve got.",
   "You’ve survived worse bugs than this — keep going.",
   "If life feels like spaghetti code, congratulations: you’re human.",
   "You’re not exhausted — you’re just running too many background tasks.",
@@ -114,8 +122,7 @@ const QUOTES = [
   "Your brain isn’t broken — it’s just rate‑limited.",
   "You’re not procrastinating — you’re caching energy.",
   "Even the best engineers push broken builds sometimes.",
-  "You’re not giving up — you’re just throttled. You’ll ramp back up."
-
+  "You’re not giving up — you’re just throttled. You’ll ramp back up.",
 ];
 
 /* ═══════════════════════════════════════════
@@ -126,32 +133,55 @@ export function initTime() {
   if (!el) return;
   const update = () => {
     el.textContent = new Date().toLocaleString([], {
-      weekday:"short", month:"short", day:"numeric",
-      hour:"2-digit", minute:"2-digit", second:"2-digit",
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
     });
   };
-  update(); setInterval(update, 1000);
+  update();
+  setInterval(update, 1000);
 }
 
 /* ═══════════════════════════════════════════
    WEATHER
 ═══════════════════════════════════════════ */
 export async function initWeather() {
-  const mainEl   = document.getElementById("homeWeatherMain");
+  const mainEl = document.getElementById("homeWeatherMain");
   const detailEl = document.getElementById("homeWeatherDetails");
   if (!mainEl) return;
-  const WMO = {0:"Clear ☀",1:"Mainly Clear",2:"Partly Cloudy ⛅",3:"Overcast ☁",
-    45:"Foggy 🌫",51:"Light Drizzle",61:"Light Rain 🌧",63:"Rain 🌧",65:"Heavy Rain",
-    71:"Light Snow 🌨",73:"Snow ❄",80:"Showers",95:"Thunderstorm ⛈"};
+  const WMO = {
+    0: "Clear ☀",
+    1: "Mainly Clear",
+    2: "Partly Cloudy ⛅",
+    3: "Overcast ☁",
+    45: "Foggy 🌫",
+    51: "Light Drizzle",
+    61: "Light Rain 🌧",
+    63: "Rain 🌧",
+    65: "Heavy Rain",
+    71: "Light Snow 🌨",
+    73: "Snow ❄",
+    80: "Showers",
+    95: "Thunderstorm ⛈",
+  };
   try {
     mainEl.textContent = "Loading…";
     const res = await fetch("/api/weather?lat=39.3601&lon=-84.3097");
     const { weather: w } = await res.json();
-    if (!w) { mainEl.textContent = "Unavailable"; return; }
-    const f = (w.temperature * 9/5 + 32).toFixed(0);
+    if (!w) {
+      mainEl.textContent = "Unavailable";
+      return;
+    }
+    const f = ((w.temperature * 9) / 5 + 32).toFixed(0);
     mainEl.innerHTML = `<span class="hw-lg">${w.temperature}°C / ${f}°F</span>`;
-    if (detailEl) detailEl.textContent = `${WMO[w.weathercode] || "—"} · Wind ${w.windspeed} km/h`;
-  } catch { mainEl.textContent = "Unavailable"; }
+    if (detailEl)
+      detailEl.textContent = `${WMO[w.weathercode] || "—"} · Wind ${w.windspeed} km/h`;
+  } catch {
+    mainEl.textContent = "Unavailable";
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -161,11 +191,16 @@ export function initSystemInfo() {
   const sysEl = document.getElementById("homeSystem");
   const netEl = document.getElementById("networkIndicator");
   if (!sysEl) return;
-  const ua      = navigator.userAgent;
-  const browser = ua.match(/(Chrome|Firefox|Safari|Edg)\/[\d.]+/)?.[0] || "Browser";
-  const os      = ua.match(/\(([^)]+)\)/)?.[1]?.split(";")[0]?.trim() || "Unknown OS";
-  const cores   = navigator.hardwareConcurrency || "?";
-  const mem     = navigator.deviceMemory || "?";
+  const ua = navigator.userAgent;
+  const browser =
+    ua.match(/(Chrome|Firefox|Safari|Edg)\/[\d.]+/)?.[0] || "Browser";
+  const os =
+    ua
+      .match(/\(([^)]+)\)/)?.[1]
+      ?.split(";")[0]
+      ?.trim() || "Unknown OS";
+  const cores = navigator.hardwareConcurrency || "?";
+  const mem = navigator.deviceMemory || "?";
   sysEl.innerHTML = `${os}<div class="hwSub">${browser}</div><div class="hwSub">${cores} cores · ~${mem}GB</div>`;
   if (netEl) {
     const upd = () => {
@@ -187,7 +222,10 @@ export function initQuote() {
   const next = () => {
     const q = QUOTES[Math.floor(Math.random() * QUOTES.length)];
     el.style.opacity = "0";
-    setTimeout(() => { el.textContent = q; el.style.opacity = "1"; }, 300);
+    setTimeout(() => {
+      el.textContent = q;
+      el.style.opacity = "1";
+    }, 300);
   };
   el.style.transition = "opacity 0.3s";
   next();
@@ -204,21 +242,31 @@ export function initTasksPreview() {
   if (!el) return;
   const refresh = () => {
     const tasks = JSON.parse(localStorage.getItem("aria_tasks") || "[]");
-    if (!tasks.length) { el.innerHTML = `<span class="hwEmpty">No tasks yet.</span>`; return; }
-    el.innerHTML = tasks.slice(0, 6).map((t, i) =>
-      `<div class="hwListItem" style="display:flex;align-items:center;gap:6px">
-        <input type="checkbox" onchange="window.ARIA_completeTask(${i})" style="accent-color:var(--red-core)">
+    if (!tasks.length) {
+      el.innerHTML = `<span class="hwEmpty">No tasks yet.</span>`;
+      return;
+    }
+    el.innerHTML = tasks
+      .slice(0, 6)
+      .map(
+        (t, i) =>
+          `<div class="hwListItem" style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" data-task-index="${i}" style="accent-color:var(--red-core)">
         <span>${t}</span>
-      </div>`
-    ).join("");
+      </div>`,
+      )
+      .join("");
   };
-  refresh();
-  window.ARIA_completeTask = (i) => {
+  // Event delegation — one listener on the container, index read at click-time
+  el.addEventListener("change", (e) => {
+    if (!e.target.matches("input[data-task-index]")) return;
+    const idx = parseInt(e.target.dataset.taskIndex, 10);
     const tasks = JSON.parse(localStorage.getItem("aria_tasks") || "[]");
-    tasks.splice(i, 1);
+    tasks.splice(idx, 1);
     localStorage.setItem("aria_tasks", JSON.stringify(tasks));
     refresh();
-  };
+  });
+  refresh();
 }
 
 /* ═══════════════════════════════════════════
@@ -228,36 +276,53 @@ export async function initRecentChats() {
   const el = document.getElementById("homeRecentChats");
   if (!el) return;
   try {
-    const uid  = window.ARIA_userId || "sarvin";
-    const res  = await fetch(`/api/loadChats?userId=${uid}`);
+    const uid = window.ARIA_userId || "sarvin";
+    const res = await fetch(`/api/loadChats?userId=${uid}`);
     const { chats = [] } = await res.json();
-    if (!chats.length) { el.innerHTML = `<span class="hwEmpty">No chats yet.</span>`; return; }
-    el.innerHTML = chats.slice(0, 5).map(c =>
-      `<div class="hwListItem hwListClickable" onclick="window.ARIA_enterConsole?.()">▸ ${c.title || "Untitled"}</div>`
-    ).join("");
-  } catch { el.innerHTML = `<span class="hwEmpty">Unable to load.</span>`; }
+    if (!chats.length) {
+      el.innerHTML = `<span class="hwEmpty">No chats yet.</span>`;
+      return;
+    }
+    el.innerHTML = chats
+      .slice(0, 5)
+      .map(
+        (c) =>
+          `<div class="hwListItem hwListClickable" data-chat-id="${c.id || ""}" style="cursor:pointer">▸ ${c.title || "Untitled"}</div>`,
+      )
+      .join("");
+    el.querySelectorAll(".hwListClickable[data-chat-id]").forEach((item) => {
+      item.addEventListener("click", () => {
+        const id = item.dataset.chatId;
+        if (id && window.ARIA_loadChat) window.ARIA_loadChat(id);
+        else window.ARIA_enterConsole?.();
+      });
+    });
+  } catch {
+    el.innerHTML = `<span class="hwEmpty">Unable to load.</span>`;
+  }
 }
 
 /* ═══════════════════════════════════════════
    SYSTEM HEALTH
 ═══════════════════════════════════════════ */
 export function initSystemHealth() {
-  const scoreEl   = document.getElementById("homeHealthScore");
+  const scoreEl = document.getElementById("homeHealthScore");
   const detailsEl = document.getElementById("homeHealthDetails");
   if (!scoreEl) return;
   const online = navigator.onLine;
-  const mem    = navigator.deviceMemory || 8;
-  const cores  = navigator.hardwareConcurrency || 4;
+  const mem = navigator.deviceMemory || 8;
+  const cores = navigator.hardwareConcurrency || 4;
   let score = 80;
   if (!online) score -= 20;
-  if (mem < 4)  score -= 15;
+  if (mem < 4) score -= 15;
   if (cores < 4) score -= 10;
   score = Math.max(0, Math.min(100, score));
   const color = score >= 70 ? "#00ff88" : score >= 40 ? "#ffaa00" : "#ff4444";
   scoreEl.innerHTML = `
     <div style="font-size:22px;color:${color};font-family:'Orbitron',sans-serif">${score}<span style="font-size:12px">/100</span></div>
     <div class="healthBar"><div class="healthFill" style="width:${score}%;background:${color}"></div></div>`;
-  if (detailsEl) detailsEl.textContent = `${cores} cores · ~${mem}GB · ${online?"Online":"Offline"}`;
+  if (detailsEl)
+    detailsEl.textContent = `${cores} cores · ~${mem}GB · ${online ? "Online" : "Offline"}`;
 }
 
 /* ═══════════════════════════════════════════
@@ -269,11 +334,14 @@ export async function initSpeedPreview() {
   el.textContent = "Testing…";
   try {
     const start = Date.now();
-    await fetch("/api/config?" + Date.now(), { cache: "no-store" });
+    await fetch("/api/ping?" + Date.now(), { cache: "no-store" });
     const ms = Date.now() - start;
-    const mbps = ms < 80 ? ">200" : ms < 200 ? "50–200" : ms < 500 ? "10–50" : "<10";
+    const mbps =
+      ms < 80 ? ">200" : ms < 200 ? "50–200" : ms < 500 ? "10–50" : "<10";
     el.innerHTML = `<span class="hw-lg">${mbps} Mbps</span><div class="hwSub">~${ms}ms ping</div>`;
-  } catch { el.textContent = "Unavailable"; }
+  } catch {
+    el.textContent = "Unavailable";
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -282,7 +350,23 @@ export async function initSpeedPreview() {
 export function initQuickTools() {
   const el = document.getElementById("homeQuickTools");
   if (!el) return;
-  const themes = ["red","cyan","green","purple","orange","gold","pink","ice","toxic","blood","teal","solar","violet","rose","cobalt"];
+  const themes = [
+    "red",
+    "cyan",
+    "green",
+    "purple",
+    "orange",
+    "gold",
+    "pink",
+    "ice",
+    "toxic",
+    "blood",
+    "teal",
+    "solar",
+    "violet",
+    "rose",
+    "cobalt",
+  ];
   el.innerHTML = `
     <button class="hwToolBtn" data-qt="clear">🗑 Clear Chats</button>
     <button class="hwToolBtn" data-qt="export">📋 Export</button>
@@ -290,31 +374,51 @@ export function initQuickTools() {
     <button class="hwToolBtn" data-qt="theme">🎨 Random Theme</button>
     <button class="hwToolBtn" data-qt="memory">🧠 View Memory</button>
     <button class="hwToolBtn" data-qt="link">🔗 Link Mode</button>`;
-  el.querySelectorAll("button").forEach(btn => {
+  el.querySelectorAll("button").forEach((btn) => {
     btn.onclick = () => {
       const a = btn.dataset.qt;
-      if (a === "clear")  { if (confirm("Clear all local chats?")) { localStorage.removeItem("aria_chats"); alert("Cleared."); } }
+      if (a === "clear") {
+        if (confirm("Clear all local chats?")) {
+          localStorage.removeItem("aria_chats");
+          alert("Cleared.");
+        }
+      }
       if (a === "export") {
         const data = localStorage.getItem("aria_chats") || "[]";
-        const link = Object.assign(document.createElement("a"), { href:"data:text/json;charset=utf-8,"+encodeURIComponent(data), download:"aria-chats.json" });
+        const link = Object.assign(document.createElement("a"), {
+          href: "data:text/json;charset=utf-8," + encodeURIComponent(data),
+          download: "aria-chats.json",
+        });
         link.click();
       }
       if (a === "import") {
-        const inp = Object.assign(document.createElement("input"), { type:"file", accept:".json" });
-        inp.onchange = e => {
+        const inp = Object.assign(document.createElement("input"), {
+          type: "file",
+          accept: ".json",
+        });
+        inp.onchange = (e) => {
           const r = new FileReader();
-          r.onload = ev => { try { JSON.parse(ev.target.result); localStorage.setItem("aria_chats", ev.target.result); alert("Imported!"); } catch { alert("Invalid."); } };
+          r.onload = (ev) => {
+            try {
+              JSON.parse(ev.target.result);
+              localStorage.setItem("aria_chats", ev.target.result);
+              alert("Imported!");
+            } catch {
+              alert("Invalid.");
+            }
+          };
           r.readAsText(e.target.files[0]);
         };
         inp.click();
       }
       if (a === "theme") {
         const t = themes[Math.floor(Math.random() * themes.length)];
-        import("./settings.js").then(m => m.applyTheme?.(t, true));
+        import("./settings.js").then((m) => m.applyTheme?.(t, true));
       }
       if (a === "memory") {
-        import("./settings.js").then(m => m.switchSettingsTab?.("memory"));
-        document.getElementById("settingsOverlay").style.display = "flex";
+        import("./settings.js").then((m) => m.switchSettingsTab?.("memory"));
+        const overlay = document.getElementById("settingsOverlay");
+        if (overlay) overlay.style.display = "flex";
       }
       if (a === "link") window.ARIA_openLinkMode?.();
     };
@@ -328,20 +432,29 @@ export async function initDailySummary() {
   const el = document.getElementById("homeDailySummary");
   if (!el) return;
   try {
-    const uid  = window.ARIA_userId || "sarvin";
-    const res  = await fetch(`/api/loadChats?userId=${uid}`);
+    const uid = window.ARIA_userId || "sarvin";
+    const res = await fetch(`/api/loadChats?userId=${uid}`);
     const { chats = [] } = await res.json();
     const today = new Date().toDateString();
-    let msgs = 0, chatCount = 0;
-    chats.forEach(c => {
+    let msgs = 0,
+      chatCount = 0;
+    chats.forEach((c) => {
       let had = false;
-      (c.messages || []).forEach(m => { if (new Date(m.timestamp).toDateString() === today) { msgs++; had = true; } });
+      (c.messages || []).forEach((m) => {
+        if (new Date(m.timestamp).toDateString() === today) {
+          msgs++;
+          had = true;
+        }
+      });
       if (had) chatCount++;
     });
-    el.innerHTML = msgs === 0
-      ? `<span class="hwEmpty">No messages today yet.</span>`
-      : `<b style="color:var(--red-neon)">${msgs}</b> messages across <b style="color:var(--red-neon)">${chatCount}</b> chat${chatCount !== 1 ? "s" : ""} today`;
-  } catch { el.textContent = "Unable to compute."; }
+    el.innerHTML =
+      msgs === 0
+        ? `<span class="hwEmpty">No messages today yet.</span>`
+        : `<b style="color:var(--red-neon)">${msgs}</b> messages across <b style="color:var(--red-neon)">${chatCount}</b> chat${chatCount !== 1 ? "s" : ""} today`;
+  } catch {
+    el.textContent = "Unable to compute.";
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -357,7 +470,9 @@ export function initSystemMonitor() {
     `Memory: <b>~${navigator.deviceMemory || "?"}GB</b>`,
     `Screen: <b>${screen.width}×${screen.height}</b>`,
     `Touch: <b>${"ontouchstart" in window ? "Yes" : "No"}</b>`,
-  ].map(l => `<div class="hwListItem">${l}</div>`).join("");
+  ]
+    .map((l) => `<div class="hwListItem">${l}</div>`)
+    .join("");
 }
 
 /* ═══════════════════════════════════════════
@@ -374,12 +489,19 @@ export async function initUSBDevices() {
     try {
       const devs = await navigator.usb.getDevices();
       el.innerHTML = devs.length
-        ? devs.map(d => `<div class="hwListItem">\xf0\x9f\x94\x8c ${d.productName || "Unknown"} <span style="color:var(--text-muted)">(${d.manufacturerName || "?"})</span></div>`).join("")
+        ? devs
+            .map(
+              (d) =>
+                `<div class="hwListItem">🔌 ${d.productName || "Unknown"} <span style="color:var(--text-muted)">(${d.manufacturerName || "?"})</span></div>`,
+            )
+            .join("")
         : `<span class="hwEmpty">No USB devices detected.</span>`;
-    } catch { el.innerHTML = `<span class="hwEmpty">USB access denied.</span>`; }
+    } catch {
+      el.innerHTML = `<span class="hwEmpty">USB access denied.</span>`;
+    }
   };
   refresh();
-  navigator.usb.addEventListener("connect",    refresh);
+  navigator.usb.addEventListener("connect", refresh);
   navigator.usb.addEventListener("disconnect", refresh);
 }
 
@@ -389,19 +511,33 @@ export async function initUSBDevices() {
 export function initNetworkInfo() {
   const el = document.getElementById("homeNetworkInfo");
   if (!el) return;
-  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  const conn =
+    navigator.connection ||
+    navigator.mozConnection ||
+    navigator.webkitConnection;
   const update = () => {
-    const lines = [`<div class="hwListItem">Status: <b style="color:${navigator.onLine?"#4cff4c":"#ff4444"}">${navigator.onLine?"Online":"Offline"}</b></div>`];
+    const lines = [
+      `<div class="hwListItem">Status: <b style="color:${navigator.onLine ? "#4cff4c" : "#ff4444"}">${navigator.onLine ? "Online" : "Offline"}</b></div>`,
+    ];
     if (conn) {
-      if (conn.effectiveType) lines.push(`<div class="hwListItem">Type: <b>${conn.effectiveType.toUpperCase()}</b></div>`);
-      if (conn.downlink)      lines.push(`<div class="hwListItem">Speed: <b>~${conn.downlink} Mbps</b></div>`);
-      if (conn.rtt)           lines.push(`<div class="hwListItem">Latency: <b>~${conn.rtt}ms</b></div>`);
+      if (conn.effectiveType)
+        lines.push(
+          `<div class="hwListItem">Type: <b>${conn.effectiveType.toUpperCase()}</b></div>`,
+        );
+      if (conn.downlink)
+        lines.push(
+          `<div class="hwListItem">Speed: <b>~${conn.downlink} Mbps</b></div>`,
+        );
+      if (conn.rtt)
+        lines.push(
+          `<div class="hwListItem">Latency: <b>~${conn.rtt}ms</b></div>`,
+        );
     }
     el.innerHTML = lines.join("");
   };
   update();
   conn?.addEventListener("change", update);
-  window.addEventListener("online",  update);
+  window.addEventListener("online", update);
   window.addEventListener("offline", update);
 }
 
@@ -415,15 +551,23 @@ export async function initBgTasksPreview() {
     try {
       const tasks = await (await fetch("/api/background")).json();
       el.innerHTML = tasks.length
-        ? tasks.slice(0, 4).map(t => `
+        ? tasks
+            .slice(0, 4)
+            .map(
+              (t) => `
           <div class="hwListItem">
-            <span style="color:${t.status==="done"?"#00ff88":t.status==="error"?"#ff4444":"var(--red-neon)"}">●</span>
-            ${t.task.slice(0, 35)}… <span style="color:var(--text-muted);font-size:9px">${t.status}</span>
-          </div>`).join("")
+            <span style="color:${t.status === "done" ? "#00ff88" : t.status === "error" ? "#ff4444" : "var(--red-neon)"}">●</span>
+            ${t.task.length > 35 ? t.task.slice(0, 35) + "…" : t.task} <span style="color:var(--text-muted);font-size:9px">${t.status}</span>
+          </div>`,
+            )
+            .join("")
         : `<span class="hwEmpty">No active tasks.</span>`;
-    } catch { el.innerHTML = `<span class="hwEmpty">Server unavailable.</span>`; }
+    } catch {
+      el.innerHTML = `<span class="hwEmpty">Server unavailable.</span>`;
+    }
   };
-  refresh(); setInterval(refresh, 5000);
+  refresh();
+  setInterval(refresh, 5000);
 }
 
 /* ═══════════════════════════════════════════
@@ -433,15 +577,21 @@ export async function initMemoryFacts() {
   const el = document.getElementById("homeMemoryFacts");
   if (!el) return;
   try {
-    const res  = await fetch("/api/memory");
+    const res = await fetch("/api/memory");
     const data = await res.json();
     const facts = data.facts || [];
     el.innerHTML = facts.length
-      ? facts.slice(0, 5).map(f =>
-          `<div class="hwListItem">▸ <span style="color:var(--text-muted);font-size:9px">[${f.category || "note"}]</span> ${f.text || f}</div>`
-        ).join("")
+      ? facts
+          .slice(0, 5)
+          .map(
+            (f) =>
+              `<div class="hwListItem">▸ <span style="color:var(--text-muted);font-size:9px">[${f.category || "note"}]</span> ${f.text || f}</div>`,
+          )
+          .join("")
       : `<span class="hwEmpty">No memories yet.</span>`;
-  } catch { el.innerHTML = `<span class="hwEmpty">Unavailable.</span>`; }
+  } catch {
+    el.innerHTML = `<span class="hwEmpty">Unavailable.</span>`;
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -455,11 +605,17 @@ export function initBluetooth() {
     return;
   }
   el.innerHTML = `<button class="hwToolBtn" id="btScanHomeBtn">Scan Devices</button>`;
-  document.getElementById("btScanHomeBtn")?.addEventListener("click", async () => {
-    try {
-      const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true });
-      el.innerHTML = `<div class="hwListItem">\xf0\x9f\x93\xb5 ${device.name || "Unknown"} <span style="color:#4cff4c">Connected</span></div>`;
-      window.ARIA_btDevice = device;
-    } catch(e) { el.innerHTML = `<span class="hwEmpty">${e.message}</span>`; }
-  });
+  document
+    .getElementById("btScanHomeBtn")
+    ?.addEventListener("click", async () => {
+      try {
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+        });
+        el.innerHTML = `<div class="hwListItem">📱 ${device.name || "Unknown"} <span style="color:#4cff4c">Connected</span></div>`;
+        window.ARIA_btDevice = device;
+      } catch (e) {
+        el.innerHTML = `<span class="hwEmpty">${e.message}</span>`;
+      }
+    });
 }

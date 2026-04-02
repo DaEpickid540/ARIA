@@ -1,35 +1,45 @@
 // homepage.js — imports from homeTools.js (same js/ folder)
 import {
-  initTime, initWeather, initSystemInfo, initQuote, initTasksPreview,
-  initRecentChats, initSystemHealth, initSpeedPreview, initQuickTools,
-  initDailySummary, initSystemMonitor, initUSBDevices, initNetworkInfo,
-  initBgTasksPreview, initMemoryFacts, initBluetooth,
+  initTime,
+  initWeather,
+  initSystemInfo,
+  initQuote,
+  initTasksPreview,
+  initRecentChats,
+  initSystemHealth,
+  initSpeedPreview,
+  initQuickTools,
+  initDailySummary,
+  initSystemMonitor,
+  initUSBDevices,
+  initNetworkInfo,
+  initBgTasksPreview,
+  initMemoryFacts,
+  initBluetooth,
 } from "./homeTools.js";
 
 export function initHomepage() {
   const screen = document.getElementById("homepageScreen");
   if (!screen) return;
-  if (screen.dataset.inited === "1") {
-    screen.style.display = "flex";
-    screen.style.opacity = "1";
-    return;
+
+  screen.style.display = "flex";
+  screen.style.opacity = "1";
+
+  // One-time DOM setup — skip on subsequent visits
+  if (screen.dataset.inited !== "1") {
+    screen.dataset.inited = "1";
+    initTime();
+    initQuote();
+    initTasksPreview();
+    initSystemInfo();
+    initSystemHealth();
+    initSystemMonitor();
+    initNetworkInfo();
+    initQuickTools();
+    initBluetooth();
   }
-  screen.dataset.inited = "1";
-  screen.style.display  = "flex";
-  screen.style.opacity  = "1";
 
-  // Sync tools — run immediately
-  initTime();
-  initQuote();
-  initTasksPreview();
-  initSystemInfo();
-  initSystemHealth();
-  initSystemMonitor();
-  initNetworkInfo();
-  initQuickTools();
-  initBluetooth();
-
-  // Async tools — fire and forget
+  // Async / live-data tools — always refresh on every visit
   initWeather();
   initSpeedPreview();
   initRecentChats();
