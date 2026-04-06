@@ -7,7 +7,7 @@ import fs from "fs";
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname  = path.dirname(__filename);
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -17,35 +17,22 @@ app.use(express.static(path.join(__dirname, "public")));
 let upload = null;
 try {
   const multer = (await import("multer")).default;
-  upload = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 20 * 1024 * 1024 },
-  });
+  upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 } catch {}
 
 /* ── dirs + persistence ── */
-const DATA_DIR = path.join(__dirname, "data");
+const DATA_DIR   = path.join(__dirname, "data");
 const CHATS_FILE = path.join(DATA_DIR, "chats.json");
-const MEM_FILE = path.join(DATA_DIR, "memory.json");
-[DATA_DIR, path.join(__dirname, "public", "uploads")].forEach((d) => {
+const MEM_FILE   = path.join(DATA_DIR, "memory.json");
+[DATA_DIR, path.join(__dirname, "public", "uploads")].forEach(d => {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 });
 
-function readJSON(f, fb) {
-  try {
-    return JSON.parse(fs.readFileSync(f, "utf8"));
-  } catch {
-    return fb;
-  }
-}
-function writeJSON(f, d) {
-  try {
-    fs.writeFileSync(f, JSON.stringify(d, null, 2));
-  } catch {}
-}
+function readJSON(f, fb)  { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return fb; } }
+function writeJSON(f, d)  { try { fs.writeFileSync(f, JSON.stringify(d, null, 2)); } catch {} }
 
-let userChats = readJSON(CHATS_FILE, {});
-let ariaMemory = readJSON(MEM_FILE, { facts: [], sessions: [] });
+let userChats  = readJSON(CHATS_FILE, {});
+let ariaMemory = readJSON(MEM_FILE,   { facts: [], sessions: [] });
 
 /* ============================================================
    PERSONALITY PROMPTS
@@ -159,39 +146,25 @@ RESPONSE FORMAT:
 /* ── memory ── */
 function buildMemoryContext() {
   if (!ariaMemory.facts?.length) return "";
-  return `\n\n[YOUR MEMORY — facts about the user:\n${ariaMemory.facts.map((f) => `- ${f}`).join("\n")}\n]`;
+  return `\n\n[YOUR MEMORY — facts about the user:\n${ariaMemory.facts.map(f => `- ${f}`).join("\n")}\n]`;
 }
 
 function detectFact(text) {
   const patterns = [
-    { re: /my name is ([a-z\s]+)/i, x: (m) => `User's name is ${m[1].trim()}` },
-    {
-      re: /i(?:'m| am) ([0-9]+) years old/i,
-      x: (m) => `User is ${m[1]} years old`,
-    },
-    { re: /i like ([^.!?\n]{4,40})/i, x: (m) => `User likes ${m[1].trim()}` },
-    { re: /i love ([^.!?\n]{4,40})/i, x: (m) => `User loves ${m[1].trim()}` },
-    {
-      re: /my favorite (.{4,30}) is (.{2,25})/i,
-      x: (m) => `User's favorite ${m[1]} is ${m[2].trim()}`,
-    },
-    {
-      re: /i(?:'m| am) from ([a-z\s,]+)/i,
-      x: (m) => `User is from ${m[1].trim()}`,
-    },
-    {
-      re: /i go to ([^.!?\n]{4,40})/i,
-      x: (m) => `User goes to ${m[1].trim()}`,
-    },
-    { re: /remember (?:that )?(.{8,100})/i, x: (m) => m[1].trim() },
+    { re: /my name is ([a-z\s]+)/i,              x: m => `User's name is ${m[1].trim()}` },
+    { re: /i(?:'m| am) ([0-9]+) years old/i,     x: m => `User is ${m[1]} years old` },
+    { re: /i like ([^.!?\n]{4,40})/i,            x: m => `User likes ${m[1].trim()}` },
+    { re: /i love ([^.!?\n]{4,40})/i,            x: m => `User loves ${m[1].trim()}` },
+    { re: /my favorite (.{4,30}) is (.{2,25})/i, x: m => `User's favorite ${m[1]} is ${m[2].trim()}` },
+    { re: /i(?:'m| am) from ([a-z\s,]+)/i,       x: m => `User is from ${m[1].trim()}` },
+    { re: /i go to ([^.!?\n]{4,40})/i,           x: m => `User goes to ${m[1].trim()}` },
+    { re: /remember (?:that )?(.{8,100})/i,      x: m => m[1].trim() },
   ];
   for (const p of patterns) {
     const m = text.match(p.re);
     if (m) {
       const fact = p.x(m);
-      if (
-        !ariaMemory.facts.some((f) => f.toLowerCase() === fact.toLowerCase())
-      ) {
+      if (!ariaMemory.facts.some(f => f.toLowerCase() === fact.toLowerCase())) {
         ariaMemory.facts.push(fact);
         writeJSON(MEM_FILE, ariaMemory);
         return fact;
@@ -202,21 +175,13 @@ function detectFact(text) {
 }
 
 function detectFrustration(text) {
-  return /ugh|wtf|why isn.t|doesn.t work|broken|hate|stupid|useless|i don.t understand|i.m lost|confused|not working|give up|terrible|awful/i.test(
-    text,
-  );
+  return /ugh|wtf|why isn.t|doesn.t work|broken|hate|stupid|useless|i don.t understand|i.m lost|confused|not working|give up|terrible|awful/i.test(text);
 }
 
 /* ============================================================
    AGENTIC PIPELINE
    ============================================================ */
-async function runAgenticPipeline(
-  messages,
-  provider,
-  model,
-  thinkDeeper = false,
-  modeOpts = {},
-) {
+async function runAgenticPipeline(messages, provider, model, thinkDeeper = false, modeOpts = {}) {
   const steps = [];
   let iteration = 0;
   const MAX_ITER = thinkDeeper ? 6 : 4;
@@ -226,53 +191,30 @@ async function runAgenticPipeline(
     const rawReply = await callAI(currentMessages, provider, model, modeOpts);
     iteration++;
 
-    const actionMatch = rawReply.match(
-      /^\s*ACTION:\s*([^|\n]+?)\s*\|\s*(.*)$/im,
-    );
+    const actionMatch = rawReply.match(/^\s*ACTION:\s*([^|\n]+?)\s*\|\s*(.*)$/im);
     if (!actionMatch) return { reply: rawReply, steps };
 
-    const toolName = actionMatch[1].trim().toLowerCase();
+    const toolName  = actionMatch[1].trim().toLowerCase();
     const toolInput = actionMatch[2].trim();
-    const preText = rawReply.replace(/^\s*ACTION:.*$/m, "").trim();
+    const preText   = rawReply.replace(/^\s*ACTION:.*$/m, "").trim();
 
     let toolResult;
-    try {
-      toolResult = await runToolServer(toolName, toolInput);
-    } catch (e) {
-      toolResult = `Tool error: ${e.message}`;
-    }
+    try { toolResult = await runToolServer(toolName, toolInput); }
+    catch (e) { toolResult = `Tool error: ${e.message}`; }
 
     if (toolResult?.startsWith?.("__IMAGE__")) {
       const urlMatch = toolResult.match(/__IMAGE__(.+?)__PROMPT__(.+)/);
       if (urlMatch) {
-        steps.push({
-          tool: toolName,
-          input: toolInput,
-          preText,
-          result: "[image]",
-        });
-        return {
-          reply: preText || "Here's your generated image:",
-          imageUrl: urlMatch[1],
-          imagePrompt: urlMatch[2],
-          steps,
-        };
+        steps.push({ tool: toolName, input: toolInput, preText, result: "[image]" });
+        return { reply: preText || "Here's your generated image:", imageUrl: urlMatch[1], imagePrompt: urlMatch[2], steps };
       }
     }
 
-    steps.push({
-      tool: toolName,
-      input: toolInput,
-      preText,
-      result: toolResult,
-    });
+    steps.push({ tool: toolName, input: toolInput, preText, result: toolResult });
     currentMessages = [
       ...currentMessages,
       { role: "assistant", content: rawReply },
-      {
-        role: "user",
-        content: `[TOOL RESULT for "${toolName}"]:\n${toolResult}\n\nNow write your response using this real data. Do NOT output another ACTION: line unless you need a different tool.`,
-      },
+      { role: "user",      content: `[TOOL RESULT for "${toolName}"]:\n${toolResult}\n\nNow write your response using this real data. Do NOT output another ACTION: line unless you need a different tool.` },
     ];
   }
 
@@ -281,94 +223,111 @@ async function runAgenticPipeline(
 }
 
 /* ============================================================
-   CLOUDFLARE AI — model registry
-   Replaces Nvidia Nemotron and DeepSeek.
-   Auto-selected by task type; also callable as provider "cloudflare".
+   CLOUDFLARE WORKERS AI
+   Correct URL: https://api.cloudflare.com/client/v4/accounts/{id}/ai/run/{model}
+   Models must use exact IDs from developers.cloudflare.com/workers-ai/models/
    ============================================================ */
+
+// All verified Cloudflare Workers AI model IDs
 const CF_MODELS = {
-  // General reasoning / conversation
-  general: "@cf/google/gemma-4-26b-it",
-  // Code, programming, debugging
-  coding: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", // best coding model available on CF
-  // Fast image generation
-  imageGen: "@cf/black-forest-labs/flux-1-schnell", // FLUX fast
-  // Embeddings
-  embedding: "@cf/google/text-embedding-004",
-  // Math / reasoning heavy
-  reasoning: "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+  // ── TEXT GENERATION ──
+  llama31_8b:       "@cf/meta/llama-3.1-8b-instruct",          // fast, free tier default
+  llama31_70b:      "@cf/meta/llama-3.1-70b-instruct",         // larger general
+  llama33_70b_fp8:  "@cf/meta/llama-3.3-70b-instruct-fp8-fast",// fastest 70B
+  gemma7b:          "@cf/google/gemma-7b-it",                   // Google Gemma 7B
+  mistral7b:        "@cf/mistral/mistral-7b-instruct-v0.1",     // Mistral 7B
+  deepseekR1:       "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b", // reasoning
+  qwen15_14b:       "@cf/qwen/qwen1.5-14b-chat-awq",           // Qwen 14B
+  openchat:         "@cf/openchat/openchat-3.5-0106",           // OpenChat
+  phi2:             "@cf/microsoft/phi-2",                      // Phi-2 (small/fast)
+  sqlcoder:         "@cf/defog/sqlcoder-7b-2",                  // SQL specialist
+  codellama:        "@cf/meta/codellama-7b-instruct-awq",       // Code Llama
+  // ── IMAGE GENERATION ──
+  fluxSchnell:      "@cf/black-forest-labs/flux-1-schnell",     // FLUX fast (primary)
+  sdxl:             "@cf/stabilityai/stable-diffusion-xl-base-1.0", // SDXL fallback
+  // ── EMBEDDINGS ──
+  bgeSmall:         "@cf/baai/bge-small-en-v1.5",               // fast embedding
+  bgeLarge:         "@cf/baai/bge-large-en-v1.5",               // larger embedding
+  bgeM3:            "@cf/baai/bge-m3",                          // multilingual
 };
 
-// Pick the right Cloudflare model based on active mode/task
+// Auto-select CF model by task
 function pickCFModel(opts = {}) {
-  if (opts.programmingMode || opts.isCode) return CF_MODELS.coding;
-  if (opts.mathMode || opts.thinkDeeper) return CF_MODELS.reasoning;
-  return CF_MODELS.general;
+  if (opts.programmingMode) return CF_MODELS.llama33_70b_fp8; // fast + coding
+  if (opts.mathMode || opts.thinkDeeper) return CF_MODELS.deepseekR1; // reasoning
+  return CF_MODELS.llama31_70b; // default: good general model
 }
 
-// Call Cloudflare Workers AI  (chat completions compatible)
+// Core Cloudflare Workers AI caller (text generation)
 async function callCloudflare(messages, cfModel) {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const apiKey = process.env.CLOUDFLARE_AI_API;
-  if (!accountId || !apiKey)
-    throw new Error("CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_AI_API not set.");
+  const apiKey    = process.env.CLOUDFLARE_AI_API;
+  if (!accountId || !apiKey) throw new Error("CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_AI_API not set.");
 
-  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${cfModel}`;
+  const modelId = cfModel || CF_MODELS.llama31_8b;
+  // Correct URL format — no trailing slash, model ID includes @cf/ prefix
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${modelId}`;
+
   const res = await fetch(url, {
-    method: "POST",
+    method:  "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type":  "application/json",
     },
     body: JSON.stringify({ messages, max_tokens: 4096 }),
   });
-  if (!res.ok) {
-    const err = await res.text().catch(() => "");
-    throw new Error(`Cloudflare AI HTTP ${res.status}: ${err.slice(0, 200)}`);
-  }
+
   const data = await res.json();
-  // Cloudflare returns { result: { response: "..." } }
-  const reply =
-    data?.result?.response?.trim() ??
-    data?.choices?.[0]?.message?.content?.trim();
+
+  if (!res.ok || !data.success) {
+    const errMsg = data?.errors?.[0]?.message || `HTTP ${res.status}`;
+    throw new Error(`Cloudflare AI error: ${errMsg}`);
+  }
+
+  // CF returns { success: true, result: { response: "..." } }
+  const reply = data?.result?.response?.trim();
   if (!reply) throw new Error("Empty response from Cloudflare AI");
   return reply;
 }
 
-// Generate image with Cloudflare FLUX
+// Cloudflare FLUX image generation — returns base64 data URL
 async function generateImageCloudflare(prompt) {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const apiKey = process.env.CLOUDFLARE_AI_API;
+  const apiKey    = process.env.CLOUDFLARE_AI_API;
   if (!accountId || !apiKey) return null;
 
-  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${CF_MODELS.imageGen}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ prompt, num_steps: 4, width: 1024, height: 1024 }),
-  });
-  if (!res.ok) return null;
-  // Returns raw image bytes (PNG)
-  const buf = Buffer.from(await res.arrayBuffer());
-  const b64 = buf.toString("base64");
-  return `data:image/png;base64,${b64}`;
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${CF_MODELS.fluxSchnell}`;
+  try {
+    const res = await fetch(url, {
+      method:  "POST",
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      // FLUX schnell takes prompt + optional params, returns raw binary PNG
+      body: JSON.stringify({ prompt, num_steps: 4, width: 1024, height: 1024 }),
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      console.warn("[CF FLUX] Error:", errData?.errors?.[0]?.message || res.status);
+      return null;
+    }
+    // Response is raw binary image bytes
+    const buf = Buffer.from(await res.arrayBuffer());
+    return `data:image/png;base64,${buf.toString("base64")}`;
+  } catch(e) {
+    console.warn("[CF FLUX] Exception:", e.message);
+    return null;
+  }
 }
 
-// Generate embeddings with Cloudflare
+// Cloudflare embedding
 async function generateEmbedding(text) {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const apiKey = process.env.CLOUDFLARE_AI_API;
+  const apiKey    = process.env.CLOUDFLARE_AI_API;
   if (!accountId || !apiKey) return null;
 
-  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${CF_MODELS.embedding}`;
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${CF_MODELS.bgeSmall}`;
   const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
+    method:  "POST",
+    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({ text: [text] }),
   });
   if (!res.ok) return null;
@@ -376,117 +335,178 @@ async function generateEmbedding(text) {
   return data?.result?.data?.[0] ?? null;
 }
 
-/* ── MAIN AI DISPATCH ──
-   Provider priority:
-   1. "cloudflare" → always use CF with auto model selection
-   2. "groq"       → Groq Llama (fast, free)
-   3. "openrouter" → OpenRouter free models (default fallback)
-   Auto-routing: if CF keys exist, coding/math tasks go to CF even when
-   provider = "openrouter", keeping OR as the fallback for general use.
-*/
+/* ============================================================
+   AI DISPATCH — callAI()
+   Providers: cloudflare | groq | openrouter | ollama
+   Auto-routes coding/math to Cloudflare specialist models when CF keys present.
+   Falls back gracefully: CF → Groq → OpenRouter → error.
+   ============================================================ */
 async function callAI(messages, provider, model, modeOpts = {}) {
-  const hasCF = !!(
-    process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_API
-  );
+  const hasCF   = !!(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_API);
+  const hasGroq = !!process.env.GROQ_API_KEY;
+  const hasOR   = !!process.env.OPENROUTER_API_KEY;
 
-  // ── Cloudflare provider or auto-route for specialist modes ──
-  if (
-    provider === "cloudflare" ||
-    (hasCF &&
-      (modeOpts.programmingMode || modeOpts.mathMode || modeOpts.thinkDeeper))
-  ) {
+  // ── OLLAMA (locally hosted) ──
+  if (provider === "ollama") {
+    const ollamaUrl  = process.env.OLLAMA_URL || "http://localhost:11434";
+    const ollamaModel = model || process.env.OLLAMA_MODEL || "llama3";
+    try {
+      const res = await fetch(`${ollamaUrl}/api/chat`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: ollamaModel, messages, stream: false }),
+      });
+      if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
+      const data  = await res.json();
+      const reply = data?.message?.content?.trim();
+      if (!reply) throw new Error("Empty Ollama response");
+      return reply;
+    } catch(e) {
+      // Ollama not running — fall through to next provider
+      console.warn("[AI] Ollama unavailable:", e.message, "— falling back");
+      if (hasCF) return callCloudflare(messages, pickCFModel(modeOpts));
+      if (hasGroq) return callGroq(messages, model);
+      if (hasOR)   return callOpenRouter(messages, model, modeOpts);
+      throw e;
+    }
+  }
+
+  // ── CLOUDFLARE (explicit or auto-route for specialist modes) ──
+  if (provider === "cloudflare" || (hasCF && (modeOpts.programmingMode || modeOpts.mathMode || modeOpts.thinkDeeper))) {
     const cfModel = model || pickCFModel(modeOpts);
-    return callCloudflare(messages, cfModel);
+    try {
+      return await callCloudflare(messages, cfModel);
+    } catch(e) {
+      console.warn("[AI] Cloudflare failed:", e.message, "— falling back");
+      // Fall through to Groq/OR
+      if (hasGroq) return callGroq(messages, null);
+      if (hasOR)   return callOpenRouter(messages, null, modeOpts);
+      throw e;
+    }
   }
 
-  // ── Groq ──
+  // ── GROQ ──
   if (provider === "groq") {
-    const key = process.env.GROQ_API_KEY;
+    try { return await callGroq(messages, model); }
+    catch(e) {
+      console.warn("[AI] Groq failed:", e.message, "— falling back");
+      if (hasCF) return callCloudflare(messages, pickCFModel(modeOpts));
+      if (hasOR)  return callOpenRouter(messages, null, modeOpts);
+      throw e;
+    }
+  }
+
+  // ── NVIDIA NEMOTRON (via NVIDIA NIM) ──
+  if (provider === "nemotron") {
+    const key = process.env.NEMOTRON_NVIDIA;
     if (!key) {
-      if (hasCF) return callCloudflare(messages, CF_MODELS.general); // fallback to CF
-      return "⚠ GROQ_API_KEY not set.";
+      if (hasCF) return callCloudflare(messages, CF_MODELS.deepseekR1);
+      return "⚠ NEMOTRON_NVIDIA not set.";
     }
-    const url = "https://api.groq.com/openai/v1/chat/completions";
-    const headers = {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    };
-    const body = {
-      model: "llama-3.3-70b-versatile",
-      messages,
-      max_tokens: 4096,
-    };
-    const res = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      if (hasCF) return callCloudflare(messages, CF_MODELS.general);
-      throw new Error(`Groq HTTP ${res.status}`);
+    try {
+      const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+        method:  "POST",
+        headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ model: "nvidia/llama-3.1-nemotron-70b-instruct", messages, temperature: 0.6, max_tokens: 2048, stream: false }),
+      });
+      if (!res.ok) throw new Error(`NVIDIA HTTP ${res.status}`);
+      const data  = await res.json();
+      const reply = data?.choices?.[0]?.message?.content?.trim();
+      if (!reply) throw new Error("Empty NVIDIA response");
+      return reply;
+    } catch(e) {
+      console.warn("[AI] NVIDIA failed:", e.message, "— falling back");
+      if (hasCF) return callCloudflare(messages, CF_MODELS.deepseekR1);
+      if (hasOR)  return callOpenRouter(messages, null, modeOpts);
+      throw e;
     }
-    const data = await res.json();
-    const reply = data?.choices?.[0]?.message?.content?.trim();
-    if (!reply) throw new Error("Empty Groq response");
-    return reply;
   }
 
-  // ── OpenRouter (default) with CF fallback for specialist modes ──
-  const key = process.env.OPENROUTER_API_KEY;
-  if (!key) {
-    if (hasCF) return callCloudflare(messages, pickCFModel(modeOpts));
-    return "⚠ OPENROUTER_API_KEY not set.";
+  // ── DEEPSEEK ──
+  if (provider === "deepseek") {
+    const key = process.env.DEEPSEEK_KEY;
+    if (!key) {
+      if (hasCF) return callCloudflare(messages, CF_MODELS.deepseekR1);
+      return "⚠ DEEPSEEK_KEY not set.";
+    }
+    try {
+      const res = await fetch("https://api.deepseek.com/chat/completions", {
+        method:  "POST",
+        headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "deepseek-chat", messages, temperature: 0.7, max_tokens: 4096, stream: false }),
+      });
+      if (!res.ok) throw new Error(`DeepSeek HTTP ${res.status}`);
+      const data  = await res.json();
+      const reply = data?.choices?.[0]?.message?.content?.trim();
+      if (!reply) throw new Error("Empty DeepSeek response");
+      return reply;
+    } catch(e) {
+      console.warn("[AI] DeepSeek failed:", e.message, "— falling back");
+      if (hasCF) return callCloudflare(messages, CF_MODELS.deepseekR1);
+      if (hasOR)  return callOpenRouter(messages, null, modeOpts);
+      throw e;
+    }
   }
 
-  const FREE_MODELS = [
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "meta-llama/llama-3.1-8b-instruct:free",
-    "deepseek/deepseek-r1:free",
-    "deepseek/deepseek-chat-v3-0324:free",
-    "google/gemma-3-27b-it:free",
-    "mistralai/mistral-7b-instruct:free",
-    "qwen/qwen3-235b-a22b:free",
-    "nousresearch/hermes-3-llama-3.1-405b:free",
-    "microsoft/phi-4-reasoning-plus:free",
-    "moonshotai/kimi-k2:free",
-  ];
-  const chosenModel =
-    model && FREE_MODELS.includes(model)
-      ? model
-      : "meta-llama/llama-3.3-70b-instruct:free";
+  // ── OPENROUTER (default) ──
+  try { return await callOpenRouter(messages, model, modeOpts); }
+  catch(e) {
+    console.warn("[AI] OpenRouter failed:", e.message, "— falling back");
+    if (hasCF)  return callCloudflare(messages, pickCFModel(modeOpts));
+    if (hasGroq) return callGroq(messages, null);
+    throw e;
+  }
+}
 
-  const url = "https://openrouter.ai/api/v1/chat/completions";
-  const headers = {
-    Authorization: `Bearer ${key}`,
-    "Content-Type": "application/json",
-    "HTTP-Referer": "https://aria-69jr.onrender.com",
-    "X-Title": "ARIA",
-  };
-  const body = { model: chosenModel, messages, max_tokens: 4096 };
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
+// ── Provider helpers ──
+async function callGroq(messages, model) {
+  const key = process.env.GROQ_API_KEY;
+  if (!key) throw new Error("GROQ_API_KEY not set");
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method:  "POST",
+    headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: model || "llama-3.3-70b-versatile", messages, max_tokens: 4096 }),
   });
-  if (!response.ok) {
-    // Auto-fallback to Cloudflare if OR fails
-    if (hasCF) {
-      console.warn(
-        `[AI] OpenRouter HTTP ${response.status} — falling back to Cloudflare`,
-      );
-      return callCloudflare(messages, pickCFModel(modeOpts));
-    }
-    const hints = {
-      401: "API key invalid.",
-      429: "Rate limit hit — switch providers.",
-      500: "Server error.",
-    };
-    throw new Error(hints[response.status] || `HTTP ${response.status}`);
-  }
-  const data = await response.json();
+  if (!res.ok) throw new Error(`Groq HTTP ${res.status}`);
+  const data  = await res.json();
   const reply = data?.choices?.[0]?.message?.content?.trim();
-  if (!reply) throw new Error("Empty response from AI");
+  if (!reply) throw new Error("Empty Groq response");
+  return reply;
+}
+
+const OR_FREE_MODELS = [
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "meta-llama/llama-3.1-8b-instruct:free",
+  "deepseek/deepseek-r1:free",
+  "deepseek/deepseek-chat-v3-0324:free",
+  "google/gemma-3-27b-it:free",
+  "mistralai/mistral-7b-instruct:free",
+  "qwen/qwen3-235b-a22b:free",
+  "nousresearch/hermes-3-llama-3.1-405b:free",
+  "microsoft/phi-4-reasoning-plus:free",
+  "moonshotai/kimi-k2:free",
+];
+
+async function callOpenRouter(messages, model, modeOpts = {}) {
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) throw new Error("OPENROUTER_API_KEY not set");
+  const chosenModel = model && OR_FREE_MODELS.includes(model)
+    ? model
+    : "meta-llama/llama-3.3-70b-instruct:free";
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method:  "POST",
+    headers: {
+      "Authorization":  `Bearer ${key}`,
+      "Content-Type":   "application/json",
+      "HTTP-Referer":   "https://aria-69jr.onrender.com",
+      "X-Title":        "ARIA",
+    },
+    body: JSON.stringify({ model: chosenModel, messages, max_tokens: 4096 }),
+  });
+  if (!res.ok) throw new Error(`OpenRouter HTTP ${res.status}`);
+  const data  = await res.json();
+  const reply = data?.choices?.[0]?.message?.content?.trim();
+  if (!reply) throw new Error("Empty OpenRouter response");
   return reply;
 }
 
@@ -500,40 +520,24 @@ app.post("/api/background", async (req, res) => {
   const { task, provider, personality } = req.body;
   if (!task) return res.json({ error: "No task provided" });
   const id = "bg_" + bgTaskCounter++;
-  bgTasks.set(id, {
-    id,
-    task,
-    status: "running",
-    started: Date.now(),
-    result: null,
-  });
+  bgTasks.set(id, { id, task, status: "running", started: Date.now(), result: null });
   res.json({ id, status: "started" });
 
   (async () => {
     try {
-      const sysPrompt =
-        (BASE_PROMPTS[personality] || BASE_PROMPTS.hacker) +
-        TOOL_SYSTEM +
-        buildMemoryContext() +
-        `
+      const sysPrompt = (BASE_PROMPTS[personality] || BASE_PROMPTS.hacker) + TOOL_SYSTEM + buildMemoryContext() + `
 
 [THINK DEEPER MODE]
 You have extended reasoning budget. Take your time. Be thorough.
 Use <think>...</think> blocks to reason through each step before acting.`;
       const messages = [
         { role: "system", content: sysPrompt },
-        { role: "user", content: task },
+        { role: "user",   content: task },
       ];
-      const result = await runAgenticPipeline(
-        messages,
-        provider || "openrouter",
-        null,
-        true,
-        { thinkDeeper: true },
-      );
+      const result = await runAgenticPipeline(messages, provider || "openrouter", null, true, { thinkDeeper: true });
       bgTasks.get(id).status = "done";
       bgTasks.get(id).result = result.reply;
-      bgTasks.get(id).steps = result.steps;
+      bgTasks.get(id).steps  = result.steps;
     } catch (e) {
       bgTasks.get(id).status = "error";
       bgTasks.get(id).result = e.message;
@@ -548,14 +552,7 @@ app.get("/api/background/:id", (req, res) => {
 });
 
 app.get("/api/background", (req, res) => {
-  res.json(
-    [...bgTasks.values()].map((t) => ({
-      id: t.id,
-      task: t.task.slice(0, 60),
-      status: t.status,
-      started: t.started,
-    })),
-  );
+  res.json([...bgTasks.values()].map(t => ({ id: t.id, task: t.task.slice(0, 60), status: t.status, started: t.started })));
 });
 
 /* ============================================================
@@ -568,14 +565,14 @@ app.post("/api/chat", async (req, res) => {
     provider = "openrouter",
     personality = "hacker",
     model: requestedModel,
-    mathMode = false,
+    mathMode        = false,
     programmingMode = false,
-    studyMode = false,
+    studyMode       = false,
     documentContext = "",
-    thinkingMode = false,
-    thinkDeeper = false,
-    musicTutorMode = false,
-    workspaceRepo = "",
+    thinkingMode    = false,
+    thinkDeeper     = false,
+    musicTutorMode  = false,
+    workspaceRepo   = "",
   } = req.body;
 
   if (!message) return res.json({ reply: "No message received." });
@@ -585,17 +582,16 @@ app.post("/api/chat", async (req, res) => {
 
   // Pick personality
   let activePersonality = personality;
-  if (mathMode) activePersonality = "math";
+  if (mathMode)        activePersonality = "math";
   else if (programmingMode) activePersonality = "programming";
-  else if (studyMode) activePersonality = "study";
+  else if (studyMode)       activePersonality = "study";
 
-  let sysPrompt = BASE_PROMPTS[activePersonality] || BASE_PROMPTS.hacker;
-  sysPrompt += TOOL_SYSTEM;
-  sysPrompt += buildMemoryContext();
+  let sysPrompt  = BASE_PROMPTS[activePersonality] || BASE_PROMPTS.hacker;
+  sysPrompt     += TOOL_SYSTEM;
+  sysPrompt     += buildMemoryContext();
 
   if (frustrated)
-    sysPrompt +=
-      "\n\n[TONE OVERRIDE: User seems frustrated. Be extra patient, break things down, be encouraging.]";
+    sysPrompt += "\n\n[TONE OVERRIDE: User seems frustrated. Be extra patient, break things down, be encouraging.]";
   if (documentContext)
     sysPrompt += `\n\n[DOCUMENT CONTEXT (user uploaded):\n${documentContext.slice(0, 8000)}\n]`;
 
@@ -658,24 +654,16 @@ Active GitHub repo: ${workspaceRepo}
   const messages = [
     { role: "system", content: sysPrompt },
     ...cappedHistory,
-    ...(last?.role === "user" && last?.content === message
-      ? []
-      : [{ role: "user", content: message }]),
+    ...(last?.role === "user" && last?.content === message ? [] : [{ role: "user", content: message }]),
   ];
 
   try {
-    const result = await runAgenticPipeline(
-      messages,
-      provider,
-      requestedModel,
-      thinkDeeper,
-      { mathMode, programmingMode, thinkDeeper, musicTutorMode },
-    );
+    const result = await runAgenticPipeline(messages, provider, requestedModel, thinkDeeper, { mathMode, programmingMode, thinkDeeper, musicTutorMode });
     res.json({
-      reply: result.reply,
+      reply:       result.reply,
       frustrated,
-      steps: result.steps,
-      imageUrl: result.imageUrl,
+      steps:       result.steps,
+      imageUrl:    result.imageUrl,
       imagePrompt: result.imagePrompt,
     });
   } catch (err) {
@@ -687,51 +675,27 @@ Active GitHub repo: ${workspaceRepo}
 /* ============================================================
    FILE UPLOAD
    ============================================================ */
-app.post(
-  "/api/upload",
-  upload ? upload.single("file") : (_, __, next) => next(),
-  async (req, res) => {
-    if (!upload || !req.file)
-      return res.json({ error: "Upload not available or no file sent." });
-    const { originalname, mimetype, buffer } = req.file;
-    let text = "";
-    try {
-      if (mimetype === "text/plain" || originalname.match(/\.(txt|md)$/i)) {
-        text = buffer.toString("utf8");
-      } else if (originalname.match(/\.pdf$/i)) {
-        try {
-          const p = (await import("pdf-parse")).default;
-          text = (await p(buffer)).text;
-        } catch {
-          text = "[PDF: install pdf-parse]";
-        }
-      } else if (originalname.match(/\.docx$/i)) {
-        try {
-          const m = (await import("mammoth")).default;
-          text = (await m.extractRawText({ buffer })).value;
-        } catch {
-          text = "[DOCX: install mammoth]";
-        }
-      } else if (mimetype.startsWith("image/")) {
-        return res.json({
-          filename: originalname,
-          type: "image",
-          base64: `data:${mimetype};base64,${buffer.toString("base64")}`,
-          text: `[Image: ${originalname}]`,
-        });
-      } else {
-        text = buffer.toString("utf8").slice(0, 10000);
-      }
-      res.json({
-        filename: originalname,
-        type: "document",
-        text: text.slice(0, 12000),
-      });
-    } catch (e) {
-      res.json({ error: e.message });
+app.post("/api/upload", upload ? upload.single("file") : (_, __, next) => next(), async (req, res) => {
+  if (!upload || !req.file) return res.json({ error: "Upload not available or no file sent." });
+  const { originalname, mimetype, buffer } = req.file;
+  let text = "";
+  try {
+    if (mimetype === "text/plain" || originalname.match(/\.(txt|md)$/i)) {
+      text = buffer.toString("utf8");
+    } else if (originalname.match(/\.pdf$/i)) {
+      try { const p = (await import("pdf-parse")).default; text = (await p(buffer)).text; }
+      catch { text = "[PDF: install pdf-parse]"; }
+    } else if (originalname.match(/\.docx$/i)) {
+      try { const m = (await import("mammoth")).default; text = (await m.extractRawText({ buffer })).value; }
+      catch { text = "[DOCX: install mammoth]"; }
+    } else if (mimetype.startsWith("image/")) {
+      return res.json({ filename: originalname, type: "image", base64: `data:${mimetype};base64,${buffer.toString("base64")}`, text: `[Image: ${originalname}]` });
+    } else {
+      text = buffer.toString("utf8").slice(0, 10000);
     }
-  },
-);
+    res.json({ filename: originalname, type: "document", text: text.slice(0, 12000) });
+  } catch (e) { res.json({ error: e.message }); }
+});
 
 /* ============================================================
    WEB SEARCH
@@ -742,39 +706,19 @@ app.post("/api/search", async (req, res) => {
   try {
     const serpKey = process.env.SERPAPI_KEY;
     if (serpKey) {
-      const r = await fetch(
-        `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${serpKey}&num=5`,
-      );
+      const r = await fetch(`https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${serpKey}&num=5`);
       const d = await r.json();
-      return res.json({
-        results: (d.organic_results || [])
-          .slice(0, 5)
-          .map((r) => ({ title: r.title, url: r.link, snippet: r.snippet })),
-      });
+      return res.json({ results: (d.organic_results || []).slice(0, 5).map(r => ({ title: r.title, url: r.link, snippet: r.snippet })) });
     }
-    const r = await fetch(
-      `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`,
-    );
+    const r = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`);
     const d = await r.json();
     const results = [];
-    if (d.AbstractText)
-      results.push({
-        title: d.Heading || query,
-        url: d.AbstractURL || "",
-        snippet: d.AbstractText,
-      });
-    (d.RelatedTopics || []).slice(0, 4).forEach((t) => {
-      if (t.Text)
-        results.push({
-          title: t.Text.split(" - ")[0],
-          url: t.FirstURL || "",
-          snippet: t.Text,
-        });
+    if (d.AbstractText) results.push({ title: d.Heading || query, url: d.AbstractURL || "", snippet: d.AbstractText });
+    (d.RelatedTopics || []).slice(0, 4).forEach(t => {
+      if (t.Text) results.push({ title: t.Text.split(" - ")[0], url: t.FirstURL || "", snippet: t.Text });
     });
     res.json({ results: results.slice(0, 5) });
-  } catch (e) {
-    res.json({ error: e.message, results: [] });
-  }
+  } catch (e) { res.json({ error: e.message, results: [] }); }
 });
 
 /* ============================================================
@@ -789,11 +733,8 @@ app.post("/api/imagine", async (req, res) => {
   if (process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_API) {
     try {
       const dataUrl = await generateImageCloudflare(prompt);
-      if (dataUrl)
-        return res.json({ url: dataUrl, prompt, provider: "cloudflare-flux" });
-    } catch (e) {
-      console.warn("[Image] Cloudflare FLUX failed:", e.message);
-    }
+      if (dataUrl) return res.json({ url: dataUrl, prompt, provider: "cloudflare-flux" });
+    } catch(e) { console.warn("[Image] Cloudflare FLUX failed:", e.message); }
   }
 
   // 2 — DALL-E 3 (if OPENAI_KEY set)
@@ -802,23 +743,12 @@ app.post("/api/imagine", async (req, res) => {
     try {
       const r = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${dalleKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "dall-e-3",
-          prompt,
-          n: 1,
-          size: "1024x1024",
-        }),
+        headers: { Authorization: `Bearer ${dalleKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "dall-e-3", prompt, n: 1, size: "1024x1024" }),
       });
       const d = await r.json();
-      if (d.data?.[0]?.url)
-        return res.json({ url: d.data[0].url, prompt, provider: "dall-e-3" });
-    } catch (e) {
-      console.warn("[Image] DALL-E failed:", e.message);
-    }
+      if (d.data?.[0]?.url) return res.json({ url: d.data[0].url, prompt, provider: "dall-e-3" });
+    } catch(e) { console.warn("[Image] DALL-E failed:", e.message); }
   }
 
   // 3 — Pollinations.ai (always-free, no key needed)
@@ -838,35 +768,26 @@ app.post("/api/embed", async (req, res) => {
   if (!text) return res.json({ error: "No text." });
   try {
     const embedding = await generateEmbedding(text);
-    if (!embedding)
-      return res.json({ error: "Cloudflare embedding not available." });
+    if (!embedding) return res.json({ error: "Cloudflare embedding not available." });
     res.json({ embedding, model: CF_MODELS.embedding });
-  } catch (e) {
-    res.json({ error: e.message });
-  }
+  } catch(e) { res.json({ error: e.message }); }
 });
 
 /* ============================================================
    MEMORY
    ============================================================ */
-app.get("/api/memory", (_, res) => res.json(ariaMemory));
+app.get("/api/memory",  (_, res) => res.json(ariaMemory));
 app.post("/api/memory", (req, res) => {
   const { fact, action, index, facts } = req.body;
   if (action === "add" && fact) {
-    if (!ariaMemory.facts.includes(fact)) {
-      ariaMemory.facts.push(fact);
-      writeJSON(MEM_FILE, ariaMemory);
-    }
+    if (!ariaMemory.facts.includes(fact)) { ariaMemory.facts.push(fact); writeJSON(MEM_FILE, ariaMemory); }
   } else if (action === "delete" && index !== undefined) {
-    ariaMemory.facts.splice(index, 1);
-    writeJSON(MEM_FILE, ariaMemory);
+    ariaMemory.facts.splice(index, 1); writeJSON(MEM_FILE, ariaMemory);
   } else if (action === "clear") {
-    ariaMemory.facts = [];
-    writeJSON(MEM_FILE, ariaMemory);
+    ariaMemory.facts = []; writeJSON(MEM_FILE, ariaMemory);
   } else if (Array.isArray(facts)) {
     // Bulk update from memory.js client
-    ariaMemory.facts = facts;
-    writeJSON(MEM_FILE, ariaMemory);
+    ariaMemory.facts = facts; writeJSON(MEM_FILE, ariaMemory);
   }
   res.json({ success: true, facts: ariaMemory.facts });
 });
@@ -876,15 +797,10 @@ app.post("/api/memory", (req, res) => {
    ============================================================ */
 app.post("/api/saveChats", (req, res) => {
   const { userId, chats } = req.body;
-  if (userId) {
-    userChats[userId] = chats;
-    writeJSON(CHATS_FILE, userChats);
-  }
+  if (userId) { userChats[userId] = chats; writeJSON(CHATS_FILE, userChats); }
   res.json({ success: true });
 });
-app.get("/api/loadChats", (req, res) =>
-  res.json({ chats: userChats[req.query.userId] || [] }),
-);
+app.get("/api/loadChats", (req, res) => res.json({ chats: userChats[req.query.userId] || [] }));
 
 /* ============================================================
    WEATHER + NEWS
@@ -892,77 +808,80 @@ app.get("/api/loadChats", (req, res) =>
 app.get("/api/weather", async (req, res) => {
   const { lat = 39.3601, lon = -84.3097 } = req.query;
   try {
-    const r = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`,
-    );
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
     res.json({ weather: (await r.json()).current_weather });
-  } catch {
-    res.json({ weather: null });
-  }
+  } catch { res.json({ weather: null }); }
 });
 
 app.get("/api/news", async (req, res) => {
   try {
-    const r = await fetch(
-      `https://newsdata.io/api/1/news?apikey=${process.env.NEWSDATA_KEY}&q=world`,
-    );
+    const r = await fetch(`https://newsdata.io/api/1/news?apikey=${process.env.NEWSDATA_KEY}&q=world`);
     res.json({ articles: (await r.json()).results || [] });
-  } catch {
-    res.json({ articles: [] });
-  }
+  } catch { res.json({ articles: [] }); }
 });
 
 /* ============================================================
    TOOLS + CONFIG
    ============================================================ */
 app.get("/api/tools", (_, res) => {
-  const list = Object.entries(TOOL_DEFINITIONS).map(([name, def]) => ({
-    name,
-    desc: def.desc,
-  }));
+  const list = Object.entries(TOOL_DEFINITIONS).map(([name, def]) => ({ name, desc: def.desc }));
   res.json({ tools: list });
 });
 
-app.get("/api/config", (_, res) => {
-  const hasCF = !!(
-    process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_API
-  );
+app.get("/api/config", async (_, res) => {
+  const hasCF   = !!(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_API);
+  const hasGroq = !!process.env.GROQ_API_KEY;
+  const hasOR   = !!process.env.OPENROUTER_API_KEY;
+  const hasNV   = !!process.env.NEMOTRON_NVIDIA;
+  const hasDS   = !!process.env.DEEPSEEK_KEY;
+
+  // Check if local Ollama is running
+  let ollamaModels = [];
+  try {
+    const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
+    const r = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(2000) });
+    if (r.ok) {
+      const d = await r.json();
+      ollamaModels = (d.models || []).map(m => m.name);
+    }
+  } catch {}
+
   res.json({
     customVoiceKey: process.env.CUSTOM_VOICE || null,
-    hasCalendar: !!process.env.GOOGLE_CLIENT_ID,
-    hasImageGen: hasCF || !!process.env.OPENAI_KEY,
-    hasSerpApi: !!process.env.SERPAPI_KEY,
-    hasCloudflare: hasCF,
+    hasCalendar:    !!process.env.GOOGLE_CLIENT_ID,
+    hasImageGen:    hasCF || !!process.env.OPENAI_KEY,
+    hasSerpApi:     !!process.env.SERPAPI_KEY,
 
-    // Cloudflare model names for display
-    cloudflareModels: hasCF
-      ? {
-          general: CF_MODELS.general,
-          coding: CF_MODELS.coding,
-          reasoning: CF_MODELS.reasoning,
-          imageGen: CF_MODELS.imageGen,
-          embedding: CF_MODELS.embedding,
-        }
-      : null,
+    // Provider availability
+    providers: {
+      cloudflare: hasCF,
+      groq:       hasGroq,
+      openrouter: hasOR,
+      nemotron:   hasNV,
+      deepseek:   hasDS,
+      ollama:     ollamaModels.length > 0,
+    },
+    ollamaModels,
 
-    // OpenRouter free models (still available as manual override)
-    freeModels: [
-      "meta-llama/llama-3.3-70b-instruct:free",
-      "meta-llama/llama-3.1-8b-instruct:free",
-      "deepseek/deepseek-r1:free",
-      "deepseek/deepseek-chat-v3-0324:free",
-      "google/gemma-3-27b-it:free",
-      "mistralai/mistral-7b-instruct:free",
-      "qwen/qwen3-235b-a22b:free",
-      "nousresearch/hermes-3-llama-3.1-405b:free",
-      "microsoft/phi-4-reasoning-plus:free",
-      "moonshotai/kimi-k2:free",
-    ],
+    // All Cloudflare model options for the settings dropdown
+    cloudflareModels: hasCF ? [
+      { id: CF_MODELS.llama33_70b_fp8,  label: "Llama 3.3 70B FP8 (fast)"     },
+      { id: CF_MODELS.llama31_70b,      label: "Llama 3.1 70B"                 },
+      { id: CF_MODELS.llama31_8b,       label: "Llama 3.1 8B (fastest)"        },
+      { id: CF_MODELS.deepseekR1,       label: "DeepSeek R1 32B (reasoning)"   },
+      { id: CF_MODELS.gemma7b,          label: "Gemma 7B (Google)"             },
+      { id: CF_MODELS.mistral7b,        label: "Mistral 7B"                    },
+      { id: CF_MODELS.qwen15_14b,       label: "Qwen 1.5 14B"                  },
+      { id: CF_MODELS.openchat,         label: "OpenChat 3.5"                  },
+      { id: CF_MODELS.codellama,        label: "Code Llama 7B (code)"          },
+      { id: CF_MODELS.phi2,             label: "Phi-2 (tiny/fast)"             },
+    ] : [],
+
+    // OpenRouter free models
+    freeModels: OR_FREE_MODELS,
     defaultModel: "meta-llama/llama-3.3-70b-instruct:free",
-    bgTasks: [...bgTasks.values()].length,
-    connectedDevices: [...linkDevices.values()].filter(
-      (d) => Date.now() - d.lastSeen < 30_000,
-    ).length,
+    bgTasks:          [...bgTasks.values()].length,
+    connectedDevices: [...linkDevices.values()].filter(d => Date.now() - d.lastSeen < 30_000).length,
   });
 });
 
@@ -970,17 +889,12 @@ app.get("/api/config", (_, res) => {
    LINK MODE — device registry + file relay
    ============================================================ */
 const linkDevices = new Map();
-const linkFiles = new Map();
+const linkFiles   = new Map();
 
 app.post("/api/link/register", (req, res) => {
   const { id, name, ua } = req.body;
   if (!id) return res.json({ error: "No id" });
-  linkDevices.set(id, {
-    id,
-    name: name || "Device",
-    ua: ua || "",
-    lastSeen: Date.now(),
-  });
+  linkDevices.set(id, { id, name: name || "Device", ua: ua || "", lastSeen: Date.now() });
   res.json({ success: true });
 });
 
@@ -992,40 +906,23 @@ app.post("/api/link/heartbeat", (req, res) => {
 
 app.get("/api/link/devices", (req, res) => {
   const now = Date.now();
-  res.json({
-    devices: [...linkDevices.values()].filter((d) => now - d.lastSeen < 30_000),
-  });
+  res.json({ devices: [...linkDevices.values()].filter(d => now - d.lastSeen < 30_000) });
 });
 
-app.post(
-  "/api/link/transfer",
-  upload ? upload.single("file") : (_, __, next) => next(),
-  (req, res) => {
-    const { from, to, name } = req.body;
-    if (!req.file || !to) return res.json({ error: "Missing file or target" });
-    if (!linkFiles.has(to)) linkFiles.set(to, []);
-    const list = linkFiles.get(to);
-    list.push({
-      from,
-      name: name || req.file.originalname,
-      buffer: req.file.buffer,
-      mime: req.file.mimetype,
-      ts: Date.now(),
-    });
-    if (list.length > 20) list.shift();
-    res.json({ success: true });
-  },
-);
+app.post("/api/link/transfer", upload ? upload.single("file") : (_, __, next) => next(), (req, res) => {
+  const { from, to, name } = req.body;
+  if (!req.file || !to) return res.json({ error: "Missing file or target" });
+  if (!linkFiles.has(to)) linkFiles.set(to, []);
+  const list = linkFiles.get(to);
+  list.push({ from, name: name || req.file.originalname, buffer: req.file.buffer, mime: req.file.mimetype, ts: Date.now() });
+  if (list.length > 20) list.shift();
+  res.json({ success: true });
+});
 
 app.get("/api/link/incoming", (req, res) => {
   const { deviceId } = req.query;
-  const files = linkFiles.get(deviceId) || [];
-  const result = files.map((f) => ({
-    name: f.name,
-    from: f.from,
-    ts: f.ts,
-    url: `data:${f.mime};base64,${f.buffer.toString("base64")}`,
-  }));
+  const files  = linkFiles.get(deviceId) || [];
+  const result = files.map(f => ({ name: f.name, from: f.from, ts: f.ts, url: `data:${f.mime};base64,${f.buffer.toString("base64")}` }));
   linkFiles.delete(deviceId);
   res.json({ files: result });
 });
@@ -1033,19 +930,13 @@ app.get("/api/link/incoming", (req, res) => {
 /* ── Version endpoint ── */
 app.get("/api/version", (req, res) => {
   try {
-    const pkg = JSON.parse(
-      fs.readFileSync(path.join(__dirname, "package.json"), "utf8"),
-    );
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "package.json"), "utf8"));
     res.json({ version: pkg.version || "1.0.0" });
-  } catch {
-    res.json({ version: "1.0.0" });
-  }
+  } catch { res.json({ version: "1.0.0" }); }
 });
 
 /* ── Fallback ── */
-app.get("*", (req, res) =>
-  res.sendFile(path.join(__dirname, "public", "index.html")),
-);
+app.get("*", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`ARIA v3 on port ${PORT}`));
