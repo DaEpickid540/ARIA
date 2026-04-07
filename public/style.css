@@ -865,45 +865,9 @@ h3 {
 /* ============================================================
    HOMEPAGE
    ============================================================ */
-#homepageScreen {
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(
-      ellipse at 50% 0%,
-      rgba(255, 0, 0, 0.1) 0%,
-      transparent 55%
-    ),
-    var(--bg-void);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 5000;
-  transition: opacity 0.4s ease;
-  overflow-y: auto;
-}
+/* [merged into widget grid CSS] */
 
-#homepageContent {
-  background: rgba(5, 0, 0, 0.95);
-  padding: 28px;
-  border: 1px solid var(--red-core);
-  box-shadow:
-    var(--glow-lg),
-    inset 0 0 60px rgba(255, 0, 0, 0.03);
-  width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  position: relative;
-  clip-path: polygon(
-    0 0,
-    calc(100% - 24px) 0,
-    100% 24px,
-    100% 100%,
-    24px 100%,
-    0 calc(100% - 24px)
-  );
-  animation: contentSlideIn 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-}
+/* [old homepageContent box removed — replaced by widget grid] */
 
 @keyframes contentSlideIn {
   from {
@@ -4278,17 +4242,7 @@ details.thinkBlock > summary::-webkit-details-marker {
   color: var(--red-neon);
   text-decoration: underline;
 }
-.userPara {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif !important;
-  font-size: 14px !important;
-  line-height: 1.65 !important;
-  letter-spacing: 0 !important;
-  word-break: break-word;
-  white-space: pre-wrap;
-  margin: 0;
-}
+/* .userPara — see definitive rule at end */
 #userIdInput {
   margin-bottom: 12px;
 }
@@ -4735,17 +4689,7 @@ details.thinkBlock > summary::-webkit-details-marker {
 }
 
 /* User message font fix */
-.userPara {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif !important;
-  font-size: 14px !important;
-  line-height: 1.65 !important;
-  letter-spacing: 0 !important;
-  word-break: break-word;
-  white-space: pre-wrap;
-  margin: 0;
-}
+/* .userPara — see definitive rule at end */
 
 /* Lock screen userId spacing */
 #userIdInput {
@@ -5703,192 +5647,10 @@ body.aria-bg-pulse::after {
 }
 
 /* ── USER MESSAGE FONT ── */
-.userPara {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif !important;
-  font-size: 14px !important;
-  line-height: 1.65 !important;
-  letter-spacing: 0 !important;
-  word-break: break-word;
-  white-space: pre-wrap;
-  margin: 0;
-}
+/* .userPara — see definitive rule at end */
 
 /* ============================================================
-   HOME TOOLS — fixed values, proper layout
-   ============================================================ */
-#homepageScreen {
-  display: none;
-  flex-direction: column;
-  align-items: stretch;
-  padding: 20px 24px 24px;
-  gap: 14px;
-  overflow-y: auto;
-  height: 100vh;
-  box-sizing: border-box;
-}
-#homepageContent {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  max-width: 1400px;
-  width: 100%;
-  margin: 0 auto;
-}
-.homeGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-.scrollRow {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px;
-}
-#homeRow3 {
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-}
-.homeCard {
-  background: var(--bg-panel);
-  border: 1px solid var(--red-dim);
-  padding: 12px 14px;
-  min-height: 80px;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
-  clip-path: polygon(
-    0 0,
-    calc(100% - 8px) 0,
-    100% 8px,
-    100% 100%,
-    8px 100%,
-    0 calc(100% - 8px)
-  );
-}
-.homeCard:hover {
-  border-color: var(--red-core);
-  box-shadow: 0 0 12px rgba(255, 0, 0, 0.12);
-}
-.homeLabel {
-  font-family: "Orbitron", sans-serif;
-  font-size: 8px;
-  letter-spacing: 0.18em;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  margin-bottom: 2px;
-}
-.homeValue {
-  font-family: "Share Tech Mono", monospace;
-  font-size: 11px;
-  color: var(--text-blaze);
-  line-height: 1.5;
-  flex: 1;
-}
-.homeSub {
-  font-family: "Share Tech Mono", monospace;
-  font-size: 9px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-.homeEmpty {
-  color: var(--text-muted);
-  font-size: 10px;
-  font-style: italic;
-}
-.homeListItem {
-  font-family: "Share Tech Mono", monospace;
-  font-size: 11px;
-  color: var(--text-hot);
-  padding: 2px 0;
-  line-height: 1.4;
-}
-.homeListClickable {
-  cursor: pointer;
-}
-.homeListClickable:hover {
-  color: var(--red-neon);
-}
-.homeToolBtn {
-  background: rgba(255, 0, 0, 0.08);
-  border: 1px solid var(--red-dim);
-  color: var(--red-neon);
-  font-family: "Share Tech Mono", monospace;
-  font-size: 10px;
-  padding: 4px 9px;
-  cursor: crosshair;
-  margin: 2px 2px 0 0;
-  transition: all 0.12s;
-  display: inline-block;
-}
-.homeToolBtn:hover {
-  background: rgba(255, 0, 0, 0.2);
-  border-color: var(--red-core);
-}
-.healthBar {
-  width: 100%;
-  height: 4px;
-  background: var(--bg-raised);
-  margin-top: 4px;
-  border-radius: 2px;
-}
-.healthFill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.5s;
-}
-.homeWeatherTemp {
-  font-size: 15px;
-  font-family: "Orbitron", sans-serif;
-  color: var(--red-neon);
-}
-
-/* ── HOME TOOLS in sidebar ── */
-#homeToolsSidebar {
-  background: var(--bg-panel);
-  border-top: 1px solid var(--red-dim);
-  padding: 8px;
-  max-height: 340px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-}
-#homeToolsSidebarHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-family: "Orbitron", sans-serif;
-  font-size: 8px;
-  letter-spacing: 0.15em;
-  color: var(--red-core);
-  margin-bottom: 6px;
-}
-#homeToolsSidebarHeader button {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 12px;
-}
-.htWidget {
-  padding: 5px 0;
-  border-bottom: 1px solid var(--border-cut);
-}
-.htWidgetLabel {
-  font-family: "Orbitron", sans-serif;
-  font-size: 7px;
-  letter-spacing: 0.12em;
-  color: var(--text-muted);
-}
-.htWidgetValue {
-  font-family: "Share Tech Mono", monospace;
-  font-size: 11px;
-  color: var(--text-blaze);
-  margin-top: 2px;
-}
+/* [stale homeTools block removed - see widget grid section] */
 
 /* ============================================================
    LINK MODE OVERLAY — SmartThings-style device mesh
@@ -6279,14 +6041,23 @@ body.aria-bg-pulse::after {
 }
 
 /* User message font */
+/* .userPara — see definitive rule at end */
+
+/* ============================================================
+   USER MESSAGE FONT — definitive rule (highest specificity, end of file)
+   Overrides the monospace font set by .msg on user bubbles.
+   ============================================================ */
+.msg.user .userPara,
 .userPara {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif !important;
   font-size: 14px !important;
   line-height: 1.65 !important;
   letter-spacing: 0 !important;
+  font-weight: 400 !important;
+  font-style: normal !important;
   word-break: break-word;
   white-space: pre-wrap;
   margin: 0;
+  color: #fff;
 }
