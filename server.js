@@ -573,6 +573,7 @@ app.post("/api/chat", async (req, res) => {
     thinkDeeper     = false,
     musicTutorMode  = false,
     workspaceRepo   = "",
+    imageProvider   = "auto",
   } = req.body;
 
   if (!message) return res.json({ reply: "No message received." });
@@ -726,19 +727,48 @@ app.post("/api/search", async (req, res) => {
    Priority: 1) Cloudflare FLUX  2) DALL-E 3  3) Pollinations fallback
    ============================================================ */
 app.post("/api/imagine", async (req, res) => {
-  const { prompt } = req.body;
+  const { prompt, imageProvider = "auto" } = req.body;
   if (!prompt) return res.json({ error: "No prompt." });
 
-  // 1 — Cloudflare FLUX.1-schnell (fast, free with your key)
-  if (process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_API) {
+  const hasCF     = !!(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_API);
+  const dalleKey  = process.env.OPENAI_KEY;
+  const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
+
+  // ── Explicit cloudflare ──
+  if (imageProvider === "cloudflare") {
+    if (!hasCF) return res.json({ error: "Cloudflare keys not configured." });
+    try {
+      const dataUrl = await generateImageCloudflare(prompt);
+      if (dataUrl) return res.json({ url: dataUrl, prompt, provider: "cloudflare-flux" });
+    } catch(e) { return res.json({ error: "Cloudflare FLUX failed: " + e.message }); }
+  }
+
+  // ── Explicit DALL-E 3 ──
+  if (imageProvider === "dalle") {
+    if (!dalleKey) return res.json({ error: "OPENAI_KEY not configured." });
+    try {
+      const r = await fetch("https://api.openai.com/v1/images/generations", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${dalleKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "dall-e-3", prompt, n: 1, size: "1024x1024" }),
+      });
+      const d = await r.json();
+      if (d.data?.[0]?.url) return res.json({ url: d.data[0].url, prompt, provider: "dall-e-3" });
+    } catch(e) { return res.json({ error: "DALL-E failed: " + e.message }); }
+  }
+
+  // ── Explicit Pollinations ──
+  if (imageProvider === "pollinations") {
+    return res.json({ url: pollinationsUrl, prompt, provider: "pollinations" });
+  }
+
+  // ── Auto: CF FLUX → DALL-E 3 → Pollinations ──
+  if (hasCF) {
     try {
       const dataUrl = await generateImageCloudflare(prompt);
       if (dataUrl) return res.json({ url: dataUrl, prompt, provider: "cloudflare-flux" });
     } catch(e) { console.warn("[Image] Cloudflare FLUX failed:", e.message); }
   }
-
-  // 2 — DALL-E 3 (if OPENAI_KEY set)
-  const dalleKey = process.env.OPENAI_KEY;
   if (dalleKey) {
     try {
       const r = await fetch("https://api.openai.com/v1/images/generations", {
@@ -750,13 +780,7 @@ app.post("/api/imagine", async (req, res) => {
       if (d.data?.[0]?.url) return res.json({ url: d.data[0].url, prompt, provider: "dall-e-3" });
     } catch(e) { console.warn("[Image] DALL-E failed:", e.message); }
   }
-
-  // 3 — Pollinations.ai (always-free, no key needed)
-  res.json({
-    url: `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&nologo=true&seed=${Date.now()}`,
-    prompt,
-    provider: "pollinations",
-  });
+  res.json({ url: pollinationsUrl, prompt, provider: "pollinations" });
 });
 
 /* ============================================================
