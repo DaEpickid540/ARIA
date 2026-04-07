@@ -118,133 +118,87 @@
     <!--  HOMEPAGE                 -->
     <!-- ========================= -->
     <div id="homepageScreen">
-      <!-- HEADER -->
-      <div id="homeHeader">
-        <div id="homeAriaTitle">
-          <span class="homeTitleMain">ARIA</span>
-          <span class="homeTitleAcronym">Adaptive Reasoning Intelligence Architecture</span>
-        </div>
-        <div id="ariaEmotionIndicator" class="emotionIndicator">◉ NEUTRAL</div>
-      </div>
-
-      <!-- WIDGET GRID -->
-      <div id="homeWidgetGrid">
-
-        <!-- ROW 1: Time (2 cols) | Weather (2 cols) | System (2 cols) -->
-        <div class="hwCard hw-2x1" id="homeTimeCard">
-          <div class="hwIcon">⏰</div>
-          <div class="hwLabel">SYSTEM TIME</div>
-          <div id="homeTime" class="hwValue hw-xl"></div>
+      <div id="homepageContent" class="neon">
+        <div id="homeHeader">
+          <div id="homeAriaTitle">
+            <span class="homeTitleMain">ARIA</span>
+            <span class="homeTitleAcronym"
+              >Adaptive Reasoning Intelligence Architecture</span
+            >
+          </div>
+          <div id="ariaEmotionIndicator" class="emotionIndicator">
+            ◉ NEUTRAL
+          </div>
         </div>
 
-        <div class="hwCard hw-2x1" id="homeWeatherCard">
-          <div class="hwIcon">🌤</div>
-          <div class="hwLabel">WEATHER — MASON OH</div>
-          <div id="homeWeatherMain" class="hwValue hw-lg"></div>
-          <div id="homeWeatherDetails" class="hwSub"></div>
+        <!-- TOP GRID (3-COLUMN) -->
+        <div id="homeTopGrid" class="homeGrid">
+          <div id="homeTimeCard" class="homeCard" style="--i: 0">
+            <div class="homeLabel">⏱ SYSTEM TIME</div>
+            <div id="homeTime" class="homeValue"></div>
+          </div>
+          <div id="homeWeatherCard" class="homeCard" style="--i: 1">
+            <div class="homeLabel">🌡 WEATHER — MASON, OH</div>
+            <div id="homeWeatherMain" class="homeValue"></div>
+            <div id="homeWeatherDetails" class="homeSub"></div>
+          </div>
+          <div id="homeSystemCard" class="homeCard" style="--i: 2">
+            <div class="homeLabel">💻 SYSTEM</div>
+            <div id="homeSystem" class="homeValue"></div>
+            <div id="networkIndicator" class="homeSub"></div>
+          </div>
         </div>
 
-        <div class="hwCard hw-2x1" id="homeSystemCard">
-          <div class="hwIcon">💻</div>
-          <div class="hwLabel">SYSTEM</div>
-          <div id="homeSystem" class="hwValue"></div>
-          <div id="networkIndicator" class="hwSub"></div>
+        <!-- SCROLL ROW 1 -->
+        <div class="scrollRow">
+          <div id="homeQuoteCard" class="homeCard scrollCard">
+            <div class="homeLabel">💬 MOTIVATION</div>
+            <div id="homeQuote" class="homeValue"></div>
+          </div>
+          <div id="homeTasksCard" class="homeCard scrollCard">
+            <div class="homeLabel">✅ TASKS PREVIEW</div>
+            <div id="homeTasksList" class="homeValue"></div>
+          </div>
+          <div id="homeRecentCard" class="homeCard scrollCard">
+            <div class="homeLabel">🗂 RECENT CHATS</div>
+            <div id="homeRecentChats" class="homeValue"></div>
+          </div>
         </div>
 
-        <!-- ROW 2: Health (2x2 tall) | Speed (1x1) | Quote (3x1) | Tasks (2x1) -->
-        <div class="hwCard hw-2x2" id="homeHealthCard">
-          <div class="hwIcon">💚</div>
-          <div class="hwLabel">SYSTEM HEALTH</div>
-          <div id="homeHealthScore" class="hwValue hw-xl"></div>
-          <div id="homeHealthDetails" class="hwSub"></div>
+        <!-- SCROLL ROW 2 -->
+        <div class="scrollRow">
+          <div id="homeHealthCard" class="homeCard scrollCard">
+            <div class="homeLabel">🔧 SYSTEM HEALTH</div>
+            <div id="homeHealthScore" class="homeValue"></div>
+            <div id="homeHealthDetails" class="homeSub"></div>
+          </div>
+          <div id="homeSpeedCard" class="homeCard scrollCard">
+            <div class="homeLabel">⚡ SPEED TEST</div>
+            <div id="homeSpeedPreview" class="homeValue"></div>
+            <div class="homeSub">Simulated estimate</div>
+          </div>
+          <div id="homeQuickToolsCard" class="homeCard scrollCard">
+            <div class="homeLabel">🛠 QUICK TOOLS</div>
+            <div id="homeQuickTools" class="homeValue"></div>
+          </div>
+          <div id="homeSummaryCard" class="homeCard scrollCard">
+            <div class="homeLabel">📋 DAILY SUMMARY</div>
+            <div id="homeDailySummary" class="homeValue"></div>
+          </div>
+          <div id="homeMonitorCard" class="homeCard scrollCard">
+            <div class="homeLabel">📡 SYSTEM MONITOR</div>
+            <div id="homeSystemMonitor" class="homeValue"></div>
+          </div>
         </div>
 
-        <div class="hwCard hw-2x1" id="homeSpeedCard">
-          <div class="hwIcon">⚡</div>
-          <div class="hwLabel">SPEED TEST</div>
-          <div id="homeSpeedPreview" class="hwValue hw-lg"></div>
+        <div id="homeButtons">
+          <button id="enterConsoleBtn" class="primaryBtn glitch wideBtn">
+            ⚡ ENTER ARIA CONSOLE
+          </button>
         </div>
-
-        <div class="hwCard hw-2x1" id="homeNetworkCard">
-          <div class="hwIcon">📶</div>
-          <div class="hwLabel">NETWORK STATUS</div>
-          <div id="homeNetworkInfo" class="hwValue"></div>
-        </div>
-
-        <div class="hwCard hw-4x1" id="homeQuoteCard">
-          <div class="hwIcon">💬</div>
-          <div class="hwLabel">MOTIVATION</div>
-          <div id="homeQuote" class="hwValue hw-quote"></div>
-        </div>
-
-        <!-- ROW 3: Quick Tools (3x2 big) | Tasks (3x1) | Recent Chats (3x1) -->
-        <div class="hwCard hw-3x2" id="homeQuickToolsCard">
-          <div class="hwIcon">🛠</div>
-          <div class="hwLabel">QUICK TOOLS</div>
-          <div id="homeQuickTools" class="hwValue"></div>
-        </div>
-
-        <div class="hwCard hw-3x1" id="homeTasksCard">
-          <div class="hwIcon">✅</div>
-          <div class="hwLabel">TASKS</div>
-          <div id="homeTasksList" class="hwValue"></div>
-        </div>
-
-        <div class="hwCard hw-3x1" id="homeRecentCard">
-          <div class="hwIcon">🗂</div>
-          <div class="hwLabel">RECENT CHATS</div>
-          <div id="homeRecentChats" class="hwValue"></div>
-        </div>
-
-        <!-- ROW 4: Monitor (2x1) | Summary (2x1) | USB (2x1) | BG Tasks (2x1) | Memory (2x1) | Link (2x1) -->
-        <div class="hwCard hw-2x1" id="homeMonitorCard">
-          <div class="hwIcon">📡</div>
-          <div class="hwLabel">SYSTEM MONITOR</div>
-          <div id="homeSystemMonitor" class="hwValue hw-sm"></div>
-        </div>
-
-        <div class="hwCard hw-2x1" id="homeSummaryCard">
-          <div class="hwIcon">📋</div>
-          <div class="hwLabel">DAILY SUMMARY</div>
-          <div id="homeDailySummary" class="hwValue"></div>
-        </div>
-
-        <div class="hwCard hw-2x1" id="homeUSBCard">
-          <div class="hwIcon">🔌</div>
-          <div class="hwLabel">USB DEVICES</div>
-          <div id="homeUSBDevices" class="hwValue"></div>
-        </div>
-
-        <div class="hwCard hw-2x1" id="homeBgTasksCard">
-          <div class="hwIcon">⚙</div>
-          <div class="hwLabel">BG TASKS</div>
-          <div id="homeBgTasks" class="hwValue"></div>
-        </div>
-
-        <div class="hwCard hw-2x1" id="homeMemoryCard">
-          <div class="hwIcon">🧠</div>
-          <div class="hwLabel">ARIA MEMORY</div>
-          <div id="homeMemoryFacts" class="hwValue"></div>
-        </div>
-
-        <div class="hwCard hw-2x1" id="homeLinkCard" onclick="window.ARIA_openLinkMode?.()" style="cursor:pointer">
-          <div class="hwIcon">🔗</div>
-          <div class="hwLabel">LINK MODE</div>
-          <div id="homeLinkStatus" class="hwValue">Tap to connect</div>
-        </div>
-
-        <div class="hwCard hw-2x1" id="homeBluetoothCard">
-          <div class="hwIcon">📵</div>
-          <div class="hwLabel">BLUETOOTH</div>
-          <div id="homeBluetooth" class="hwValue"></div>
-        </div>
-
-      </div><!-- end homeWidgetGrid -->
-
-      <div id="homeButtons">
-        <button id="enterConsoleBtn" class="primaryBtn glitch wideBtn">⚡ ENTER ARIA CONSOLE</button>
       </div>
     </div>
+
     <!-- ========================= -->
     <!--  MAIN LAYOUT              -->
     <!-- ========================= -->
@@ -901,15 +855,77 @@
               </div>
             </section>
 
+            <!-- AI PROVIDER -->
             <section class="settingsSection">
-              <h3>API Provider</h3>
-              <p class="settingsHint">
-                Choose which AI backend ARIA uses to generate responses.
-              </p>
+              <h3>AI Provider</h3>
+              <p class="settingsHint">Choose which AI backend ARIA uses. Saved across sessions.</p>
               <select id="providerSelect">
                 <option value="openrouter">OpenRouter (free models)</option>
-                <option value="groq">Groq (fast Llama / Mixtral)</option>
-                <option value="nemotron">⚡ NVIDIA Nemotron Ultra 253B</option>
+                <option value="groq">Groq (fast Llama 3.3 70B)</option>
+                <option value="cloudflare">🌩 Cloudflare Workers AI</option>
+                <option value="nemotron">⚡ NVIDIA Nemotron 70B</option>
+                <option value="deepseek">🐳 DeepSeek</option>
+                <option value="ollama">🏠 Local Ollama</option>
+              </select>
+            </section>
+
+            <!-- OpenRouter model picker -->
+            <section class="settingsSection" id="orModelSection">
+              <h3>OpenRouter Model</h3>
+              <p class="settingsHint">All free tier on OpenRouter.</p>
+              <select id="orModelSelect">
+                <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (default)</option>
+                <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B (fast)</option>
+                <option value="deepseek/deepseek-r1:free">DeepSeek R1 (reasoning)</option>
+                <option value="deepseek/deepseek-chat-v3-0324:free">DeepSeek Chat v3</option>
+                <option value="google/gemma-3-27b-it:free">Gemma 3 27B</option>
+                <option value="mistralai/mistral-7b-instruct:free">Mistral 7B</option>
+                <option value="qwen/qwen3-235b-a22b:free">Qwen3 235B</option>
+                <option value="nousresearch/hermes-3-llama-3.1-405b:free">Hermes 3 405B</option>
+                <option value="microsoft/phi-4-reasoning-plus:free">Phi-4 Reasoning+</option>
+                <option value="moonshotai/kimi-k2:free">Kimi K2</option>
+              </select>
+            </section>
+
+            <!-- Cloudflare model picker -->
+            <section class="settingsSection" id="cfModelSection" style="display:none">
+              <h3>Cloudflare Model</h3>
+              <p class="settingsHint">Coding auto-routes to Llama 3.3 FP8, math to DeepSeek R1, unless pinned.</p>
+              <div class="toggleRow" style="margin-bottom:8px">
+                <div><span>Auto-select model by task</span><div class="toggleHint">Coding → Llama FP8, Math → DeepSeek R1</div></div>
+                <button id="cfAutoModelToggle" class="toggleBtn active">ON</button>
+              </div>
+              <select id="cfModelSelect">
+                <option value="@cf/meta/llama-3.3-70b-instruct-fp8-fast">Llama 3.3 70B FP8 (fastest)</option>
+                <option value="@cf/meta/llama-3.1-70b-instruct">Llama 3.1 70B</option>
+                <option value="@cf/meta/llama-3.1-8b-instruct">Llama 3.1 8B (fast/cheap)</option>
+                <option value="@cf/deepseek-ai/deepseek-r1-distill-qwen-32b">DeepSeek R1 32B (reasoning)</option>
+                <option value="@cf/google/gemma-7b-it">Gemma 7B</option>
+                <option value="@cf/mistral/mistral-7b-instruct-v0.1">Mistral 7B</option>
+                <option value="@cf/qwen/qwen1.5-14b-chat-awq">Qwen 1.5 14B</option>
+                <option value="@cf/openchat/openchat-3.5-0106">OpenChat 3.5</option>
+                <option value="@cf/meta/codellama-7b-instruct-awq">Code Llama 7B</option>
+                <option value="@cf/microsoft/phi-2">Phi-2 (tiny/fast)</option>
+              </select>
+            </section>
+
+            <!-- Ollama model picker -->
+            <section class="settingsSection" id="ollamaModelSection" style="display:none">
+              <h3>Ollama Model</h3>
+              <p class="settingsHint">Locally hosted. Set OLLAMA_URL env var if not on localhost.</p>
+              <select id="ollamaModelSelect"><option value="">Loading models…</option></select>
+              <p class="settingsHint" style="margin-top:6px">URL: <code id="ollamaUrlDisplay">localhost:11434</code></p>
+            </section>
+
+            <!-- Image generation provider -->
+            <section class="settingsSection">
+              <h3>Image Generation</h3>
+              <p class="settingsHint">Where ARIA generates images when you ask for one.</p>
+              <select id="imageProviderSelect">
+                <option value="auto">Auto (CF FLUX → DALL-E 3 → Pollinations)</option>
+                <option value="cloudflare">🌩 Cloudflare FLUX.1 Schnell</option>
+                <option value="dalle">DALL-E 3 (needs OPENAI_KEY)</option>
+                <option value="pollinations">Pollinations.ai (always free, no key)</option>
               </select>
             </section>
           </div>
