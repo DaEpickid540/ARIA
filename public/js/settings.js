@@ -93,116 +93,6 @@ export const THEMES = {
       "--red-ember": "#ffee88",
     },
   },
-  pink: {
-    label: "Hot Pink",
-    vars: {
-      "--red-core": "#ff0099",
-      "--red-hot": "#ff33aa",
-      "--red-neon": "#ff55bb",
-      "--red-deep": "#aa0066",
-      "--red-dim": "#550033",
-      "--red-ember": "#ff66cc",
-    },
-  },
-  ice: {
-    label: "Ice Blue",
-    vars: {
-      "--red-core": "#00aaff",
-      "--red-hot": "#00ccff",
-      "--red-neon": "#33bbff",
-      "--red-deep": "#006699",
-      "--red-dim": "#002244",
-      "--red-ember": "#00ddff",
-    },
-  },
-  toxic: {
-    label: "Toxic",
-    vars: {
-      "--red-core": "#aaff00",
-      "--red-hot": "#bbff33",
-      "--red-neon": "#ccff44",
-      "--red-deep": "#558800",
-      "--red-dim": "#224400",
-      "--red-ember": "#ddff88",
-    },
-  },
-  mono: {
-    label: "Ghost",
-    vars: {
-      "--red-core": "#cccccc",
-      "--red-hot": "#dddddd",
-      "--red-neon": "#eeeeee",
-      "--red-deep": "#888888",
-      "--red-dim": "#333333",
-      "--red-ember": "#aaaaaa",
-    },
-  },
-  blood: {
-    label: "Blood",
-    vars: {
-      "--red-core": "#880000",
-      "--red-hot": "#aa0000",
-      "--red-neon": "#aa1111",
-      "--red-deep": "#550000",
-      "--red-dim": "#220000",
-      "--red-ember": "#cc2222",
-    },
-  },
-  teal: {
-    label: "Teal",
-    vars: {
-      "--red-core": "#00ffcc",
-      "--red-hot": "#00ddaa",
-      "--red-neon": "#33ffdd",
-      "--red-deep": "#008866",
-      "--red-dim": "#003322",
-      "--red-ember": "#00ffaa",
-    },
-  },
-  solar: {
-    label: "Solar",
-    vars: {
-      "--red-core": "#ffaa00",
-      "--red-hot": "#ff8800",
-      "--red-neon": "#ffbb33",
-      "--red-deep": "#cc6600",
-      "--red-dim": "#553300",
-      "--red-ember": "#ffdd88",
-    },
-  },
-  violet: {
-    label: "Violet",
-    vars: {
-      "--red-core": "#8844ff",
-      "--red-hot": "#aa66ff",
-      "--red-neon": "#bb88ff",
-      "--red-deep": "#441188",
-      "--red-dim": "#220044",
-      "--red-ember": "#cc99ff",
-    },
-  },
-  rose: {
-    label: "Rose",
-    vars: {
-      "--red-core": "#ff4466",
-      "--red-hot": "#ff6688",
-      "--red-neon": "#ff88aa",
-      "--red-deep": "#aa1133",
-      "--red-dim": "#550011",
-      "--red-ember": "#ffaacc",
-    },
-  },
-  cobalt: {
-    label: "Cobalt",
-    vars: {
-      "--red-core": "#0066ff",
-      "--red-hot": "#3388ff",
-      "--red-neon": "#55aaff",
-      "--red-deep": "#003388",
-      "--red-dim": "#001144",
-      "--red-ember": "#88ccff",
-    },
-  },
 };
 
 export function applyTheme(themeKey, darkMode = true) {
@@ -249,84 +139,6 @@ export function applyTheme(themeKey, darkMode = true) {
   document
     .querySelectorAll(".themeSwatch")
     .forEach((s) => s.classList.toggle("active", s.dataset.theme === themeKey));
-
-  // Apply scanline color to match theme
-  const rgb = hexToRgb(core);
-  if (rgb)
-    document.documentElement.style.setProperty(
-      "--scanline-rgb",
-      `${rgb.r},${rgb.g},${rgb.b}`,
-    );
-}
-
-function hexToRgb(hex) {
-  const m = hex
-    .replace("#", "")
-    .match(/([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i);
-  return m
-    ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) }
-    : null;
-}
-
-export function applyAccentColor(hex) {
-  if (!/^#[0-9a-f]{6}$/i.test(hex)) return;
-  const root = document.documentElement;
-  root.style.setProperty("--red-core", hex);
-  root.style.setProperty("--red-hot", hex + "cc");
-  root.style.setProperty("--red-neon", hex + "ee");
-  root.style.setProperty("--red-deep", hex + "88");
-  root.style.setProperty("--red-dim", hex + "44");
-  root.style.setProperty("--glow-sm", `0 0 8px ${hex}99`);
-  root.style.setProperty("--glow-md", `0 0 16px ${hex}bb, 0 0 32px ${hex}55`);
-  root.style.setProperty(
-    "--glow-lg",
-    `0 0 24px ${hex}ee, 0 0 48px ${hex}88, 0 0 80px ${hex}33`,
-  );
-  const rgb = hexToRgb(hex);
-  if (rgb)
-    root.style.setProperty("--scanline-rgb", `${rgb.r},${rgb.g},${rgb.b}`);
-}
-
-export function applyFont(fontKey) {
-  const fonts = {
-    mono: '"Share Tech Mono", "Courier New", monospace',
-    orbitron: '"Orbitron", "Share Tech Mono", monospace',
-    inter: '"Inter", "Segoe UI", Arial, sans-serif',
-    jetbrains: '"JetBrains Mono", "Share Tech Mono", monospace',
-    fira: '"Fira Code", "Share Tech Mono", monospace',
-  };
-  document.documentElement.style.setProperty(
-    "--ui-font",
-    fonts[fontKey] || fonts.mono,
-  );
-  document.body.style.fontFamily = fonts[fontKey] || fonts.mono;
-}
-
-const BG_ANIMATIONS = {
-  none: "",
-  grid: "aria-bg-grid",
-  rain: "aria-bg-rain",
-  stars: "aria-bg-stars",
-  circuit: "aria-bg-circuit",
-  pulse: "aria-bg-pulse",
-};
-
-export function applyBgAnimation(key) {
-  const body = document.body;
-  Object.values(BG_ANIMATIONS).forEach((c) => {
-    if (c) body.classList.remove(c);
-  });
-  if (BG_ANIMATIONS[key]) body.classList.add(BG_ANIMATIONS[key]);
-}
-
-export function applyAmoled(on) {
-  const root = document.documentElement;
-  if (on) {
-    root.style.setProperty("--bg-void", "#000000");
-    root.style.setProperty("--bg-abyss", "#000000");
-    root.style.setProperty("--bg-panel", "#050505");
-    root.style.setProperty("--bg-raised", "#0a0a0a");
-  }
 }
 
 export function applyBrightness(val) {
@@ -401,9 +213,29 @@ function applySettingsToUI() {
       ),
     );
 
-  // Provider
+  // Provider + model selectors
   const provSel = document.getElementById("providerSelect");
   if (provSel) provSel.value = currentSettings.provider || "openrouter";
+  updateProviderSections(currentSettings.provider || "openrouter");
+
+  const orSel = document.getElementById("orModelSelect");
+  if (orSel && currentSettings.orModel) orSel.value = currentSettings.orModel;
+
+  const cfSel = document.getElementById("cfModelSelect");
+  if (cfSel && currentSettings.cfModel) cfSel.value = currentSettings.cfModel;
+
+  const cfAutoBtn = document.getElementById("cfAutoModelToggle");
+  if (cfAutoBtn) {
+    const auto = currentSettings.cfAutoModel !== false;
+    cfAutoBtn.textContent = auto ? "ON" : "OFF";
+    cfAutoBtn.classList.toggle("active", auto);
+    const cfSect = document.getElementById("cfModelSelect");
+    if (cfSect) cfSect.style.opacity = auto ? "0.4" : "1";
+    if (cfSect) cfSect.disabled = auto;
+  }
+
+  const imgSel = document.getElementById("imageProviderSelect");
+  if (imgSel) imgSel.value = currentSettings.imageProvider || "auto";
 
   // TTS / VTT toggles
   syncToggle("ttsToggle", currentSettings.ttsEnabled);
@@ -723,9 +555,75 @@ function wireAllControls() {
   );
 
   // ── Provider ──
+  function updateProviderSections(prov) {
+    // Show/hide the correct model picker based on selected provider
+    document.getElementById("orModelSection")?.style && (
+      document.getElementById("orModelSection").style.display =
+        prov === "openrouter" ? "" : "none"
+    );
+    document.getElementById("cfModelSection")?.style && (
+      document.getElementById("cfModelSection").style.display =
+        prov === "cloudflare" ? "" : "none"
+    );
+    document.getElementById("ollamaModelSection")?.style && (
+      document.getElementById("ollamaModelSection").style.display =
+        prov === "ollama" ? "" : "none"
+    );
+  }
+
   document.getElementById("providerSelect")?.addEventListener("change", (e) => {
     currentSettings.provider = e.target.value;
+    updateProviderSections(e.target.value);
+    // Load Ollama models on demand
+    if (e.target.value === "ollama") loadOllamaModels();
   });
+
+  // OpenRouter model select
+  document.getElementById("orModelSelect")?.addEventListener("change", (e) => {
+    currentSettings.orModel = e.target.value;
+  });
+
+  // Cloudflare model select
+  document.getElementById("cfModelSelect")?.addEventListener("change", (e) => {
+    currentSettings.cfModel = e.target.value;
+  });
+
+  // CF auto-model toggle
+  document.getElementById("cfAutoModelToggle")?.addEventListener("click", (btn) => {
+    const b = document.getElementById("cfAutoModelToggle");
+    const auto = b.textContent.trim() === "ON";
+    currentSettings.cfAutoModel = !auto;
+    b.textContent = !auto ? "ON" : "OFF";
+    b.classList.toggle("active", !auto);
+    const cfSel = document.getElementById("cfModelSelect");
+    if (cfSel) { cfSel.style.opacity = !auto ? "0.4" : "1"; cfSel.disabled = !auto; }
+  });
+
+  // Image provider select
+  document.getElementById("imageProviderSelect")?.addEventListener("change", (e) => {
+    currentSettings.imageProvider = e.target.value;
+  });
+
+  // Ollama model loader
+  async function loadOllamaModels() {
+    const sel = document.getElementById("ollamaModelSelect");
+    if (!sel) return;
+    try {
+      const cfg = await fetch("/api/config").then(r => r.json());
+      const models = cfg.ollamaModels || [];
+      if (!models.length) {
+        sel.innerHTML = '<option value="">No models found — is Ollama running?</option>';
+        return;
+      }
+      sel.innerHTML = models.map(m =>
+        `<option value="${m}"${currentSettings.ollamaModel === m ? " selected" : ""}>${m}</option>`
+      ).join("");
+      if (!currentSettings.ollamaModel) currentSettings.ollamaModel = models[0];
+    } catch {
+      sel.innerHTML = '<option value="">Could not connect to Ollama</option>';
+    }
+    sel.addEventListener("change", (e) => { currentSettings.ollamaModel = e.target.value; });
+  }
 
   // ── TTS toggle ──
   document.getElementById("ttsToggle")?.addEventListener("click", () => {
@@ -914,44 +812,6 @@ function wireAllControls() {
   });
 
   // ── Save ──
-  // Accent color picker
-  document
-    .getElementById("accentColorPicker")
-    ?.addEventListener("input", (e) => {
-      applyAccentColor(e.target.value);
-      currentSettings.accentColor = e.target.value;
-    });
-
-  // Font selector
-  document.getElementById("uiFontSelect")?.addEventListener("change", (e) => {
-    applyFont(e.target.value);
-    currentSettings.uiFont = e.target.value;
-  });
-
-  // BG animation
-  document.getElementById("bgAnimSelect")?.addEventListener("change", (e) => {
-    applyBgAnimation(e.target.value);
-    currentSettings.bgAnim = e.target.value;
-  });
-
-  // AMOLED toggle
-  document.getElementById("toggle_amoled")?.addEventListener("click", (e) => {
-    const btn = e.currentTarget;
-    const on = btn.textContent.trim() === "OFF";
-    btn.textContent = on ? "ON" : "OFF";
-    btn.classList.toggle("active", on);
-    currentSettings.amoled = on;
-    applyAmoled(on);
-  });
-
-  // Memory search/filter
-  document.getElementById("memSearchInput")?.addEventListener("input", () => {
-    import("./memory.js").then((m) => m.renderMemoryPanel?.());
-  });
-  document.getElementById("memFilterCat")?.addEventListener("change", () => {
-    import("./memory.js").then((m) => m.renderMemoryPanel?.());
-  });
-
   document.getElementById("settingsSaveBtn")?.addEventListener("click", () => {
     const sel = document.getElementById("voiceSelect");
     if (sel) currentSettings.voice = sel.value;
