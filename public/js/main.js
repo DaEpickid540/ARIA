@@ -201,15 +201,18 @@ window.addEventListener("DOMContentLoaded", () => {
           await import("./tools.js");
           await import("./tts.js");
           await import("./vtt.js");
-          const { initSettings } = await import("./settings.js");
-          initSettings();
           await import("./personality.js");
           await import("./pages.js");
 
-          // NEW: Call engine
+          // Init settings FIRST so all controls are wired
+          const { initSettings } = await import("./settings.js");
+          initSettings();
+
+          // Call engine
           const { initCallEngine } = await import("./callEngine.js");
           initCallEngine();
 
+          // Voice controls (TTS/VTT/PTT buttons)
           const { initVoiceControls } = await import("./voiceControls.js");
           initVoiceControls();
 
