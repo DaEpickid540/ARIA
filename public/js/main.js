@@ -179,62 +179,14 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   /* ============================================================
-     AFTER BOOT → ARIA MAIN LOGIC
+     AFTER BOOT → hand off to lock.js
+     lock.js owns: unlock flow, homepage, module loading, all button wiring
      ============================================================ */
   runPreBoot(() => {
     runBootSequence(() => {
-      const homepage = document.getElementById("homepageScreen");
-      const layout = document.getElementById("layout");
-
-      const enterBtn = document.getElementById("enterConsoleBtn");
-      const goHomeBtn = document.getElementById("goHomeBtn");
-      const goLockBtn = document.getElementById("goLockBtn");
-
-      /* ENTER ARIA */
-      enterBtn?.addEventListener("click", async () => {
-        homepage.style.display = "none";
-        layout.style.display = "flex";
-
-        try {
-          await import("./chat.js");
-          await import("./ui.js");
-          await import("./tools.js");
-          await import("./tts.js");
-          await import("./vtt.js");
-          await import("./personality.js");
-          await import("./pages.js");
-
-          // Init settings FIRST so all controls are wired
-          const { initSettings } = await import("./settings.js");
-          initSettings();
-
-          // Call engine
-          const { initCallEngine } = await import("./callEngine.js");
-          initCallEngine();
-
-          // Voice controls (TTS/VTT/PTT buttons)
-          const { initVoiceControls } = await import("./voiceControls.js");
-          initVoiceControls();
-
-          console.log("ALL CHAT MODULES LOADED");
-        } catch (err) {
-          console.error("CHAT MODULE FAILED:", err);
-        }
-      });
-
-      /* GO HOME */
-      goHomeBtn?.addEventListener("click", () => {
-        layout.style.display = "none";
-        homepage.style.display = "flex";
-        homepage.style.opacity = 1;
-      });
-
-      /* GO LOCK */
-      goLockBtn?.addEventListener("click", () => {
-        layout.style.display = "none";
-        homepage.style.display = "none";
-        document.getElementById("lockScreen").style.display = "flex";
-      });
+      // Boot complete — lock.js already has the unlock form ready.
+      // Wire the console nav buttons now that boot is done.
+      window.ARIA_wireConsoleButtons?.();
     });
   });
 });

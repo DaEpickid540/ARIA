@@ -180,6 +180,16 @@ async function loadChatModules() {
           mod.initVoiceControls();
       } catch {}
     }
+    // ── Init settings (wires settingsBtn, TTS, VTT, all controls) ──
+    const { initSettings } = await import("./settings.js");
+    initSettings();
+
+    // ── Apply version stamp ──
+    try {
+      const { applyVersion } = await import("./version.js");
+      applyVersion();
+    } catch {}
+
     console.log("[ARIA] All chat modules loaded ✓");
   } catch (err) {
     console.error("[ARIA] Module load error:", err);
