@@ -184,6 +184,24 @@ async function loadChatModules() {
     const { initSettings } = await import("./settings.js");
     initSettings();
 
+    // ── New feature modules ──
+    try {
+      const { initShortcuts } = await import("./shortcuts.js");
+      initShortcuts();
+    } catch {}
+    try {
+      const { initChatExport } = await import("./chatExport.js");
+      initChatExport();
+    } catch {}
+    try {
+      const { initAmbient } = await import("./ambient.js");
+      initAmbient();
+    } catch {}
+    try {
+      const { initClaw } = await import("./claw.js");
+      initClaw();
+    } catch {}
+
     // ── Apply version stamp ──
     try {
       const { applyVersion } = await import("./version.js");

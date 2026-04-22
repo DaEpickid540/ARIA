@@ -7,7 +7,7 @@ import fs from "fs";
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+const __dirname = path.dirname(__filename);
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -17,22 +17,35 @@ app.use(express.static(path.join(__dirname, "public")));
 let upload = null;
 try {
   const multer = (await import("multer")).default;
-  upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+  upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 20 * 1024 * 1024 },
+  });
 } catch {}
 
 /* ── dirs + persistence ── */
-const DATA_DIR   = path.join(__dirname, "data");
+const DATA_DIR = path.join(__dirname, "data");
 const CHATS_FILE = path.join(DATA_DIR, "chats.json");
-const MEM_FILE   = path.join(DATA_DIR, "memory.json");
-[DATA_DIR, path.join(__dirname, "public", "uploads")].forEach(d => {
+const MEM_FILE = path.join(DATA_DIR, "memory.json");
+[DATA_DIR, path.join(__dirname, "public", "uploads")].forEach((d) => {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 });
 
-function readJSON(f, fb)  { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return fb; } }
-function writeJSON(f, d)  { try { fs.writeFileSync(f, JSON.stringify(d, null, 2)); } catch {} }
+function readJSON(f, fb) {
+  try {
+    return JSON.parse(fs.readFileSync(f, "utf8"));
+  } catch {
+    return fb;
+  }
+}
+function writeJSON(f, d) {
+  try {
+    fs.writeFileSync(f, JSON.stringify(d, null, 2));
+  } catch {}
+}
 
-let userChats  = readJSON(CHATS_FILE, {});
-let ariaMemory = readJSON(MEM_FILE,   { facts: [], sessions: [] });
+let userChats = readJSON(CHATS_FILE, {});
+let ariaMemory = readJSON(MEM_FILE, { facts: [], sessions: [] });
 
 /* ============================================================
    PERSONALITY PROMPTS
@@ -146,25 +159,39 @@ RESPONSE FORMAT:
 /* ── memory ── */
 function buildMemoryContext() {
   if (!ariaMemory.facts?.length) return "";
-  return `\n\n[YOUR MEMORY — facts about the user:\n${ariaMemory.facts.map(f => `- ${f}`).join("\n")}\n]`;
+  return `\n\n[YOUR MEMORY — facts about the user:\n${ariaMemory.facts.map((f) => `- ${f}`).join("\n")}\n]`;
 }
 
 function detectFact(text) {
   const patterns = [
-    { re: /my name is ([a-z\s]+)/i,              x: m => `User's name is ${m[1].trim()}` },
-    { re: /i(?:'m| am) ([0-9]+) years old/i,     x: m => `User is ${m[1]} years old` },
-    { re: /i like ([^.!?\n]{4,40})/i,            x: m => `User likes ${m[1].trim()}` },
-    { re: /i love ([^.!?\n]{4,40})/i,            x: m => `User loves ${m[1].trim()}` },
-    { re: /my favorite (.{4,30}) is (.{2,25})/i, x: m => `User's favorite ${m[1]} is ${m[2].trim()}` },
-    { re: /i(?:'m| am) from ([a-z\s,]+)/i,       x: m => `User is from ${m[1].trim()}` },
-    { re: /i go to ([^.!?\n]{4,40})/i,           x: m => `User goes to ${m[1].trim()}` },
-    { re: /remember (?:that )?(.{8,100})/i,      x: m => m[1].trim() },
+    { re: /my name is ([a-z\s]+)/i, x: (m) => `User's name is ${m[1].trim()}` },
+    {
+      re: /i(?:'m| am) ([0-9]+) years old/i,
+      x: (m) => `User is ${m[1]} years old`,
+    },
+    { re: /i like ([^.!?\n]{4,40})/i, x: (m) => `User likes ${m[1].trim()}` },
+    { re: /i love ([^.!?\n]{4,40})/i, x: (m) => `User loves ${m[1].trim()}` },
+    {
+      re: /my favorite (.{4,30}) is (.{2,25})/i,
+      x: (m) => `User's favorite ${m[1]} is ${m[2].trim()}`,
+    },
+    {
+      re: /i(?:'m| am) from ([a-z\s,]+)/i,
+      x: (m) => `User is from ${m[1].trim()}`,
+    },
+    {
+      re: /i go to ([^.!?\n]{4,40})/i,
+      x: (m) => `User goes to ${m[1].trim()}`,
+    },
+    { re: /remember (?:that )?(.{8,100})/i, x: (m) => m[1].trim() },
   ];
   for (const p of patterns) {
     const m = text.match(p.re);
     if (m) {
       const fact = p.x(m);
-      if (!ariaMemory.facts.some(f => f.toLowerCase() === fact.toLowerCase())) {
+      if (
+        !ariaMemory.facts.some((f) => f.toLowerCase() === fact.toLowerCase())
+      ) {
         ariaMemory.facts.push(fact);
         writeJSON(MEM_FILE, ariaMemory);
         return fact;
@@ -175,13 +202,21 @@ function detectFact(text) {
 }
 
 function detectFrustration(text) {
-  return /ugh|wtf|why isn.t|doesn.t work|broken|hate|stupid|useless|i don.t understand|i.m lost|confused|not working|give up|terrible|awful/i.test(text);
+  return /ugh|wtf|why isn.t|doesn.t work|broken|hate|stupid|useless|i don.t understand|i.m lost|confused|not working|give up|terrible|awful/i.test(
+    text,
+  );
 }
 
 /* ============================================================
    AGENTIC PIPELINE
    ============================================================ */
-async function runAgenticPipeline(messages, provider, model, thinkDeeper = false, modeOpts = {}) {
+async function runAgenticPipeline(
+  messages,
+  provider,
+  model,
+  thinkDeeper = false,
+  modeOpts = {},
+) {
   const steps = [];
   let iteration = 0;
   const MAX_ITER = thinkDeeper ? 6 : 4;
@@ -191,30 +226,53 @@ async function runAgenticPipeline(messages, provider, model, thinkDeeper = false
     const rawReply = await callAI(currentMessages, provider, model, modeOpts);
     iteration++;
 
-    const actionMatch = rawReply.match(/^\s*ACTION:\s*([^|\n]+?)\s*\|\s*(.*)$/im);
+    const actionMatch = rawReply.match(
+      /^\s*ACTION:\s*([^|\n]+?)\s*\|\s*(.*)$/im,
+    );
     if (!actionMatch) return { reply: rawReply, steps };
 
-    const toolName  = actionMatch[1].trim().toLowerCase();
+    const toolName = actionMatch[1].trim().toLowerCase();
     const toolInput = actionMatch[2].trim();
-    const preText   = rawReply.replace(/^\s*ACTION:.*$/m, "").trim();
+    const preText = rawReply.replace(/^\s*ACTION:.*$/m, "").trim();
 
     let toolResult;
-    try { toolResult = await runToolServer(toolName, toolInput); }
-    catch (e) { toolResult = `Tool error: ${e.message}`; }
+    try {
+      toolResult = await runToolServer(toolName, toolInput);
+    } catch (e) {
+      toolResult = `Tool error: ${e.message}`;
+    }
 
     if (toolResult?.startsWith?.("__IMAGE__")) {
       const urlMatch = toolResult.match(/__IMAGE__(.+?)__PROMPT__(.+)/);
       if (urlMatch) {
-        steps.push({ tool: toolName, input: toolInput, preText, result: "[image]" });
-        return { reply: preText || "Here's your generated image:", imageUrl: urlMatch[1], imagePrompt: urlMatch[2], steps };
+        steps.push({
+          tool: toolName,
+          input: toolInput,
+          preText,
+          result: "[image]",
+        });
+        return {
+          reply: preText || "Here's your generated image:",
+          imageUrl: urlMatch[1],
+          imagePrompt: urlMatch[2],
+          steps,
+        };
       }
     }
 
-    steps.push({ tool: toolName, input: toolInput, preText, result: toolResult });
+    steps.push({
+      tool: toolName,
+      input: toolInput,
+      preText,
+      result: toolResult,
+    });
     currentMessages = [
       ...currentMessages,
       { role: "assistant", content: rawReply },
-      { role: "user",      content: `[TOOL RESULT for "${toolName}"]:\n${toolResult}\n\nNow write your response using this real data. Do NOT output another ACTION: line unless you need a different tool.` },
+      {
+        role: "user",
+        content: `[TOOL RESULT for "${toolName}"]:\n${toolResult}\n\nNow write your response using this real data. Do NOT output another ACTION: line unless you need a different tool.`,
+      },
     ];
   }
 
@@ -231,24 +289,24 @@ async function runAgenticPipeline(messages, provider, model, thinkDeeper = false
 // All verified Cloudflare Workers AI model IDs
 const CF_MODELS = {
   // ── TEXT GENERATION ──
-  llama31_8b:       "@cf/meta/llama-3.1-8b-instruct",          // fast, free tier default
-  llama31_70b:      "@cf/meta/llama-3.1-70b-instruct",         // larger general
-  llama33_70b_fp8:  "@cf/meta/llama-3.3-70b-instruct-fp8-fast",// fastest 70B
-  gemma7b:          "@cf/google/gemma-7b-it",                   // Google Gemma 7B
-  mistral7b:        "@cf/mistral/mistral-7b-instruct-v0.1",     // Mistral 7B
-  deepseekR1:       "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b", // reasoning
-  qwen15_14b:       "@cf/qwen/qwen1.5-14b-chat-awq",           // Qwen 14B
-  openchat:         "@cf/openchat/openchat-3.5-0106",           // OpenChat
-  phi2:             "@cf/microsoft/phi-2",                      // Phi-2 (small/fast)
-  sqlcoder:         "@cf/defog/sqlcoder-7b-2",                  // SQL specialist
-  codellama:        "@cf/meta/codellama-7b-instruct-awq",       // Code Llama
+  llama31_8b: "@cf/meta/llama-3.1-8b-instruct", // fast, free tier default
+  llama31_70b: "@cf/meta/llama-3.1-70b-instruct", // larger general
+  llama33_70b_fp8: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", // fastest 70B
+  gemma7b: "@cf/google/gemma-7b-it", // Google Gemma 7B
+  mistral7b: "@cf/mistral/mistral-7b-instruct-v0.1", // Mistral 7B
+  deepseekR1: "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b", // reasoning
+  qwen15_14b: "@cf/qwen/qwen1.5-14b-chat-awq", // Qwen 14B
+  openchat: "@cf/openchat/openchat-3.5-0106", // OpenChat
+  phi2: "@cf/microsoft/phi-2", // Phi-2 (small/fast)
+  sqlcoder: "@cf/defog/sqlcoder-7b-2", // SQL specialist
+  codellama: "@cf/meta/codellama-7b-instruct-awq", // Code Llama
   // ── IMAGE GENERATION ──
-  fluxSchnell:      "@cf/black-forest-labs/flux-1-schnell",     // FLUX fast (primary)
-  sdxl:             "@cf/stabilityai/stable-diffusion-xl-base-1.0", // SDXL fallback
+  fluxSchnell: "@cf/black-forest-labs/flux-1-schnell", // FLUX fast (primary)
+  sdxl: "@cf/stabilityai/stable-diffusion-xl-base-1.0", // SDXL fallback
   // ── EMBEDDINGS ──
-  bgeSmall:         "@cf/baai/bge-small-en-v1.5",               // fast embedding
-  bgeLarge:         "@cf/baai/bge-large-en-v1.5",               // larger embedding
-  bgeM3:            "@cf/baai/bge-m3",                          // multilingual
+  bgeSmall: "@cf/baai/bge-small-en-v1.5", // fast embedding
+  bgeLarge: "@cf/baai/bge-large-en-v1.5", // larger embedding
+  bgeM3: "@cf/baai/bge-m3", // multilingual
 };
 
 // Auto-select CF model by task
@@ -261,18 +319,19 @@ function pickCFModel(opts = {}) {
 // Core Cloudflare Workers AI caller (text generation)
 async function callCloudflare(messages, cfModel) {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const apiKey    = process.env.CLOUDFLARE_AI_API;
-  if (!accountId || !apiKey) throw new Error("CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_AI_API not set.");
+  const apiKey = process.env.CLOUDFLARE_AI_API;
+  if (!accountId || !apiKey)
+    throw new Error("CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_AI_API not set.");
 
   const modelId = cfModel || CF_MODELS.llama31_8b;
   // Correct URL format — no trailing slash, model ID includes @cf/ prefix
   const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${modelId}`;
 
   const res = await fetch(url, {
-    method:  "POST",
+    method: "POST",
     headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type":  "application/json",
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ messages, max_tokens: 4096 }),
   });
@@ -293,26 +352,32 @@ async function callCloudflare(messages, cfModel) {
 // Cloudflare FLUX image generation — returns base64 data URL
 async function generateImageCloudflare(prompt) {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const apiKey    = process.env.CLOUDFLARE_AI_API;
+  const apiKey = process.env.CLOUDFLARE_AI_API;
   if (!accountId || !apiKey) return null;
 
   const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${CF_MODELS.fluxSchnell}`;
   try {
     const res = await fetch(url, {
-      method:  "POST",
-      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
       // FLUX schnell takes prompt + optional params, returns raw binary PNG
       body: JSON.stringify({ prompt, num_steps: 4, width: 1024, height: 1024 }),
     });
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
-      console.warn("[CF FLUX] Error:", errData?.errors?.[0]?.message || res.status);
+      console.warn(
+        "[CF FLUX] Error:",
+        errData?.errors?.[0]?.message || res.status,
+      );
       return null;
     }
     // Response is raw binary image bytes
     const buf = Buffer.from(await res.arrayBuffer());
     return `data:image/png;base64,${buf.toString("base64")}`;
-  } catch(e) {
+  } catch (e) {
     console.warn("[CF FLUX] Exception:", e.message);
     return null;
   }
@@ -321,13 +386,16 @@ async function generateImageCloudflare(prompt) {
 // Cloudflare embedding
 async function generateEmbedding(text) {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const apiKey    = process.env.CLOUDFLARE_AI_API;
+  const apiKey = process.env.CLOUDFLARE_AI_API;
   if (!accountId || !apiKey) return null;
 
   const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${CF_MODELS.bgeSmall}`;
   const res = await fetch(url, {
-    method:  "POST",
-    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({ text: [text] }),
   });
   if (!res.ok) return null;
@@ -342,56 +410,63 @@ async function generateEmbedding(text) {
    Falls back gracefully: CF → Groq → OpenRouter → error.
    ============================================================ */
 async function callAI(messages, provider, model, modeOpts = {}) {
-  const hasCF   = !!(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_API);
+  const hasCF = !!(
+    process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_API
+  );
   const hasGroq = !!process.env.GROQ_API_KEY;
-  const hasOR   = !!process.env.OPENROUTER_API_KEY;
+  const hasOR = !!process.env.OPENROUTER_API_KEY;
 
   // ── OLLAMA (locally hosted) ──
   if (provider === "ollama") {
-    const ollamaUrl  = process.env.OLLAMA_URL || "http://localhost:11434";
+    const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
     const ollamaModel = model || process.env.OLLAMA_MODEL || "llama3";
     try {
       const res = await fetch(`${ollamaUrl}/api/chat`, {
-        method:  "POST",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model: ollamaModel, messages, stream: false }),
       });
       if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
-      const data  = await res.json();
+      const data = await res.json();
       const reply = data?.message?.content?.trim();
       if (!reply) throw new Error("Empty Ollama response");
       return reply;
-    } catch(e) {
+    } catch (e) {
       // Ollama not running — fall through to next provider
       console.warn("[AI] Ollama unavailable:", e.message, "— falling back");
       if (hasCF) return callCloudflare(messages, pickCFModel(modeOpts));
       if (hasGroq) return callGroq(messages, model);
-      if (hasOR)   return callOpenRouter(messages, model, modeOpts);
+      if (hasOR) return callOpenRouter(messages, model, modeOpts);
       throw e;
     }
   }
 
   // ── CLOUDFLARE (explicit or auto-route for specialist modes) ──
-  if (provider === "cloudflare" || (hasCF && (modeOpts.programmingMode || modeOpts.mathMode || modeOpts.thinkDeeper))) {
+  if (
+    provider === "cloudflare" ||
+    (hasCF &&
+      (modeOpts.programmingMode || modeOpts.mathMode || modeOpts.thinkDeeper))
+  ) {
     const cfModel = model || pickCFModel(modeOpts);
     try {
       return await callCloudflare(messages, cfModel);
-    } catch(e) {
+    } catch (e) {
       console.warn("[AI] Cloudflare failed:", e.message, "— falling back");
       // Fall through to Groq/OR
       if (hasGroq) return callGroq(messages, null);
-      if (hasOR)   return callOpenRouter(messages, null, modeOpts);
+      if (hasOR) return callOpenRouter(messages, null, modeOpts);
       throw e;
     }
   }
 
   // ── GROQ ──
   if (provider === "groq") {
-    try { return await callGroq(messages, model); }
-    catch(e) {
+    try {
+      return await callGroq(messages, model);
+    } catch (e) {
       console.warn("[AI] Groq failed:", e.message, "— falling back");
       if (hasCF) return callCloudflare(messages, pickCFModel(modeOpts));
-      if (hasOR)  return callOpenRouter(messages, null, modeOpts);
+      if (hasOR) return callOpenRouter(messages, null, modeOpts);
       throw e;
     }
   }
@@ -404,20 +479,33 @@ async function callAI(messages, provider, model, modeOpts = {}) {
       return "⚠ NEMOTRON_NVIDIA not set.";
     }
     try {
-      const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-        method:  "POST",
-        headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({ model: "nvidia/llama-3.1-nemotron-70b-instruct", messages, temperature: 0.6, max_tokens: 2048, stream: false }),
-      });
+      const res = await fetch(
+        "https://integrate.api.nvidia.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${key}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            model: "nvidia/llama-3.1-nemotron-70b-instruct",
+            messages,
+            temperature: 0.6,
+            max_tokens: 2048,
+            stream: false,
+          }),
+        },
+      );
       if (!res.ok) throw new Error(`NVIDIA HTTP ${res.status}`);
-      const data  = await res.json();
+      const data = await res.json();
       const reply = data?.choices?.[0]?.message?.content?.trim();
       if (!reply) throw new Error("Empty NVIDIA response");
       return reply;
-    } catch(e) {
+    } catch (e) {
       console.warn("[AI] NVIDIA failed:", e.message, "— falling back");
       if (hasCF) return callCloudflare(messages, CF_MODELS.deepseekR1);
-      if (hasOR)  return callOpenRouter(messages, null, modeOpts);
+      if (hasOR) return callOpenRouter(messages, null, modeOpts);
       throw e;
     }
   }
@@ -431,28 +519,38 @@ async function callAI(messages, provider, model, modeOpts = {}) {
     }
     try {
       const res = await fetch("https://api.deepseek.com/chat/completions", {
-        method:  "POST",
-        headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "deepseek-chat", messages, temperature: 0.7, max_tokens: 4096, stream: false }),
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat",
+          messages,
+          temperature: 0.7,
+          max_tokens: 4096,
+          stream: false,
+        }),
       });
       if (!res.ok) throw new Error(`DeepSeek HTTP ${res.status}`);
-      const data  = await res.json();
+      const data = await res.json();
       const reply = data?.choices?.[0]?.message?.content?.trim();
       if (!reply) throw new Error("Empty DeepSeek response");
       return reply;
-    } catch(e) {
+    } catch (e) {
       console.warn("[AI] DeepSeek failed:", e.message, "— falling back");
       if (hasCF) return callCloudflare(messages, CF_MODELS.deepseekR1);
-      if (hasOR)  return callOpenRouter(messages, null, modeOpts);
+      if (hasOR) return callOpenRouter(messages, null, modeOpts);
       throw e;
     }
   }
 
   // ── OPENROUTER (default) ──
-  try { return await callOpenRouter(messages, model, modeOpts); }
-  catch(e) {
+  try {
+    return await callOpenRouter(messages, model, modeOpts);
+  } catch (e) {
     console.warn("[AI] OpenRouter failed:", e.message, "— falling back");
-    if (hasCF)  return callCloudflare(messages, pickCFModel(modeOpts));
+    if (hasCF) return callCloudflare(messages, pickCFModel(modeOpts));
     if (hasGroq) return callGroq(messages, null);
     throw e;
   }
@@ -463,12 +561,19 @@ async function callGroq(messages, model) {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("GROQ_API_KEY not set");
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method:  "POST",
-    headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: model || "llama-3.3-70b-versatile", messages, max_tokens: 4096 }),
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: model || "llama-3.3-70b-versatile",
+      messages,
+      max_tokens: 4096,
+    }),
   });
   if (!res.ok) throw new Error(`Groq HTTP ${res.status}`);
-  const data  = await res.json();
+  const data = await res.json();
   const reply = data?.choices?.[0]?.message?.content?.trim();
   if (!reply) throw new Error("Empty Groq response");
   return reply;
@@ -490,21 +595,22 @@ const OR_FREE_MODELS = [
 async function callOpenRouter(messages, model, modeOpts = {}) {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("OPENROUTER_API_KEY not set");
-  const chosenModel = model && OR_FREE_MODELS.includes(model)
-    ? model
-    : "meta-llama/llama-3.3-70b-instruct:free";
+  const chosenModel =
+    model && OR_FREE_MODELS.includes(model)
+      ? model
+      : "meta-llama/llama-3.3-70b-instruct:free";
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method:  "POST",
+    method: "POST",
     headers: {
-      "Authorization":  `Bearer ${key}`,
-      "Content-Type":   "application/json",
-      "HTTP-Referer":   "https://aria-69jr.onrender.com",
-      "X-Title":        "ARIA",
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://aria-69jr.onrender.com",
+      "X-Title": "ARIA",
     },
     body: JSON.stringify({ model: chosenModel, messages, max_tokens: 4096 }),
   });
   if (!res.ok) throw new Error(`OpenRouter HTTP ${res.status}`);
-  const data  = await res.json();
+  const data = await res.json();
   const reply = data?.choices?.[0]?.message?.content?.trim();
   if (!reply) throw new Error("Empty OpenRouter response");
   return reply;
@@ -520,24 +626,40 @@ app.post("/api/background", async (req, res) => {
   const { task, provider, personality } = req.body;
   if (!task) return res.json({ error: "No task provided" });
   const id = "bg_" + bgTaskCounter++;
-  bgTasks.set(id, { id, task, status: "running", started: Date.now(), result: null });
+  bgTasks.set(id, {
+    id,
+    task,
+    status: "running",
+    started: Date.now(),
+    result: null,
+  });
   res.json({ id, status: "started" });
 
   (async () => {
     try {
-      const sysPrompt = (BASE_PROMPTS[personality] || BASE_PROMPTS.hacker) + TOOL_SYSTEM + buildMemoryContext() + `
+      const sysPrompt =
+        (BASE_PROMPTS[personality] || BASE_PROMPTS.hacker) +
+        TOOL_SYSTEM +
+        buildMemoryContext() +
+        `
 
 [THINK DEEPER MODE]
 You have extended reasoning budget. Take your time. Be thorough.
 Use <think>...</think> blocks to reason through each step before acting.`;
       const messages = [
         { role: "system", content: sysPrompt },
-        { role: "user",   content: task },
+        { role: "user", content: task },
       ];
-      const result = await runAgenticPipeline(messages, provider || "openrouter", null, true, { thinkDeeper: true });
+      const result = await runAgenticPipeline(
+        messages,
+        provider || "openrouter",
+        null,
+        true,
+        { thinkDeeper: true },
+      );
       bgTasks.get(id).status = "done";
       bgTasks.get(id).result = result.reply;
-      bgTasks.get(id).steps  = result.steps;
+      bgTasks.get(id).steps = result.steps;
     } catch (e) {
       bgTasks.get(id).status = "error";
       bgTasks.get(id).result = e.message;
@@ -552,7 +674,14 @@ app.get("/api/background/:id", (req, res) => {
 });
 
 app.get("/api/background", (req, res) => {
-  res.json([...bgTasks.values()].map(t => ({ id: t.id, task: t.task.slice(0, 60), status: t.status, started: t.started })));
+  res.json(
+    [...bgTasks.values()].map((t) => ({
+      id: t.id,
+      task: t.task.slice(0, 60),
+      status: t.status,
+      started: t.started,
+    })),
+  );
 });
 
 /* ============================================================
@@ -565,15 +694,15 @@ app.post("/api/chat", async (req, res) => {
     provider = "openrouter",
     personality = "hacker",
     model: requestedModel,
-    mathMode        = false,
+    mathMode = false,
     programmingMode = false,
-    studyMode       = false,
+    studyMode = false,
     documentContext = "",
-    thinkingMode    = false,
-    thinkDeeper     = false,
-    musicTutorMode  = false,
-    workspaceRepo   = "",
-    imageProvider   = "auto",
+    thinkingMode = false,
+    thinkDeeper = false,
+    musicTutorMode = false,
+    workspaceRepo = "",
+    imageProvider = "auto",
   } = req.body;
 
   if (!message) return res.json({ reply: "No message received." });
@@ -583,16 +712,17 @@ app.post("/api/chat", async (req, res) => {
 
   // Pick personality
   let activePersonality = personality;
-  if (mathMode)        activePersonality = "math";
+  if (mathMode) activePersonality = "math";
   else if (programmingMode) activePersonality = "programming";
-  else if (studyMode)       activePersonality = "study";
+  else if (studyMode) activePersonality = "study";
 
-  let sysPrompt  = BASE_PROMPTS[activePersonality] || BASE_PROMPTS.hacker;
-  sysPrompt     += TOOL_SYSTEM;
-  sysPrompt     += buildMemoryContext();
+  let sysPrompt = BASE_PROMPTS[activePersonality] || BASE_PROMPTS.hacker;
+  sysPrompt += TOOL_SYSTEM;
+  sysPrompt += buildMemoryContext();
 
   if (frustrated)
-    sysPrompt += "\n\n[TONE OVERRIDE: User seems frustrated. Be extra patient, break things down, be encouraging.]";
+    sysPrompt +=
+      "\n\n[TONE OVERRIDE: User seems frustrated. Be extra patient, break things down, be encouraging.]";
   if (documentContext)
     sysPrompt += `\n\n[DOCUMENT CONTEXT (user uploaded):\n${documentContext.slice(0, 8000)}\n]`;
 
@@ -655,16 +785,24 @@ Active GitHub repo: ${workspaceRepo}
   const messages = [
     { role: "system", content: sysPrompt },
     ...cappedHistory,
-    ...(last?.role === "user" && last?.content === message ? [] : [{ role: "user", content: message }]),
+    ...(last?.role === "user" && last?.content === message
+      ? []
+      : [{ role: "user", content: message }]),
   ];
 
   try {
-    const result = await runAgenticPipeline(messages, provider, requestedModel, thinkDeeper, { mathMode, programmingMode, thinkDeeper, musicTutorMode });
+    const result = await runAgenticPipeline(
+      messages,
+      provider,
+      requestedModel,
+      thinkDeeper,
+      { mathMode, programmingMode, thinkDeeper, musicTutorMode },
+    );
     res.json({
-      reply:       result.reply,
+      reply: result.reply,
       frustrated,
-      steps:       result.steps,
-      imageUrl:    result.imageUrl,
+      steps: result.steps,
+      imageUrl: result.imageUrl,
       imagePrompt: result.imagePrompt,
     });
   } catch (err) {
@@ -676,27 +814,51 @@ Active GitHub repo: ${workspaceRepo}
 /* ============================================================
    FILE UPLOAD
    ============================================================ */
-app.post("/api/upload", upload ? upload.single("file") : (_, __, next) => next(), async (req, res) => {
-  if (!upload || !req.file) return res.json({ error: "Upload not available or no file sent." });
-  const { originalname, mimetype, buffer } = req.file;
-  let text = "";
-  try {
-    if (mimetype === "text/plain" || originalname.match(/\.(txt|md)$/i)) {
-      text = buffer.toString("utf8");
-    } else if (originalname.match(/\.pdf$/i)) {
-      try { const p = (await import("pdf-parse")).default; text = (await p(buffer)).text; }
-      catch { text = "[PDF: install pdf-parse]"; }
-    } else if (originalname.match(/\.docx$/i)) {
-      try { const m = (await import("mammoth")).default; text = (await m.extractRawText({ buffer })).value; }
-      catch { text = "[DOCX: install mammoth]"; }
-    } else if (mimetype.startsWith("image/")) {
-      return res.json({ filename: originalname, type: "image", base64: `data:${mimetype};base64,${buffer.toString("base64")}`, text: `[Image: ${originalname}]` });
-    } else {
-      text = buffer.toString("utf8").slice(0, 10000);
+app.post(
+  "/api/upload",
+  upload ? upload.single("file") : (_, __, next) => next(),
+  async (req, res) => {
+    if (!upload || !req.file)
+      return res.json({ error: "Upload not available or no file sent." });
+    const { originalname, mimetype, buffer } = req.file;
+    let text = "";
+    try {
+      if (mimetype === "text/plain" || originalname.match(/\.(txt|md)$/i)) {
+        text = buffer.toString("utf8");
+      } else if (originalname.match(/\.pdf$/i)) {
+        try {
+          const p = (await import("pdf-parse")).default;
+          text = (await p(buffer)).text;
+        } catch {
+          text = "[PDF: install pdf-parse]";
+        }
+      } else if (originalname.match(/\.docx$/i)) {
+        try {
+          const m = (await import("mammoth")).default;
+          text = (await m.extractRawText({ buffer })).value;
+        } catch {
+          text = "[DOCX: install mammoth]";
+        }
+      } else if (mimetype.startsWith("image/")) {
+        return res.json({
+          filename: originalname,
+          type: "image",
+          base64: `data:${mimetype};base64,${buffer.toString("base64")}`,
+          text: `[Image: ${originalname}]`,
+        });
+      } else {
+        text = buffer.toString("utf8").slice(0, 10000);
+      }
+      res.json({
+        filename: originalname,
+        type: "document",
+        text: text.slice(0, 12000),
+      });
+    } catch (e) {
+      res.json({ error: e.message });
     }
-    res.json({ filename: originalname, type: "document", text: text.slice(0, 12000) });
-  } catch (e) { res.json({ error: e.message }); }
-});
+  },
+);
 
 /* ============================================================
    WEB SEARCH
@@ -707,19 +869,39 @@ app.post("/api/search", async (req, res) => {
   try {
     const serpKey = process.env.SERPAPI_KEY;
     if (serpKey) {
-      const r = await fetch(`https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${serpKey}&num=5`);
+      const r = await fetch(
+        `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${serpKey}&num=5`,
+      );
       const d = await r.json();
-      return res.json({ results: (d.organic_results || []).slice(0, 5).map(r => ({ title: r.title, url: r.link, snippet: r.snippet })) });
+      return res.json({
+        results: (d.organic_results || [])
+          .slice(0, 5)
+          .map((r) => ({ title: r.title, url: r.link, snippet: r.snippet })),
+      });
     }
-    const r = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`);
+    const r = await fetch(
+      `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`,
+    );
     const d = await r.json();
     const results = [];
-    if (d.AbstractText) results.push({ title: d.Heading || query, url: d.AbstractURL || "", snippet: d.AbstractText });
-    (d.RelatedTopics || []).slice(0, 4).forEach(t => {
-      if (t.Text) results.push({ title: t.Text.split(" - ")[0], url: t.FirstURL || "", snippet: t.Text });
+    if (d.AbstractText)
+      results.push({
+        title: d.Heading || query,
+        url: d.AbstractURL || "",
+        snippet: d.AbstractText,
+      });
+    (d.RelatedTopics || []).slice(0, 4).forEach((t) => {
+      if (t.Text)
+        results.push({
+          title: t.Text.split(" - ")[0],
+          url: t.FirstURL || "",
+          snippet: t.Text,
+        });
     });
     res.json({ results: results.slice(0, 5) });
-  } catch (e) { res.json({ error: e.message, results: [] }); }
+  } catch (e) {
+    res.json({ error: e.message, results: [] });
+  }
 });
 
 /* ============================================================
@@ -730,8 +912,10 @@ app.post("/api/imagine", async (req, res) => {
   const { prompt, imageProvider = "auto" } = req.body;
   if (!prompt) return res.json({ error: "No prompt." });
 
-  const hasCF     = !!(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_API);
-  const dalleKey  = process.env.OPENAI_KEY;
+  const hasCF = !!(
+    process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_API
+  );
+  const dalleKey = process.env.OPENAI_KEY;
   const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
 
   // ── Explicit cloudflare ──
@@ -739,8 +923,11 @@ app.post("/api/imagine", async (req, res) => {
     if (!hasCF) return res.json({ error: "Cloudflare keys not configured." });
     try {
       const dataUrl = await generateImageCloudflare(prompt);
-      if (dataUrl) return res.json({ url: dataUrl, prompt, provider: "cloudflare-flux" });
-    } catch(e) { return res.json({ error: "Cloudflare FLUX failed: " + e.message }); }
+      if (dataUrl)
+        return res.json({ url: dataUrl, prompt, provider: "cloudflare-flux" });
+    } catch (e) {
+      return res.json({ error: "Cloudflare FLUX failed: " + e.message });
+    }
   }
 
   // ── Explicit DALL-E 3 ──
@@ -749,12 +936,23 @@ app.post("/api/imagine", async (req, res) => {
     try {
       const r = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
-        headers: { Authorization: `Bearer ${dalleKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "dall-e-3", prompt, n: 1, size: "1024x1024" }),
+        headers: {
+          Authorization: `Bearer ${dalleKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "dall-e-3",
+          prompt,
+          n: 1,
+          size: "1024x1024",
+        }),
       });
       const d = await r.json();
-      if (d.data?.[0]?.url) return res.json({ url: d.data[0].url, prompt, provider: "dall-e-3" });
-    } catch(e) { return res.json({ error: "DALL-E failed: " + e.message }); }
+      if (d.data?.[0]?.url)
+        return res.json({ url: d.data[0].url, prompt, provider: "dall-e-3" });
+    } catch (e) {
+      return res.json({ error: "DALL-E failed: " + e.message });
+    }
   }
 
   // ── Explicit Pollinations ──
@@ -766,19 +964,33 @@ app.post("/api/imagine", async (req, res) => {
   if (hasCF) {
     try {
       const dataUrl = await generateImageCloudflare(prompt);
-      if (dataUrl) return res.json({ url: dataUrl, prompt, provider: "cloudflare-flux" });
-    } catch(e) { console.warn("[Image] Cloudflare FLUX failed:", e.message); }
+      if (dataUrl)
+        return res.json({ url: dataUrl, prompt, provider: "cloudflare-flux" });
+    } catch (e) {
+      console.warn("[Image] Cloudflare FLUX failed:", e.message);
+    }
   }
   if (dalleKey) {
     try {
       const r = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
-        headers: { Authorization: `Bearer ${dalleKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "dall-e-3", prompt, n: 1, size: "1024x1024" }),
+        headers: {
+          Authorization: `Bearer ${dalleKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "dall-e-3",
+          prompt,
+          n: 1,
+          size: "1024x1024",
+        }),
       });
       const d = await r.json();
-      if (d.data?.[0]?.url) return res.json({ url: d.data[0].url, prompt, provider: "dall-e-3" });
-    } catch(e) { console.warn("[Image] DALL-E failed:", e.message); }
+      if (d.data?.[0]?.url)
+        return res.json({ url: d.data[0].url, prompt, provider: "dall-e-3" });
+    } catch (e) {
+      console.warn("[Image] DALL-E failed:", e.message);
+    }
   }
   res.json({ url: pollinationsUrl, prompt, provider: "pollinations" });
 });
@@ -792,26 +1004,35 @@ app.post("/api/embed", async (req, res) => {
   if (!text) return res.json({ error: "No text." });
   try {
     const embedding = await generateEmbedding(text);
-    if (!embedding) return res.json({ error: "Cloudflare embedding not available." });
+    if (!embedding)
+      return res.json({ error: "Cloudflare embedding not available." });
     res.json({ embedding, model: CF_MODELS.embedding });
-  } catch(e) { res.json({ error: e.message }); }
+  } catch (e) {
+    res.json({ error: e.message });
+  }
 });
 
 /* ============================================================
    MEMORY
    ============================================================ */
-app.get("/api/memory",  (_, res) => res.json(ariaMemory));
+app.get("/api/memory", (_, res) => res.json(ariaMemory));
 app.post("/api/memory", (req, res) => {
   const { fact, action, index, facts } = req.body;
   if (action === "add" && fact) {
-    if (!ariaMemory.facts.includes(fact)) { ariaMemory.facts.push(fact); writeJSON(MEM_FILE, ariaMemory); }
+    if (!ariaMemory.facts.includes(fact)) {
+      ariaMemory.facts.push(fact);
+      writeJSON(MEM_FILE, ariaMemory);
+    }
   } else if (action === "delete" && index !== undefined) {
-    ariaMemory.facts.splice(index, 1); writeJSON(MEM_FILE, ariaMemory);
+    ariaMemory.facts.splice(index, 1);
+    writeJSON(MEM_FILE, ariaMemory);
   } else if (action === "clear") {
-    ariaMemory.facts = []; writeJSON(MEM_FILE, ariaMemory);
+    ariaMemory.facts = [];
+    writeJSON(MEM_FILE, ariaMemory);
   } else if (Array.isArray(facts)) {
     // Bulk update from memory.js client
-    ariaMemory.facts = facts; writeJSON(MEM_FILE, ariaMemory);
+    ariaMemory.facts = facts;
+    writeJSON(MEM_FILE, ariaMemory);
   }
   res.json({ success: true, facts: ariaMemory.facts });
 });
@@ -821,10 +1042,15 @@ app.post("/api/memory", (req, res) => {
    ============================================================ */
 app.post("/api/saveChats", (req, res) => {
   const { userId, chats } = req.body;
-  if (userId) { userChats[userId] = chats; writeJSON(CHATS_FILE, userChats); }
+  if (userId) {
+    userChats[userId] = chats;
+    writeJSON(CHATS_FILE, userChats);
+  }
   res.json({ success: true });
 });
-app.get("/api/loadChats", (req, res) => res.json({ chats: userChats[req.query.userId] || [] }));
+app.get("/api/loadChats", (req, res) =>
+  res.json({ chats: userChats[req.query.userId] || [] }),
+);
 
 /* ============================================================
    WEATHER + NEWS
@@ -832,80 +1058,99 @@ app.get("/api/loadChats", (req, res) => res.json({ chats: userChats[req.query.us
 app.get("/api/weather", async (req, res) => {
   const { lat = 39.3601, lon = -84.3097 } = req.query;
   try {
-    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+    const r = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`,
+    );
     res.json({ weather: (await r.json()).current_weather });
-  } catch { res.json({ weather: null }); }
+  } catch {
+    res.json({ weather: null });
+  }
 });
 
 app.get("/api/news", async (req, res) => {
   try {
-    const r = await fetch(`https://newsdata.io/api/1/news?apikey=${process.env.NEWSDATA_KEY}&q=world`);
+    const r = await fetch(
+      `https://newsdata.io/api/1/news?apikey=${process.env.NEWSDATA_KEY}&q=world`,
+    );
     res.json({ articles: (await r.json()).results || [] });
-  } catch { res.json({ articles: [] }); }
+  } catch {
+    res.json({ articles: [] });
+  }
 });
 
 /* ============================================================
    TOOLS + CONFIG
    ============================================================ */
 app.get("/api/tools", (_, res) => {
-  const list = Object.entries(TOOL_DEFINITIONS).map(([name, def]) => ({ name, desc: def.desc }));
+  const list = Object.entries(TOOL_DEFINITIONS).map(([name, def]) => ({
+    name,
+    desc: def.desc,
+  }));
   res.json({ tools: list });
 });
 
 app.get("/api/config", async (_, res) => {
-  const hasCF   = !!(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_API);
+  const hasCF = !!(
+    process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_API
+  );
   const hasGroq = !!process.env.GROQ_API_KEY;
-  const hasOR   = !!process.env.OPENROUTER_API_KEY;
-  const hasNV   = !!process.env.NEMOTRON_NVIDIA;
-  const hasDS   = !!process.env.DEEPSEEK_KEY;
+  const hasOR = !!process.env.OPENROUTER_API_KEY;
+  const hasNV = !!process.env.NEMOTRON_NVIDIA;
+  const hasDS = !!process.env.DEEPSEEK_KEY;
 
   // Check if local Ollama is running
   let ollamaModels = [];
   try {
     const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
-    const r = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(2000) });
+    const r = await fetch(`${ollamaUrl}/api/tags`, {
+      signal: AbortSignal.timeout(2000),
+    });
     if (r.ok) {
       const d = await r.json();
-      ollamaModels = (d.models || []).map(m => m.name);
+      ollamaModels = (d.models || []).map((m) => m.name);
     }
   } catch {}
 
   res.json({
     customVoiceKey: process.env.CUSTOM_VOICE || null,
-    hasCalendar:    !!process.env.GOOGLE_CLIENT_ID,
-    hasImageGen:    hasCF || !!process.env.OPENAI_KEY,
-    hasSerpApi:     !!process.env.SERPAPI_KEY,
+    hasCalendar: !!process.env.GOOGLE_CLIENT_ID,
+    hasImageGen: hasCF || !!process.env.OPENAI_KEY,
+    hasSerpApi: !!process.env.SERPAPI_KEY,
 
     // Provider availability
     providers: {
       cloudflare: hasCF,
-      groq:       hasGroq,
+      groq: hasGroq,
       openrouter: hasOR,
-      nemotron:   hasNV,
-      deepseek:   hasDS,
-      ollama:     ollamaModels.length > 0,
+      nemotron: hasNV,
+      deepseek: hasDS,
+      ollama: ollamaModels.length > 0,
     },
     ollamaModels,
 
     // All Cloudflare model options for the settings dropdown
-    cloudflareModels: hasCF ? [
-      { id: CF_MODELS.llama33_70b_fp8,  label: "Llama 3.3 70B FP8 (fast)"     },
-      { id: CF_MODELS.llama31_70b,      label: "Llama 3.1 70B"                 },
-      { id: CF_MODELS.llama31_8b,       label: "Llama 3.1 8B (fastest)"        },
-      { id: CF_MODELS.deepseekR1,       label: "DeepSeek R1 32B (reasoning)"   },
-      { id: CF_MODELS.gemma7b,          label: "Gemma 7B (Google)"             },
-      { id: CF_MODELS.mistral7b,        label: "Mistral 7B"                    },
-      { id: CF_MODELS.qwen15_14b,       label: "Qwen 1.5 14B"                  },
-      { id: CF_MODELS.openchat,         label: "OpenChat 3.5"                  },
-      { id: CF_MODELS.codellama,        label: "Code Llama 7B (code)"          },
-      { id: CF_MODELS.phi2,             label: "Phi-2 (tiny/fast)"             },
-    ] : [],
+    cloudflareModels: hasCF
+      ? [
+          { id: CF_MODELS.llama33_70b_fp8, label: "Llama 3.3 70B FP8 (fast)" },
+          { id: CF_MODELS.llama31_70b, label: "Llama 3.1 70B" },
+          { id: CF_MODELS.llama31_8b, label: "Llama 3.1 8B (fastest)" },
+          { id: CF_MODELS.deepseekR1, label: "DeepSeek R1 32B (reasoning)" },
+          { id: CF_MODELS.gemma7b, label: "Gemma 7B (Google)" },
+          { id: CF_MODELS.mistral7b, label: "Mistral 7B" },
+          { id: CF_MODELS.qwen15_14b, label: "Qwen 1.5 14B" },
+          { id: CF_MODELS.openchat, label: "OpenChat 3.5" },
+          { id: CF_MODELS.codellama, label: "Code Llama 7B (code)" },
+          { id: CF_MODELS.phi2, label: "Phi-2 (tiny/fast)" },
+        ]
+      : [],
 
     // OpenRouter free models
     freeModels: OR_FREE_MODELS,
     defaultModel: "meta-llama/llama-3.3-70b-instruct:free",
-    bgTasks:          [...bgTasks.values()].length,
-    connectedDevices: [...linkDevices.values()].filter(d => Date.now() - d.lastSeen < 30_000).length,
+    bgTasks: [...bgTasks.values()].length,
+    connectedDevices: [...linkDevices.values()].filter(
+      (d) => Date.now() - d.lastSeen < 30_000,
+    ).length,
   });
 });
 
@@ -913,12 +1158,17 @@ app.get("/api/config", async (_, res) => {
    LINK MODE — device registry + file relay
    ============================================================ */
 const linkDevices = new Map();
-const linkFiles   = new Map();
+const linkFiles = new Map();
 
 app.post("/api/link/register", (req, res) => {
   const { id, name, ua } = req.body;
   if (!id) return res.json({ error: "No id" });
-  linkDevices.set(id, { id, name: name || "Device", ua: ua || "", lastSeen: Date.now() });
+  linkDevices.set(id, {
+    id,
+    name: name || "Device",
+    ua: ua || "",
+    lastSeen: Date.now(),
+  });
   res.json({ success: true });
 });
 
@@ -930,23 +1180,40 @@ app.post("/api/link/heartbeat", (req, res) => {
 
 app.get("/api/link/devices", (req, res) => {
   const now = Date.now();
-  res.json({ devices: [...linkDevices.values()].filter(d => now - d.lastSeen < 30_000) });
+  res.json({
+    devices: [...linkDevices.values()].filter((d) => now - d.lastSeen < 30_000),
+  });
 });
 
-app.post("/api/link/transfer", upload ? upload.single("file") : (_, __, next) => next(), (req, res) => {
-  const { from, to, name } = req.body;
-  if (!req.file || !to) return res.json({ error: "Missing file or target" });
-  if (!linkFiles.has(to)) linkFiles.set(to, []);
-  const list = linkFiles.get(to);
-  list.push({ from, name: name || req.file.originalname, buffer: req.file.buffer, mime: req.file.mimetype, ts: Date.now() });
-  if (list.length > 20) list.shift();
-  res.json({ success: true });
-});
+app.post(
+  "/api/link/transfer",
+  upload ? upload.single("file") : (_, __, next) => next(),
+  (req, res) => {
+    const { from, to, name } = req.body;
+    if (!req.file || !to) return res.json({ error: "Missing file or target" });
+    if (!linkFiles.has(to)) linkFiles.set(to, []);
+    const list = linkFiles.get(to);
+    list.push({
+      from,
+      name: name || req.file.originalname,
+      buffer: req.file.buffer,
+      mime: req.file.mimetype,
+      ts: Date.now(),
+    });
+    if (list.length > 20) list.shift();
+    res.json({ success: true });
+  },
+);
 
 app.get("/api/link/incoming", (req, res) => {
   const { deviceId } = req.query;
-  const files  = linkFiles.get(deviceId) || [];
-  const result = files.map(f => ({ name: f.name, from: f.from, ts: f.ts, url: `data:${f.mime};base64,${f.buffer.toString("base64")}` }));
+  const files = linkFiles.get(deviceId) || [];
+  const result = files.map((f) => ({
+    name: f.name,
+    from: f.from,
+    ts: f.ts,
+    url: `data:${f.mime};base64,${f.buffer.toString("base64")}`,
+  }));
   linkFiles.delete(deviceId);
   res.json({ files: result });
 });
@@ -954,13 +1221,304 @@ app.get("/api/link/incoming", (req, res) => {
 /* ── Version endpoint ── */
 app.get("/api/version", (req, res) => {
   try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "package.json"), "utf8"));
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "package.json"), "utf8"),
+    );
     res.json({ version: pkg.version || "1.0.0" });
-  } catch { res.json({ version: "1.0.0" }); }
+  } catch {
+    res.json({ version: "1.0.0" });
+  }
+});
+
+/* ============================================================
+   ARIA CLAW — queue-based architecture
+   Server = AI brain + command queue
+   claw-relay.js = thin local script on user's machine that polls queue
+   Kill switch = /api/claw/kill, always-on button in browser
+   ============================================================ */
+
+// ── State ──
+const clawQueue = new Map(); // deviceId → [{id, type, ...cmd, ts}]
+const clawResults = new Map(); // cmdId → result
+const clawRelays = new Map(); // deviceId → {platform, hostname, lastSeen}
+let clawKilled = false; // global kill switch
+let clawCmdSeq = 0;
+
+function nextClawId() {
+  return `claw_${Date.now()}_${clawCmdSeq++}`;
+}
+
+// ── Relay registration / heartbeat ──
+app.post("/api/claw/relay/register", (req, res) => {
+  const { deviceId, platform, hostname, arch } = req.body;
+  if (!deviceId) return res.json({ error: "No deviceId" });
+  clawRelays.set(deviceId, { platform, hostname, arch, lastSeen: Date.now() });
+  if (!clawQueue.has(deviceId)) clawQueue.set(deviceId, []);
+  console.log(`[CLAW] Relay registered: ${deviceId} (${platform})`);
+  res.json({ ok: true, killed: clawKilled });
+});
+
+app.post("/api/claw/relay/heartbeat", (req, res) => {
+  const { deviceId } = req.body;
+  if (clawRelays.has(deviceId)) {
+    clawRelays.get(deviceId).lastSeen = Date.now();
+  }
+  res.json({ ok: true, killed: clawKilled });
+});
+
+app.post("/api/claw/relay/unregister", (req, res) => {
+  const { deviceId } = req.body;
+  clawRelays.delete(deviceId);
+  clawQueue.delete(deviceId);
+  res.json({ ok: true });
+});
+
+// ── Result reporting from relay ──
+app.post("/api/claw/relay/result", (req, res) => {
+  const { deviceId, cmdId, result } = req.body;
+  clawResults.set(cmdId, { result, ts: Date.now(), deviceId });
+  // Prune old results
+  for (const [k, v] of clawResults) {
+    if (Date.now() - v.ts > 60000) clawResults.delete(k);
+  }
+  res.json({ ok: true });
+});
+
+// ── Command queue poll (relay calls this) ──
+app.get("/api/claw/queue", (req, res) => {
+  const { deviceId } = req.query;
+  if (!deviceId) return res.json({ commands: [] });
+
+  const q = clawQueue.get(deviceId) || [];
+  // Send pending commands and clear queue
+  const toSend = [...q];
+  clawQueue.set(deviceId, []);
+
+  res.json({
+    commands: toSend,
+    killed: clawKilled,
+    resumed: false,
+  });
+});
+
+// ── Kill switch ──
+app.post("/api/claw/kill", (req, res) => {
+  clawKilled = true;
+  // Clear all queues
+  for (const [k] of clawQueue) clawQueue.set(k, []);
+  console.log("[CLAW] ⬡ KILL SWITCH ACTIVATED");
+  res.json({ ok: true, message: "Claw killed. All queues cleared." });
+});
+
+app.post("/api/claw/resume", (req, res) => {
+  clawKilled = false;
+  console.log("[CLAW] Claw resumed.");
+  res.json({ ok: true });
+});
+
+// ── Status ──
+app.get("/api/claw/status", (req, res) => {
+  const relays = [...clawRelays.entries()]
+    .filter(([, v]) => Date.now() - v.lastSeen < 20000)
+    .map(([id, v]) => ({ id, platform: v.platform, hostname: v.hostname }));
+  res.json({
+    killed: clawKilled,
+    relays,
+    queueSizes: Object.fromEntries(
+      [...clawQueue.entries()].map(([k, v]) => [k, v.length]),
+    ),
+  });
+});
+
+// ── Main command dispatch (called from chat UI) ──
+app.post("/api/claw", async (req, res) => {
+  const { input, mode = "ai", deviceId } = req.body;
+  if (!input) return res.json({ error: "No input provided." });
+  if (clawKilled)
+    return res.json({
+      error: "⬡ Claw is killed. Click RESUME in the Claw panel to re-enable.",
+    });
+
+  // Pick target relay
+  const activeRelays = [...clawRelays.entries()].filter(
+    ([, v]) => Date.now() - v.lastSeen < 20000,
+  );
+  const targetId = deviceId || activeRelays[0]?.[0];
+
+  if (!targetId) {
+    // No relay connected — AI-only response (no execution)
+    if (mode !== "ai")
+      return res.json({
+        error: "No relay connected. Start claw-relay.js on your machine.",
+      });
+  }
+
+  // ── AI MODE: ask model to plan, then queue commands ──
+  if (mode === "ai") {
+    try {
+      const relay = targetId ? clawRelays.get(targetId) : null;
+      const platformHint = relay
+        ? `Target machine: ${relay.platform} (${relay.hostname})`
+        : "No relay connected — describe only, do not queue commands.";
+
+      const messages = [
+        {
+          role: "system",
+          content: `You are ARIA Claw, an AI agent with full control over a computer.
+${platformHint}
+
+When given a task, respond with:
+1. Brief plan
+2. A commands block (if relay is connected):
+\`\`\`commands
+{"id":"auto","type":"shell","cmd":"echo hello"}
+{"id":"auto","type":"hotkey","keys":["ctrl","t"]}
+{"id":"auto","type":"type","text":"hello world"}
+{"id":"auto","type":"switch_app","app":"Visual Studio Code"}
+{"id":"auto","type":"browser","url":"https://example.com"}
+{"id":"auto","type":"new_tab","url":"https://google.com"}
+{"id":"auto","type":"close_tab"}
+{"id":"auto","type":"screenshot"}
+{"id":"auto","type":"move","x":500,"y":300}
+{"id":"auto","type":"click","x":500,"y":300,"button":"left"}
+{"id":"auto","type":"scroll","direction":"down","amount":3}
+{"id":"auto","type":"write_code","app":"Visual Studio Code","code":"console.log('hello')","replace":false}
+{"id":"auto","type":"run","path":"notepad.exe"}
+{"id":"auto","type":"wait","ms":500}
+\`\`\`
+3. Summary of what you did / will do.
+
+Be specific. For VS Code / Arduino IDE: use type commands to write code.
+For browser tabs: use new_tab, close_tab, browser commands.
+For shortcuts: use hotkey with correct key names.
+Never run destructive shell commands (rm -rf, format, etc.) without explicit confirmation.`,
+        },
+        { role: "user", content: input },
+      ];
+
+      const result = await callAI(messages, "openrouter", null, {});
+      const reply = result.reply || "";
+
+      // Extract commands
+      const FENCE = "```";
+      const parts = reply.split(FENCE + "commands\n");
+      const cmds = [];
+      if (parts.length > 1) {
+        parts[1]
+          .split(FENCE)[0]
+          .trim()
+          .split("\n")
+          .forEach((line) => {
+            try {
+              const cmd = JSON.parse(line.trim());
+              cmd.id = nextClawId();
+              cmds.push(cmd);
+            } catch {}
+          });
+      }
+
+      // Queue commands for relay
+      const queued = [];
+      if (targetId && cmds.length && !clawKilled) {
+        if (!clawQueue.has(targetId)) clawQueue.set(targetId, []);
+        clawQueue.get(targetId).push(...cmds);
+        queued.push(
+          ...cmds.map(
+            (c) =>
+              `${c.type}${c.cmd ? ": " + c.cmd : c.text ? ": " + c.text.slice(0, 30) : c.app ? " → " + c.app : ""}`,
+          ),
+        );
+      }
+
+      const cleanReply = reply.replace(/```commands[\s\S]*?```/g, "").trim();
+      return res.json({
+        output: cleanReply,
+        queued,
+        relayConnected: !!targetId,
+      });
+    } catch (e) {
+      return res.json({ error: `AI error: ${e.message}` });
+    }
+  }
+
+  // ── DIRECT MODES: build command and queue immediately ──
+  const directCmds = {
+    shell: () => [{ id: nextClawId(), type: "shell", cmd: input }],
+    keys: () => [{ id: nextClawId(), type: "type", text: input }],
+    mouse: () => {
+      const parts = input.trim().split(/\s+/);
+      const action = parts[0]?.toLowerCase();
+      if (action === "move")
+        return [
+          {
+            id: nextClawId(),
+            type: "move",
+            x: +parts[1] || 0,
+            y: +parts[2] || 0,
+          },
+        ];
+      if (action === "click")
+        return [
+          {
+            id: nextClawId(),
+            type: "click",
+            x: +parts[1] || 0,
+            y: +parts[2] || 0,
+            button: parts[3] || "left",
+          },
+        ];
+      if (action === "scroll")
+        return [
+          {
+            id: nextClawId(),
+            type: "scroll",
+            direction: parts[1] || "down",
+            amount: +parts[2] || 3,
+          },
+        ];
+      return [
+        {
+          id: nextClawId(),
+          type: "move",
+          x: +parts[0] || 0,
+          y: +parts[1] || 0,
+        },
+      ];
+    },
+    hotkey: () => [
+      { id: nextClawId(), type: "hotkey", keys: input.split("+") },
+    ],
+  };
+
+  const builder = directCmds[mode];
+  if (!builder) return res.json({ error: `Unknown mode: ${mode}` });
+
+  if (!targetId)
+    return res.json({
+      error: "No relay connected. Start claw-relay.js on your machine.",
+    });
+
+  const cmds = builder();
+  if (!clawQueue.has(targetId)) clawQueue.set(targetId, []);
+  clawQueue.get(targetId).push(...cmds);
+
+  return res.json({
+    output: `Queued ${cmds.length} command(s) → ${targetId}`,
+    queued: cmds.map((c) => c.type),
+    relayConnected: true,
+  });
+});
+
+// ── Poll result for a specific command ──
+app.get("/api/claw/result/:cmdId", (req, res) => {
+  const r = clawResults.get(req.params.cmdId);
+  res.json(r || { pending: true });
 });
 
 /* ── Fallback ── */
-app.get("*", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
+app.get("*", (req, res) =>
+  res.sendFile(path.join(__dirname, "public", "index.html")),
+);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`ARIA v3 on port ${PORT}`));

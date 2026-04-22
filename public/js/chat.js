@@ -16,7 +16,7 @@ let pendingFiles = [];
 let thinkDeeper = false;
 let musicTutorMode = false;
 let previewActive = false;
-let workspaceRepoUrl = '';
+let workspaceRepoUrl = "";
 
 const newChatBtn = document.getElementById("newChatBtn");
 const sendBtn = document.getElementById("sendBtn");
@@ -39,6 +39,13 @@ if (!currentChatId) createNewChat();
 renderChatList();
 renderMessages();
 loadFromServer();
+
+// ── Expose current chat ID for cross-module access (chatExport etc.) ──
+// Updated whenever the active chat changes
+Object.defineProperty(window, "ARIA_currentChatId", {
+  get: () => currentChatId,
+  configurable: true,
+});
 
 /* ============================================================
    HALO EFFECTS
@@ -104,20 +111,23 @@ let currentCodeLang = "";
 
 function openCodePanel(code, lang) {
   currentCodeContent = code;
-  currentCodeLang    = lang || "code";
-  previewActive      = false;
+  currentCodeLang = lang || "code";
+  previewActive = false;
   if (codePanelCode) codePanelCode.textContent = code;
   if (codePanelLang) codePanelLang.textContent = (lang || "CODE").toUpperCase();
 
-  const pre   = document.getElementById("codePanelContent");
+  const pre = document.getElementById("codePanelContent");
   const frame = document.getElementById("codePanelPreviewFrame");
   const prevBtn = document.getElementById("codePanelPreviewBtn");
-  if (pre)   pre.style.display   = "";
-  if (frame) { frame.style.display = "none"; frame.srcdoc = ""; }
+  if (pre) pre.style.display = "";
+  if (frame) {
+    frame.style.display = "none";
+    frame.srcdoc = "";
+  }
   if (prevBtn) {
-    const isHTML = ["html","htm","svg"].includes((lang||"").toLowerCase());
+    const isHTML = ["html", "htm", "svg"].includes((lang || "").toLowerCase());
     prevBtn.style.display = isHTML ? "" : "none";
-    prevBtn.textContent   = "🖥 Preview";
+    prevBtn.textContent = "🖥 Preview";
   }
   codePanelEl?.classList.add("open");
   layout?.classList.add("code-split");
@@ -156,23 +166,25 @@ codePanelDl?.addEventListener("click", () => {
 });
 codePanelClose?.addEventListener("click", closeCodePanel);
 
-document.getElementById("codePanelPreviewBtn")?.addEventListener("click", () => {
-  const pre   = document.getElementById("codePanelContent");
-  const frame = document.getElementById("codePanelPreviewFrame");
-  const btn   = document.getElementById("codePanelPreviewBtn");
-  if (!frame) return;
-  previewActive = !previewActive;
-  if (previewActive) {
-    frame.srcdoc = currentCodeContent;
-    frame.style.display = "flex";
-    if (pre)  pre.style.display  = "none";
-    if (btn)  btn.textContent    = "< Code";
-  } else {
-    frame.style.display = "none";
-    if (pre)  pre.style.display  = "";
-    if (btn)  btn.textContent    = "🖥 Preview";
-  }
-});
+document
+  .getElementById("codePanelPreviewBtn")
+  ?.addEventListener("click", () => {
+    const pre = document.getElementById("codePanelContent");
+    const frame = document.getElementById("codePanelPreviewFrame");
+    const btn = document.getElementById("codePanelPreviewBtn");
+    if (!frame) return;
+    previewActive = !previewActive;
+    if (previewActive) {
+      frame.srcdoc = currentCodeContent;
+      frame.style.display = "flex";
+      if (pre) pre.style.display = "none";
+      if (btn) btn.textContent = "< Code";
+    } else {
+      frame.style.display = "none";
+      if (pre) pre.style.display = "";
+      if (btn) btn.textContent = "🖥 Preview";
+    }
+  });
 
 window.ARIA_openCodePanel = openCodePanel;
 window.ARIA_closeCodePanel = closeCodePanel;
@@ -354,19 +366,30 @@ document.getElementById("tool_music")?.addEventListener("click", () => {
   musicTutorMode = !musicTutorMode;
   if (toolsDropMenu) toolsDropMenu.style.display = "none";
   toolsDropBtn?.classList.remove("active");
-  showChatNotification(musicTutorMode ? "🎵 Music Tutor ON" : "Music Tutor off");
-  if (musicTutorMode) showMusicPanel(); else hideMusicPanel();
+  showChatNotification(
+    musicTutorMode ? "🎵 Music Tutor ON" : "Music Tutor off",
+  );
+  if (musicTutorMode) showMusicPanel();
+  else hideMusicPanel();
   triggerHalo("pulse", 800);
 });
 
 // ── Workspace / Repo ──
 document.getElementById("tool_workspace")?.addEventListener("click", () => {
   if (toolsDropMenu) toolsDropMenu.style.display = "none";
-  const url = prompt("Enter GitHub repo URL (e.g. https://github.com/user/repo):");
+  const url = prompt(
+    "Enter GitHub repo URL (e.g. https://github.com/user/repo):",
+  );
   if (url?.trim()) {
     workspaceRepoUrl = url.trim();
-    showChatNotification("🗂 Workspace: " + workspaceRepoUrl.split("/").slice(-1)[0]);
-    addSystemMessage("🗂 **Workspace mode** — repo loaded: `" + workspaceRepoUrl + "`. Ask me to read files, suggest improvements, or generate new ones.");
+    showChatNotification(
+      "🗂 Workspace: " + workspaceRepoUrl.split("/").slice(-1)[0],
+    );
+    addSystemMessage(
+      "🗂 **Workspace mode** — repo loaded: `" +
+        workspaceRepoUrl +
+        "`. Ask me to read files, suggest improvements, or generate new ones.",
+    );
   }
 });
 
@@ -807,23 +830,40 @@ userInput?.addEventListener("input", () => {
 /* ── DRAG & DROP into textarea (files and image URLs) ── */
 const _dndWrap = document.getElementById("textareaWrap");
 if (_dndWrap) {
-  _dndWrap.addEventListener("dragover", e => { e.preventDefault(); _dndWrap.classList.add("drag-over"); });
-  _dndWrap.addEventListener("dragleave", () => _dndWrap.classList.remove("drag-over"));
-  _dndWrap.addEventListener("drop", async e => {
+  _dndWrap.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    _dndWrap.classList.add("drag-over");
+  });
+  _dndWrap.addEventListener("dragleave", () =>
+    _dndWrap.classList.remove("drag-over"),
+  );
+  _dndWrap.addEventListener("drop", async (e) => {
     e.preventDefault();
     _dndWrap.classList.remove("drag-over");
     const files = Array.from(e.dataTransfer.files || []);
-    const imgUrl = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
+    const imgUrl =
+      e.dataTransfer.getData("text/uri-list") ||
+      e.dataTransfer.getData("text/plain");
     for (const file of files) {
-      const fd = new FormData(); fd.append("file", file);
+      const fd = new FormData();
+      fd.append("file", file);
       try {
-        const res  = await fetch("/api/upload", { method: "POST", body: fd });
+        const res = await fetch("/api/upload", { method: "POST", body: fd });
         const data = await res.json();
         if (data.type === "image") {
-          pendingFiles.push({ type:"image", name:file.name, base64:data.base64, text:data.text });
+          pendingFiles.push({
+            type: "image",
+            name: file.name,
+            base64: data.base64,
+            text: data.text,
+          });
           documentContext += "\n[Image: " + file.name + "]";
         } else if (data.text) {
-          pendingFiles.push({ type:"document", name:file.name, text:data.text });
+          pendingFiles.push({
+            type: "document",
+            name: file.name,
+            text: data.text,
+          });
           documentContext += "\n[Doc: " + file.name + "]";
         }
         renderAttachPreviews();
@@ -986,7 +1026,7 @@ function showChatNotification(text, ms = 3000) {
 window.ARIA_showNotification = showChatNotification;
 
 /* ── INSERT MATH / SYMBOL into textarea ── */
-window.insertMath = function(sym) {
+window.insertMath = function (sym) {
   const inp = document.getElementById("userInput");
   if (!inp) return;
   const s = inp.selectionStart ?? inp.value.length;
@@ -1020,35 +1060,247 @@ window.ARIA_hideMathPanel = hideMathPanel;
 
 function buildMathPanelHTML() {
   const INS = {
-    "sin":"sin()", "cos":"cos()", "tan":"tan()", "csc":"csc()", "sec":"sec()", "cot":"cot()",
-    "sin⁻¹":"sin⁻¹()", "cos⁻¹":"cos⁻¹()", "tan⁻¹":"tan⁻¹()",
-    "sinh":"sinh()", "cosh":"cosh()", "tanh":"tanh()",
-    "log":"log()", "ln":"ln()", "log₂":"log₂()", "logₙ":"logₙ()",
-    "( )":"()", "√()":"√()", "a/b":"a/b", "a/bc":"(a+b)/c",
-    "GRAPH":"GRAPH: y = ", "TABLE":"TABLE: x | y\n", "WINDOW":"WINDOW: x[-10,10] y[-10,10]",
-    "|x|":"|x|", "x²":"x²", "x³":"x³", "xⁿ":"x^n",
+    sin: "sin()",
+    cos: "cos()",
+    tan: "tan()",
+    csc: "csc()",
+    sec: "sec()",
+    cot: "cot()",
+    "sin⁻¹": "sin⁻¹()",
+    "cos⁻¹": "cos⁻¹()",
+    "tan⁻¹": "tan⁻¹()",
+    sinh: "sinh()",
+    cosh: "cosh()",
+    tanh: "tanh()",
+    log: "log()",
+    ln: "ln()",
+    "log₂": "log₂()",
+    logₙ: "logₙ()",
+    "( )": "()",
+    "√()": "√()",
+    "a/b": "a/b",
+    "a/bc": "(a+b)/c",
+    GRAPH: "GRAPH: y = ",
+    TABLE: "TABLE: x | y\n",
+    WINDOW: "WINDOW: x[-10,10] y[-10,10]",
+    "|x|": "|x|",
+    "x²": "x²",
+    "x³": "x³",
+    xⁿ: "x^n",
   };
   const secs = [
-    { l:"NUMBERS",     k:["7","8","9","÷","4","5","6","×","1","2","3","-","0",".","( )","+" ] },
-    { l:"POWERS / √",  k:["x²","x³","xⁿ","√()","∛","∜","e^","10^","log","ln","log₂","logₙ"] },
-    { l:"ALGEBRA",     k:["x","y","z","n","a","b","=","≠","≈","<",">","≤","≥","±","|x|","∞"] },
-    { l:"FRACTIONS",   k:["a/b","a/bc","1/x","²/₃","⁻¹","→","←","∝","∴","∵","⌊⌋","⌈⌉"] },
-    { l:"TRIG",        k:["sin","cos","tan","csc","sec","cot","sin⁻¹","cos⁻¹","tan⁻¹","sinh","cosh","tanh"] },
-    { l:"CALCULUS",    k:["d/dx","∫","∬","∭","∂","dy/dx","δ/δx","Σ","Π","lim","∇","∮"] },
-    { l:"GREEK",       k:["α","β","γ","δ","ε","θ","λ","μ","π","σ","τ","φ","χ","ψ","ω","Ω","Δ","Γ","Λ","Ξ","Σ","Φ","Ψ"] },
-    { l:"SETS / LOGIC",k:["∈","∉","⊆","⊂","⊃","∪","∩","∅","∀","∃","¬","∧","∨","⊕","⇒","⟺"] },
-    { l:"STATS",       k:["x̄","σ","μ","r","r²","P(","C(","n!","Q₁","Q₃","IQR","z="] },
-    { l:"MATRIX",      k:["[  ]","det(","tr(","⁻¹","ᵀ","·","⊗","dim","rref","rank","‖v‖","∑ᵢ"] },
-    { l:"TI-30 / GRAPH",k:["y=","GRAPH","TABLE","WINDOW","ZOOM","TRACE","nCr","nPr","STAT","LinReg","STO→","ANS"] },
+    {
+      l: "NUMBERS",
+      k: [
+        "7",
+        "8",
+        "9",
+        "÷",
+        "4",
+        "5",
+        "6",
+        "×",
+        "1",
+        "2",
+        "3",
+        "-",
+        "0",
+        ".",
+        "( )",
+        "+",
+      ],
+    },
+    {
+      l: "POWERS / √",
+      k: [
+        "x²",
+        "x³",
+        "xⁿ",
+        "√()",
+        "∛",
+        "∜",
+        "e^",
+        "10^",
+        "log",
+        "ln",
+        "log₂",
+        "logₙ",
+      ],
+    },
+    {
+      l: "ALGEBRA",
+      k: [
+        "x",
+        "y",
+        "z",
+        "n",
+        "a",
+        "b",
+        "=",
+        "≠",
+        "≈",
+        "<",
+        ">",
+        "≤",
+        "≥",
+        "±",
+        "|x|",
+        "∞",
+      ],
+    },
+    {
+      l: "FRACTIONS",
+      k: [
+        "a/b",
+        "a/bc",
+        "1/x",
+        "²/₃",
+        "⁻¹",
+        "→",
+        "←",
+        "∝",
+        "∴",
+        "∵",
+        "⌊⌋",
+        "⌈⌉",
+      ],
+    },
+    {
+      l: "TRIG",
+      k: [
+        "sin",
+        "cos",
+        "tan",
+        "csc",
+        "sec",
+        "cot",
+        "sin⁻¹",
+        "cos⁻¹",
+        "tan⁻¹",
+        "sinh",
+        "cosh",
+        "tanh",
+      ],
+    },
+    {
+      l: "CALCULUS",
+      k: [
+        "d/dx",
+        "∫",
+        "∬",
+        "∭",
+        "∂",
+        "dy/dx",
+        "δ/δx",
+        "Σ",
+        "Π",
+        "lim",
+        "∇",
+        "∮",
+      ],
+    },
+    {
+      l: "GREEK",
+      k: [
+        "α",
+        "β",
+        "γ",
+        "δ",
+        "ε",
+        "θ",
+        "λ",
+        "μ",
+        "π",
+        "σ",
+        "τ",
+        "φ",
+        "χ",
+        "ψ",
+        "ω",
+        "Ω",
+        "Δ",
+        "Γ",
+        "Λ",
+        "Ξ",
+        "Σ",
+        "Φ",
+        "Ψ",
+      ],
+    },
+    {
+      l: "SETS / LOGIC",
+      k: [
+        "∈",
+        "∉",
+        "⊆",
+        "⊂",
+        "⊃",
+        "∪",
+        "∩",
+        "∅",
+        "∀",
+        "∃",
+        "¬",
+        "∧",
+        "∨",
+        "⊕",
+        "⇒",
+        "⟺",
+      ],
+    },
+    {
+      l: "STATS",
+      k: ["x̄", "σ", "μ", "r", "r²", "P(", "C(", "n!", "Q₁", "Q₃", "IQR", "z="],
+    },
+    {
+      l: "MATRIX",
+      k: [
+        "[  ]",
+        "det(",
+        "tr(",
+        "⁻¹",
+        "ᵀ",
+        "·",
+        "⊗",
+        "dim",
+        "rref",
+        "rank",
+        "‖v‖",
+        "∑ᵢ",
+      ],
+    },
+    {
+      l: "TI-30 / GRAPH",
+      k: [
+        "y=",
+        "GRAPH",
+        "TABLE",
+        "WINDOW",
+        "ZOOM",
+        "TRACE",
+        "nCr",
+        "nPr",
+        "STAT",
+        "LinReg",
+        "STO→",
+        "ANS",
+      ],
+    },
   ];
 
-  const body = secs.map(sec => {
-    const keys = sec.k.map(k => {
-      const ins = (INS[k] !== undefined ? INS[k] : k).replace(/\\/g,"\\\\").replace(/'/g,"\\'");
-      return `<button class="mathKey" onclick="window.insertMath('${ins}')">${k}</button>`;
-    }).join("");
-    return `<div class="mathSection"><div class="mathSectionLabel">${sec.l}</div><div class="mathKeyGrid">${keys}</div></div>`;
-  }).join("");
+  const body = secs
+    .map((sec) => {
+      const keys = sec.k
+        .map((k) => {
+          const ins = (INS[k] !== undefined ? INS[k] : k)
+            .replace(/\\/g, "\\\\")
+            .replace(/'/g, "\\'");
+          return `<button class="mathKey" onclick="window.insertMath('${ins}')">${k}</button>`;
+        })
+        .join("");
+      return `<div class="mathSection"><div class="mathSectionLabel">${sec.l}</div><div class="mathKeyGrid">${keys}</div></div>`;
+    })
+    .join("");
 
   return `
     <div id="mathPanelHeader">
@@ -1079,7 +1331,8 @@ function hideMusicPanel() {
 }
 
 function buildMusicPanelHTML() {
-  const mk = (sym, label) => `<button class="mathKey" onclick="window.insertMath('${sym}')">${label || sym}</button>`;
+  const mk = (sym, label) =>
+    `<button class="mathKey" onclick="window.insertMath('${sym}')">${label || sym}</button>`;
   return `
     <div id="musicPanelHeader">
       <span>🎵 MUSIC KEYBOARD</span>
@@ -1088,75 +1341,82 @@ function buildMusicPanelHTML() {
     <div id="musicPanelBody">
       <div class="mathSection"><div class="mathSectionLabel">CLEF / NOTATION</div>
         <div class="mathKeyGrid">
-          ${mk("𝄞","Treble 𝄞")}${mk("𝄢","Bass 𝄢")}${mk("𝄡","Staff")}${mk("𝄀","Bar |")}
-          ${mk("♩","♩ Quarter")}${mk("♪","♪ 8th")}${mk("♫","♫ Beam")}${mk("𝅗𝅥","Half")}
-          ${mk("𝅝","Whole")}${mk("𝄽","Rest")}${mk("𝄾","8th Rest")}${mk("𝄿","16th Rest")}
+          ${mk("𝄞", "Treble 𝄞")}${mk("𝄢", "Bass 𝄢")}${mk("𝄡", "Staff")}${mk("𝄀", "Bar |")}
+          ${mk("♩", "♩ Quarter")}${mk("♪", "♪ 8th")}${mk("♫", "♫ Beam")}${mk("𝅗𝅥", "Half")}
+          ${mk("𝅝", "Whole")}${mk("𝄽", "Rest")}${mk("𝄾", "8th Rest")}${mk("𝄿", "16th Rest")}
         </div>
       </div>
       <div class="mathSection"><div class="mathSectionLabel">ACCIDENTALS</div>
         <div class="mathKeyGrid">
-          ${mk("♭","♭ Flat")}${mk("♯","♯ Sharp")}${mk("♮","♮ Natural")}${mk("𝄪","𝄪 Dbl#")}
-          ${mk("𝄫","𝄫 Dbl♭")}${mk("½♭","Half♭")}${mk("½♯","Half♯")}${mk("¾♯","3/4♯")}
+          ${mk("♭", "♭ Flat")}${mk("♯", "♯ Sharp")}${mk("♮", "♮ Natural")}${mk("𝄪", "𝄪 Dbl#")}
+          ${mk("𝄫", "𝄫 Dbl♭")}${mk("½♭", "Half♭")}${mk("½♯", "Half♯")}${mk("¾♯", "3/4♯")}
         </div>
       </div>
       <div class="mathSection"><div class="mathSectionLabel">NOTES (C-B)</div>
         <div class="mathKeyGrid">
-          ${["C","D","E","F","G","A","B"].map(n=>mk(n)).join("")}
-          ${["C#","Db","D#","Eb","F#","Gb","G#","Ab","A#","Bb"].map(n=>mk(n)).join("")}
+          ${["C", "D", "E", "F", "G", "A", "B"].map((n) => mk(n)).join("")}
+          ${["C#", "Db", "D#", "Eb", "F#", "Gb", "G#", "Ab", "A#", "Bb"].map((n) => mk(n)).join("")}
         </div>
       </div>
       <div class="mathSection"><div class="mathSectionLabel">INTERVALS (RCM)</div>
         <div class="mathKeyGrid">
-          ${["Unison","min 2nd","Maj 2nd","min 3rd","Maj 3rd","P4","Aug 4th","Dim 5th","P5","min 6th","Maj 6th","min 7th","Maj 7th","Octave"].map(n=>mk(n+" ")).join("")}
+          ${["Unison", "min 2nd", "Maj 2nd", "min 3rd", "Maj 3rd", "P4", "Aug 4th", "Dim 5th", "P5", "min 6th", "Maj 6th", "min 7th", "Maj 7th", "Octave"].map((n) => mk(n + " ")).join("")}
         </div>
       </div>
       <div class="mathSection"><div class="mathSectionLabel">DYNAMICS</div>
         <div class="mathKeyGrid">
-          ${["ppp","pp","p","mp","mf","f","ff","fff","sf","sfz","fz","fp","cresc.","dim.","decresc.","subito f"].map(n=>mk(n+" ")).join("")}
+          ${["ppp", "pp", "p", "mp", "mf", "f", "ff", "fff", "sf", "sfz", "fz", "fp", "cresc.", "dim.", "decresc.", "subito f"].map((n) => mk(n + " ")).join("")}
         </div>
       </div>
       <div class="mathSection"><div class="mathSectionLabel">TEMPO / EXPRESSION</div>
         <div class="mathKeyGrid">
-          ${["Allegro","Andante","Adagio","Presto","Largo","Moderato","Vivace","rit.","accel.","a tempo","poco a poco","con fuoco","legato","staccato","tenuto","marcato"].map(n=>mk(n+" ")).join("")}
+          ${["Allegro", "Andante", "Adagio", "Presto", "Largo", "Moderato", "Vivace", "rit.", "accel.", "a tempo", "poco a poco", "con fuoco", "legato", "staccato", "tenuto", "marcato"].map((n) => mk(n + " ")).join("")}
         </div>
       </div>
       <div class="mathSection"><div class="mathSectionLabel">TIME / KEY SIGNATURES</div>
         <div class="mathKeyGrid">
-          ${["4/4","3/4","2/4","6/8","9/8","12/8","2/2","3/8","5/4","7/8"].map(n=>mk(n+" ")).join("")}
-          ${["C major","G major","D major","A major","E major","B major","F major","Bb major","Eb major","Ab major","Db major","Gb major","A minor","E minor","B minor","D minor","G minor","C minor","F minor","Bb minor"].map(n=>mk(n+" ")).join("")}
+          ${["4/4", "3/4", "2/4", "6/8", "9/8", "12/8", "2/2", "3/8", "5/4", "7/8"].map((n) => mk(n + " ")).join("")}
+          ${["C major", "G major", "D major", "A major", "E major", "B major", "F major", "Bb major", "Eb major", "Ab major", "Db major", "Gb major", "A minor", "E minor", "B minor", "D minor", "G minor", "C minor", "F minor", "Bb minor"].map((n) => mk(n + " ")).join("")}
         </div>
       </div>
       <div class="mathSection"><div class="mathSectionLabel">RCM LEVELS (PIANO)</div>
         <div class="mathKeyGrid">
-          ${["Prep A","Prep B","Level 1","Level 2","Level 3","Level 4","Level 5","Level 6","Level 7","Level 8","Level 9","Level 10","ARCT"].map(n=>mk("RCM "+n+" ")).join("")}
+          ${["Prep A", "Prep B", "Level 1", "Level 2", "Level 3", "Level 4", "Level 5", "Level 6", "Level 7", "Level 8", "Level 9", "Level 10", "ARCT"].map((n) => mk("RCM " + n + " ")).join("")}
         </div>
       </div>
       <div class="mathSection"><div class="mathSectionLabel">VIOLIN (RCM)</div>
         <div class="mathKeyGrid">
-          ${["Open string","1st pos","2nd pos","3rd pos","Shift","Vibrato","Détaché","Martelé","Spiccato","Sautillé","Col legno","Sul ponticello","Sul tasto","Pizzicato","Arco","Harmonics"].map(n=>mk(n+" ")).join("")}
+          ${["Open string", "1st pos", "2nd pos", "3rd pos", "Shift", "Vibrato", "Détaché", "Martelé", "Spiccato", "Sautillé", "Col legno", "Sul ponticello", "Sul tasto", "Pizzicato", "Arco", "Harmonics"].map((n) => mk(n + " ")).join("")}
         </div>
       </div>
     </div>`;
 }
 
 /* ── Auto show/hide math panel when math mode toggles ── */
-document.getElementById("mathModeBtn")?.addEventListener("click", () => {
-  setTimeout(() => { if (mathMode) showMathPanel(); else hideMathPanel(); }, 50);
-}, true);
+document.getElementById("mathModeBtn")?.addEventListener(
+  "click",
+  () => {
+    setTimeout(() => {
+      if (mathMode) showMathPanel();
+      else hideMathPanel();
+    }, 50);
+  },
+  true,
+);
 
 /* ── Tool dropdown extras ── */
 document.getElementById("tool_link")?.addEventListener("click", () => {
   if (toolsDropMenu) toolsDropMenu.style.display = "none";
   toolsDropBtn?.classList.remove("active");
-  import("./linkMode.js").then(m => m.openLinkMode?.());
+  import("./linkMode.js").then((m) => m.openLinkMode?.());
 });
 document.getElementById("tool_bluetooth")?.addEventListener("click", () => {
   if (toolsDropMenu) toolsDropMenu.style.display = "none";
-  import("./linkMode.js").then(m => m.scanBluetooth?.());
+  import("./linkMode.js").then((m) => m.scanBluetooth?.());
 });
 document.getElementById("tool_hometools")?.addEventListener("click", () => {
   if (toolsDropMenu) toolsDropMenu.style.display = "none";
-  import("./linkMode.js").then(m => m.showHomeToolsInSidebar?.());
+  import("./linkMode.js").then((m) => m.showHomeToolsInSidebar?.());
 });
 
 function addSystemMessage(content) {
@@ -1274,19 +1534,20 @@ async function sendMessageContent(text, chat, attachments = []) {
       signal: abort.signal,
       body: JSON.stringify({
         message: text,
-        history: chat.messages
-          .slice(-20)
-          .map((m) => ({
-            role: m.role === "aria" ? "assistant" : "user",
-            content: m.content,
-          })),
+        history: chat.messages.slice(-20).map((m) => ({
+          role: m.role === "aria" ? "assistant" : "user",
+          content: m.content,
+        })),
         provider: currentSettings.provider || "openrouter",
         // Send the right model ID for the chosen provider
         model: (() => {
           const p = currentSettings.provider;
           if (p === "openrouter") return currentSettings.orModel || undefined;
-          if (p === "cloudflare") return (currentSettings.cfAutoModel !== false) ? undefined : (currentSettings.cfModel || undefined);
-          if (p === "ollama")     return currentSettings.ollamaModel || undefined;
+          if (p === "cloudflare")
+            return currentSettings.cfAutoModel !== false
+              ? undefined
+              : currentSettings.cfModel || undefined;
+          if (p === "ollama") return currentSettings.ollamaModel || undefined;
           return undefined; // groq, nemotron, deepseek use their fixed models
         })(),
         imageProvider: currentSettings.imageProvider || "auto",
@@ -1470,23 +1731,27 @@ async function syncToServer() {
 /* ── VERSION DISPLAY ── */
 async function loadVersionFromGitHub() {
   try {
-    const res  = await fetch("https://api.github.com/repos/DaEpickid540/ARIA/commits?per_page=1");
+    const res = await fetch(
+      "https://api.github.com/repos/DaEpickid540/ARIA/commits?per_page=1",
+    );
     if (!res.ok) return;
     const data = await res.json();
-    const sha  = data[0]?.sha?.slice(0, 7) || "";
+    const sha = data[0]?.sha?.slice(0, 7) || "";
     // Count commits for version number
-    const countRes = await fetch("https://api.github.com/repos/DaEpickid540/ARIA/commits?per_page=100");
-    const commits   = countRes.ok ? await countRes.json() : [];
-    const major     = 1;
-    const minor     = Math.floor(commits.length / 10);
-    const patch     = commits.length % 10;
-    const verStr    = `Mark ${major}.${minor}.${patch}`;
-    const verEl     = document.getElementById("ariaVersionLabel");
+    const countRes = await fetch(
+      "https://api.github.com/repos/DaEpickid540/ARIA/commits?per_page=100",
+    );
+    const commits = countRes.ok ? await countRes.json() : [];
+    const major = 1;
+    const minor = Math.floor(commits.length / 10);
+    const patch = commits.length % 10;
+    const verStr = `Mark ${major}.${minor}.${patch}`;
+    const verEl = document.getElementById("ariaVersionLabel");
     if (verEl) verEl.textContent = verStr;
     localStorage.setItem("aria_version", verStr);
   } catch {
     const cached = localStorage.getItem("aria_version");
-    const verEl  = document.getElementById("ariaVersionLabel");
+    const verEl = document.getElementById("ariaVersionLabel");
     if (verEl && cached) verEl.textContent = cached;
   }
 }
@@ -1495,12 +1760,12 @@ setInterval(loadVersionFromGitHub, 300_000); // refresh every 5 min
 
 /* ── PiP MINI CHAT ── */
 (function initPipChat() {
-  const pipEl     = document.getElementById("pipChat");
-  const pipMsgs   = document.getElementById("pipChatMessages");
-  const pipInput  = document.getElementById("pipChatInputField");
-  const pipSend   = document.getElementById("pipChatSend");
+  const pipEl = document.getElementById("pipChat");
+  const pipMsgs = document.getElementById("pipChatMessages");
+  const pipInput = document.getElementById("pipChatInputField");
+  const pipSend = document.getElementById("pipChatSend");
   const pipExpand = document.getElementById("pipChatExpand");
-  const pipClose  = document.getElementById("pipChatClose");
+  const pipClose = document.getElementById("pipChatClose");
   const pipToggle = document.getElementById("pipToggleBtn");
   if (!pipEl) return;
 
@@ -1510,51 +1775,79 @@ setInterval(loadVersionFromGitHub, 300_000); // refresh every 5 min
     pipOpen = !pipOpen;
     pipEl.style.display = pipOpen ? "flex" : "none";
   });
-  pipClose?.addEventListener("click", () => { pipOpen = false; pipEl.style.display = "none"; });
+  pipClose?.addEventListener("click", () => {
+    pipOpen = false;
+    pipEl.style.display = "none";
+  });
   pipExpand?.addEventListener("click", () => {
-    pipOpen = false; pipEl.style.display = "none";
+    pipOpen = false;
+    pipEl.style.display = "none";
     document.getElementById("layout").style.display = "flex";
   });
 
   async function pipSend2() {
-    const text = pipInput?.value.trim(); if (!text) return;
-    addPipMsg("You", text); if (pipInput) pipInput.value = "";
+    const text = pipInput?.value.trim();
+    if (!text) return;
+    addPipMsg("You", text);
+    if (pipInput) pipInput.value = "";
     try {
-      const s   = loadSettings();
+      const s = loadSettings();
       const res = await fetch("/api/chat", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ message:text, provider:s.provider||"openrouter", personality:s.personality||"hacker", history:[] })
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          provider: s.provider || "openrouter",
+          personality: s.personality || "hacker",
+          history: [],
+        }),
       });
       const d = await res.json();
       addPipMsg("ARIA", d.reply || "…");
-    } catch { addPipMsg("ARIA", "Connection error."); }
+    } catch {
+      addPipMsg("ARIA", "Connection error.");
+    }
   }
 
   function addPipMsg(sender, text) {
     if (!pipMsgs) return;
     const d = document.createElement("div");
-    d.className = "pipMsg " + (sender==="You" ? "pipMsgUser" : "pipMsgAria");
-    d.innerHTML = `<b>${sender}:</b> ${String(text).replace(/</g,"&lt;").slice(0,300)}`;
+    d.className = "pipMsg " + (sender === "You" ? "pipMsgUser" : "pipMsgAria");
+    d.innerHTML = `<b>${sender}:</b> ${String(text).replace(/</g, "&lt;").slice(0, 300)}`;
     pipMsgs.appendChild(d);
     pipMsgs.scrollTop = pipMsgs.scrollHeight;
   }
 
   pipSend?.addEventListener("click", pipSend2);
-  pipInput?.addEventListener("keydown", e => { if (e.key==="Enter") pipSend2(); });
+  pipInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") pipSend2();
+  });
 
   // Drag
   const header = document.getElementById("pipChatHeader");
-  let ox=0,oy=0,mx=0,my=0;
-  header?.addEventListener("mousedown", e => {
-    mx=e.clientX; my=e.clientY;
-    const move = e2 => {
-      ox=e2.clientX-mx; oy=e2.clientY-my; mx=e2.clientX; my=e2.clientY;
-      pipEl.style.left   = (pipEl.offsetLeft+ox)+"px";
-      pipEl.style.top    = (pipEl.offsetTop+oy)+"px";
-      pipEl.style.right  = "auto"; pipEl.style.bottom = "auto";
+  let ox = 0,
+    oy = 0,
+    mx = 0,
+    my = 0;
+  header?.addEventListener("mousedown", (e) => {
+    mx = e.clientX;
+    my = e.clientY;
+    const move = (e2) => {
+      ox = e2.clientX - mx;
+      oy = e2.clientY - my;
+      mx = e2.clientX;
+      my = e2.clientY;
+      pipEl.style.left = pipEl.offsetLeft + ox + "px";
+      pipEl.style.top = pipEl.offsetTop + oy + "px";
+      pipEl.style.right = "auto";
+      pipEl.style.bottom = "auto";
     };
     document.addEventListener("mousemove", move);
-    document.addEventListener("mouseup", () => document.removeEventListener("mousemove", move), {once:true});
+    document.addEventListener(
+      "mouseup",
+      () => document.removeEventListener("mousemove", move),
+      { once: true },
+    );
   });
 })();
 
