@@ -1,0 +1,18 @@
+/* ============================================================
+   styles/index.css — ARIA stylesheet entry point
+   Import this instead of style.css in index.html:
+   <link rel="stylesheet" href="styles/index.css">
+   ============================================================ */
+
+@import url("base.css");
+@import url("layout.css");
+@import url("chat.css");
+@import url("lock-boot.css");
+@import url("homepage.css");
+@import url("settings.css");
+@import url("overlays.css");
+@import url("theme.css");
+@import url("components.css");
+@import url("panels.css");
+@import url("hometools.css");
+@import url("features.css");

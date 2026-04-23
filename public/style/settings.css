@@ -1,0 +1,443 @@
+/* ============================================================
+   SETTINGS OVERLAY
+   ============================================================ */
+#settingsOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  display: none;
+  align-items: center;
+  justify-content: flex-end;
+  z-index: 9000;
+  backdrop-filter: blur(2px);
+}
+
+#settingsOverlay.active {
+  display: flex;
+}
+
+@keyframes panelSlideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+#settingsPanel {
+  width: 360px;
+  height: 100%;
+  background: linear-gradient(180deg, #0a0000, var(--bg-abyss));
+  border-left: 1px solid var(--red-core);
+  box-shadow: -12px 0 40px rgba(255, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  animation: panelSlideIn 0.35s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+#settingsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-cut);
+  background: rgba(255, 0, 0, 0.05);
+}
+
+#settingsHeader h2 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--red-core);
+  letter-spacing: 0.2em;
+  text-shadow: var(--glow-sm);
+}
+
+#settingsCloseBtn {
+  background: transparent;
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  cursor: crosshair;
+  font-size: 14px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+#settingsCloseBtn:hover {
+  border-color: var(--red-core);
+  color: var(--red-neon);
+  box-shadow: var(--glow-sm);
+}
+
+#settingsContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 18px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+
+.settingsSection {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-cut);
+}
+
+.settingsSection h3 {
+  margin: 0 0 10px 0;
+  font-size: 10px;
+  color: var(--red-core);
+  letter-spacing: 0.25em;
+  text-shadow: var(--glow-sm);
+}
+
+.settingsSection label {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  margin-bottom: 3px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.settingsSection select {
+  width: 100%;
+  margin-bottom: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  color: var(--text-blaze);
+  border-radius: 1px;
+  padding: 6px 8px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 12px;
+  outline: none;
+  cursor: crosshair;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.settingsSection select:focus {
+  border-color: var(--red-core);
+  box-shadow: var(--glow-sm);
+}
+
+/* Range input — separate from select to avoid padding conflict */
+.settingsSection input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  margin-bottom: 6px;
+  height: 3px;
+  padding: 0;
+  border: none;
+  outline: none;
+  cursor: crosshair;
+  background: linear-gradient(
+    90deg,
+    var(--red-core) 0%,
+    var(--border-cut) 100%
+  );
+}
+.settingsSection input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+  background: var(--red-core);
+  box-shadow: var(--glow-sm);
+  cursor: crosshair;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+/* TOGGLES */
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 11px;
+  font-family: "Share Tech Mono", monospace;
+  color: var(--text-hot);
+  letter-spacing: 0.06em;
+}
+
+.toggleBtn {
+  min-width: 52px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-cut);
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  cursor: crosshair;
+  font-size: 10px;
+  font-family: "Orbitron", sans-serif;
+  letter-spacing: 0.1em;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+  transition: all 0.15s;
+}
+
+.toggleBtn.active {
+  background: var(--red-core);
+  border-color: var(--red-neon);
+  color: #000;
+  box-shadow: var(--glow-sm);
+}
+
+/* PERSONALITY BUTTONS */
+#personalityList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.personalityBtn {
+  flex: 1 1 45%;
+  padding: 7px 8px;
+  border: 1px solid var(--border-cut);
+  background: var(--bg-raised);
+  color: var(--text-hot);
+  cursor: crosshair;
+  font-size: 10px;
+  font-family: "Share Tech Mono", monospace;
+  text-align: center;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  transition: all 0.15s;
+}
+
+.personalityBtn:hover {
+  border-color: var(--red-core);
+  color: var(--text-blaze);
+  box-shadow: var(--glow-sm);
+  background: rgba(255, 0, 0, 0.08);
+}
+
+.personalityBtn.active {
+  border-color: var(--red-neon);
+  background: rgba(255, 0, 0, 0.15);
+  color: var(--red-neon);
+  box-shadow: var(--glow-md);
+}
+
+/* SETTINGS FOOTER */
+#settingsFooter {
+  padding: 12px 18px;
+  border-top: 1px solid var(--border-cut);
+  background: rgba(255, 0, 0, 0.03);
+}
+
+/* ============================================================
+   BACKGROUND DRIFT
+   ============================================================ */
+#bgDrift {
+  position: fixed;
+  top: 40%;
+  left: 55%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(
+    circle,
+    rgba(255, 0, 0, 0.18) 0%,
+    transparent 70%
+  );
+  filter: blur(70px);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+  animation: drift 18s infinite linear;
+}
+
+/* Second orb */
+#bgDrift::after {
+  content: "";
+  position: absolute;
+  top: 30%;
+  left: 20%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(
+    circle,
+    rgba(255, 50, 0, 0.12) 0%,
+    transparent 70%
+  );
+  filter: blur(40px);
+  animation: drift2 12s infinite linear reverse;
+}
+
+@keyframes drift {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  25% {
+    transform: translate(-35%, -65%) scale(1.25);
+  }
+  50% {
+    transform: translate(-65%, -35%) scale(0.85);
+  }
+  75% {
+    transform: translate(-40%, -58%) scale(1.15);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes drift2 {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(60px, -40px) scale(1.3);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+/* ============================================================
+   BOOT SCREENS
+   ============================================================ */
+#preBootScreen,
+#bootScreen {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  z-index: 99999;
+  color: var(--red-core);
+  font-family: "Share Tech Mono", monospace;
+  opacity: 1;
+  transition: opacity 0.6s ease;
+}
+
+#preBootScreen.fade-out,
+#bootScreen.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#preBootTerminal,
+#bootTerminal {
+  width: 80%;
+  max-width: 900px;
+  height: 280px;
+  background: rgba(10, 0, 0, 0.95);
+  border: 1px solid var(--red-core);
+  box-shadow: var(--glow-lg);
+  padding: 16px;
+  overflow: hidden;
+  font-size: 12px;
+  position: relative;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 20px) 0,
+    100% 20px,
+    100% 100%,
+    20px 100%,
+    0 calc(100% - 20px)
+  );
+}
+
+/* Scrolling scanline inside terminal */
+#preBootTerminal::after,
+#bootTerminal::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(255, 0, 0, 0.05),
+    transparent
+  );
+  animation: terminalScan 2s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes terminalScan {
+  from {
+    top: -30px;
+  }
+  to {
+    top: 100%;
+  }
+}
+
+#preBootLog,
+#bootLog {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--red-neon);
+  text-shadow: 0 0 4px var(--red-core);
+}
+
+/* ============================================================
+   BOOT MODAL
+   ============================================================ */
+#bootModal {
+  margin-top: 28px;
+  padding: 22px 36px;
+  border: 1px solid var(--red-neon);
+  background: rgba(8, 0, 0, 0.95);
+  color: var(--red-neon);
+  text-align: center;
+  opacity: 0;
+  transform: translateY(14px) scale(0.96);
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+  box-shadow: var(--glow-lg);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 16px) 0,
+    100% 16px,
+    100% 100%,
+    16px 100%,
+    0 calc(100% - 16px)
+  );
+}
+
+#bootModal.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+#bootModal h2 {
+  margin: 0 0 6px 0;
+  font-size: 18px;
+  font-family: "Orbitron", sans-serif;
+  letter-spacing: 0.25em;
+  text-shadow: var(--glow-md);
+}
+
+.bootPressKey {
+  margin-top: 8px;
+  font-size: 13px;
+  opacity: 0.7;
+  letter-spacing: 0.15em;
+  animation: pressKeyPulse 1.2s infinite ease-in-out;
+}
+
+@keyframes pressKeyPulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+    text-shadow: var(--glow-sm);
+  }
+}

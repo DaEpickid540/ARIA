@@ -14,9 +14,11 @@ function getCurrentChatData() {
     // We expose it via a global set by chat.js
     const activeId = window.ARIA_currentChatId;
     return activeId
-      ? chats.find(c => c.id === activeId) || chats[0]
+      ? chats.find((c) => c.id === activeId) || chats[0]
       : chats[0];
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 function formatChatAsMarkdown(chat) {
@@ -32,10 +34,13 @@ function formatChatAsMarkdown(chat) {
     "",
   ];
 
-  for (const msg of (chat.messages || [])) {
+  for (const msg of chat.messages || []) {
     const role = msg.role === "user" ? "**YOU**" : "**ARIA**";
     const time = msg.timestamp
-      ? new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      ? new Date(msg.timestamp).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
       : "";
     lines.push(`### ${role} ${time ? `_(${time})_` : ""}`);
     if (msg.type === "image" && msg.imageUrl) {
@@ -50,9 +55,9 @@ function formatChatAsMarkdown(chat) {
 
 function downloadText(content, filename) {
   const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
@@ -64,8 +69,10 @@ export function exportCurrentChat() {
     window.ARIA_showNotification?.("No chat to export.");
     return;
   }
-  const md       = formatChatAsMarkdown(chat);
-  const safeName = (chat.title || "aria-chat").replace(/[^a-z0-9]/gi, "-").toLowerCase();
+  const md = formatChatAsMarkdown(chat);
+  const safeName = (chat.title || "aria-chat")
+    .replace(/[^a-z0-9]/gi, "-")
+    .toLowerCase();
   downloadText(md, `${safeName}.md`);
   window.ARIA_showNotification?.("Chat exported ✓");
 }
@@ -74,7 +81,10 @@ export function exportAllChats() {
   try {
     const saved = localStorage.getItem("aria_chats");
     const chats = saved ? JSON.parse(saved) : [];
-    if (!chats.length) { window.ARIA_showNotification?.("No chats to export."); return; }
+    if (!chats.length) {
+      window.ARIA_showNotification?.("No chats to export.");
+      return;
+    }
     const all = chats.map(formatChatAsMarkdown).join("\n\n---\n\n");
     downloadText(all, `aria-all-chats-${Date.now()}.md`);
     window.ARIA_showNotification?.(`${chats.length} chats exported ✓`);

@@ -1,0 +1,1395 @@
+/* ============================================================
+   CODE PANEL — side-by-side with preview
+   ============================================================ */
+#codePanel {
+  width: 0;
+  min-width: 0;
+  flex-shrink: 0;
+  height: 100%;
+  background: var(--bg-abyss);
+  border-left: 2px solid transparent;
+  overflow: hidden;
+  transition:
+    width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+#codePanel.open {
+  width: 50%;
+  min-width: 280px;
+  border-left-color: var(--red-core);
+  box-shadow: -6px 0 30px rgba(255, 0, 0, 0.18);
+}
+#layout.code-split #sidebar {
+  width: 40px !important;
+  min-width: 40px !important;
+}
+#layout.code-split #sidebar #sidebarHeader,
+#layout.code-split #sidebar .sidebarDivider,
+#layout.code-split #sidebar #chatList,
+#layout.code-split #sidebar #sidebarBottom {
+  opacity: 0;
+  pointer-events: none;
+}
+#codePanelHeader {
+  display: flex;
+  align-items: center;
+  padding: 9px 14px;
+  background: var(--bg-panel);
+  border-bottom: 2px solid var(--red-dim);
+  flex-shrink: 0;
+  gap: 10px;
+  white-space: nowrap;
+}
+#codePanelLang {
+  font-family: "Orbitron", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--red-core);
+  text-shadow: var(--glow-sm);
+  flex-shrink: 0;
+}
+.codePanelActions {
+  display: flex;
+  gap: 5px;
+  margin-left: auto;
+}
+.codePanelActions button {
+  background: transparent;
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  cursor: crosshair;
+  padding: 4px 10px;
+  transition: all 0.15s;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+}
+.codePanelActions button:hover {
+  border-color: var(--red-core);
+  color: var(--text-blaze);
+  box-shadow: var(--glow-sm);
+}
+#codePanelBody {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+#codePanelContent {
+  flex: 1;
+  margin: 0;
+  padding: 20px 18px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  font-family: "Share Tech Mono", "Courier New", monospace;
+  color: var(--text-blaze);
+  background: var(--bg-void);
+  white-space: pre;
+  overflow-x: auto;
+  tab-size: 2;
+  box-sizing: border-box;
+}
+#codePanelPreviewFrame {
+  width: 100%;
+  flex: 1;
+  border: none;
+  background: #fff;
+}
+
+/* Code block inline */
+.codeBlock {
+  position: relative;
+  padding-top: 30px !important;
+}
+.codeActions {
+  position: absolute;
+  top: 5px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+}
+.codeActionBtn {
+  background: rgba(255, 0, 0, 0.06);
+  border: 1px solid var(--red-dim);
+  color: var(--text-muted);
+  font-size: 9px;
+  cursor: crosshair;
+  padding: 2px 7px;
+  font-family: "Share Tech Mono", monospace;
+  transition: all 0.15s;
+}
+.codeActionBtn:hover {
+  color: var(--red-neon);
+  border-color: var(--red-core);
+}
+
+/* Think blocks */
+details.thinkBlock {
+  margin-bottom: 8px;
+  opacity: 0.45;
+  transition: opacity 0.2s;
+}
+details.thinkBlock:hover {
+  opacity: 0.75;
+}
+details.thinkBlock > summary {
+  cursor: pointer;
+  padding: 3px 6px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  list-style: none;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+details.thinkBlock > summary::before {
+  content: "▸";
+  font-size: 8px;
+  opacity: 0.6;
+}
+details.thinkBlock[open] > summary::before {
+  content: "▾";
+}
+details.thinkBlock > summary::-webkit-details-marker {
+  display: none;
+}
+.thinkContent {
+  padding: 6px 8px 8px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  opacity: 0.7;
+}
+
+/* ============================================================
+   PiP MINI CHAT WIDGET
+   ============================================================ */
+#pipChat {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 320px;
+  height: 400px;
+  background: var(--bg-panel);
+  border: 1px solid var(--red-core);
+  box-shadow:
+    var(--glow-lg),
+    0 8px 32px rgba(0, 0, 0, 0.8);
+  z-index: 999990;
+  display: flex;
+  flex-direction: column;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 12px) 0,
+    100% 12px,
+    100% 100%,
+    12px 100%,
+    0 calc(100% - 12px)
+  );
+  resize: both;
+  overflow: hidden;
+}
+#pipChatHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-abyss);
+  border-bottom: 1px solid var(--red-dim);
+  cursor: move;
+  font-family: "Orbitron", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--red-core);
+  flex-shrink: 0;
+}
+.pipChatBtns {
+  display: flex;
+  gap: 5px;
+}
+.pipChatBtns button {
+  background: transparent;
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 6px;
+  transition: all 0.12s;
+}
+.pipChatBtns button:hover {
+  border-color: var(--red-core);
+  color: var(--text-blaze);
+}
+#pipChatMessages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+.pipMsg {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 5px 8px;
+  border-radius: 2px;
+}
+.pipMsgUser {
+  background: rgba(255, 0, 0, 0.12);
+  border-left: 2px solid var(--red-core);
+  text-align: right;
+}
+.pipMsgAria {
+  background: var(--bg-raised);
+  border-left: 2px solid var(--red-dim);
+}
+#pipChatInput {
+  display: flex;
+  gap: 5px;
+  padding: 6px;
+  border-top: 1px solid var(--red-dim);
+  flex-shrink: 0;
+}
+#pipChatInputField {
+  flex: 1;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  color: var(--text-blaze);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  padding: 5px 8px;
+  outline: none;
+}
+#pipChatInputField:focus {
+  border-color: var(--red-core);
+}
+#pipChatSend {
+  background: var(--red-core);
+  border: none;
+  color: #000;
+  font-family: "Orbitron", monospace;
+  font-size: 9px;
+  padding: 5px 10px;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+}
+
+/* ============================================================
+   SIDEBAR COLLAPSE
+   ============================================================ */
+#layout {
+  display: flex !important;
+  height: 100vh !important;
+  width: 100vw !important;
+  overflow: hidden !important;
+}
+#sidebar {
+  width: 260px;
+  min-width: 260px;
+  transition:
+    width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    min-width 0.28s;
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+}
+#sidebar.collapsed {
+  width: 40px !important;
+  min-width: 40px !important;
+}
+#sidebar.collapsed #sidebarHeader,
+#sidebar.collapsed .sidebarDivider,
+#sidebar.collapsed #chatList,
+#sidebar.collapsed #sidebarBottom {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s;
+}
+#sidebar:not(.collapsed) #sidebarHeader,
+#sidebar:not(.collapsed) .sidebarDivider,
+#sidebar:not(.collapsed) #chatList,
+#sidebar:not(.collapsed) #sidebarBottom {
+  opacity: 1;
+  pointer-events: all;
+  transition: opacity 0.2s 0.1s;
+}
+#sidebarCollapseBtn {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 48px;
+  background: var(--bg-raised);
+  border: 1px solid var(--red-dim);
+  border-right: none;
+  color: var(--red-core);
+  cursor: crosshair;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: all 0.15s;
+  clip-path: polygon(0 4px, 100% 0, 100% 100%, 0 calc(100% - 4px));
+}
+#sidebarCollapseBtn:hover {
+  background: rgba(255, 0, 0, 0.12);
+  border-color: var(--red-core);
+}
+#sidebarCollapseIcon {
+  display: inline-block;
+  transition: transform 0.25s;
+  font-family: "Share Tech Mono", monospace;
+  letter-spacing: -2px;
+}
+#sidebar.collapsed #sidebarCollapseIcon {
+  transform: rotate(180deg);
+}
+#chatWindow {
+  flex: 1 !important;
+  min-width: 0 !important;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Tools dropdown */
+#toolsDropdownWrap {
+  position: relative;
+  width: 100%;
+}
+#toolsDropdownBtn {
+  width: 100%;
+}
+#toolsDropdown {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  min-width: 180px;
+  background: var(--bg-panel);
+  border: 1px solid var(--red-core);
+  box-shadow: var(--glow-md);
+  z-index: 500;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+.toolDropItem {
+  display: block;
+  width: 100%;
+  padding: 9px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-cut);
+  color: var(--text-hot);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  text-align: left;
+  cursor: crosshair;
+  transition: all 0.12s;
+}
+.toolDropItem:last-child {
+  border-bottom: none;
+}
+.toolDropItem:hover {
+  background: rgba(255, 0, 0, 0.1);
+  color: var(--text-blaze);
+  padding-left: 18px;
+}
+.toolDropDivider {
+  height: 1px;
+  background: var(--red-dim);
+  margin: 2px 0;
+}
+
+/* Input bar */
+#inputBar {
+  flex-wrap: wrap !important;
+  align-items: flex-end !important;
+  padding: 8px 14px 10px !important;
+  gap: 6px !important;
+}
+#inputTopRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex: 1;
+  min-width: 200px;
+}
+#textareaWrap {
+  flex: 1;
+  position: relative;
+}
+#textareaWrap textarea {
+  width: 100%;
+  padding-right: 34px !important;
+}
+.attachInline {
+  position: absolute;
+  right: 8px;
+  bottom: 9px;
+  cursor: pointer;
+  font-size: 15px;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+  z-index: 2;
+}
+.attachInline:hover {
+  opacity: 1;
+}
+#inputBtnRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+#sidebarToggleBtn {
+  display: none !important;
+}
+#sidebarOverlay {
+  display: none;
+}
+#userInput {
+  resize: none !important;
+  overflow: hidden !important;
+  min-height: 38px !important;
+  max-height: 120px !important;
+}
+#attachPreviewRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+  width: 100%;
+}
+.attachThumb {
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--red-dim);
+  background: var(--bg-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-family: "Share Tech Mono", monospace;
+  color: var(--text-muted);
+  overflow: hidden;
+  position: relative;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+}
+.attachThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.attachRemove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.8);
+  color: #ff4444;
+  font-size: 9px;
+  cursor: pointer;
+  padding: 1px 3px;
+}
+
+/* Drag-over highlight */
+.drag-over {
+  outline: 2px dashed var(--red-core) !important;
+  background: rgba(255, 0, 0, 0.06) !important;
+}
+
+/* Message bits */
+.msgHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.msgMeta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.msg:hover .msgMeta {
+  opacity: 1;
+}
+.msgActionBtn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: crosshair;
+  padding: 2px 5px;
+  line-height: 1;
+  transition: all 0.15s;
+  text-decoration: none;
+}
+.msgActionBtn:hover,
+.msgCopyBtn:hover {
+  color: var(--red-neon);
+}
+.msgRegenBtn:hover {
+  color: #88ff88;
+  border-color: #88ff88;
+}
+.msgDeleteBtn:hover {
+  color: #ff4444;
+  border-color: #ff4444;
+}
+.mdLink {
+  color: var(--red-neon);
+  text-decoration: underline;
+}
+.userPara {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif !important;
+  font-size: 14px !important;
+  line-height: 1.65 !important;
+  letter-spacing: 0 !important;
+  word-break: break-word;
+  white-space: pre-wrap;
+  margin: 0;
+}
+#userIdInput {
+  margin-bottom: 12px;
+}
+#stopGenBtn {
+  text-align: center;
+  padding: 8px;
+}
+#stopGenBtn button {
+  background: rgba(255, 0, 0, 0.08);
+  border: 1px solid var(--red-dim);
+  color: var(--red-neon);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  padding: 6px 16px;
+  cursor: crosshair;
+}
+.msgImage {
+  max-width: 100%;
+  max-height: 360px;
+  border: 1px solid var(--red-dim);
+  cursor: pointer;
+  display: block;
+}
+.imgActions {
+  margin-top: 5px;
+}
+.fileDownloadBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 0, 0, 0.08);
+  border: 1px solid var(--red-dim);
+  color: var(--red-neon);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  padding: 5px 12px;
+  cursor: pointer;
+  text-decoration: none;
+  letter-spacing: 0.06em;
+  margin-top: 6px;
+  margin-right: 5px;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+  transition: all 0.15s;
+}
+.fileDownloadBtn:hover {
+  background: rgba(255, 0, 0, 0.18);
+  border-color: var(--red-core);
+  box-shadow: var(--glow-sm);
+}
+.codeDownloadRow {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.chatRow {
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: 100%;
+}
+.chatRow .chatItem {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 50px;
+}
+.chatActionBtn {
+  display: none;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: crosshair;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  position: absolute;
+}
+.chatRenameBtn {
+  right: 24px;
+}
+.chatDeleteBtn {
+  right: 2px;
+}
+.chatRow:hover .chatActionBtn,
+.chatRow.active .chatActionBtn {
+  display: flex;
+}
+
+/* Modals */
+#commandsModal,
+#bgTasksModal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  z-index: 99998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#commandsPanel,
+#bgTasksPanel {
+  background: var(--bg-panel);
+  border: 1px solid var(--red-core);
+  box-shadow: var(--glow-lg);
+  width: min(700px, 92vw);
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 16px) 0,
+    100% 16px,
+    100% 100%,
+    16px 100%,
+    0 calc(100% - 16px)
+  );
+}
+#commandsHeader,
+#bgTasksHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg-abyss);
+  border-bottom: 1px solid var(--red-dim);
+  flex-shrink: 0;
+}
+#commandsHeader h2,
+#bgTasksHeader h2 {
+  font-family: "Orbitron", sans-serif;
+  font-size: 13px;
+  color: var(--red-core);
+  text-shadow: var(--glow-sm);
+  letter-spacing: 0.2em;
+}
+#commandsHeader button,
+#bgTasksHeader button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: crosshair;
+}
+#commandsList,
+#bgTasksList {
+  overflow-y: auto;
+  padding: 12px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+.commandItem {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-cut);
+}
+.commandName {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  color: var(--red-neon);
+  min-width: 160px;
+  flex-shrink: 0;
+}
+.commandDesc {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: "Share Tech Mono", monospace;
+}
+
+/* Homepage extras */
+.homeListItem {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  padding: 2px 0;
+  color: var(--text-hot);
+}
+.homeToolBtn {
+  background: rgba(255, 0, 0, 0.08);
+  border: 1px solid var(--red-dim);
+  color: var(--red-neon);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  padding: 5px 10px;
+  cursor: crosshair;
+  margin: 3px 3px 0 0;
+  transition: all 0.12s;
+  display: inline-block;
+}
+.homeToolBtn:hover {
+  background: rgba(255, 0, 0, 0.18);
+  border-color: var(--red-core);
+}
+.healthBar {
+  width: 100%;
+  height: 4px;
+  background: var(--bg-raised);
+  margin-top: 4px;
+  border-radius: 2px;
+}
+.healthFill {
+  height: 100%;
+  background: var(--red-core);
+  border-radius: 2px;
+  transition: width 0.5s;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  html {
+    height: 100%;
+  }
+  body {
+    height: 100%;
+    overflow: hidden;
+    touch-action: pan-x pan-y;
+  }
+  #layout {
+    height: 100dvh !important;
+    overflow: hidden;
+  }
+  #sidebar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100% !important;
+    width: 280px !important;
+    min-width: 280px !important;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+  #sidebar.open {
+    transform: translateX(0) !important;
+  }
+  #sidebar.collapsed {
+    width: 280px !important;
+    min-width: 280px !important;
+  }
+  #sidebar.collapsed #sidebarHeader,
+  #sidebar.collapsed .sidebarDivider,
+  #sidebar.collapsed #chatList,
+  #sidebar.collapsed #sidebarBottom {
+    opacity: 1 !important;
+    pointer-events: all !important;
+  }
+  #sidebarCollapseBtn {
+    display: none !important;
+  }
+  #sidebarOverlay {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.78);
+    z-index: 999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    backdrop-filter: blur(2px);
+  }
+  #sidebarOverlay.active {
+    opacity: 1 !important;
+    pointer-events: all !important;
+  }
+  #chatWindow {
+    width: 100% !important;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+  #messages {
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 8px !important;
+  }
+  #inputBar {
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    flex-shrink: 0 !important;
+    padding: 6px 10px !important;
+    padding-bottom: env(safe-area-inset-bottom, 8px) !important;
+    gap: 5px !important;
+  }
+  #inputTopRow {
+    width: 100% !important;
+    flex: none !important;
+    min-width: unset !important;
+  }
+  #userInput {
+    font-size: 16px !important;
+    min-height: 36px !important;
+  }
+  #sendBtn {
+    white-space: nowrap;
+    padding: 10px 14px !important;
+    font-size: 10px !important;
+    flex-shrink: 0 !important;
+  }
+  #inputBtnRow {
+    display: flex !important;
+    width: 100% !important;
+    flex-shrink: 0 !important;
+    overflow-x: auto !important;
+    scrollbar-width: none;
+    flex-wrap: nowrap !important;
+    gap: 5px !important;
+  }
+  #inputBtnRow::-webkit-scrollbar {
+    display: none;
+  }
+  #sidebarToggleBtn {
+    display: flex !important;
+    flex-shrink: 0 !important;
+  }
+  .voiceBtn {
+    padding: 6px 7px !important;
+    font-size: 9px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+  .msg {
+    max-width: 90% !important;
+  }
+  .msg.user {
+    max-width: 82% !important;
+  }
+  .chatActionBtn {
+    display: flex !important;
+  }
+  .chatRow .chatItem {
+    padding-right: 54px !important;
+  }
+  .msgMeta {
+    opacity: 1 !important;
+  }
+  #codePanel.open {
+    width: 100% !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 500;
+    height: 100dvh !important;
+  }
+  #settingsPanel {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100dvh !important;
+    border-radius: 0 !important;
+  }
+  #pipChat {
+    width: calc(100vw - 20px) !important;
+    right: 10px !important;
+    bottom: 10px !important;
+  }
+  #chatHeader {
+    padding-left: 8px !important;
+  }
+  .chatHeaderSub {
+    display: none;
+  }
+}
+@media (max-width: 380px) {
+  .voiceBtn {
+    padding: 4px 5px !important;
+    font-size: 8px !important;
+  }
+  #sendBtn {
+    padding: 9px 8px !important;
+  }
+}
+
+/* ============================================================
+   HTML PREVIEW CARD (replaces inline code block for HTML)
+   ============================================================ */
+.htmlPreviewCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(255, 0, 0, 0.06);
+  border: 1px solid var(--red-core);
+  padding: 10px 14px;
+  margin: 6px 0;
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+}
+.htmlPreviewLabel {
+  font-family: "Orbitron", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--red-neon);
+  text-shadow: var(--glow-sm);
+}
+.htmlPreviewActions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ============================================================
+   STEP MESSAGES — subtle styling, less prominent than normal
+   ============================================================ */
+.msg.aria.stepMsg {
+  background: rgba(255, 0, 0, 0.03) !important;
+  border-left: 2px dashed var(--red-dim) !important;
+  border-right: none !important;
+  opacity: 0.8;
+  font-size: 11px !important;
+  padding: 8px 12px !important;
+  box-shadow: none !important;
+}
+.msg.aria.stepMsg .msgSender {
+  font-size: 8px;
+  opacity: 0.5;
+}
+.msg.aria.stepMsg::before {
+  display: none !important; /* hide the ARIA// tag on step messages */
+}
+
+/* ============================================================
+   AGGRESSIVE CYBERPUNK OVERRIDES
+   ============================================================ */
+.msg.user {
+  border-right: 4px solid var(--red-hot) !important;
+  box-shadow:
+    var(--glow-lg),
+    inset 0 0 20px rgba(255, 0, 0, 0.12) !important;
+}
+.msg.aria:not(.stepMsg) {
+  border-left: 4px solid var(--red-core) !important;
+  box-shadow:
+    0 2px 20px rgba(0, 0, 0, 0.9),
+    inset 2px 0 0 rgba(255, 0, 0, 0.1) !important;
+}
+
+/* User message font fix */
+.userPara {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif !important;
+  font-size: 14px !important;
+  line-height: 1.65 !important;
+  letter-spacing: 0 !important;
+  word-break: break-word;
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+/* Lock screen userId spacing */
+#userIdInput {
+  margin-bottom: 12px;
+}
+
+/* Code panel preview frame fills body */
+#codePanelBody {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+#codePanelPreviewFrame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #fff;
+}
+#codePanelContent {
+  flex: 1;
+  margin: 0;
+  padding: 20px 18px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  font-family: "Share Tech Mono", "Courier New", monospace;
+  color: var(--text-blaze);
+  background: var(--bg-void);
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+  box-sizing: border-box;
+}
+
+/* ============================================================
+   MATH KEYBOARD PANEL — slides in from RIGHT side
+   ============================================================ */
+#mathPanel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 340px;
+  height: 100%;
+  background: var(--bg-panel);
+  border-left: 2px solid var(--red-core);
+  box-shadow: -8px 0 40px rgba(255, 0, 0, 0.25);
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+#mathPanel.open {
+  transform: translateX(0);
+}
+
+#mathPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-abyss);
+  border-bottom: 2px solid var(--red-dim);
+  flex-shrink: 0;
+  font-family: "Orbitron", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--red-core);
+  text-shadow: var(--glow-sm);
+  gap: 8px;
+}
+
+#mathPanelHeader button {
+  background: transparent;
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  cursor: crosshair;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-family: "Share Tech Mono", monospace;
+  transition: all 0.15s;
+}
+#mathPanelHeader button:hover {
+  border-color: var(--red-core);
+  color: var(--text-blaze);
+}
+
+#mathPanelBody {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 8px 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+
+.mathSection {
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
+
+.mathSectionLabel {
+  font-family: "Orbitron", sans-serif;
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border-cut);
+}
+
+.mathKeyGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+}
+
+.mathKey {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  color: var(--text-blaze);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 12px;
+  padding: 7px 4px;
+  cursor: crosshair;
+  transition: all 0.1s;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  clip-path: polygon(2px 0%, 100% 0%, calc(100% - 2px) 100%, 0% 100%);
+}
+
+.mathKey:hover {
+  background: rgba(255, 0, 0, 0.18);
+  border-color: var(--red-core);
+  color: var(--red-neon);
+  box-shadow: var(--glow-sm);
+}
+
+.mathKey:active {
+  background: rgba(255, 0, 0, 0.35);
+  transform: scale(0.95);
+}
+
+/* When math panel is open, compress chat window */
+body.mathPanelOpen #chatWindow {
+  margin-right: 340px;
+  transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* MUSIC PANEL — also from right, stacks or replaces */
+#musicPanel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 320px;
+  height: 100%;
+  background: var(--bg-panel);
+  border-left: 2px solid var(--red-core);
+  box-shadow: -8px 0 40px rgba(255, 0, 0, 0.25);
+  z-index: 9001;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#musicPanel.open {
+  transform: translateX(0);
+}
+
+#musicPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-abyss);
+  border-bottom: 2px solid var(--red-dim);
+  flex-shrink: 0;
+  font-family: "Orbitron", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--red-core);
+}
+#musicPanelHeader button {
+  background: transparent;
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  cursor: crosshair;
+  padding: 3px 8px;
+  font-size: 11px;
+}
+#musicPanelHeader button:hover {
+  border-color: var(--red-core);
+  color: var(--text-blaze);
+}
+
+#musicPanelBody {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 8px 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+.musicSection {
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
+.musicSectionLabel {
+  font-family: "Orbitron", sans-serif;
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border-cut);
+}
+
+/* ============================================================
+   CHAT NOTIFICATION CENTER
+   ============================================================ */
+#chatNotification {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.88);
+  background: var(--bg-panel);
+  border: 1px solid var(--red-core);
+  color: var(--text-blaze);
+  font-family: "Orbitron", sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  padding: 10px 28px;
+  z-index: 99990;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+  text-align: center;
+  box-shadow: var(--glow-md);
+  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  white-space: nowrap;
+}
+#chatNotification.visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* ============================================================
+   HTML PREVIEW CARD in messages
+   ============================================================ */
+.htmlPreviewCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(255, 0, 0, 0.06);
+  border: 1px solid var(--red-core);
+  padding: 10px 14px;
+  margin: 6px 0;
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+}
+.htmlPreviewLabel {
+  font-family: "Orbitron", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--red-neon);
+}
+.htmlPreviewActions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ============================================================
+   CODE PANEL — preview frame support
+   ============================================================ */
+#codePanelBody {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+#codePanelPreviewFrame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #fff;
+}
+#codePanelContent {
+  flex: 1;
+  margin: 0;
+  padding: 20px 18px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  font-family: "Share Tech Mono", "Courier New", monospace;
+  color: var(--text-blaze);
+  background: var(--bg-void);
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+  box-sizing: border-box;
+}
+
+/* ============================================================
+   DRAG OVER HIGHLIGHT
+   ============================================================ */
+.drag-over {
+  outline: 2px dashed var(--red-core) !important;
+  background: rgba(255, 0, 0, 0.06) !important;
+}
+
+/* ============================================================
+   HOME SCREEN EXTRAS
+   ============================================================ */
+.homeListItem {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  padding: 2px 0;
+  color: var(--text-hot);
+  line-height: 1.4;
+}
+.homeToolBtn {
+  background: rgba(255, 0, 0, 0.08);
+  border: 1px solid var(--red-dim);
+  color: var(--red-neon);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  padding: 5px 10px;
+  cursor: crosshair;
+  margin: 3px 3px 0 0;
+  transition: all 0.12s;
+  display: inline-block;
+}
+.homeToolBtn:hover {
+  background: rgba(255, 0, 0, 0.18);
+  border-color: var(--red-core);
+}
+.healthBar {
+  width: 100%;
+  height: 4px;
+  background: var(--bg-raised);
+  margin-top: 4px;
+  border-radius: 2px;
+}
+.healthFill {
+  height: 100%;
+  background: var(--red-core);
+  border-radius: 2px;
+  transition: width 0.5s;
+}
+
+/* ============================================================
+   MATH KEYBOARD — RIGHT SIDE PANEL (overwrites any prior rules)
+   ============================================================ */
+#mathPanel {
+  position: fixed !important;
+  top: 0;
+  right: 0;
+  bottom: 0;

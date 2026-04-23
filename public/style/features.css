@@ -1,0 +1,1095 @@
+/* ============================================================
+   NEW FEATURES — paste at the END of style.css
+   ============================================================ */
+
+/* ── PTT active state (held) ── */
+#pushToTalkBtn.ptt-active,
+#pushToTalkBtn.active {
+  background: var(--red-core) !important;
+  color: #000 !important;
+  border-color: var(--red-neon) !important;
+  box-shadow: var(--glow-md) !important;
+  animation: pttPulse 0.4s ease-in-out infinite;
+}
+@keyframes pttPulse {
+  0%,
+  100% {
+    box-shadow: var(--glow-sm);
+  }
+  50% {
+    box-shadow: var(--glow-lg);
+  }
+}
+
+/* ── TTS / VTT active — reinforce (already in CSS but ensure !important wins) ── */
+#ttsBtn.active,
+#vttBtn.active {
+  background: var(--red-core) !important;
+  color: #000 !important;
+  border-color: var(--red-neon) !important;
+  box-shadow: var(--glow-md) !important;
+}
+
+/* ============================================================
+   KEYBOARD SHORTCUTS OVERLAY
+   ============================================================ */
+#shortcutsOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 99999;
+  align-items: center;
+  justify-content: center;
+}
+#shortcutsOverlay.active {
+  display: flex;
+}
+#shortcutsPanel {
+  background: var(--bg-panel);
+  border: 1px solid var(--red-core);
+  box-shadow: var(--glow-lg);
+  width: 480px;
+  max-width: 95vw;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 20px) 0,
+    100% 20px,
+    100% 100%,
+    20px 100%,
+    0 calc(100% - 20px)
+  );
+}
+#shortcutsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--red-dim);
+  font-family: "Orbitron", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--red-neon);
+}
+#shortcutsHeader button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: crosshair;
+  font-size: 14px;
+}
+#shortcutsHeader button:hover {
+  color: var(--red-core);
+}
+#shortcutsList {
+  padding: 12px 0;
+}
+.shortcutRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 16px;
+}
+.shortcutRow:hover {
+  background: rgba(255, 0, 0, 0.04);
+}
+kbd.shortcutKey {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-cut);
+  color: var(--red-neon);
+  padding: 3px 8px;
+  min-width: 130px;
+  text-align: center;
+  letter-spacing: 0.06em;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+}
+.shortcutDesc {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  color: var(--text-hot);
+}
+
+/* ============================================================
+   AMBIENT MODE OVERLAY
+   ============================================================ */
+#ambientOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0, 0, 0, 0.92);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  cursor: pointer;
+}
+#ambientOverlay.active {
+  display: flex;
+  animation: ambientFadeIn 1.2s ease forwards;
+}
+@keyframes ambientFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+#ambientStatus {
+  font-family: "Orbitron", sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.3em;
+  color: var(--red-dim);
+  text-align: center;
+  opacity: 1;
+  transition: opacity 0.4s;
+  text-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+  max-width: 600px;
+  padding: 0 20px;
+}
+#ambientClock {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 48px;
+  color: rgba(255, 0, 0, 0.15);
+  letter-spacing: 0.15em;
+  text-shadow: 0 0 40px rgba(255, 0, 0, 0.2);
+}
+#ambientHint {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: rgba(255, 0, 0, 0.2);
+  letter-spacing: 0.15em;
+  position: absolute;
+  bottom: 30px;
+}
+/* Dim the layout behind ambient */
+#layout.ambient-dim {
+  filter: brightness(0.3);
+  pointer-events: none;
+}
+
+/* ============================================================
+   ARIA CLAW PANEL
+   ============================================================ */
+#clawPanel {
+  position: fixed;
+  right: -520px;
+  top: 0;
+  width: 500px;
+  height: 100dvh;
+  background: var(--bg-abyss);
+  border-left: 1px solid var(--red-dim);
+  box-shadow: -4px 0 40px rgba(255, 0, 0, 0.15);
+  z-index: 8000;
+  display: flex;
+  flex-direction: column;
+  transition: right 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+#clawPanel.open {
+  right: 0;
+}
+#clawHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--red-dim);
+  flex-shrink: 0;
+}
+#clawTitle {
+  font-family: "Orbitron", sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: var(--red-neon);
+}
+#clawHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+#clawStatus {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+#clawHeader button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: crosshair;
+  font-size: 14px;
+}
+#clawHeader button:hover {
+  color: var(--red-core);
+}
+
+#clawTerminal {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #000;
+}
+#clawOutput {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+#clawOutput::-webkit-scrollbar {
+  width: 4px;
+}
+#clawOutput::-webkit-scrollbar-thumb {
+  background: var(--red-dim);
+}
+
+.clawEntry {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.clawEntryLabel {
+  font-family: "Orbitron", sans-serif;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  opacity: 0.5;
+}
+.clawEntry-user .clawEntryLabel {
+  color: var(--text-blaze);
+}
+.clawEntry-output .clawEntryLabel {
+  color: var(--red-neon);
+}
+.clawEntry-error .clawEntryLabel {
+  color: #ff4444;
+}
+.clawEntry-info .clawEntryLabel {
+  color: var(--text-muted);
+}
+.clawEntry-dim .clawEntryLabel {
+  color: var(--text-muted);
+}
+
+pre.clawEntryText {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+.clawEntry-user pre {
+  color: var(--text-blaze);
+}
+.clawEntry-output pre {
+  color: var(--red-neon);
+}
+.clawEntry-error pre {
+  color: #ff6666;
+}
+.clawEntry-info pre {
+  color: var(--text-muted);
+}
+.clawEntry-dim pre {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+#clawInputRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--red-dim);
+  background: var(--bg-panel);
+  flex-shrink: 0;
+}
+.clawPrompt {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  color: var(--red-core);
+  flex-shrink: 0;
+}
+#clawInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  color: var(--text-blaze);
+  caret-color: var(--red-core);
+}
+#clawInput::placeholder {
+  color: var(--text-muted);
+}
+#clawRunBtn {
+  background: var(--red-core);
+  color: #000;
+  border: none;
+  padding: 5px 10px;
+  font-family: "Orbitron", sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  cursor: crosshair;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+  flex-shrink: 0;
+}
+#clawRunBtn:hover {
+  background: var(--red-hot);
+}
+
+#clawModeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--red-dim);
+  background: var(--bg-panel);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.clawModeLabel {
+  font-family: "Orbitron", sans-serif;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  color: var(--text-muted);
+}
+.clawModeBtn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  padding: 4px 9px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  cursor: crosshair;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+}
+.clawModeBtn:hover {
+  border-color: var(--red-dim);
+  color: var(--text-hot);
+}
+.clawModeBtn.active {
+  background: rgba(255, 0, 0, 0.12);
+  border-color: var(--red-core);
+  color: var(--red-neon);
+}
+#clawClearBtn {
+  background: none;
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  padding: 4px 8px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  cursor: crosshair;
+}
+#clawClearBtn:hover {
+  border-color: var(--red-dim);
+  color: var(--text-hot);
+}
+
+/* Mobile: claw takes full width */
+@media (max-width: 768px) {
+  #clawPanel {
+    width: 100vw;
+    right: -100vw;
+  }
+}
+
+/* ============================================================
+   CLAW KILL SWITCH — always visible, bottom-right corner
+   ============================================================ */
+#clawKillSwitch {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 999999;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: rgba(20, 0, 0, 0.92);
+  border: 2px solid #660000;
+  color: #660000;
+  font-family: "Orbitron", sans-serif;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-align: center;
+  line-height: 1.3;
+  cursor: pointer;
+  text-transform: uppercase;
+  box-shadow:
+    0 0 12px rgba(255, 0, 0, 0.1),
+    inset 0 0 8px rgba(0, 0, 0, 0.8);
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#clawKillSwitch:hover {
+  border-color: var(--red-core);
+  color: var(--red-neon);
+  box-shadow: var(--glow-md);
+  background: rgba(40, 0, 0, 0.95);
+  transform: scale(1.08);
+}
+#clawKillSwitch:active {
+  transform: scale(0.95);
+}
+#clawKillSwitch.killed {
+  border-color: #ff4444;
+  color: #ff4444;
+  box-shadow: 0 0 20px rgba(255, 68, 68, 0.4);
+  animation: killPulse 1.2s ease-in-out infinite;
+}
+@keyframes killPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(255, 68, 68, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(255, 68, 68, 0.7);
+  }
+}
+
+/* ── Relay status bar ── */
+#clawRelayBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.5);
+  border-bottom: 1px solid var(--red-dim);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+#clawRelayName {
+  color: var(--text-hot);
+  flex: 1;
+}
+#clawRelayPlatform {
+  color: var(--text-muted);
+}
+#clawRelayHelp {
+  color: var(--red-dim);
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 9px;
+}
+#clawRelayHelp:hover {
+  color: var(--red-neon);
+}
+
+.clawRelayOn {
+  color: #44ff88 !important;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+}
+.clawRelayOff {
+  color: var(--text-muted) !important;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+}
+
+/* ── clawHeaderRight extras ── */
+.clawHdrBtn {
+  background: none;
+  border: 1px solid var(--red-dim);
+  color: var(--text-muted);
+  padding: 2px 8px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  cursor: crosshair;
+}
+.clawHdrBtn:hover {
+  border-color: var(--red-core);
+  color: var(--red-neon);
+}
+
+/* ============================================================
+   ARIA NEW FEATURES — paste at the END of style.css
+   ============================================================ */
+
+/* ── PTT active/held state ── */
+#pushToTalkBtn.ptt-active,
+#pushToTalkBtn.active {
+  background: var(--red-core) !important;
+  color: #000 !important;
+  border-color: var(--red-neon) !important;
+  box-shadow: var(--glow-md) !important;
+  animation: pttPulse 0.4s ease-in-out infinite;
+}
+@keyframes pttPulse {
+  0%,
+  100% {
+    box-shadow: var(--glow-sm);
+  }
+  50% {
+    box-shadow: var(--glow-lg);
+  }
+}
+
+/* ── TTS / VTT active ── */
+#ttsBtn.active,
+#vttBtn.active {
+  background: var(--red-core) !important;
+  color: #000 !important;
+  border-color: var(--red-neon) !important;
+  box-shadow: var(--glow-md) !important;
+}
+
+/* ============================================================
+   KEYBOARD SHORTCUTS OVERLAY
+   ============================================================ */
+#shortcutsOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 99999;
+  align-items: center;
+  justify-content: center;
+}
+#shortcutsOverlay.active {
+  display: flex;
+}
+#shortcutsPanel {
+  background: var(--bg-panel);
+  border: 1px solid var(--red-core);
+  box-shadow: var(--glow-lg);
+  width: 480px;
+  max-width: 95vw;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 20px) 0,
+    100% 20px,
+    100% 100%,
+    20px 100%,
+    0 calc(100% - 20px)
+  );
+}
+#shortcutsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--red-dim);
+  font-family: "Orbitron", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--red-neon);
+}
+#shortcutsHeader button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: crosshair;
+  font-size: 14px;
+}
+#shortcutsHeader button:hover {
+  color: var(--red-core);
+}
+#shortcutsList {
+  padding: 12px 0;
+}
+.shortcutRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 16px;
+}
+.shortcutRow:hover {
+  background: rgba(255, 0, 0, 0.04);
+}
+kbd.shortcutKey {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-cut);
+  color: var(--red-neon);
+  padding: 3px 8px;
+  min-width: 130px;
+  text-align: center;
+  letter-spacing: 0.06em;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+}
+.shortcutDesc {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  color: var(--text-hot);
+}
+
+/* ============================================================
+   AMBIENT MODE
+   ============================================================ */
+#ambientOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0, 0, 0, 0.92);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  cursor: pointer;
+}
+#ambientOverlay.active {
+  display: flex;
+  animation: ambientFadeIn 1.2s ease forwards;
+}
+@keyframes ambientFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+#ambientStatus {
+  font-family: "Orbitron", sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.3em;
+  color: var(--red-dim);
+  text-align: center;
+  opacity: 1;
+  transition: opacity 0.4s;
+  max-width: 600px;
+  padding: 0 20px;
+}
+#ambientClock {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 48px;
+  color: rgba(255, 0, 0, 0.15);
+  letter-spacing: 0.15em;
+}
+#ambientHint {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: rgba(255, 0, 0, 0.2);
+  letter-spacing: 0.15em;
+  position: absolute;
+  bottom: 30px;
+}
+#layout.ambient-dim {
+  filter: brightness(0.3);
+  pointer-events: none;
+}
+
+/* ============================================================
+   ARIA CLAW PANEL
+   ============================================================ */
+#clawPanel {
+  position: fixed;
+  right: -520px;
+  top: 0;
+  width: 500px;
+  height: 100dvh;
+  background: var(--bg-abyss);
+  border-left: 1px solid var(--red-dim);
+  box-shadow: -4px 0 40px rgba(255, 0, 0, 0.15);
+  z-index: 8000;
+  display: flex;
+  flex-direction: column;
+  transition: right 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+#clawPanel.open {
+  right: 0;
+}
+
+#clawHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--red-dim);
+  flex-shrink: 0;
+}
+#clawTitle {
+  font-family: "Orbitron", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--red-neon);
+}
+#clawHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#clawStatus {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.clawDotOn {
+  color: #44ff88;
+  font-size: 12px;
+  cursor: default;
+}
+.clawDotOff {
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: default;
+}
+
+.clawHdrBtn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  padding: 2px 7px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  cursor: crosshair;
+  letter-spacing: 0.06em;
+}
+.clawHdrBtn:hover {
+  border-color: var(--red-dim);
+  color: var(--text-hot);
+}
+.clawHdrBtn.active {
+  background: rgba(255, 0, 0, 0.15);
+  border-color: var(--red-core);
+  color: var(--red-neon);
+}
+.clawHdrBtn.clawBtnOff {
+  border-color: #440000;
+  color: #440000;
+}
+
+#clawRelayBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 14px;
+  background: rgba(0, 0, 0, 0.5);
+  border-bottom: 1px solid var(--red-dim);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+#clawRelayName {
+  color: var(--text-hot);
+  flex: 1;
+}
+#clawRelayPlatform {
+  color: var(--text-muted);
+}
+
+#clawTerminal {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #000;
+}
+
+#clawOutput {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+#clawOutput::-webkit-scrollbar {
+  width: 3px;
+}
+#clawOutput::-webkit-scrollbar-thumb {
+  background: var(--red-dim);
+}
+
+.clawEntry {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.clawEntryLabel {
+  font-family: "Orbitron", sans-serif;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  opacity: 0.5;
+}
+.clawEntry-user .clawEntryLabel {
+  color: var(--text-blaze);
+}
+.clawEntry-output .clawEntryLabel {
+  color: var(--red-neon);
+}
+.clawEntry-error .clawEntryLabel {
+  color: #ff4444;
+}
+.clawEntry-info .clawEntryLabel {
+  color: var(--text-muted);
+}
+.clawEntry-viz .clawEntryLabel {
+  color: #44aaff;
+}
+
+pre.clawEntryText {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+.clawEntry-user pre {
+  color: var(--text-blaze);
+}
+.clawEntry-output pre {
+  color: var(--red-neon);
+}
+.clawEntry-error pre {
+  color: #ff6666;
+}
+.clawEntry-info pre {
+  color: var(--text-muted);
+}
+.clawEntry-viz pre {
+  color: #44aaff;
+  font-size: 10px;
+}
+
+#clawInputRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--red-dim);
+  background: var(--bg-panel);
+  flex-shrink: 0;
+}
+.clawPrompt {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  color: var(--red-core);
+  flex-shrink: 0;
+}
+#clawInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  color: var(--text-blaze);
+  caret-color: var(--red-core);
+}
+#clawInput::placeholder {
+  color: var(--text-muted);
+}
+#clawRunBtn {
+  background: var(--red-core);
+  color: #000;
+  border: none;
+  padding: 5px 10px;
+  font-size: 13px;
+  cursor: crosshair;
+  flex-shrink: 0;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+}
+#clawRunBtn:hover {
+  background: var(--red-hot);
+}
+
+#clawModeRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-top: 1px solid var(--red-dim);
+  background: var(--bg-panel);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.clawModeLabel {
+  font-family: "Orbitron", sans-serif;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  color: var(--text-muted);
+}
+.clawModeBtn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  padding: 3px 8px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  cursor: crosshair;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+}
+.clawModeBtn:hover {
+  border-color: var(--red-dim);
+  color: var(--text-hot);
+}
+.clawModeBtn.active {
+  background: rgba(255, 0, 0, 0.12);
+  border-color: var(--red-core);
+  color: var(--red-neon);
+}
+#clawClearBtn {
+  background: none;
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  padding: 3px 7px;
+  font-size: 11px;
+  cursor: crosshair;
+  margin-left: auto;
+}
+#clawClearBtn:hover {
+  border-color: var(--red-dim);
+  color: var(--text-hot);
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  #clawPanel {
+    width: 100vw;
+    right: -100vw;
+  }
+}
+
+/* ============================================================
+   KILL SWITCH — fixed, always on top, every tab
+   ============================================================ */
+#clawKillSwitch {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 999999;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(10, 0, 0, 0.95);
+  border: 2px solid #440000;
+  color: #440000;
+  font-family: "Orbitron", sans-serif;
+  font-size: 6.5px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-align: center;
+  line-height: 1.35;
+  cursor: pointer;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.05);
+}
+#clawKillSwitch:hover {
+  border-color: var(--red-core);
+  color: var(--red-neon);
+  box-shadow: var(--glow-md);
+  transform: scale(1.08);
+}
+#clawKillSwitch.killed {
+  border-color: #ff4444;
+  color: #ff4444;
+  animation: killPulse 1.2s ease-in-out infinite;
+}
+@keyframes killPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(255, 68, 68, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(255, 68, 68, 0.7);
+  }
+}
+
+/* ============================================================
+   CONFIRM DIALOG
+   ============================================================ */
+#clawConfirmOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 999998;
+  background: rgba(0, 0, 0, 0.8);
+  align-items: center;
+  justify-content: center;
+}
+#clawConfirmBox {
+  background: var(--bg-panel);
+  border: 2px solid #ff4444;
+  box-shadow: 0 0 40px rgba(255, 68, 68, 0.4);
+  width: 440px;
+  max-width: 95vw;
+  padding: 24px;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 16px) 0,
+    100% 16px,
+    100% 100%,
+    16px 100%,
+    0 calc(100% - 16px)
+  );
+}
+#clawConfirmTitle {
+  font-family: "Orbitron", sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: #ff4444;
+  margin-bottom: 14px;
+}
+#clawConfirmBody {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  color: var(--text-hot);
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+#clawConfirmAction {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  color: var(--text-blaze);
+  background: rgba(255, 0, 0, 0.08);
+  border: 1px solid var(--red-dim);
+  padding: 8px 10px;
+  margin-bottom: 18px;
+  word-break: break-all;
+}
+#clawConfirmBtns {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+.clawConfirmBtn {
+  padding: 8px 20px;
+  font-family: "Orbitron", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  cursor: crosshair;
+  border: 1px solid;
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+}
+.clawConfirmBtn.deny {
+  background: transparent;
+  border-color: var(--red-dim);
+  color: var(--text-muted);
+}
+.clawConfirmBtn.deny:hover {
+  border-color: var(--red-core);
+  color: var(--red-neon);
+}
+.clawConfirmBtn.allow {
+  background: var(--red-core);
+  border-color: var(--red-neon);
+  color: #000;
+}
+.clawConfirmBtn.allow:hover {
+  background: var(--red-hot);
+}

@@ -2,8 +2,8 @@
 // When idle for N seconds: dim UI, pulse halo, cycle cryptic status messages.
 // Ctrl+. or clicking anywhere wakes ARIA back up.
 
-const IDLE_TIMEOUT_MS  = 45_000; // 45s before ambient kicks in
-const STATUS_MESSAGES  = [
+const IDLE_TIMEOUT_MS = 45_000; // 45s before ambient kicks in
+const STATUS_MESSAGES = [
   "NEURAL NET IDLE — AWAITING INPUT",
   "MONITORING SYSTEM CHANNELS...",
   "COGNITIVE PROCESSES SUSPENDED",
@@ -18,10 +18,10 @@ const STATUS_MESSAGES  = [
   "PROCESSING BACKGROUND TASKS...",
 ];
 
-let ambientActive  = false;
-let idleTimer      = null;
+let ambientActive = false;
+let idleTimer = null;
 let statusInterval = null;
-let statusIdx      = 0;
+let statusIdx = 0;
 
 export function initAmbient() {
   // Build ambient overlay
@@ -38,15 +38,17 @@ export function initAmbient() {
     const el = document.getElementById("ambientClock");
     if (el && ambientActive) {
       el.textContent = new Date().toLocaleTimeString([], {
-        hour: "2-digit", minute: "2-digit", second: "2-digit"
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
       });
     }
   }, 1000);
 
   // Wake on any interaction
-  const WAKE_EVENTS = ["mousedown","touchstart","keydown","scroll"];
-  WAKE_EVENTS.forEach(evt =>
-    document.addEventListener(evt, wakeFromAmbient, { passive: true })
+  const WAKE_EVENTS = ["mousedown", "touchstart", "keydown", "scroll"];
+  WAKE_EVENTS.forEach((evt) =>
+    document.addEventListener(evt, wakeFromAmbient, { passive: true }),
   );
 
   // Start idle timer
@@ -55,7 +57,9 @@ export function initAmbient() {
   // Hook into chat activity to reset idle timer
   const originalSend = window.ARIA_sendMessage;
   document.getElementById("sendBtn")?.addEventListener("click", resetIdleTimer);
-  document.getElementById("userInput")?.addEventListener("input", resetIdleTimer);
+  document
+    .getElementById("userInput")
+    ?.addEventListener("input", resetIdleTimer);
 
   // Expose globally
   window.ARIA_toggleAmbient = toggleAmbient;

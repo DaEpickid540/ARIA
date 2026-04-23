@@ -5,29 +5,32 @@
 
 export function initShortcuts() {
   const SHORTCUTS = [
-    { keys: "Ctrl+K",       desc: "Open commands modal" },
-    { keys: "Ctrl+/",       desc: "Open settings" },
+    { keys: "Ctrl+K", desc: "Open commands modal" },
+    { keys: "Ctrl+/", desc: "Open settings" },
     { keys: "Ctrl+Shift+N", desc: "New chat" },
-    { keys: "Ctrl+E",       desc: "Export current chat" },
-    { keys: "Ctrl+.",       desc: "Toggle ambient mode" },
+    { keys: "Ctrl+E", desc: "Export current chat" },
+    { keys: "Ctrl+.", desc: "Toggle ambient mode" },
     { keys: "Ctrl+Shift+A", desc: "ARIA Claw panel" },
-    { keys: "Ctrl+?",       desc: "Show this help" },
+    { keys: "Ctrl+?", desc: "Show this help" },
   ];
 
   document.addEventListener("keydown", (e) => {
-    const ctrl  = e.ctrlKey || e.metaKey;
+    const ctrl = e.ctrlKey || e.metaKey;
     const shift = e.shiftKey;
-    const key   = e.key;
+    const key = e.key;
 
     // Don't fire when typing in input fields (except Escape)
-    const inInput = ["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName);
+    const inInput = ["INPUT", "TEXTAREA", "SELECT"].includes(
+      document.activeElement?.tagName,
+    );
 
     if (key === "Escape") {
       // Close any open panel
       document.getElementById("shortcutsOverlay")?.classList.remove("active");
       document.getElementById("clawPanel")?.classList.remove("open");
       document.getElementById("settingsOverlay")?.classList.remove("active");
-      document.getElementById("commandsModal") && (document.getElementById("commandsModal").style.display = "none");
+      document.getElementById("commandsModal") &&
+        (document.getElementById("commandsModal").style.display = "none");
       return;
     }
 
@@ -73,11 +76,13 @@ export function initShortcuts() {
         <button onclick="document.getElementById('shortcutsOverlay').classList.remove('active')">✕</button>
       </div>
       <div id="shortcutsList">
-        ${SHORTCUTS.map(s => `
+        ${SHORTCUTS.map(
+          (s) => `
           <div class="shortcutRow">
             <kbd class="shortcutKey">${s.keys}</kbd>
             <span class="shortcutDesc">${s.desc}</span>
-          </div>`).join("")}
+          </div>`,
+        ).join("")}
       </div>
     </div>`;
   document.body.appendChild(overlay);

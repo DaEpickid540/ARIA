@@ -1,0 +1,592 @@
+/* ============================================================
+   CALL MODE OVERLAY
+   ============================================================ */
+#callModeOverlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 99990;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+#callModeOverlay.active {
+  display: flex;
+  opacity: 1;
+}
+
+#callModeOverlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at center,
+    rgba(180, 0, 0, 0.4) 0%,
+    #000 55%
+  );
+  transition: background 0.25s ease;
+}
+
+#callModeOverlay.user-speaking::before {
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 0, 0, 0.7) 0%,
+    #000 55%
+  );
+  animation: speakPulse 0.4s ease-in-out infinite alternate;
+}
+
+@keyframes speakPulse {
+  from {
+    opacity: 0.8;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+#callModeOverlay.aria-speaking::before {
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 80, 0, 0.5) 0%,
+    #000 55%
+  );
+}
+
+#callModeInner {
+  text-align: center;
+  color: var(--text-blaze);
+  z-index: 1;
+}
+
+#callModeStatus {
+  font-size: 1.5rem;
+  font-family: "Orbitron", sans-serif;
+  letter-spacing: 0.3em;
+  text-shadow: var(--glow-lg);
+  margin-bottom: 10px;
+  animation: callStatusFlicker 3s ease-in-out infinite;
+}
+
+@keyframes callStatusFlicker {
+  0%,
+  90%,
+  100% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 0.6;
+  }
+  95% {
+    opacity: 1;
+  }
+  97% {
+    opacity: 0.4;
+  }
+}
+
+#callModeHint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  letter-spacing: 0.15em;
+  font-family: "Share Tech Mono", monospace;
+}
+
+/* CALL WAVEFORM */
+#callWaveform {
+  display: flex;
+  gap: 4px;
+  margin-top: 24px;
+  justify-content: center;
+  align-items: center;
+  height: 60px;
+}
+
+.waveBar {
+  width: 4px;
+  background: var(--red-core);
+  box-shadow: 0 0 6px var(--red-core);
+  border-radius: 1px;
+  animation: waveBarIdle 1.2s ease-in-out infinite;
+}
+
+.waveBar:nth-child(1) {
+  animation-delay: 0s;
+}
+.waveBar:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.waveBar:nth-child(3) {
+  animation-delay: 0.2s;
+}
+.waveBar:nth-child(4) {
+  animation-delay: 0.3s;
+}
+.waveBar:nth-child(5) {
+  animation-delay: 0.15s;
+}
+.waveBar:nth-child(6) {
+  animation-delay: 0.25s;
+}
+.waveBar:nth-child(7) {
+  animation-delay: 0.05s;
+}
+.waveBar:nth-child(8) {
+  animation-delay: 0.35s;
+}
+.waveBar:nth-child(9) {
+  animation-delay: 0.1s;
+}
+.waveBar:nth-child(10) {
+  animation-delay: 0.2s;
+}
+
+@keyframes waveBarIdle {
+  0%,
+  100% {
+    height: 6px;
+    opacity: 0.4;
+  }
+  50% {
+    height: 40px;
+    opacity: 1;
+  }
+}
+
+/* CALL SPECTROGRAM */
+#callSpectrogram {
+  display: flex;
+  gap: 3px;
+  margin-top: 14px;
+  justify-content: center;
+}
+
+.specBar {
+  width: 4px;
+  height: 10px;
+  background: var(--red-ember);
+  opacity: 0.5;
+  animation: specIdle 1.8s infinite ease-in-out;
+  border-radius: 1px;
+  box-shadow: 0 0 4px var(--red-ember);
+}
+
+.specBar:nth-child(odd) {
+  animation-delay: 0.2s;
+}
+.specBar:nth-child(3n) {
+  animation-delay: 0.5s;
+}
+.specBar:nth-child(5n) {
+  animation-delay: 0.8s;
+}
+
+@keyframes specIdle {
+  0%,
+  100% {
+    height: 6px;
+    opacity: 0.3;
+  }
+  50% {
+    height: 22px;
+    opacity: 1;
+  }
+}
+
+/* ============================================================
+   FX LAYERS — CHROMATIC, GLITCH, SWEEPS
+   ============================================================ */
+#chromaticFlash,
+#glitchBurst,
+#scanlineSweep,
+#sideSweep {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 99995;
+}
+
+.chromatic-active {
+  animation: chromaticFlash 0.35s ease-out forwards;
+}
+
+@keyframes chromaticFlash {
+  0% {
+    opacity: 0.9;
+    background:
+      radial-gradient(circle at 25% 25%, rgba(255, 0, 0, 0.7), transparent 50%),
+      radial-gradient(
+        circle at 75% 75%,
+        rgba(255, 255, 255, 0.3),
+        transparent 40%
+      );
+    transform: translate(0, 0) scale(1);
+  }
+  30% {
+    opacity: 0.7;
+    transform: translate(-3px, 2px) scale(1.01);
+  }
+  70% {
+    opacity: 0.3;
+    transform: translate(2px, -2px) scale(0.99);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+.glitch-active {
+  animation: glitchBurst 0.3s steps(3) forwards;
+}
+
+@keyframes glitchBurst {
+  0% {
+    opacity: 0.9;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(255, 0, 0, 0.5) 0,
+      rgba(255, 0, 0, 0.5) 2px,
+      transparent 2px,
+      transparent 5px
+    );
+    transform: skewX(-2deg);
+  }
+  50% {
+    opacity: 0.5;
+    transform: skewX(2deg) translateX(3px);
+  }
+  100% {
+    opacity: 0;
+    transform: skewX(0);
+  }
+}
+
+.scanline-active {
+  animation: scanlineSweep 0.5s ease-out forwards;
+}
+
+@keyframes scanlineSweep {
+  0% {
+    opacity: 0.8;
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 0, 0, 0.6) 0%,
+      transparent 25%
+    );
+    transform: translateY(-100%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(110%);
+  }
+}
+
+.side-active {
+  animation: sideSweep 0.4s ease-out forwards;
+}
+
+@keyframes sideSweep {
+  0% {
+    opacity: 0.7;
+    background: linear-gradient(
+      to right,
+      rgba(255, 0, 0, 0.7) 0%,
+      transparent 45%
+    );
+    transform: translateX(-100%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+}
+
+/* ============================================================
+   SYSTEM INFO / NETWORK
+   ============================================================ */
+#networkIndicator {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--red-neon);
+  font-family: "Share Tech Mono", monospace;
+  letter-spacing: 0.08em;
+}
+
+/* ============================================================
+   SCROLLBARS — GLOBAL
+   ============================================================ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--red-dim);
+  border-radius: 2px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--red-core);
+}
+
+/* ============================================================
+   SELECTION
+   ============================================================ */
+::selection {
+  background: rgba(255, 0, 0, 0.4);
+  color: #fff;
+}
+
+/* ============================================================
+   HOMEPAGE SPECIAL CARDS ANIMATION STAGGER
+   ============================================================ */
+#homeTopGrid .homeCard:nth-child(1) {
+  animation: cardReveal 0.4s 0.05s ease forwards;
+  opacity: 0;
+}
+#homeTopGrid .homeCard:nth-child(2) {
+  animation: cardReveal 0.4s 0.15s ease forwards;
+  opacity: 0;
+}
+#homeTopGrid .homeCard:nth-child(3) {
+  animation: cardReveal 0.4s 0.25s ease forwards;
+  opacity: 0;
+}
+
+@keyframes cardReveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================
+   MARKDOWN RENDERING — ARIA MESSAGE BODY
+   ============================================================ */
+
+.msgBody {
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.msgBody .mdH1 {
+  font-family: "Orbitron", sans-serif;
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--red-core);
+  text-shadow: var(--glow-sm);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin: 14px 0 6px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-cut);
+}
+
+.msgBody .mdH2 {
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--red-neon);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 12px 0 5px 0;
+}
+
+.msgBody .mdH3 {
+  font-family: "Rajdhani", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-hot);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 10px 0 4px 0;
+}
+
+.msgBody .mdPara {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-blaze);
+}
+
+.msgBody .mdPara:last-child {
+  margin-bottom: 0;
+}
+
+.msgBody .mdBold {
+  color: var(--red-neon);
+  font-weight: 700;
+}
+
+.msgBody .mdItalic {
+  color: var(--text-hot);
+  font-style: italic;
+}
+
+.msgBody .mdHr {
+  border: none;
+  border-top: 1px solid var(--border-cut);
+  margin: 10px 0;
+  opacity: 0.6;
+}
+
+.msgBody .mdList {
+  margin: 6px 0 8px 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.msgBody .mdList li {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-blaze);
+  position: relative;
+}
+
+.msgBody ul.mdList {
+  list-style: none;
+  padding-left: 14px;
+}
+
+.msgBody ul.mdList li::before {
+  content: "▸";
+  color: var(--red-core);
+  position: absolute;
+  left: -14px;
+  font-size: 10px;
+  top: 3px;
+}
+
+.msgBody ol.mdList {
+  list-style: none;
+  counter-reset: mdCounter;
+  padding-left: 22px;
+}
+
+.msgBody ol.mdList li {
+  counter-increment: mdCounter;
+}
+
+.msgBody ol.mdList li::before {
+  content: counter(mdCounter) ".";
+  color: var(--red-core);
+  font-family: "Orbitron", sans-serif;
+  font-size: 10px;
+  position: absolute;
+  left: -22px;
+  top: 2px;
+}
+
+.msgBody .inlineCode {
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid var(--border-cut);
+  color: var(--red-neon);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 12px;
+  padding: 1px 6px;
+  border-radius: 2px;
+  letter-spacing: 0.04em;
+}
+
+.msgBody .codeBlock {
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--border-cut);
+  border-left: 3px solid var(--red-core);
+  border-radius: 2px;
+  margin: 10px 0;
+  overflow: hidden;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.msgBody .codeLabel {
+  display: block;
+  padding: 3px 10px;
+  font-family: "Orbitron", sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--red-core);
+  background: rgba(255, 0, 0, 0.07);
+  border-bottom: 1px solid var(--border-cut);
+}
+
+.msgBody .codeBlock pre {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+
+.msgBody .codeBlock code {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 12px;
+  color: #e8e8e8;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+/* ============================================================
+   TYPING INDICATOR
+   ============================================================ */
+.typingIndicator {
+  opacity: 0.7;
+  max-width: 120px !important;
+}
+
+.typingDots {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  padding: 4px 0;
+  height: 24px;
+}
+
+.typingDots span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: var(--red-core);
+  box-shadow: 0 0 6px var(--red-core);
+  animation: typingBounce 1s ease-in-out infinite;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.typingDots span:nth-child(1) {
+  animation-delay: 0s;
+}
+.typingDots span:nth-child(2) {
+  animation-delay: 0.18s;
+}
+.typingDots span:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@keyframes typingBounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-7px) scale(1.3);
+    opacity: 1;
+  }
+}

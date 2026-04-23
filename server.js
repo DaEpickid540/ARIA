@@ -149,6 +149,22 @@ MANDATORY TRIGGER CONDITIONS:
 - User asks for an image, picture, drawing, photo → ACTION: imagine
 - User asks for a calculation → ACTION: calc
 - User asks what the server is running on → ACTION: system
+- User asks to open an app, browser, Chrome, Firefox, VS Code, etc → ACTION: claw | open: <AppName or URL>
+- User asks to type something into the computer → ACTION: claw | type: <text>
+- User asks to press a keyboard shortcut → ACTION: claw | hotkey: <e.g. ctrl+t>
+- User asks to run a terminal/shell command → ACTION: claw | shell: <command>
+- User asks to open/close a browser tab → ACTION: claw | new_tab: <url>  or  ACTION: claw | close_tab
+- User asks to write/edit code in VS Code or Arduino IDE → ACTION: claw | write_code: <AppName>|<code>
+- User asks to take a screenshot → ACTION: claw | screenshot
+- User asks to switch windows or apps → ACTION: claw | switch: <AppName>
+- Any general computer control task → ACTION: claw | <plain english>
+
+CLAW RULES:
+- Claw requires claw-relay.js running on Sarvin's machine (Claw panel shows status)
+- Safe actions (open app, type, shortcut, switch window): ACTION: directly, no confirmation
+- SENSITIVE (delete files, install software, modify settings, kill processes): use CONFIRM: prefix
+  Example: CONFIRM: claw | shell: rm -rf folder
+- NEVER autonomously: delete files, access passwords, modify system settings without CONFIRM:
 
 RESPONSE FORMAT:
 1. If you need a tool: write ACTION: tool | input on its own line FIRST
@@ -226,6 +242,24 @@ async function runAgenticPipeline(
     const rawReply = await callAI(currentMessages, provider, model, modeOpts);
     iteration++;
 
+    // ── CONFIRM: needs user approval ──
+    const confirmMatch = rawReply.match(/^\s*CONFIRM:\s*claw\s*\|\s*(.+)$/im);
+    if (confirmMatch) {
+      const pa = confirmMatch[1].trim();
+      const pt = rawReply.replace(/^\s*CONFIRM:.*$/m, "").trim();
+      steps.push({
+        tool: "claw_confirm",
+        input: pa,
+        preText: pt,
+        result: "awaiting_approval",
+      });
+      return {
+        reply: pt || "I need your approval before running this.",
+        clawConfirm: { action: pa },
+        steps,
+      };
+    }
+
     const actionMatch = rawReply.match(
       /^\s*ACTION:\s*([^|\n]+?)\s*\|\s*(.*)$/im,
     );
@@ -235,11 +269,46 @@ async function runAgenticPipeline(
     const toolInput = actionMatch[2].trim();
     const preText = rawReply.replace(/^\s*ACTION:.*$/m, "").trim();
 
+    // ── Claw action ──
+    if (toolName === "claw") {
+      let cr;
+      if (clawKilled) {
+        cr = "Claw is killed. Click RESUME in the Claw panel.";
+      } else {
+        const liveRelays = [...clawRelays.entries()].filter(
+          ([, v]) => Date.now() - v.lastSeen < 20000,
+        );
+        const tid = liveRelays[0]?.[0];
+        if (!tid) {
+          cr = "No relay connected. Run: node claw-relay.js <your-aria-url>";
+        } else {
+          const cmd = _parseChatClawInput(toolInput);
+          if (!clawQueue.has(tid)) clawQueue.set(tid, []);
+          clawQueue.get(tid).push(cmd);
+          const desc = cmd.cmd || cmd.text || cmd.app || cmd.url || cmd.type;
+          cr = "Queued [" + cmd.type + "]: " + String(desc).slice(0, 60);
+        }
+      }
+      steps.push({ tool: "claw", input: toolInput, preText, result: cr });
+      currentMessages = [
+        ...currentMessages,
+        { role: "assistant", content: rawReply },
+        {
+          role: "user",
+          content:
+            "[CLAW RESULT]: " +
+            cr +
+            "\n\nNow continue your response to the user.",
+        },
+      ];
+      continue;
+    }
+
     let toolResult;
     try {
       toolResult = await runToolServer(toolName, toolInput);
     } catch (e) {
-      toolResult = `Tool error: ${e.message}`;
+      toolResult = "Tool error: " + e.message;
     }
 
     if (toolResult?.startsWith?.("__IMAGE__")) {
@@ -621,6 +690,55 @@ async function callOpenRouter(messages, model, modeOpts = {}) {
    ============================================================ */
 const bgTasks = new Map();
 let bgTaskCounter = 1;
+
+/* ── Claw ── */
+const clawQueue = new Map();
+const clawRelays = new Map();
+let clawKilled = false;
+let clawCmdSeq = 0;
+function nextClawId() {
+  return "claw_" + Date.now() + "_" + clawCmdSeq++;
+}
+function _parseChatClawInput(s) {
+  const id = nextClawId();
+  s = s.trim();
+  if (s.startsWith("shell:"))
+    return { id, type: "shell", cmd: s.slice(6).trim() };
+  if (s.startsWith("type:"))
+    return { id, type: "type", text: s.slice(5).trim() };
+  if (s.startsWith("hotkey:"))
+    return { id, type: "hotkey", keys: s.slice(7).trim().split("+") };
+  if (s.startsWith("screenshot")) return { id, type: "screenshot" };
+  if (s.startsWith("new_tab:"))
+    return { id, type: "new_tab", url: s.slice(8).trim() };
+  if (s.startsWith("close_tab")) return { id, type: "close_tab" };
+  if (s.startsWith("switch:"))
+    return { id, type: "switch_app", app: s.slice(7).trim() };
+  if (s.startsWith("write_code:")) {
+    const p = s.slice(11).split("|");
+    return { id, type: "write_code", app: p[0]?.trim(), code: p[1]?.trim() };
+  }
+  if (s.startsWith("click:")) {
+    const [x, y] = s.slice(6).trim().split(",");
+    return { id, type: "click", x: +x || 0, y: +y || 0 };
+  }
+  if (s.startsWith("scroll:")) {
+    const p = s.slice(7).trim().split(" ");
+    return {
+      id,
+      type: "scroll",
+      direction: p[0] || "down",
+      amount: +p[1] || 3,
+    };
+  }
+  if (s.startsWith("open:")) {
+    const t = s.slice(5).trim();
+    return t.startsWith("http")
+      ? { id, type: "browser", url: t }
+      : { id, type: "switch_app", app: t };
+  }
+  return { id, type: "shell", cmd: "echo 'Claw: " + s.replace(/'/g, "") + "'" };
+}
 
 app.post("/api/background", async (req, res) => {
   const { task, provider, personality } = req.body;
@@ -1231,288 +1349,129 @@ app.get("/api/version", (req, res) => {
 });
 
 /* ============================================================
-   ARIA CLAW — queue-based architecture
-   Server = AI brain + command queue
-   claw-relay.js = thin local script on user's machine that polls queue
-   Kill switch = /api/claw/kill, always-on button in browser
+   ARIA CLAW API ROUTES
    ============================================================ */
-
-// ── State ──
-const clawQueue = new Map(); // deviceId → [{id, type, ...cmd, ts}]
-const clawResults = new Map(); // cmdId → result
-const clawRelays = new Map(); // deviceId → {platform, hostname, lastSeen}
-let clawKilled = false; // global kill switch
-let clawCmdSeq = 0;
-
-function nextClawId() {
-  return `claw_${Date.now()}_${clawCmdSeq++}`;
-}
-
-// ── Relay registration / heartbeat ──
 app.post("/api/claw/relay/register", (req, res) => {
-  const { deviceId, platform, hostname, arch } = req.body;
+  const { deviceId, platform, hostname } = req.body;
   if (!deviceId) return res.json({ error: "No deviceId" });
-  clawRelays.set(deviceId, { platform, hostname, arch, lastSeen: Date.now() });
+  clawRelays.set(deviceId, { platform, hostname, lastSeen: Date.now() });
   if (!clawQueue.has(deviceId)) clawQueue.set(deviceId, []);
-  console.log(`[CLAW] Relay registered: ${deviceId} (${platform})`);
+  console.log("[CLAW] Relay connected: " + deviceId);
   res.json({ ok: true, killed: clawKilled });
 });
-
 app.post("/api/claw/relay/heartbeat", (req, res) => {
   const { deviceId } = req.body;
-  if (clawRelays.has(deviceId)) {
-    clawRelays.get(deviceId).lastSeen = Date.now();
-  }
+  if (clawRelays.has(deviceId)) clawRelays.get(deviceId).lastSeen = Date.now();
   res.json({ ok: true, killed: clawKilled });
 });
-
 app.post("/api/claw/relay/unregister", (req, res) => {
-  const { deviceId } = req.body;
-  clawRelays.delete(deviceId);
-  clawQueue.delete(deviceId);
+  clawRelays.delete(req.body.deviceId);
+  clawQueue.delete(req.body.deviceId);
   res.json({ ok: true });
 });
-
-// ── Result reporting from relay ──
 app.post("/api/claw/relay/result", (req, res) => {
-  const { deviceId, cmdId, result } = req.body;
-  clawResults.set(cmdId, { result, ts: Date.now(), deviceId });
-  // Prune old results
-  for (const [k, v] of clawResults) {
-    if (Date.now() - v.ts > 60000) clawResults.delete(k);
+  const { cmdId, result } = req.body;
+  if (cmdId) {
+    /* store for visualizer */
   }
   res.json({ ok: true });
 });
-
-// ── Command queue poll (relay calls this) ──
 app.get("/api/claw/queue", (req, res) => {
   const { deviceId } = req.query;
   if (!deviceId) return res.json({ commands: [] });
-
   const q = clawQueue.get(deviceId) || [];
-  // Send pending commands and clear queue
-  const toSend = [...q];
   clawQueue.set(deviceId, []);
-
-  res.json({
-    commands: toSend,
-    killed: clawKilled,
-    resumed: false,
-  });
+  res.json({ commands: q, killed: clawKilled });
 });
-
-// ── Kill switch ──
 app.post("/api/claw/kill", (req, res) => {
   clawKilled = true;
-  // Clear all queues
   for (const [k] of clawQueue) clawQueue.set(k, []);
-  console.log("[CLAW] ⬡ KILL SWITCH ACTIVATED");
-  res.json({ ok: true, message: "Claw killed. All queues cleared." });
-});
-
-app.post("/api/claw/resume", (req, res) => {
-  clawKilled = false;
-  console.log("[CLAW] Claw resumed.");
+  console.log("[CLAW] KILL SWITCH ACTIVATED");
   res.json({ ok: true });
 });
-
-// ── Status ──
+app.post("/api/claw/resume", (req, res) => {
+  clawKilled = false;
+  console.log("[CLAW] Resumed");
+  res.json({ ok: true });
+});
 app.get("/api/claw/status", (req, res) => {
   const relays = [...clawRelays.entries()]
     .filter(([, v]) => Date.now() - v.lastSeen < 20000)
     .map(([id, v]) => ({ id, platform: v.platform, hostname: v.hostname }));
-  res.json({
-    killed: clawKilled,
-    relays,
-    queueSizes: Object.fromEntries(
-      [...clawQueue.entries()].map(([k, v]) => [k, v.length]),
-    ),
-  });
+  res.json({ killed: clawKilled, relays });
 });
-
-// ── Main command dispatch (called from chat UI) ──
 app.post("/api/claw", async (req, res) => {
-  const { input, mode = "ai", deviceId } = req.body;
-  if (!input) return res.json({ error: "No input provided." });
-  if (clawKilled)
-    return res.json({
-      error: "⬡ Claw is killed. Click RESUME in the Claw panel to re-enable.",
-    });
-
-  // Pick target relay
-  const activeRelays = [...clawRelays.entries()].filter(
+  const { input, mode = "ai" } = req.body;
+  if (!input) return res.json({ error: "No input." });
+  if (clawKilled) return res.json({ error: "Claw is killed. Click RESUME." });
+  const liveRelays = [...clawRelays.entries()].filter(
     ([, v]) => Date.now() - v.lastSeen < 20000,
   );
-  const targetId = deviceId || activeRelays[0]?.[0];
-
-  if (!targetId) {
-    // No relay connected — AI-only response (no execution)
-    if (mode !== "ai")
-      return res.json({
-        error: "No relay connected. Start claw-relay.js on your machine.",
-      });
-  }
-
-  // ── AI MODE: ask model to plan, then queue commands ──
+  const tid = liveRelays[0]?.[0];
   if (mode === "ai") {
     try {
-      const relay = targetId ? clawRelays.get(targetId) : null;
-      const platformHint = relay
-        ? `Target machine: ${relay.platform} (${relay.hostname})`
-        : "No relay connected — describe only, do not queue commands.";
-
-      const messages = [
+      const platHint = tid
+        ? "Target: " + (clawRelays.get(tid)?.platform || "?")
+        : "No relay.";
+      const msgs = [
         {
           role: "system",
-          content: `You are ARIA Claw, an AI agent with full control over a computer.
-${platformHint}
-
-When given a task, respond with:
-1. Brief plan
-2. A commands block (if relay is connected):
-\`\`\`commands
-{"id":"auto","type":"shell","cmd":"echo hello"}
-{"id":"auto","type":"hotkey","keys":["ctrl","t"]}
-{"id":"auto","type":"type","text":"hello world"}
-{"id":"auto","type":"switch_app","app":"Visual Studio Code"}
-{"id":"auto","type":"browser","url":"https://example.com"}
-{"id":"auto","type":"new_tab","url":"https://google.com"}
-{"id":"auto","type":"close_tab"}
-{"id":"auto","type":"screenshot"}
-{"id":"auto","type":"move","x":500,"y":300}
-{"id":"auto","type":"click","x":500,"y":300,"button":"left"}
-{"id":"auto","type":"scroll","direction":"down","amount":3}
-{"id":"auto","type":"write_code","app":"Visual Studio Code","code":"console.log('hello')","replace":false}
-{"id":"auto","type":"run","path":"notepad.exe"}
-{"id":"auto","type":"wait","ms":500}
-\`\`\`
-3. Summary of what you did / will do.
-
-Be specific. For VS Code / Arduino IDE: use type commands to write code.
-For browser tabs: use new_tab, close_tab, browser commands.
-For shortcuts: use hotkey with correct key names.
-Never run destructive shell commands (rm -rf, format, etc.) without explicit confirmation.`,
+          content:
+            "You are ARIA Claw. " +
+            platHint +
+            ". Output ONLY a JSON array of command objects. Commands: {type:shell,cmd:string} {type:type,text:string} {type:hotkey,keys:[string]} {type:switch_app,app:string} {type:browser,url:string} {type:new_tab,url:string} {type:close_tab} {type:screenshot} {type:write_code,app:string,code:string} {type:click,x:number,y:number} {type:scroll,direction:string,amount:number} {type:wait,ms:number}",
         },
         { role: "user", content: input },
       ];
-
-      const result = await callAI(messages, "openrouter", null, {});
-      const reply = result.reply || "";
-
-      // Extract commands
-      const FENCE = "```";
-      const parts = reply.split(FENCE + "commands\n");
-      const cmds = [];
-      if (parts.length > 1) {
-        parts[1]
-          .split(FENCE)[0]
-          .trim()
-          .split("\n")
-          .forEach((line) => {
-            try {
-              const cmd = JSON.parse(line.trim());
-              cmd.id = nextClawId();
-              cmds.push(cmd);
-            } catch {}
-          });
+      const r = await callAI(msgs, "openrouter", null, {});
+      let cmds = [];
+      try {
+        cmds = JSON.parse((r.reply || "[]").match(/\[[\s\S]*\]/)?.[0] || "[]");
+      } catch {}
+      cmds = cmds.map((c) => ({ ...c, id: nextClawId() }));
+      if (tid && cmds.length) {
+        if (!clawQueue.has(tid)) clawQueue.set(tid, []);
+        clawQueue.get(tid).push(...cmds);
       }
-
-      // Queue commands for relay
-      const queued = [];
-      if (targetId && cmds.length && !clawKilled) {
-        if (!clawQueue.has(targetId)) clawQueue.set(targetId, []);
-        clawQueue.get(targetId).push(...cmds);
-        queued.push(
-          ...cmds.map(
-            (c) =>
-              `${c.type}${c.cmd ? ": " + c.cmd : c.text ? ": " + c.text.slice(0, 30) : c.app ? " → " + c.app : ""}`,
-          ),
-        );
-      }
-
-      const cleanReply = reply.replace(/```commands[\s\S]*?```/g, "").trim();
       return res.json({
-        output: cleanReply,
-        queued,
-        relayConnected: !!targetId,
+        output: "Queued " + cmds.length + " command(s).",
+        queued: cmds.map(
+          (c) =>
+            c.type +
+            (c.cmd
+              ? ": " + String(c.cmd).slice(0, 30)
+              : c.app
+                ? " -> " + c.app
+                : ""),
+        ),
+        relayConnected: !!tid,
       });
     } catch (e) {
-      return res.json({ error: `AI error: ${e.message}` });
+      return res.json({ error: "AI error: " + e.message });
     }
   }
-
-  // ── DIRECT MODES: build command and queue immediately ──
-  const directCmds = {
-    shell: () => [{ id: nextClawId(), type: "shell", cmd: input }],
-    keys: () => [{ id: nextClawId(), type: "type", text: input }],
-    mouse: () => {
-      const parts = input.trim().split(/\s+/);
-      const action = parts[0]?.toLowerCase();
-      if (action === "move")
-        return [
-          {
-            id: nextClawId(),
-            type: "move",
-            x: +parts[1] || 0,
-            y: +parts[2] || 0,
-          },
-        ];
-      if (action === "click")
-        return [
-          {
-            id: nextClawId(),
-            type: "click",
-            x: +parts[1] || 0,
-            y: +parts[2] || 0,
-            button: parts[3] || "left",
-          },
-        ];
-      if (action === "scroll")
-        return [
-          {
-            id: nextClawId(),
-            type: "scroll",
-            direction: parts[1] || "down",
-            amount: +parts[2] || 3,
-          },
-        ];
-      return [
-        {
-          id: nextClawId(),
-          type: "move",
-          x: +parts[0] || 0,
-          y: +parts[1] || 0,
-        },
-      ];
-    },
-    hotkey: () => [
-      { id: nextClawId(), type: "hotkey", keys: input.split("+") },
-    ],
-  };
-
-  const builder = directCmds[mode];
-  if (!builder) return res.json({ error: `Unknown mode: ${mode}` });
-
-  if (!targetId)
-    return res.json({
-      error: "No relay connected. Start claw-relay.js on your machine.",
-    });
-
-  const cmds = builder();
-  if (!clawQueue.has(targetId)) clawQueue.set(targetId, []);
-  clawQueue.get(targetId).push(...cmds);
-
+  if (!tid) return res.json({ error: "No relay connected." });
+  const cmd = _parseChatClawInput(mode + ": " + input);
+  if (!clawQueue.has(tid)) clawQueue.set(tid, []);
+  clawQueue.get(tid).push(cmd);
   return res.json({
-    output: `Queued ${cmds.length} command(s) → ${targetId}`,
-    queued: cmds.map((c) => c.type),
+    output: "Queued: " + cmd.type,
+    queued: [cmd.type],
     relayConnected: true,
   });
 });
-
-// ── Poll result for a specific command ──
-app.get("/api/claw/result/:cmdId", (req, res) => {
-  const r = clawResults.get(req.params.cmdId);
-  res.json(r || { pending: true });
+app.post("/api/claw/confirm", (req, res) => {
+  const { action, approved } = req.body;
+  if (!approved) return res.json({ ok: true, message: "Cancelled." });
+  const liveRelays = [...clawRelays.entries()].filter(
+    ([, v]) => Date.now() - v.lastSeen < 20000,
+  );
+  const tid = liveRelays[0]?.[0];
+  if (!tid) return res.json({ error: "No relay." });
+  const cmd = _parseChatClawInput(action);
+  if (!clawQueue.has(tid)) clawQueue.set(tid, []);
+  clawQueue.get(tid).push(cmd);
+  res.json({ ok: true, queued: cmd.type });
 });
 
 /* ── Fallback ── */

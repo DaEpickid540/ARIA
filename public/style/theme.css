@@ -1,0 +1,418 @@
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 700px) {
+  #sidebar {
+    width: 200px;
+  }
+  .homeGrid {
+    grid-template-columns: 1fr;
+  }
+  .scrollCard {
+    min-width: 220px;
+  }
+  #homepageContent {
+    padding: 16px;
+  }
+}
+
+/* ============================================================
+   THEME SYSTEM — light mode body class
+   ============================================================ */
+html.light-mode body {
+  background: var(--bg-void);
+  color: var(--text-blaze);
+}
+html.light-mode body::before {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.06) 2px,
+    rgba(0, 0, 0, 0.06) 4px
+  );
+}
+body.no-scanlines::before {
+  display: none;
+}
+body.no-glitch .glitch:hover {
+  animation: none;
+}
+
+/* ============================================================
+   SETTINGS TABS
+   ============================================================ */
+#settingsTabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 12px 0;
+  background: rgba(255, 0, 0, 0.03);
+  border-bottom: 1px solid var(--border-cut);
+  flex-wrap: wrap;
+}
+
+.settingsTab {
+  padding: 6px 10px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  color: var(--text-muted);
+  cursor: crosshair;
+  transition: all 0.15s;
+  position: relative;
+  top: 1px;
+  white-space: nowrap;
+}
+
+.settingsTab:hover {
+  color: var(--text-hot);
+  border-color: var(--border-cut);
+}
+
+.settingsTab.active {
+  color: var(--red-core);
+  border-color: var(--border-cut);
+  border-bottom: 1px solid var(--bg-abyss);
+  background: var(--bg-abyss);
+  text-shadow: var(--glow-sm);
+}
+
+.settingsTabPane {
+  display: none;
+  animation: tabFadeIn 0.2s ease;
+}
+
+.settingsTabPane.active {
+  display: block;
+}
+
+@keyframes tabFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================
+   SETTINGS EXTRAS
+   ============================================================ */
+.settingsSubtitle {
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  font-family: "Share Tech Mono", monospace;
+  margin-top: 2px;
+}
+
+.settingsHint {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  line-height: 1.5;
+  font-family: "Share Tech Mono", monospace;
+}
+
+.settingsTextInput {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  color: var(--text-blaze);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 12px;
+  outline: none;
+  caret-color: var(--red-core);
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+}
+.settingsTextInput:focus {
+  border-color: var(--red-core);
+  box-shadow: var(--glow-sm);
+}
+
+.twoColBtns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.dangerBtn {
+  width: 100%;
+  padding: 9px;
+  background: rgba(255, 0, 0, 0.08);
+  border: 1px solid var(--red-dim);
+  color: var(--red-neon);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  cursor: crosshair;
+  letter-spacing: 0.08em;
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  transition: all 0.15s;
+}
+.dangerBtn:hover {
+  background: rgba(255, 0, 0, 0.18);
+  border-color: var(--red-core);
+  box-shadow: var(--glow-sm);
+}
+
+/* ============================================================
+   THEME SWATCHES
+   ============================================================ */
+#themeSwatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+.themeSwatch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  cursor: crosshair;
+  letter-spacing: 0.06em;
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  transition: all 0.15s;
+}
+
+.swatchDot {
+  width: 8px;
+  height: 8px;
+  background: var(--sw);
+  border-radius: 0;
+  box-shadow: 0 0 6px var(--sw);
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  flex-shrink: 0;
+}
+
+.themeSwatch:hover {
+  border-color: var(--sw);
+  color: var(--text-blaze);
+}
+
+.themeSwatch.active {
+  border-color: var(--sw);
+  color: var(--text-blaze);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 8px var(--sw);
+}
+
+/* ============================================================
+   ABOUT BLOCK
+   ============================================================ */
+.aboutBlock {
+  text-align: center;
+  padding: 14px;
+  border: 1px solid var(--border-cut);
+  background: var(--bg-void);
+}
+
+.aboutLogo {
+  font-family: "Orbitron", sans-serif;
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--red-core);
+  text-shadow: var(--glow-lg);
+  letter-spacing: 0.4em;
+}
+
+.aboutAcronym {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.aboutAcronym span {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+
+.aboutAcronym span b {
+  color: var(--red-core);
+  text-shadow: var(--glow-sm);
+}
+
+.aboutVersion {
+  margin-top: 8px;
+  font-size: 9px;
+  color: var(--text-muted);
+  font-family: "Share Tech Mono", monospace;
+  letter-spacing: 0.15em;
+}
+
+/* ============================================================
+   CUSTOM VOICE
+   ============================================================ */
+.customVoiceAdd {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.customVoiceItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+/* ============================================================
+   MEMORY PANEL
+   ============================================================ */
+#memoryFactsList {
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+
+.memEmpty {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 12px;
+  text-align: center;
+  font-family: "Share Tech Mono", monospace;
+  border: 1px dashed var(--border-cut);
+}
+
+.memFact {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  border-left: 2px solid var(--red-dim);
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-family: "Share Tech Mono", monospace;
+  transition: border-color 0.15s;
+}
+
+.memFact.pinned {
+  border-left-color: var(--red-core);
+  background: rgba(255, 0, 0, 0.05);
+}
+
+.memCategory {
+  font-size: 9px;
+  color: var(--red-core);
+  font-family: "Orbitron", sans-serif;
+  letter-spacing: 0.1em;
+  padding: 2px 5px;
+  border: 1px solid var(--red-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.memText {
+  flex: 1;
+  color: var(--text-blaze);
+  line-height: 1.4;
+  font-size: 11px;
+}
+
+.memActions {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.memPin,
+.memDelete {
+  background: transparent;
+  border: none;
+  cursor: crosshair;
+  font-size: 12px;
+  padding: 0 3px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.memPin:hover,
+.memDelete:hover {
+  opacity: 1;
+}
+
+/* ============================================================
+   EMOTION SYSTEM
+   ============================================================ */
+.emotionIndicator {
+  font-family: "Orbitron", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  color: #888;
+  transition:
+    color 0.4s ease,
+    text-shadow 0.4s ease;
+}
+
+.emotionIndicator.small {
+  font-size: 9px;
+}
+
+.emotionCurrent {
+  font-family: "Orbitron", sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  padding: 12px;
+  text-align: center;
+  border: 1px solid var(--border-cut);
+  margin-bottom: 8px;
+}
+
+.emotionBtnGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.emotionOverrideBtn {
+  flex: 1 1 40%;
+  padding: 6px 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  cursor: crosshair;
+  letter-spacing: 0.06em;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+  transition: all 0.15s;
+}
+.emotionOverrideBtn:hover {
+  border-color: var(--em-color, var(--red-core));
+  color: var(--text-blaze);
+  box-shadow: 0 0 8px var(--em-color, var(--red-core));
+}
+.emotionOverrideBtn.active {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--em-color, var(--red-core));
+  color: var(--text-blaze);
+  box-shadow: 0 0 10px var(--em-color, var(--red-core));
+}
+
+/* ============================================================

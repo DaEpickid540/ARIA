@@ -1,0 +1,244 @@
+/* ============================================================
+   MESSAGE BUBBLES — ANIMATED ENTRANCE
+   ============================================================ */
+@keyframes msgSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.msg {
+  max-width: 76%;
+  padding: 12px 16px 18px 16px;
+  margin: 10px 0;
+  line-height: 1.5;
+  word-wrap: break-word;
+  position: relative;
+  font-size: 13px;
+  font-family: "Share Tech Mono", monospace;
+  animation: msgSlideIn 0.3s ease forwards;
+}
+
+.msg.user {
+  background: linear-gradient(135deg, var(--red-core) 0%, var(--red-dim) 100%);
+  color: #fff;
+  margin-left: auto;
+  border: 1px solid var(--red-neon);
+  border-right: 3px solid var(--red-hot);
+  box-shadow: var(--glow-md);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - 8px),
+    calc(100% - 8px) 100%,
+    0 100%
+  );
+}
+
+.msg.aria {
+  background: var(--bg-elevated);
+  color: var(--text-blaze);
+  border: 1px solid var(--border-cut);
+  border-left: 3px solid var(--red-dim);
+  box-shadow:
+    0 2px 16px rgba(0, 0, 0, 0.8),
+    inset 1px 0 0 rgba(255, 0, 0, 0.05);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+.msg.aria::before {
+  content: "ARIA//";
+  position: absolute;
+  top: -1px;
+  left: 12px;
+  font-size: 9px;
+  color: var(--red-core);
+  letter-spacing: 0.15em;
+  font-family: "Orbitron", sans-serif;
+  opacity: 0.7;
+}
+
+.msgSender {
+  display: none;
+}
+
+.msgTimestamp {
+  position: absolute;
+  bottom: 4px;
+  right: 10px;
+  font-size: 9px;
+  opacity: 0.4;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================================
+   INPUT BAR
+   ============================================================ */
+#inputBar {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--bg-abyss);
+  border-top: 1px solid var(--border-cut);
+  position: relative;
+  z-index: 2;
+  gap: 8px;
+}
+
+#inputBar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--red-core), transparent);
+  animation: inputGlow 4s ease-in-out infinite;
+}
+
+@keyframes inputGlow {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+#userInput {
+  flex: 1;
+  padding: 10px 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-cut);
+  border-bottom: 2px solid var(--red-dim);
+  border-radius: 1px;
+  color: var(--text-blaze);
+  outline: none;
+  font-size: 13px;
+  font-family: "Share Tech Mono", monospace;
+  letter-spacing: 0.06em;
+  caret-color: var(--red-core);
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+}
+
+#userInput::placeholder {
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+}
+
+#userInput:focus {
+  border-color: var(--red-core);
+  border-bottom-color: var(--red-hot);
+  box-shadow:
+    var(--glow-sm),
+    inset 0 0 12px rgba(255, 0, 0, 0.05);
+  background: rgba(30, 0, 0, 0.5);
+}
+
+#sendBtn {
+  clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+}
+
+/* VOICE BUTTONS */
+.voiceBtn {
+  padding: 8px 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  border-radius: 2px;
+  color: var(--text-hot);
+  cursor: crosshair;
+  font-size: 11px;
+  font-family: "Share Tech Mono", monospace;
+  letter-spacing: 0.04em;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+}
+
+.voiceBtn:hover {
+  border-color: var(--red-core);
+  background: rgba(255, 0, 0, 0.1);
+  color: var(--text-blaze);
+  box-shadow: var(--glow-sm);
+}
+
+#callModeBtn.active {
+  background: rgba(255, 0, 0, 0.18);
+  border-color: var(--red-core);
+  color: var(--red-neon);
+  box-shadow: var(--glow-md);
+  animation: callPulse 1s ease-in-out infinite;
+}
+
+@keyframes callPulse {
+  0%,
+  100% {
+    box-shadow: var(--glow-sm);
+  }
+  50% {
+    box-shadow: var(--glow-lg);
+  }
+}
+
+#ttsBtn.active,
+#vttBtn.active {
+  background: var(--red-core) !important;
+  color: #fff !important;
+  border-color: var(--red-neon) !important;
+  box-shadow: var(--glow-md) !important;
+}
+
+/* VOICE WAVE */
+#voiceWave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 28px;
+  padding: 0 6px;
+}
+
+#voiceWave span {
+  display: inline-block;
+  width: 3px;
+  height: 4px;
+  background: var(--red-core);
+  border-radius: 1px;
+  box-shadow: 0 0 4px var(--red-core);
+}
+
+/* Active wave bars: driven by JS; fallback animation */
+#voiceWave.active span:nth-child(1) {
+  animation: wave 0.6s 0s ease-in-out infinite alternate;
+}
+#voiceWave.active span:nth-child(2) {
+  animation: wave 0.6s 0.1s ease-in-out infinite alternate;
+}
+#voiceWave.active span:nth-child(3) {
+  animation: wave 0.6s 0.2s ease-in-out infinite alternate;
+}
+#voiceWave.active span:nth-child(4) {
+  animation: wave 0.6s 0.1s ease-in-out infinite alternate;
+}
+#voiceWave.active span:nth-child(5) {
+  animation: wave 0.6s 0.3s ease-in-out infinite alternate;
+}
+#voiceWave.active span:nth-child(6) {
+  animation: wave 0.6s 0.05s ease-in-out infinite alternate;
+}
+
+@keyframes wave {
+  from {
+    height: 4px;
+    opacity: 0.5;
+  }
+  to {
+    height: 22px;
+    opacity: 1;
+  }
+}

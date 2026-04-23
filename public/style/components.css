@@ -1,0 +1,1136 @@
+   BOOT LOGO / ACRONYM
+   ============================================================ */
+.bootAriaLogo {
+  font-family: "Orbitron", sans-serif;
+  font-size: 3.5rem;
+  font-weight: 900;
+  letter-spacing: 0.4em;
+  color: var(--red-core);
+  text-shadow: var(--glow-ultra);
+  margin-bottom: 8px;
+  animation: titlePulse 1.5s ease-in-out infinite;
+}
+
+.bootLogoA,
+.bootLogoR,
+.bootLogoI,
+.bootLogoA2 {
+  display: inline-block;
+  animation: letterDrop 0.5s ease backwards;
+}
+.bootLogoR {
+  animation-delay: 0.08s;
+}
+.bootLogoI {
+  animation-delay: 0.16s;
+}
+.bootLogoA2 {
+  animation-delay: 0.24s;
+}
+
+@keyframes letterDrop {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bootAcronym {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.bootAcronym span {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+
+.bootAcronym span b {
+  color: var(--red-neon);
+  text-shadow: var(--glow-sm);
+}
+
+/* ============================================================
+   LOCK SCREEN REDESIGN
+   ============================================================ */
+.lockBg {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(255, 0, 0, 0.015) 3px,
+    rgba(255, 0, 0, 0.015) 4px
+  );
+  pointer-events: none;
+}
+
+.lockAriaHeader {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.lockLogo {
+  font-family: "Orbitron", sans-serif;
+  font-size: 2.8rem;
+  font-weight: 900;
+  letter-spacing: 0.5em;
+  color: var(--red-core);
+  text-shadow: var(--glow-ultra);
+  animation: titlePulse 2s ease-in-out infinite;
+}
+
+.lockAcronymSmall {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+
+.lockVersion {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--red-dim);
+  letter-spacing: 0.15em;
+  margin-top: 4px;
+}
+
+.lockDivider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--red-core), transparent);
+  margin: 12px 0;
+  animation: inputGlow 3s ease-in-out infinite;
+}
+
+.lockInstruct {
+  font-family: "Orbitron", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--red-dim);
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.lockFooter {
+  margin-top: 16px;
+  font-size: 9px;
+  color: var(--text-dim);
+  font-family: "Share Tech Mono", monospace;
+  letter-spacing: 0.12em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   HOMEPAGE HEADER
+   ============================================================ */
+#homeHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+#homeAriaTitle {
+  line-height: 1.1;
+}
+
+.homeTitleMain {
+  font-family: "Orbitron", sans-serif;
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 0.4em;
+  color: var(--red-core);
+  text-shadow: var(--glow-lg);
+  display: block;
+  animation: titlePulse 2.5s ease-in-out infinite;
+}
+
+.homeTitleAcronym {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  display: block;
+}
+
+/* ============================================================
+   SIDEBAR HEADER
+   ============================================================ */
+#sidebarHeader {
+  padding: 8px 4px 10px;
+  text-align: center;
+  border-bottom: 1px solid var(--border-cut);
+  margin-bottom: 10px;
+}
+
+.sidebarLogo {
+  font-family: "Orbitron", sans-serif;
+  font-size: 1.4rem;
+  font-weight: 900;
+  letter-spacing: 0.35em;
+  color: var(--red-core);
+  text-shadow: var(--glow-md);
+}
+
+.sidebarAcronym {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 8px;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.sidebarDivider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--red-dim), transparent);
+  margin: 0 0 10px;
+}
+
+/* ============================================================
+   CHAT HEADER BAR
+   ============================================================ */
+#chatHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 18px;
+  background: var(--bg-abyss);
+  border-bottom: 1px solid var(--border-cut);
+  position: relative;
+  flex-shrink: 0;
+}
+
+#chatHeader::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--red-core), transparent);
+  animation: inputGlow 4s ease-in-out infinite;
+}
+
+.chatHeaderARIA {
+  font-family: "Orbitron", sans-serif;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.35em;
+  color: var(--red-core);
+  text-shadow: var(--glow-sm);
+  margin-right: 8px;
+}
+
+.chatHeaderSub {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+
+#chatHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+}
+
+.statusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--red-core);
+  box-shadow: 0 0 6px var(--red-core);
+  animation: callPulse 2s ease-in-out infinite;
+}
+
+/* ============================================================
+   CALL MODE OVERLAY — FULL REBUILD
+   ============================================================ */
+
+/* Orb — reactive center circle */
+#callOrb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+#callOrbCore {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 0, 0, 0.7) 0%, transparent 70%);
+  transition:
+    width 0.08s ease,
+    height 0.08s ease,
+    background 0.2s ease;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+#callOrbRing1,
+#callOrbRing2,
+#callOrbRing3 {
+  border-radius: 50%;
+  border: 1px solid var(--red-core);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: orbRingPulse 3s ease-in-out infinite;
+  opacity: 0.4;
+}
+
+#callOrbRing1 {
+  width: 160px;
+  height: 160px;
+  animation-delay: 0s;
+}
+#callOrbRing2 {
+  width: 220px;
+  height: 220px;
+  animation-delay: 0.6s;
+  border-color: rgba(255, 0, 0, 0.5);
+}
+#callOrbRing3 {
+  width: 290px;
+  height: 290px;
+  animation-delay: 1.2s;
+  border-color: rgba(255, 0, 0, 0.25);
+}
+
+@keyframes orbRingPulse {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  50% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+}
+
+/* ARIA speaking — orb turns brighter red */
+#callModeOverlay.aria-speaking #callOrbCore {
+  background: radial-gradient(
+    circle,
+    rgba(255, 0, 0, 0.95) 0%,
+    rgba(255, 50, 0, 0.4) 50%,
+    transparent 70%
+  );
+  width: 180px;
+  height: 180px;
+  box-shadow: 0 0 60px rgba(255, 0, 0, 0.6);
+}
+#callModeOverlay.aria-speaking #callOrbRing1,
+#callModeOverlay.aria-speaking #callOrbRing2,
+#callModeOverlay.aria-speaking #callOrbRing3 {
+  animation: orbRingFast 0.5s ease-in-out infinite;
+  opacity: 0.7;
+}
+@keyframes orbRingFast {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translate(-50%, -50%) scale(0.97);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
+/* User speaking — orb turns white-blue */
+#callModeOverlay.user-speaking #callOrbCore {
+  background: radial-gradient(
+    circle,
+    rgba(200, 220, 255, 0.8) 0%,
+    rgba(100, 150, 255, 0.3) 50%,
+    transparent 70%
+  );
+  width: 150px;
+  height: 150px;
+}
+#callModeOverlay.user-speaking #callOrbRing1 {
+  border-color: rgba(200, 220, 255, 0.7);
+}
+#callModeOverlay.user-speaking #callOrbRing2 {
+  border-color: rgba(200, 220, 255, 0.4);
+}
+#callModeOverlay.user-speaking #callOrbRing3 {
+  border-color: rgba(200, 220, 255, 0.2);
+}
+
+/* Waveform containers */
+#callWaveformWrapper,
+#callWaveformWrapper2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  position: relative;
+  z-index: 1;
+}
+
+.callWaveLabel {
+  font-family: "Orbitron", sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--text-muted);
+  width: 32px;
+  flex-shrink: 0;
+}
+
+#callWaveformAria,
+#callWaveformUser {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  height: 50px;
+}
+
+/* ARIA bars — red */
+.waveBar.aria {
+  width: 3px;
+  background: var(--red-core);
+  box-shadow: 0 0 5px var(--red-core);
+  border-radius: 1px;
+  transition: height 0.1s ease;
+}
+
+/* User bars — white/blue */
+.waveBar.user {
+  width: 3px;
+  background: rgba(200, 220, 255, 0.9);
+  box-shadow: 0 0 5px rgba(180, 210, 255, 0.6);
+  border-radius: 1px;
+  transition: height 0.1s ease;
+}
+
+/* Idle animations for ARIA bars */
+#callModeOverlay:not(.aria-speaking) .waveBar.aria {
+  animation: waveBarIdle 1.4s ease-in-out infinite;
+}
+.waveBar.aria:nth-child(1) {
+  animation-delay: 0s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(2) {
+  animation-delay: 0.1s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(3) {
+  animation-delay: 0.2s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(4) {
+  animation-delay: 0.3s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(5) {
+  animation-delay: 0.15s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(6) {
+  animation-delay: 0.25s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(7) {
+  animation-delay: 0.05s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(8) {
+  animation-delay: 0.35s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(9) {
+  animation-delay: 0.12s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(10) {
+  animation-delay: 0.22s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(11) {
+  animation-delay: 0.08s;
+  height: 6px;
+}
+.waveBar.aria:nth-child(12) {
+  animation-delay: 0.18s;
+  height: 6px;
+}
+
+/* Idle animations for user bars */
+#callModeOverlay:not(.user-speaking) .waveBar.user {
+  animation: waveBarUserIdle 1.6s ease-in-out infinite;
+}
+.waveBar.user:nth-child(1) {
+  animation-delay: 0.05s;
+  height: 4px;
+}
+.waveBar.user:nth-child(2) {
+  animation-delay: 0.15s;
+  height: 4px;
+}
+.waveBar.user:nth-child(3) {
+  animation-delay: 0.25s;
+  height: 4px;
+}
+.waveBar.user:nth-child(4) {
+  animation-delay: 0.35s;
+  height: 4px;
+}
+.waveBar.user:nth-child(5) {
+  animation-delay: 0.1s;
+  height: 4px;
+}
+.waveBar.user:nth-child(6) {
+  animation-delay: 0.2s;
+  height: 4px;
+}
+.waveBar.user:nth-child(7) {
+  animation-delay: 0.3s;
+  height: 4px;
+}
+.waveBar.user:nth-child(8) {
+  animation-delay: 0.4s;
+  height: 4px;
+}
+.waveBar.user:nth-child(9) {
+  animation-delay: 0.08s;
+  height: 4px;
+}
+.waveBar.user:nth-child(10) {
+  animation-delay: 0.18s;
+  height: 4px;
+}
+.waveBar.user:nth-child(11) {
+  animation-delay: 0.28s;
+  height: 4px;
+}
+.waveBar.user:nth-child(12) {
+  animation-delay: 0.38s;
+  height: 4px;
+}
+
+@keyframes waveBarUserIdle {
+  0%,
+  100% {
+    height: 3px;
+    opacity: 0.3;
+  }
+  50% {
+    height: 16px;
+    opacity: 0.8;
+  }
+}
+
+/* ============================================================
+   SETTINGS TOAST
+   ============================================================ */
+#settingsToast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(30px);
+  background: var(--bg-raised);
+  border: 1px solid var(--red-core);
+  color: var(--red-neon);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  padding: 8px 20px;
+  box-shadow: var(--glow-sm);
+  opacity: 0;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+  z-index: 99999;
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  pointer-events: none;
+}
+#settingsToast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ============================================================
+   CHAT VAR FONT SIZE
+   ============================================================ */
+.msg,
+.msgBody,
+.msgBody .mdPara,
+.msgBody .mdList li {
+  font-size: var(--chat-font-size, 13px);
+}
+
+/* ============================================================
+   SETTINGS PANEL — FULL REDESIGN ADDITIONS
+   ============================================================ */
+
+/* ── Settings panel wider + scrollable ── */
+#settingsPanel {
+  width: min(820px, 95vw) !important;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#settingsContent {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+
+/* ── Toggle rows with description ── */
+.toggleHint {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  letter-spacing: 0.05em;
+}
+
+/* ── Personality buttons — card style ── */
+#personalityList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.personalityBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  font-family: "Share Tech Mono", monospace;
+  cursor: crosshair;
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  transition: all 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.personalityBtn:hover {
+  border-color: var(--red-core);
+  color: var(--text-blaze);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.personalityBtn.active {
+  border-color: var(--red-core);
+  background: rgba(255, 0, 0, 0.07);
+  color: var(--red-neon);
+  box-shadow: var(--glow-sm);
+}
+
+.pBtnIcon {
+  font-size: 1.2rem;
+}
+.pBtnLabel {
+  font-family: "Orbitron", sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: inherit;
+}
+.pBtnDesc {
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.personalityBtn.active .pBtnDesc {
+  color: var(--red-dim);
+}
+
+/* ── ElevenLabs section ── */
+.elevenlabsSection {
+  border-left: 2px solid #ff9900 !important;
+  background: rgba(255, 153, 0, 0.02);
+}
+
+.elevenlabsSection h3 {
+  color: #ff9900 !important;
+  text-shadow: 0 0 8px rgba(255, 153, 0, 0.5) !important;
+}
+
+.elSteps {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding-left: 18px;
+  margin-bottom: 12px;
+  line-height: 1.9;
+  letter-spacing: 0.04em;
+}
+
+.elSteps strong {
+  color: var(--text-blaze);
+}
+
+.elKeyRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.elStatus {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  min-height: 16px;
+  letter-spacing: 0.08em;
+}
+.elStatus.ok {
+  color: #00ff88;
+  text-shadow: 0 0 6px #00ff88;
+}
+.elStatus.error {
+  color: #ff4444;
+  text-shadow: 0 0 6px #ff4444;
+}
+
+.elVoicePickRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.elAdvanced {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--border-cut);
+  background: var(--bg-void);
+}
+
+/* ── Voice hint text ── */
+.voiceHint {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 5px;
+  letter-spacing: 0.05em;
+}
+
+/* ── Custom voice items — full redesign ── */
+.customVoiceItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-cut);
+  border-left: 2px solid var(--red-dim);
+  margin-bottom: 6px;
+  gap: 8px;
+  transition: border-color 0.15s;
+}
+
+.customVoiceItem.active {
+  border-color: var(--red-core);
+  background: rgba(255, 0, 0, 0.05);
+  border-left-color: var(--red-core);
+}
+
+.cviLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.cviType {
+  font-family: "Orbitron", sans-serif;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--red-core);
+  border: 1px solid var(--red-dim);
+  padding: 2px 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cviName {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 12px;
+  color: var(--text-blaze);
+  letter-spacing: 0.05em;
+}
+
+.cviDesc {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cviActions {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.cviSelectBtn {
+  padding: 4px 10px;
+  font-family: "Orbitron", sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  background: transparent;
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  cursor: crosshair;
+  transition: all 0.15s;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100%-3px) 100%, 0% 100%);
+}
+.cviSelectBtn:hover {
+  border-color: var(--red-core);
+  color: var(--text-blaze);
+}
+.cviSelectBtn.active {
+  border-color: var(--red-core);
+  color: var(--red-core);
+  background: rgba(255, 0, 0, 0.1);
+}
+
+.cviDeleteBtn {
+  background: transparent;
+  border: 1px solid var(--red-dim);
+  color: var(--red-dim);
+  cursor: crosshair;
+  padding: 4px 8px;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+.cviDeleteBtn:hover {
+  border-color: var(--red-core);
+  color: var(--red-core);
+}
+
+/* ── File picker row ── */
+.filePickRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.fileNameDisplay {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Settings toast error state ── */
+#settingsToast.error {
+  border-color: #ff4444;
+  color: #ff6666;
+  background: rgba(255, 0, 0, 0.15);
+}
+
+/* ── ol/ul in settings ── */
+.settingsSection ol,
+.settingsSection ul {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   BRIGHTNESS SLIDER + SLIDER HINTS
+   ============================================================ */
+.sliderHintRow {
+  display: flex;
+  justify-content: space-between;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  letter-spacing: 0.06em;
+}
+
+/* inlineCode used in settings hints */
+code.inlineCode {
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid var(--red-dim);
+  color: var(--red-neon);
+  padding: 1px 5px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================================
+   INTERACTIVE BACKGROUND GRID
+   Makes the grid squares react to mouse proximity
+   ============================================================ */
+#chatWindow {
+  position: relative;
+}
+#chatWindow::before {
+  background-image:
+    linear-gradient(var(--red-core) 1px, transparent 1px),
+    linear-gradient(90deg, var(--red-core) 1px, transparent 1px) !important;
+  background-size: 40px 40px !important;
+  opacity: 0.04;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+#chatWindow:hover::before {
+  opacity: 0.08;
+}
+
+/* ============================================================
+   SCANLINE & GLOW — theme-aware (uses CSS vars)
+   ============================================================ */
+body::before {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(var(--scanline-rgb, 255, 0, 0), 0.1) 2px,
+    rgba(var(--scanline-rgb, 255, 0, 0), 0.1) 3px
+  ) !important;
+  will-change: transform;
+  contain: strict;
+}
+
+/* Theme scanline colors */
+:root[data-theme="cyan"] {
+  --scanline-rgb: 0, 255, 255;
+}
+:root[data-theme="green"] {
+  --scanline-rgb: 0, 255, 65;
+}
+:root[data-theme="purple"] {
+  --scanline-rgb: 204, 0, 255;
+}
+:root[data-theme="orange"] {
+  --scanline-rgb: 255, 102, 0;
+}
+:root[data-theme="gold"] {
+  --scanline-rgb: 255, 215, 0;
+}
+:root[data-theme="pink"] {
+  --scanline-rgb: 255, 0, 153;
+}
+:root[data-theme="ice"] {
+  --scanline-rgb: 0, 170, 255;
+}
+:root[data-theme="toxic"] {
+  --scanline-rgb: 170, 255, 0;
+}
+:root[data-theme="blood"] {
+  --scanline-rgb: 136, 0, 0;
+}
+:root[data-theme="teal"] {
+  --scanline-rgb: 0, 255, 204;
+}
+:root[data-theme="solar"] {
+  --scanline-rgb: 255, 170, 0;
+}
+
+/* Settings panel glow — theme-aware */
+#settingsPanel {
+  border-color: var(--red-core) !important;
+  box-shadow: var(--glow-lg) !important;
+}
+
+/* ============================================================
+   THEME COLORS (additional)
+   ============================================================ */
+:root[data-theme="pink"] {
+  --red-core: #ff0099;
+  --red-hot: #ff33aa;
+  --red-neon: #ff55bb;
+  --red-deep: #aa0066;
+  --red-dim: #550033;
+  --red-ember: #ff66cc;
+}
+:root[data-theme="ice"] {
+  --red-core: #00aaff;
+  --red-hot: #00ccff;
+  --red-neon: #33bbff;
+  --red-deep: #006699;
+  --red-dim: #002244;
+  --red-ember: #00ddff;
+}
+:root[data-theme="toxic"] {
+  --red-core: #aaff00;
+  --red-hot: #bbff33;
+  --red-neon: #ccff44;
+  --red-deep: #558800;
+  --red-dim: #224400;
+  --red-ember: #ddff88;
+}
+:root[data-theme="mono"] {
+  --red-core: #cccccc;
+  --red-hot: #dddddd;
+  --red-neon: #eeeeee;
+  --red-deep: #888888;
+  --red-dim: #333333;
+  --red-ember: #aaaaaa;
+}
+:root[data-theme="blood"] {
+  --red-core: #880000;
+  --red-hot: #aa0000;
+  --red-neon: #aa1111;
+  --red-deep: #550000;
+  --red-dim: #220000;
+  --red-ember: #cc2222;
+}
+:root[data-theme="teal"] {
+  --red-core: #00ffcc;
+  --red-hot: #00ddaa;
+  --red-neon: #33ffdd;
+  --red-deep: #008866;
+  --red-dim: #003322;
+  --red-ember: #00ffaa;
+}
+:root[data-theme="solar"] {
+  --red-core: #ffaa00;
+  --red-hot: #ff8800;
+  --red-neon: #ffbb33;
+  --red-deep: #cc6600;
+  --red-dim: #553300;
+  --red-ember: #ffdd88;
+}
+
+/* ============================================================
+   HALO EFFECT
+   ============================================================ */
+#ariaHalo {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99995;
+  opacity: 0;
+  transition: opacity 0.3s;
+  --halo-intensity: 0.5;
+}
+#ariaHalo.thinking {
+  box-shadow: inset 0 0 60px rgba(255, 0, 0, 0.18);
+  border: 2px solid rgba(255, 0, 0, 0.22);
+  opacity: 1;
+  animation: haloThink 2s ease-in-out infinite;
+}
+#ariaHalo.speaking {
+  box-shadow: inset 0 0 80px rgba(255, 80, 0, 0.2);
+  border: 2px solid rgba(255, 80, 0, 0.3);
+  opacity: 1;
+  animation: haloSpeak 0.5s ease-in-out infinite alternate;
+}
+#ariaHalo.pulse {
+  box-shadow: inset 0 0 100px rgba(255, 0, 0, 0.28);
+  border: 2px solid rgba(255, 0, 0, 0.4);
+  opacity: 1;
+  animation: haloPulse 0.7s ease-out forwards;
+}
+@keyframes haloThink {
+  0%,
+  100% {
+    box-shadow: inset 0 0 40px rgba(255, 0, 0, 0.1);
+    opacity: 0.5;
+  }
+  50% {
+    box-shadow: inset 0 0 80px rgba(255, 0, 0, 0.22);
+    opacity: 1;
+  }
+}
+@keyframes haloSpeak {
+  from {
+    box-shadow: inset 0 0 60px rgba(255, 80, 0, 0.15);
+  }
+  to {
+    box-shadow: inset 0 0 100px rgba(255, 80, 0, 0.28);
+  }
+}
+@keyframes haloPulse {
+  0% {
+    opacity: 1;
+    box-shadow: inset 0 0 100px rgba(255, 0, 0, 0.3);
+  }
+  100% {
+    opacity: 0;
+    box-shadow: none;
+  }
+}
+
+/* ============================================================
+   CHAT NOTIFICATION CENTER
+   ============================================================ */
+#chatNotification {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.85);
+  background: var(--bg-panel);
+  border: 1px solid var(--red-core);
+  color: var(--text-blaze);
+  font-family: "Orbitron", sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  padding: 10px 24px;
+  z-index: 99990;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.25s,
+    transform 0.25s;
+  text-align: center;
+  box-shadow: var(--glow-md);
+  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  white-space: nowrap;
+}
+#chatNotification.visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* ============================================================
+   STEP MESSAGES — tool usage shown in chat
+   ============================================================ */
+.msg.aria.stepMsg {
+  background: rgba(255, 0, 0, 0.04) !important;
+  border-left: 2px solid var(--red-dim) !important;
+  opacity: 0.85;
+  font-size: 11px;
+}

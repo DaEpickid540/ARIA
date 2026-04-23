@@ -1,0 +1,245 @@
+/* ============================================================
+   style.css
+   ============================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap");
+
+/* ============================================================
+   CSS VARIABLES
+   ============================================================ */
+:root {
+  --red-core: #ff0000;
+  --red-hot: #ff2200;
+  --red-neon: #ff3333;
+  --red-deep: #cc0000;
+  --red-dim: #660000;
+  --red-ember: #ff6633;
+  --bg-void: #000000;
+  --bg-abyss: #030303;
+  --bg-panel: #080808;
+  --bg-elevated: #0d0d0d;
+  --bg-raised: #111111;
+  --text-blaze: #ffffff;
+  --text-hot: #ff9999;
+  --text-muted: #553333;
+  --text-dim: #331111;
+  --border-cut: #330000;
+  --border-glow: #880000;
+  --border-live: #ff0000;
+
+  --glow-sm: 0 0 8px rgba(255, 0, 0, 0.6);
+  --glow-md: 0 0 16px rgba(255, 0, 0, 0.7), 0 0 32px rgba(255, 0, 0, 0.3);
+  --glow-lg:
+    0 0 24px rgba(255, 0, 0, 0.9), 0 0 48px rgba(255, 0, 0, 0.5),
+    0 0 80px rgba(255, 0, 0, 0.2);
+  --glow-ultra:
+    0 0 4px #fff, 0 0 14px var(--red-neon), 0 0 40px var(--red-core),
+    0 0 80px var(--red-deep);
+}
+
+/* ============================================================
+   GLOBAL RESET
+   ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Base transition — only on things that need it */
+button,
+input,
+select,
+a,
+.homeCard,
+.chatItem,
+.voiceBtn {
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.2s ease,
+    color 0.15s ease,
+    transform 0.15s ease;
+}
+
+/* ============================================================
+   BODY + SCANLINE OVERLAY
+   ============================================================ */
+body {
+  margin: 0;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: var(--bg-void);
+  color: var(--text-blaze);
+  font-family: "Share Tech Mono", "Consolas", monospace;
+  cursor: crosshair;
+  position: relative;
+}
+
+/* Persistent scanlines */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.18) 2px,
+    rgba(0, 0, 0, 0.18) 4px
+  );
+  pointer-events: none;
+  z-index: 99997;
+  animation: scanlineRoll 8s linear infinite;
+}
+
+/* Persistent vignette */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 40%,
+    rgba(0, 0, 0, 0.7) 100%
+  );
+  pointer-events: none;
+  z-index: 99996;
+}
+
+@keyframes scanlineRoll {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 100px;
+  }
+}
+
+/* ============================================================
+   TYPOGRAPHY HELPERS
+   ============================================================ */
+h1,
+h2,
+h3 {
+  font-family: "Orbitron", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+/* ============================================================
+   NEON + GLITCH
+   ============================================================ */
+.neon {
+  filter: drop-shadow(0 0 4px var(--red-neon))
+    drop-shadow(0 0 16px var(--red-core)) drop-shadow(0 0 32px var(--red-deep));
+}
+
+/* Glitch text effect */
+@keyframes glitchText {
+  0% {
+    clip-path: inset(0 0 95% 0);
+    transform: translate(-2px, 0);
+  }
+  5% {
+    clip-path: inset(30% 0 50% 0);
+    transform: translate(2px, 0);
+  }
+  10% {
+    clip-path: inset(60% 0 10% 0);
+    transform: translate(-1px, 0);
+  }
+  15% {
+    clip-path: inset(80% 0 2% 0);
+    transform: translate(1px, 0);
+  }
+  20% {
+    clip-path: inset(0 0 0 0);
+    transform: translate(0, 0);
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes glitch {
+  0% {
+    transform: translate(0, 0) skewX(0deg);
+    opacity: 1;
+  }
+  10% {
+    transform: translate(-3px, 1px) skewX(-1deg);
+    opacity: 0.8;
+  }
+  20% {
+    transform: translate(3px, -1px) skewX(1deg);
+    opacity: 0.9;
+  }
+  30% {
+    transform: translate(-1px, 2px) skewX(0deg);
+    opacity: 0.7;
+  }
+  40% {
+    transform: translate(2px, -2px) skewX(-0.5deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(0, 0) skewX(0deg);
+    opacity: 0.9;
+  }
+  60% {
+    transform: translate(-2px, 0px) skewX(0.5deg);
+    opacity: 0.8;
+  }
+  70% {
+    transform: translate(1px, 1px) skewX(0deg);
+    opacity: 1;
+  }
+  80% {
+    transform: translate(-1px, -1px) skewX(0.3deg);
+    opacity: 0.9;
+  }
+  90% {
+    transform: translate(2px, 0) skewX(0deg);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(0, 0) skewX(0deg);
+    opacity: 1;
+  }
+}
+
+.glitch:hover {
+  animation: glitch 0.25s steps(2) infinite;
+  text-shadow:
+    2px 0 var(--red-core),
+    -2px 0 rgba(0, 200, 255, 0.4);
+}
+
+/* Corner bracket decoration for panels */
+.bracket-corner {
+  position: relative;
+}
+.bracket-corner::before,
+.bracket-corner::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-color: var(--red-core);
+  border-style: solid;
+}
+.bracket-corner::before {
+  top: 0;
+  left: 0;
+  border-width: 2px 0 0 2px;
+}
+.bracket-corner::after {
+  bottom: 0;
+  right: 0;
+  border-width: 0 2px 2px 0;
+}

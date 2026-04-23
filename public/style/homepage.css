@@ -1,0 +1,266 @@
+/* ============================================================
+   HOMEPAGE
+   ============================================================ */
+#homepageScreen {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse at 50% 0%,
+      rgba(255, 0, 0, 0.1) 0%,
+      transparent 55%
+    ),
+    var(--bg-void);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  z-index: 5000;
+  overflow-y: auto;
+  padding: 20px 24px 32px;
+  box-sizing: border-box;
+}
+
+#homepageContent {
+  background: rgba(5, 0, 0, 0.95);
+  padding: 28px;
+  border: 1px solid var(--red-core);
+  box-shadow:
+    var(--glow-lg),
+    inset 0 0 60px rgba(255, 0, 0, 0.03);
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  position: relative;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 24px) 0,
+    100% 24px,
+    100% 100%,
+    24px 100%,
+    0 calc(100% - 24px)
+  );
+  animation: contentSlideIn 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+@keyframes contentSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Corner decorations */
+#homepageContent::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: 22px;
+  width: 60px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--red-neon), transparent);
+  animation: cornerScan 3s ease-in-out infinite;
+}
+
+@keyframes cornerScan {
+  0%,
+  100% {
+    opacity: 0.3;
+    width: 40px;
+  }
+  50% {
+    opacity: 1;
+    width: 100px;
+  }
+}
+
+#homepageContent h1 {
+  margin: 0 0 20px 0;
+  text-align: center;
+  font-size: 2.2rem;
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  color: var(--red-core);
+  text-shadow: var(--glow-ultra);
+  animation: titlePulse 2s ease-in-out infinite;
+}
+
+@keyframes titlePulse {
+  0%,
+  100% {
+    text-shadow: var(--glow-md);
+  }
+  50% {
+    text-shadow: var(--glow-ultra);
+  }
+}
+
+/* HOME GRID */
+.homeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+/* CARDS */
+.homeCard {
+  flex: 1;
+  background: var(--bg-abyss);
+  border: 1px solid var(--border-cut);
+  border-top: 2px solid var(--red-dim);
+  padding: 12px 14px;
+  position: relative;
+  overflow: hidden;
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - 8px),
+    calc(100% - 8px) 100%,
+    0 100%
+  );
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    transform 0.2s;
+}
+
+.homeCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--red-core), transparent);
+  animation: cardSweep 4s linear infinite;
+  animation-delay: calc(var(--i, 0) * 0.5s);
+}
+
+@keyframes cardSweep {
+  0% {
+    left: -60%;
+  }
+  100% {
+    left: 120%;
+  }
+}
+
+.homeCard:hover {
+  border-color: var(--red-core);
+  box-shadow:
+    var(--glow-sm),
+    inset 0 0 20px rgba(255, 0, 0, 0.04);
+  transform: translateY(-2px);
+}
+
+.homeLabel {
+  font-size: 9px;
+  color: var(--red-core);
+  margin-bottom: 6px;
+  font-family: "Orbitron", sans-serif;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.homeValue {
+  font-size: 14px;
+  font-family: "Share Tech Mono", monospace;
+  color: var(--text-blaze);
+  line-height: 1.4;
+}
+
+.homeSub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 5px;
+  font-family: "Share Tech Mono", monospace;
+}
+
+/* SCROLL ROWS */
+.scrollRow {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red-dim) transparent;
+}
+
+.scrollRow::-webkit-scrollbar {
+  height: 3px;
+}
+.scrollRow::-webkit-scrollbar-thumb {
+  background: var(--red-dim);
+  border-radius: 2px;
+}
+.scrollRow::-webkit-scrollbar-thumb:hover {
+  background: var(--red-core);
+}
+
+.scrollCard {
+  min-width: 260px;
+  scroll-snap-align: start;
+}
+
+@media (min-width: 900px) {
+  .scrollCard {
+    min-width: 300px;
+  }
+}
+@media (max-width: 700px) {
+  .homeGrid {
+    grid-template-columns: 1fr;
+  }
+  .scrollCard {
+    min-width: 220px;
+  }
+}
+
+/* HOME BUTTONS */
+#homeButtons {
+  display: flex;
+  justify-content: center;
+  margin-top: 22px;
+}
+
+.wideBtn {
+  width: 100%;
+  max-width: 460px;
+  font-size: 1.1rem;
+  padding: 16px 0;
+  letter-spacing: 0.3em;
+}
+
+.enterToChat {
+  animation: morphToChat 0.7s forwards ease-in-out;
+}
+
+@keyframes morphToChat {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  40% {
+    transform: scale(1.1) skewX(-2deg);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(0.05) skewX(0deg);
+    opacity: 0;
+  }
+}
+
+#enterConsoleBtn {
+  width: 100%;
+  max-width: 420px;
+  font-size: 1.2rem;
+  padding: 16px 0;
+}
