@@ -70,12 +70,15 @@ window.ARIA_openSidebar  = () => { if (isMobile()) openMobileSidebar(); else exp
 
 /* ── MOBILE SETTINGS BUTTON (in inputBtnRow, always visible on mobile) ── */
 document.getElementById("mobilSettingsBtn")?.addEventListener("click", () => {
-  // Mirror exactly what the sidebar settingsBtn does
-  const existing = document.getElementById("settingsBtn");
-  if (existing) { existing.click(); return; }
-  // Fallback: show overlay directly
-  const overlay = document.getElementById("settingsOverlay");
-  if (overlay) overlay.style.display = "flex";
+  // Call the settings module's open function directly — avoids the fragile
+  // click-delegation chain and the inline-style bug it could leave behind.
+  if (typeof window.ARIA_openSettings === "function") {
+    window.ARIA_openSettings();
+  } else {
+    // Settings not initialised yet — add the active class directly so closeSettings
+    // (which removes the class) will still clean up correctly.
+    document.getElementById("settingsOverlay")?.classList.add("active");
+  }
 });
 
 /* ── ESC KEY ── */
@@ -118,7 +121,8 @@ document.addEventListener("touchend", e => {
   }
   // Swipe left from right edge → open settings panel
   if (dx < -SWIPE_THRESHOLD && touchStartX > window.innerWidth - EDGE_ZONE) {
-    document.getElementById("settingsBtn")?.click(); return;
+    if (typeof window.ARIA_openSettings === "function") window.ARIA_openSettings();
+    return;
   }
   // Swipe right from ~center when sidebar closed → open sidebar
   if (dx > SWIPE_THRESHOLD * 1.5 && touchStartX < 80 && !sidebar?.classList.contains("open")) {
