@@ -40,13 +40,6 @@ renderChatList();
 renderMessages();
 loadFromServer();
 
-// ── Expose current chat ID for cross-module access (chatExport etc.) ──
-// Updated whenever the active chat changes
-Object.defineProperty(window, "ARIA_currentChatId", {
-  get: () => currentChatId,
-  configurable: true,
-});
-
 /* ============================================================
    HALO EFFECTS
    ============================================================ */
@@ -75,6 +68,44 @@ function clearHalo() {
 }
 window.ARIA_triggerHalo = triggerHalo;
 window.ARIA_clearHalo = clearHalo;
+
+// ── PASTE handler — images + text ──
+document.addEventListener("paste", async (e) => {
+  const items = [...(e.clipboardData?.items || [])];
+  const imageItem = items.find((it) => it.type.startsWith("image/"));
+
+  if (imageItem) {
+    e.preventDefault();
+    const file = imageItem.getAsFile();
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("file", file, "pasted-image.png");
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.base64) {
+        pendingFiles.push({
+          type: "image",
+          name: "pasted-image.png",
+          base64: data.base64,
+          mimeType: file.type,
+          text: "[Pasted image]",
+        });
+        documentContext += "\n[Pasted Image]";
+        renderAttachPreviews();
+        window.ARIA_showNotification?.("Image pasted ✓");
+      }
+    } catch (e) {
+      console.error("[ARIA] Paste upload failed:", e);
+    }
+    return;
+  }
+
+  // Text paste — let browser handle it normally (goes into textarea)
+});
 
 // Wire halo intensity slider
 document.getElementById("haloIntensity")?.addEventListener("input", (e) => {
@@ -400,39 +431,186 @@ document.getElementById("webSearchBtn")?.addEventListener("click", async () => {
   await doWebSearch(q);
 });
 
-async function doWebSearch(q) {
+async function doWebSearch(q, engineOverride = null) {
   const chat = getCurrentChat();
   if (!chat) return;
-  // Add user query + searching status in ONE message thread
+
+  // Ask which engine to use (unless already specified)
+  const engine = engineOverride || (await _pickSearchEngine());
+  if (!engine) return; // user cancelled
+
   chat.messages.push({
     role: "user",
-    content: `🔍 Search: ${q}`,
+    content: "🔍 Search: " + q,
     timestamp: Date.now(),
   });
   saveChats();
   renderMessages();
-  // Show typing
   const tid = showTypingIndicator();
   try {
     const res = await fetch("/api/search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: q }),
+      body: JSON.stringify({ query: q, engine }),
     });
     const data = await res.json();
     removeTypingIndicator(tid);
     if (data.error) {
-      addAIMessage(`Search error: ${data.error}`);
+      addAIMessage("Search error: " + data.error);
       return;
     }
+    const engineTag =
+      data.engine === "serpapi" ? "via SerpAPI" : "via built-in crawler";
     const txt = (data.results || [])
-      .map((r, i) => `**${i + 1}. [${r.title}](${r.url})**\n${r.snippet || ""}`)
+      .map((r, i) => {
+        let out =
+          "**" +
+          (i + 1) +
+          ". [" +
+          r.title +
+          "](" +
+          r.url +
+          ")**\n" +
+          (r.snippet || "");
+        if (r.crawledContent)
+          out += "\n\n> " + r.crawledContent.slice(0, 500) + "…";
+        return out;
+      })
       .join("\n\n");
-    addAIMessage(`**Search results for "${q}":**\n\n${txt}`);
+    addAIMessage(
+      '**Search results for "' + q + '" (' + engineTag + "):**\n\n" + txt,
+    );
   } catch (e) {
     removeTypingIndicator(tid);
-    addAIMessage(`Search error: ${e.message}`);
+    addAIMessage("Search error: " + e.message);
   }
+}
+
+/* Scrape a URL with engine choice popup */
+async function doScrapeWithChoice(url) {
+  const chat = getCurrentChat();
+  if (!chat) return;
+  const engine = await _pickScrapeEngine(url);
+  if (!engine) return;
+
+  chat.messages.push({
+    role: "user",
+    content: "🕷 Scraping: " + url,
+    timestamp: Date.now(),
+  });
+  saveChats();
+  renderMessages();
+  const tid = showTypingIndicator();
+  try {
+    let result = "";
+    if (engine === "serpapi") {
+      // Use SerpAPI scrape
+      const res = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: "site:" + url, engine: "serpapi" }),
+      });
+      const d = await res.json();
+      result =
+        (d.results || [])
+          .map((r) => "**" + r.title + "**\n" + r.snippet)
+          .join("\n\n") || "No results.";
+    } else {
+      // Use built-in crawler
+      const res = await fetch("/api/crawl", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, depth: 1, extractLinks: true }),
+      });
+      const d = await res.json();
+      if (d.error) {
+        result = "Crawl error: " + d.error;
+      } else {
+        result = "**" + d.title + "**\n\n" + d.text;
+        if (d.links?.length)
+          result += "\n\n**Links found:**\n" + d.links.slice(0, 8).join("\n");
+      }
+    }
+    removeTypingIndicator(tid);
+    addAIMessage(result);
+  } catch (e) {
+    removeTypingIndicator(tid);
+    addAIMessage("Scrape error: " + e.message);
+  }
+}
+
+/* Engine picker popup */
+function _pickSearchEngine() {
+  return new Promise((resolve) => {
+    const hasSerpApi = true; // server will fallback automatically; let user choose
+    const el = document.createElement("div");
+    el.id = "searchEnginePicker";
+    el.innerHTML = `
+      <div id="searchEngineBox">
+        <div id="searchEngineTitle">🔍 SEARCH ENGINE</div>
+        <div id="searchEngineDesc">Choose how ARIA searches the web:</div>
+        <div id="searchEngineBtns">
+          <button class="searchEngineBtn" data-engine="crawler">
+            <span>🕷 Built-in Crawler</span>
+            <small>DuckDuckGo + page crawl<br>No API key needed</small>
+          </button>
+          <button class="searchEngineBtn" data-engine="serpapi">
+            <span>⚡ SerpAPI</span>
+            <small>Structured results<br>Requires API key</small>
+          </button>
+        </div>
+        <button id="searchEngineCancel">Cancel</button>
+      </div>`;
+    document.body.appendChild(el);
+    el.querySelectorAll(".searchEngineBtn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        el.remove();
+        resolve(btn.dataset.engine);
+      });
+    });
+    document
+      .getElementById("searchEngineCancel")
+      .addEventListener("click", () => {
+        el.remove();
+        resolve(null);
+      });
+  });
+}
+
+function _pickScrapeEngine(url) {
+  return new Promise((resolve) => {
+    const el = document.createElement("div");
+    el.id = "searchEnginePicker";
+    el.innerHTML = `
+      <div id="searchEngineBox">
+        <div id="searchEngineTitle">🕷 SCRAPE ENGINE</div>
+        <div id="searchEngineDesc" style="word-break:break-all;opacity:.6;font-size:10px;margin-bottom:12px">${url}</div>
+        <div id="searchEngineBtns">
+          <button class="searchEngineBtn" data-engine="crawler">
+            <span>🕷 Built-in Crawler</span>
+            <small>Full page crawl<br>Follows links, extracts content</small>
+          </button>
+          <button class="searchEngineBtn" data-engine="serpapi">
+            <span>⚡ SerpAPI</span>
+            <small>Site-indexed results<br>Requires API key</small>
+          </button>
+        </div>
+        <button id="searchEngineCancel">Cancel</button>
+      </div>`;
+    document.body.appendChild(el);
+    el.querySelectorAll(".searchEngineBtn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        el.remove();
+        resolve(btn.dataset.engine);
+      });
+    });
+    document
+      .getElementById("searchEngineCancel")
+      .addEventListener("click", () => {
+        el.remove();
+        resolve(null);
+      });
+  });
 }
 
 /* ── IMAGE GEN button (hidden) ── */
@@ -801,6 +979,8 @@ window.ARIA_deleteMessage = deleteMessage;
 window.ARIA_copyMessage = copyMessage;
 window.ARIA_regenerateMsg = regenerateMessage;
 window.ARIA_renderChatList = renderChatList;
+window.ARIA_doScrapeWithChoice = doScrapeWithChoice;
+window.ARIA_doWebSearch = doWebSearch;
 window.ARIA_loadFromServer = loadFromServer;
 
 newChatBtn?.addEventListener("click", () => {
@@ -1534,10 +1714,28 @@ async function sendMessageContent(text, chat, attachments = []) {
       signal: abort.signal,
       body: JSON.stringify({
         message: text,
-        history: chat.messages.slice(-20).map((m) => ({
-          role: m.role === "aria" ? "assistant" : "user",
-          content: m.content,
-        })),
+        history: chat.messages.slice(-20).map((m) => {
+          // If user message has image attachments, use OpenAI vision format
+          const images = (m.attachments || []).filter(
+            (a) => a.type === "image" && a.base64,
+          );
+          if (m.role === "user" && images.length) {
+            return {
+              role: "user",
+              content: [
+                ...images.map((img) => ({
+                  type: "image_url",
+                  image_url: { url: img.base64, detail: "auto" },
+                })),
+                { type: "text", text: m.content || "" },
+              ],
+            };
+          }
+          return {
+            role: m.role === "aria" ? "assistant" : "user",
+            content: m.content,
+          };
+        }),
         provider: currentSettings.provider || "openrouter",
         // Send the right model ID for the chosen provider
         model: (() => {
@@ -1560,6 +1758,13 @@ async function sendMessageContent(text, chat, attachments = []) {
         musicTutorMode,
         workspaceRepo: workspaceRepoUrl || undefined,
         documentContext: docCtx,
+        imageAttachments: attachments
+          .filter((a) => a.type === "image" && a.base64)
+          .map((a) => ({
+            base64: a.base64,
+            mimeType: a.mimeType || "image/jpeg",
+            name: a.name,
+          })),
       }),
     });
     const data = await res.json();

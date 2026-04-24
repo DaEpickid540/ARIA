@@ -149,22 +149,6 @@ MANDATORY TRIGGER CONDITIONS:
 - User asks for an image, picture, drawing, photo → ACTION: imagine
 - User asks for a calculation → ACTION: calc
 - User asks what the server is running on → ACTION: system
-- User asks to open an app, browser, Chrome, Firefox, VS Code, etc → ACTION: claw | open: <AppName or URL>
-- User asks to type something into the computer → ACTION: claw | type: <text>
-- User asks to press a keyboard shortcut → ACTION: claw | hotkey: <e.g. ctrl+t>
-- User asks to run a terminal/shell command → ACTION: claw | shell: <command>
-- User asks to open/close a browser tab → ACTION: claw | new_tab: <url>  or  ACTION: claw | close_tab
-- User asks to write/edit code in VS Code or Arduino IDE → ACTION: claw | write_code: <AppName>|<code>
-- User asks to take a screenshot → ACTION: claw | screenshot
-- User asks to switch windows or apps → ACTION: claw | switch: <AppName>
-- Any general computer control task → ACTION: claw | <plain english>
-
-CLAW RULES:
-- Claw requires claw-relay.js running on Sarvin's machine (Claw panel shows status)
-- Safe actions (open app, type, shortcut, switch window): ACTION: directly, no confirmation
-- SENSITIVE (delete files, install software, modify settings, kill processes): use CONFIRM: prefix
-  Example: CONFIRM: claw | shell: rm -rf folder
-- NEVER autonomously: delete files, access passwords, modify system settings without CONFIRM:
 
 RESPONSE FORMAT:
 1. If you need a tool: write ACTION: tool | input on its own line FIRST
@@ -242,24 +226,6 @@ async function runAgenticPipeline(
     const rawReply = await callAI(currentMessages, provider, model, modeOpts);
     iteration++;
 
-    // ── CONFIRM: needs user approval ──
-    const confirmMatch = rawReply.match(/^\s*CONFIRM:\s*claw\s*\|\s*(.+)$/im);
-    if (confirmMatch) {
-      const pa = confirmMatch[1].trim();
-      const pt = rawReply.replace(/^\s*CONFIRM:.*$/m, "").trim();
-      steps.push({
-        tool: "claw_confirm",
-        input: pa,
-        preText: pt,
-        result: "awaiting_approval",
-      });
-      return {
-        reply: pt || "I need your approval before running this.",
-        clawConfirm: { action: pa },
-        steps,
-      };
-    }
-
     const actionMatch = rawReply.match(
       /^\s*ACTION:\s*([^|\n]+?)\s*\|\s*(.*)$/im,
     );
@@ -269,46 +235,11 @@ async function runAgenticPipeline(
     const toolInput = actionMatch[2].trim();
     const preText = rawReply.replace(/^\s*ACTION:.*$/m, "").trim();
 
-    // ── Claw action ──
-    if (toolName === "claw") {
-      let cr;
-      if (clawKilled) {
-        cr = "Claw is killed. Click RESUME in the Claw panel.";
-      } else {
-        const liveRelays = [...clawRelays.entries()].filter(
-          ([, v]) => Date.now() - v.lastSeen < 20000,
-        );
-        const tid = liveRelays[0]?.[0];
-        if (!tid) {
-          cr = "No relay connected. Run: node claw-relay.js <your-aria-url>";
-        } else {
-          const cmd = _parseChatClawInput(toolInput);
-          if (!clawQueue.has(tid)) clawQueue.set(tid, []);
-          clawQueue.get(tid).push(cmd);
-          const desc = cmd.cmd || cmd.text || cmd.app || cmd.url || cmd.type;
-          cr = "Queued [" + cmd.type + "]: " + String(desc).slice(0, 60);
-        }
-      }
-      steps.push({ tool: "claw", input: toolInput, preText, result: cr });
-      currentMessages = [
-        ...currentMessages,
-        { role: "assistant", content: rawReply },
-        {
-          role: "user",
-          content:
-            "[CLAW RESULT]: " +
-            cr +
-            "\n\nNow continue your response to the user.",
-        },
-      ];
-      continue;
-    }
-
     let toolResult;
     try {
       toolResult = await runToolServer(toolName, toolInput);
     } catch (e) {
-      toolResult = "Tool error: " + e.message;
+      toolResult = `Tool error: ${e.message}`;
     }
 
     if (toolResult?.startsWith?.("__IMAGE__")) {
@@ -691,55 +622,6 @@ async function callOpenRouter(messages, model, modeOpts = {}) {
 const bgTasks = new Map();
 let bgTaskCounter = 1;
 
-/* ── Claw ── */
-const clawQueue = new Map();
-const clawRelays = new Map();
-let clawKilled = false;
-let clawCmdSeq = 0;
-function nextClawId() {
-  return "claw_" + Date.now() + "_" + clawCmdSeq++;
-}
-function _parseChatClawInput(s) {
-  const id = nextClawId();
-  s = s.trim();
-  if (s.startsWith("shell:"))
-    return { id, type: "shell", cmd: s.slice(6).trim() };
-  if (s.startsWith("type:"))
-    return { id, type: "type", text: s.slice(5).trim() };
-  if (s.startsWith("hotkey:"))
-    return { id, type: "hotkey", keys: s.slice(7).trim().split("+") };
-  if (s.startsWith("screenshot")) return { id, type: "screenshot" };
-  if (s.startsWith("new_tab:"))
-    return { id, type: "new_tab", url: s.slice(8).trim() };
-  if (s.startsWith("close_tab")) return { id, type: "close_tab" };
-  if (s.startsWith("switch:"))
-    return { id, type: "switch_app", app: s.slice(7).trim() };
-  if (s.startsWith("write_code:")) {
-    const p = s.slice(11).split("|");
-    return { id, type: "write_code", app: p[0]?.trim(), code: p[1]?.trim() };
-  }
-  if (s.startsWith("click:")) {
-    const [x, y] = s.slice(6).trim().split(",");
-    return { id, type: "click", x: +x || 0, y: +y || 0 };
-  }
-  if (s.startsWith("scroll:")) {
-    const p = s.slice(7).trim().split(" ");
-    return {
-      id,
-      type: "scroll",
-      direction: p[0] || "down",
-      amount: +p[1] || 3,
-    };
-  }
-  if (s.startsWith("open:")) {
-    const t = s.slice(5).trim();
-    return t.startsWith("http")
-      ? { id, type: "browser", url: t }
-      : { id, type: "switch_app", app: t };
-  }
-  return { id, type: "shell", cmd: "echo 'Claw: " + s.replace(/'/g, "") + "'" };
-}
-
 app.post("/api/background", async (req, res) => {
   const { task, provider, personality } = req.body;
   if (!task) return res.json({ error: "No task provided" });
@@ -821,6 +703,7 @@ app.post("/api/chat", async (req, res) => {
     musicTutorMode = false,
     workspaceRepo = "",
     imageProvider = "auto",
+    imageAttachments = [],
   } = req.body;
 
   if (!message) return res.json({ reply: "No message received." });
@@ -900,12 +783,26 @@ Active GitHub repo: ${workspaceRepo}
 
   const cappedHistory = history.slice(-20);
   const last = cappedHistory[cappedHistory.length - 1];
+
+  // Build current user message — use vision format if images attached
+  const userContent =
+    Array.isArray(imageAttachments) && imageAttachments.length
+      ? [
+          ...imageAttachments.map((img) => ({
+            type: "image_url",
+            image_url: { url: img.base64, detail: "auto" },
+          })),
+          { type: "text", text: message },
+        ]
+      : message;
   const messages = [
     { role: "system", content: sysPrompt },
     ...cappedHistory,
-    ...(last?.role === "user" && last?.content === message
+    ...(last?.role === "user" &&
+    last?.content === message &&
+    !imageAttachments?.length
       ? []
-      : [{ role: "user", content: message }]),
+      : [{ role: "user", content: userContent }]),
   ];
 
   try {
@@ -982,45 +879,149 @@ app.post(
    WEB SEARCH
    ============================================================ */
 app.post("/api/search", async (req, res) => {
-  const { query } = req.body;
+  const { query, engine = "auto" } = req.body;
   if (!query) return res.json({ error: "No query." });
   try {
+    // SerpAPI (if key set and engine=serpapi or auto)
     const serpKey = process.env.SERPAPI_KEY;
-    if (serpKey) {
+    if (serpKey && engine !== "crawler") {
       const r = await fetch(
-        `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${serpKey}&num=5`,
+        `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${serpKey}&num=6`,
       );
       const d = await r.json();
       return res.json({
         results: (d.organic_results || [])
-          .slice(0, 5)
+          .slice(0, 6)
           .map((r) => ({ title: r.title, url: r.link, snippet: r.snippet })),
+        engine: "serpapi",
       });
     }
-    const r = await fetch(
-      `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`,
-    );
-    const d = await r.json();
-    const results = [];
-    if (d.AbstractText)
-      results.push({
-        title: d.Heading || query,
-        url: d.AbstractURL || "",
-        snippet: d.AbstractText,
-      });
-    (d.RelatedTopics || []).slice(0, 4).forEach((t) => {
-      if (t.Text)
-        results.push({
-          title: t.Text.split(" - ")[0],
-          url: t.FirstURL || "",
-          snippet: t.Text,
-        });
-    });
-    res.json({ results: results.slice(0, 5) });
+    // Built-in crawler: DDG instant answers + crawl top result
+    const results = await runCrawlerSearch(query);
+    res.json({ results, engine: "crawler" });
   } catch (e) {
     res.json({ error: e.message, results: [] });
   }
 });
+
+/* ── Web crawler ── */
+async function runCrawlerSearch(query, maxDepth = 1) {
+  const results = [];
+
+  // Step 1: DuckDuckGo HTML search (no API key needed)
+  try {
+    const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const r = await fetch(ddgUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; ARIA-crawler/1.0)" },
+      signal: AbortSignal.timeout(8000),
+    });
+    const html = await r.text();
+
+    // Extract result links and snippets from DDG HTML
+    const linkPattern =
+      /class="result__a"[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g;
+    const snipPattern = /class="result__snippet"[^>]*>([^<]+)</g;
+    const links = [...html.matchAll(/result__url[^>]*>([^<]+)</g)].map((m) =>
+      m[1].trim(),
+    );
+    const titles = [...html.matchAll(/result__a[^>]*>([^<]+)</g)].map((m) =>
+      m[1].trim(),
+    );
+    const snippets = [...html.matchAll(/result__snippet[^>]*>([^<]+)</g)].map(
+      (m) => m[1].trim(),
+    );
+
+    for (let i = 0; i < Math.min(titles.length, 5); i++) {
+      if (titles[i]) {
+        results.push({
+          title: titles[i],
+          url: links[i]
+            ? links[i].startsWith("http")
+              ? links[i]
+              : "https://" + links[i]
+            : "",
+          snippet: snippets[i] || "",
+        });
+      }
+    }
+  } catch {}
+
+  // Step 2: If maxDepth > 0, crawl the top result for richer content
+  if (maxDepth > 0 && results[0]?.url?.startsWith("http")) {
+    try {
+      const pageRes = await fetch(results[0].url, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+        signal: AbortSignal.timeout(6000),
+      });
+      if (pageRes.ok) {
+        const html = await pageRes.text();
+        const text = html
+          .replace(/<script[\s\S]*?<\/script>/gi, "")
+          .replace(/<style[\s\S]*?<\/style>/gi, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s{2,}/g, " ")
+          .trim()
+          .slice(0, 3000);
+        if (results[0]) results[0].crawledContent = text;
+      }
+    } catch {}
+  }
+
+  return results;
+}
+
+/* ── Deep crawl endpoint (follows links) ── */
+app.post("/api/crawl", async (req, res) => {
+  const { url, depth = 1, extractLinks = false } = req.body;
+  if (!url) return res.json({ error: "No URL." });
+  try {
+    const result = await crawlPage(url, depth, extractLinks);
+    res.json(result);
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
+
+async function crawlPage(url, depth = 0, extractLinks = false) {
+  const r = await fetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; ARIA-crawler/1.0)" },
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const html = await r.text();
+
+  const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || url;
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+    .slice(0, 8000);
+
+  const result = { url, title, text };
+
+  if (extractLinks) {
+    const links = [...html.matchAll(/href="(https?:\/\/[^"]+)"/g)]
+      .map((m) => m[1])
+      .filter((v, i, a) => a.indexOf(v) === i) // dedupe
+      .slice(0, 20);
+    result.links = links;
+
+    // Follow links one level deeper if depth > 0
+    if (depth > 0) {
+      result.pages = [];
+      for (const link of links.slice(0, 3)) {
+        try {
+          const sub = await crawlPage(link, 0, false);
+          result.pages.push(sub);
+        } catch {}
+      }
+    }
+  }
+
+  return result;
+}
 
 /* ============================================================
    IMAGE GENERATION
@@ -1346,132 +1347,6 @@ app.get("/api/version", (req, res) => {
   } catch {
     res.json({ version: "1.0.0" });
   }
-});
-
-/* ============================================================
-   ARIA CLAW API ROUTES
-   ============================================================ */
-app.post("/api/claw/relay/register", (req, res) => {
-  const { deviceId, platform, hostname } = req.body;
-  if (!deviceId) return res.json({ error: "No deviceId" });
-  clawRelays.set(deviceId, { platform, hostname, lastSeen: Date.now() });
-  if (!clawQueue.has(deviceId)) clawQueue.set(deviceId, []);
-  console.log("[CLAW] Relay connected: " + deviceId);
-  res.json({ ok: true, killed: clawKilled });
-});
-app.post("/api/claw/relay/heartbeat", (req, res) => {
-  const { deviceId } = req.body;
-  if (clawRelays.has(deviceId)) clawRelays.get(deviceId).lastSeen = Date.now();
-  res.json({ ok: true, killed: clawKilled });
-});
-app.post("/api/claw/relay/unregister", (req, res) => {
-  clawRelays.delete(req.body.deviceId);
-  clawQueue.delete(req.body.deviceId);
-  res.json({ ok: true });
-});
-app.post("/api/claw/relay/result", (req, res) => {
-  const { cmdId, result } = req.body;
-  if (cmdId) {
-    /* store for visualizer */
-  }
-  res.json({ ok: true });
-});
-app.get("/api/claw/queue", (req, res) => {
-  const { deviceId } = req.query;
-  if (!deviceId) return res.json({ commands: [] });
-  const q = clawQueue.get(deviceId) || [];
-  clawQueue.set(deviceId, []);
-  res.json({ commands: q, killed: clawKilled });
-});
-app.post("/api/claw/kill", (req, res) => {
-  clawKilled = true;
-  for (const [k] of clawQueue) clawQueue.set(k, []);
-  console.log("[CLAW] KILL SWITCH ACTIVATED");
-  res.json({ ok: true });
-});
-app.post("/api/claw/resume", (req, res) => {
-  clawKilled = false;
-  console.log("[CLAW] Resumed");
-  res.json({ ok: true });
-});
-app.get("/api/claw/status", (req, res) => {
-  const relays = [...clawRelays.entries()]
-    .filter(([, v]) => Date.now() - v.lastSeen < 20000)
-    .map(([id, v]) => ({ id, platform: v.platform, hostname: v.hostname }));
-  res.json({ killed: clawKilled, relays });
-});
-app.post("/api/claw", async (req, res) => {
-  const { input, mode = "ai" } = req.body;
-  if (!input) return res.json({ error: "No input." });
-  if (clawKilled) return res.json({ error: "Claw is killed. Click RESUME." });
-  const liveRelays = [...clawRelays.entries()].filter(
-    ([, v]) => Date.now() - v.lastSeen < 20000,
-  );
-  const tid = liveRelays[0]?.[0];
-  if (mode === "ai") {
-    try {
-      const platHint = tid
-        ? "Target: " + (clawRelays.get(tid)?.platform || "?")
-        : "No relay.";
-      const msgs = [
-        {
-          role: "system",
-          content:
-            "You are ARIA Claw. " +
-            platHint +
-            ". Output ONLY a JSON array of command objects. Commands: {type:shell,cmd:string} {type:type,text:string} {type:hotkey,keys:[string]} {type:switch_app,app:string} {type:browser,url:string} {type:new_tab,url:string} {type:close_tab} {type:screenshot} {type:write_code,app:string,code:string} {type:click,x:number,y:number} {type:scroll,direction:string,amount:number} {type:wait,ms:number}",
-        },
-        { role: "user", content: input },
-      ];
-      const r = await callAI(msgs, "openrouter", null, {});
-      let cmds = [];
-      try {
-        cmds = JSON.parse((r.reply || "[]").match(/\[[\s\S]*\]/)?.[0] || "[]");
-      } catch {}
-      cmds = cmds.map((c) => ({ ...c, id: nextClawId() }));
-      if (tid && cmds.length) {
-        if (!clawQueue.has(tid)) clawQueue.set(tid, []);
-        clawQueue.get(tid).push(...cmds);
-      }
-      return res.json({
-        output: "Queued " + cmds.length + " command(s).",
-        queued: cmds.map(
-          (c) =>
-            c.type +
-            (c.cmd
-              ? ": " + String(c.cmd).slice(0, 30)
-              : c.app
-                ? " -> " + c.app
-                : ""),
-        ),
-        relayConnected: !!tid,
-      });
-    } catch (e) {
-      return res.json({ error: "AI error: " + e.message });
-    }
-  }
-  if (!tid) return res.json({ error: "No relay connected." });
-  const cmd = _parseChatClawInput(mode + ": " + input);
-  if (!clawQueue.has(tid)) clawQueue.set(tid, []);
-  clawQueue.get(tid).push(cmd);
-  return res.json({
-    output: "Queued: " + cmd.type,
-    queued: [cmd.type],
-    relayConnected: true,
-  });
-});
-app.post("/api/claw/confirm", (req, res) => {
-  const { action, approved } = req.body;
-  if (!approved) return res.json({ ok: true, message: "Cancelled." });
-  const liveRelays = [...clawRelays.entries()].filter(
-    ([, v]) => Date.now() - v.lastSeen < 20000,
-  );
-  const tid = liveRelays[0]?.[0];
-  if (!tid) return res.json({ error: "No relay." });
-  const cmd = _parseChatClawInput(action);
-  if (!clawQueue.has(tid)) clawQueue.set(tid, []);
-  clawQueue.get(tid).push(cmd);
-  res.json({ ok: true, queued: cmd.type });
 });
 
 /* ── Fallback ── */
