@@ -251,18 +251,20 @@ function applySettingsToUI() {
   const volEl = document.getElementById("voiceVolume");
   if (rateEl) {
     rateEl.value = currentSettings.rate ?? 1;
-    document.getElementById("rateDisplay") &&
-      (rateDisplay.textContent = parseFloat(rateEl.value).toFixed(1));
+    const rateDisplay = document.getElementById("rateDisplay");
+    if (rateDisplay)
+      rateDisplay.textContent = parseFloat(rateEl.value).toFixed(1);
   }
   if (pitchEl) {
     pitchEl.value = currentSettings.pitch ?? 1;
-    document.getElementById("pitchDisplay") &&
-      (pitchDisplay.textContent = parseFloat(pitchEl.value).toFixed(1));
+    const pitchDisplay = document.getElementById("pitchDisplay");
+    if (pitchDisplay)
+      pitchDisplay.textContent = parseFloat(pitchEl.value).toFixed(1);
   }
   if (volEl) {
     volEl.value = currentSettings.volume ?? 1;
-    document.getElementById("volDisplay") &&
-      (volDisplay.textContent = parseFloat(volEl.value).toFixed(2));
+    const volDisplay = document.getElementById("volDisplay");
+    if (volDisplay) volDisplay.textContent = parseFloat(volEl.value).toFixed(2);
   }
 
   // Language filters
@@ -557,18 +559,15 @@ function wireAllControls() {
   // ── Provider ──
   function updateProviderSections(prov) {
     // Show/hide the correct model picker based on selected provider
-    document.getElementById("orModelSection")?.style && (
-      document.getElementById("orModelSection").style.display =
-        prov === "openrouter" ? "" : "none"
-    );
-    document.getElementById("cfModelSection")?.style && (
-      document.getElementById("cfModelSection").style.display =
-        prov === "cloudflare" ? "" : "none"
-    );
-    document.getElementById("ollamaModelSection")?.style && (
-      document.getElementById("ollamaModelSection").style.display =
-        prov === "ollama" ? "" : "none"
-    );
+    document.getElementById("orModelSection")?.style &&
+      (document.getElementById("orModelSection").style.display =
+        prov === "openrouter" ? "" : "none");
+    document.getElementById("cfModelSection")?.style &&
+      (document.getElementById("cfModelSection").style.display =
+        prov === "cloudflare" ? "" : "none");
+    document.getElementById("ollamaModelSection")?.style &&
+      (document.getElementById("ollamaModelSection").style.display =
+        prov === "ollama" ? "" : "none");
   }
 
   document.getElementById("providerSelect")?.addEventListener("change", (e) => {
@@ -589,40 +588,53 @@ function wireAllControls() {
   });
 
   // CF auto-model toggle
-  document.getElementById("cfAutoModelToggle")?.addEventListener("click", (btn) => {
-    const b = document.getElementById("cfAutoModelToggle");
-    const auto = b.textContent.trim() === "ON";
-    currentSettings.cfAutoModel = !auto;
-    b.textContent = !auto ? "ON" : "OFF";
-    b.classList.toggle("active", !auto);
-    const cfSel = document.getElementById("cfModelSelect");
-    if (cfSel) { cfSel.style.opacity = !auto ? "0.4" : "1"; cfSel.disabled = !auto; }
-  });
+  document
+    .getElementById("cfAutoModelToggle")
+    ?.addEventListener("click", (btn) => {
+      const b = document.getElementById("cfAutoModelToggle");
+      const auto = b.textContent.trim() === "ON";
+      currentSettings.cfAutoModel = !auto;
+      b.textContent = !auto ? "ON" : "OFF";
+      b.classList.toggle("active", !auto);
+      const cfSel = document.getElementById("cfModelSelect");
+      if (cfSel) {
+        cfSel.style.opacity = !auto ? "0.4" : "1";
+        cfSel.disabled = !auto;
+      }
+    });
 
   // Image provider select
-  document.getElementById("imageProviderSelect")?.addEventListener("change", (e) => {
-    currentSettings.imageProvider = e.target.value;
-  });
+  document
+    .getElementById("imageProviderSelect")
+    ?.addEventListener("change", (e) => {
+      currentSettings.imageProvider = e.target.value;
+    });
 
   // Ollama model loader
   async function loadOllamaModels() {
     const sel = document.getElementById("ollamaModelSelect");
     if (!sel) return;
     try {
-      const cfg = await fetch("/api/config").then(r => r.json());
+      const cfg = await fetch("/api/config").then((r) => r.json());
       const models = cfg.ollamaModels || [];
       if (!models.length) {
-        sel.innerHTML = '<option value="">No models found — is Ollama running?</option>';
+        sel.innerHTML =
+          '<option value="">No models found — is Ollama running?</option>';
         return;
       }
-      sel.innerHTML = models.map(m =>
-        `<option value="${m}"${currentSettings.ollamaModel === m ? " selected" : ""}>${m}</option>`
-      ).join("");
+      sel.innerHTML = models
+        .map(
+          (m) =>
+            `<option value="${m}"${currentSettings.ollamaModel === m ? " selected" : ""}>${m}</option>`,
+        )
+        .join("");
       if (!currentSettings.ollamaModel) currentSettings.ollamaModel = models[0];
     } catch {
       sel.innerHTML = '<option value="">Could not connect to Ollama</option>';
     }
-    sel.addEventListener("change", (e) => { currentSettings.ollamaModel = e.target.value; });
+    sel.addEventListener("change", (e) => {
+      currentSettings.ollamaModel = e.target.value;
+    });
   }
 
   // ── TTS toggle ──
