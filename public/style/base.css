@@ -29,11 +29,9 @@
 
   --glow-sm: 0 0 8px rgba(255, 0, 0, 0.6);
   --glow-md: 0 0 16px rgba(255, 0, 0, 0.7), 0 0 32px rgba(255, 0, 0, 0.3);
-  --glow-lg:
-    0 0 24px rgba(255, 0, 0, 0.9), 0 0 48px rgba(255, 0, 0, 0.5),
+  --glow-lg: 0 0 24px rgba(255, 0, 0, 0.9), 0 0 48px rgba(255, 0, 0, 0.5),
     0 0 80px rgba(255, 0, 0, 0.2);
-  --glow-ultra:
-    0 0 4px #fff, 0 0 14px var(--red-neon), 0 0 40px var(--red-core),
+  --glow-ultra: 0 0 4px #fff, 0 0 14px var(--red-neon), 0 0 40px var(--red-core),
     0 0 80px var(--red-deep);
 }
 
@@ -56,12 +54,8 @@ a,
 .homeCard,
 .chatItem,
 .voiceBtn {
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.2s ease,
-    color 0.15s ease,
-    transform 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.2s ease, color 0.15s ease, transform 0.15s ease;
 }
 
 /* ============================================================
@@ -215,9 +209,7 @@ h3 {
 
 .glitch:hover {
   animation: glitch 0.25s steps(2) infinite;
-  text-shadow:
-    2px 0 var(--red-core),
-    -2px 0 rgba(0, 200, 255, 0.4);
+  text-shadow: 2px 0 var(--red-core), -2px 0 rgba(0, 200, 255, 0.4);
 }
 
 /* Corner bracket decoration for panels */
@@ -242,4 +234,28 @@ h3 {
   bottom: 0;
   right: 0;
   border-width: 0 2px 2px 0;
+}
+
+/* ── New settings button in chat header ── */
+#ariaSettingsBtn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-cut);
+  color: var(--text-muted);
+  padding: 5px 10px;
+  font-size: 14px;
+  cursor: crosshair;
+  font-family: "Share Tech Mono", monospace;
+  letter-spacing: 0.05em;
+  transition: all 0.15s;
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  flex-shrink: 0;
+}
+#ariaSettingsBtn:hover {
+  border-color: var(--red-core);
+  color: var(--red-neon);
+  box-shadow: var(--glow-sm);
+  background: rgba(255, 0, 0, 0.08);
+}
+#ariaSettingsBtn:active {
+  transform: scale(0.95);
 }

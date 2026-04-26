@@ -1,7 +1,5 @@
 /* ============================================================
    styles/index.css — ARIA stylesheet entry point
-   Import this instead of style.css in index.html:
-   <link rel="stylesheet" href="styles/index.css">
    ============================================================ */
 
 @import url("base.css");
@@ -16,3 +14,5 @@
 @import url("panels.css");
 @import url("hometools.css");
 @import url("features.css");
+@import url("claw.css");
+@import url("search-engine-picker.css");

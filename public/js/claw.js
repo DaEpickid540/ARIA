@@ -1,57 +1,59 @@
-// claw.js — ARIA Claw UI
-// Features: kill switch, manual on/off, visualizer mode, confirm dialog, relay status
+/**
+ * claw.js — ARIA Claw UI
+ * Ctrl+Shift+A to open panel.
+ * Kill switch always visible bottom-right.
+ * ON/OFF toggle and Visualizer mode in header.
+ * Confirm dialog for sensitive actions.
+ */
 
 export function initClaw() {
   _buildKillSwitch();
   _buildPanel();
   _buildConfirmDialog();
   _startStatusPoll();
+
   window.ARIA_toggleClaw = toggleClaw;
   window.ARIA_killClaw = killClaw;
   window.ARIA_resumeClaw = resumeClaw;
-  // Called by chat.js when server returns clawConfirm
   window.ARIA_clawConfirm = showConfirmDialog;
+  window.ARIA_clawRelayConnected = false; // updated by status poll
+
   console.log("[ARIA] Claw ready. Ctrl+Shift+A to open.");
 }
 
-/* ═══════════════════════════════════════════════════════════
-   KILL SWITCH — always visible bottom-right, every tab/view
-═══════════════════════════════════════════════════════════ */
+/* ── Kill switch ─────────────────────────────────────────── */
 function _buildKillSwitch() {
   const btn = document.createElement("button");
   btn.id = "clawKillSwitch";
   btn.innerHTML = "⬡<br>KILL";
-  btn.title = "Emergency stop — halt ALL Claw actions immediately";
-  btn.addEventListener("click", () => {
-    const isKilled = btn.classList.contains("killed");
-    isKilled ? resumeClaw() : killClaw();
-  });
+  btn.title = "Emergency stop — halt all Claw actions immediately";
+  btn.addEventListener("click", () =>
+    btn.classList.contains("killed") ? resumeClaw() : killClaw(),
+  );
   document.body.appendChild(btn);
 }
 
 async function killClaw() {
   document.getElementById("clawKillSwitch")?.classList.add("killed");
-  document.getElementById("clawKillSwitch") &&
-    (document.getElementById("clawKillSwitch").innerHTML = "⬡<br>RESUME");
+  const ks = document.getElementById("clawKillSwitch");
+  if (ks) ks.innerHTML = "⬡<br>RESUME";
   _setStatus("● KILLED", "#ff4444");
-  _log("⬡ KILL SWITCH", "All actions halted. Queue cleared.", "error");
+  _log("⬡ KILL", "All Claw actions halted.", "error");
   await fetch("/api/claw/kill", { method: "POST" }).catch(() => {});
 }
 
 async function resumeClaw() {
   document.getElementById("clawKillSwitch")?.classList.remove("killed");
-  document.getElementById("clawKillSwitch") &&
-    (document.getElementById("clawKillSwitch").innerHTML = "⬡<br>KILL");
+  const ks = document.getElementById("clawKillSwitch");
+  if (ks) ks.innerHTML = "⬡<br>KILL";
   _setStatus("● READY", "");
   _log("SYSTEM", "Claw resumed.", "info");
   await fetch("/api/claw/resume", { method: "POST" }).catch(() => {});
 }
 
-/* ═══════════════════════════════════════════════════════════
-   MAIN PANEL
-═══════════════════════════════════════════════════════════ */
-let _clawEnabled = true; // manual on/off
-let _visualizerMode = false;
+/* ── Main panel ──────────────────────────────────────────── */
+let _enabled = true;
+let _vizMode = false;
 let _activeMode = "ai";
 
 function _buildPanel() {
@@ -63,17 +65,15 @@ function _buildPanel() {
       <div id="clawHeaderRight">
         <span id="clawRelayDot" class="clawDotOff" title="Relay status">⬡</span>
         <span id="clawStatus">● READY</span>
-        <button class="clawHdrBtn" id="clawToggleBtn" title="Enable/disable Claw execution">ON</button>
-        <button class="clawHdrBtn" id="clawVizBtn"    title="Visualizer mode — see each step">VIZ</button>
-        <button class="clawHdrBtn" onclick="document.getElementById('clawPanel').classList.remove('open')">✕</button>
+        <button class="clawHdrBtn" id="clawToggleBtn">ON</button>
+        <button class="clawHdrBtn" id="clawVizBtn">VIZ</button>
+        <button class="clawHdrBtn" id="clawCloseBtn">✕</button>
       </div>
     </div>
-
     <div id="clawRelayBar">
-      <span id="clawRelayName">No relay — <span id="clawSetupLink" style="text-decoration:underline;cursor:pointer">setup guide</span></span>
+      <span id="clawRelayName">No relay — <u id="clawSetupLink" style="cursor:pointer">setup guide</u></span>
       <span id="clawRelayPlatform"></span>
     </div>
-
     <div id="clawTerminal">
       <div id="clawOutput"></div>
       <div id="clawInputRow">
@@ -84,23 +84,22 @@ function _buildPanel() {
         <button id="clawRunBtn">⚡</button>
       </div>
     </div>
-
     <div id="clawModeRow">
       <span class="clawModeLabel">MODE:</span>
-      <button class="clawModeBtn active" data-mode="ai"     title="AI plans steps automatically">🤖 AI</button>
-      <button class="clawModeBtn"        data-mode="shell"  title="Direct shell command">💻 Shell</button>
-      <button class="clawModeBtn"        data-mode="type"   title="Type text into active window">⌨ Type</button>
-      <button class="clawModeBtn"        data-mode="hotkey" title="Press a keyboard shortcut (e.g. ctrl+t)">⌘ Key</button>
-      <button class="clawModeBtn"        data-mode="mouse"  title="move X Y | click X Y | scroll up/down N">🖱 Mouse</button>
-      <button id="clawClearBtn" title="Clear output">🗑</button>
+      <button class="clawModeBtn active" data-mode="ai">🤖 AI</button>
+      <button class="clawModeBtn" data-mode="shell">💻 Shell</button>
+      <button class="clawModeBtn" data-mode="type">⌨ Type</button>
+      <button class="clawModeBtn" data-mode="hotkey">⌘ Key</button>
+      <button class="clawModeBtn" data-mode="mouse">🖱 Mouse</button>
+      <button id="clawClearBtn">🗑</button>
     </div>`;
   document.body.appendChild(panel);
 
   const HINTS = {
     ai: "describe what ARIA should do on your PC...",
-    shell: "ls -la  /  dir  /  Get-Process  /  echo hello",
-    type: "Hello World!  (types into active window)",
-    hotkey: "ctrl+t  /  alt+tab  /  ctrl+shift+n  /  win+d",
+    shell: "ls -la  /  dir  /  Get-Process",
+    type: "Hello World  (types into active window)",
+    hotkey: "ctrl+t  /  alt+tab  /  win+d",
     mouse: "move 500 300  |  click 500 300  |  scroll down 3",
   };
 
@@ -117,87 +116,85 @@ function _buildPanel() {
     });
   });
 
-  // Run
   document
     .getElementById("clawRunBtn")
     .addEventListener("click", _runFromInput);
   document.getElementById("clawInput").addEventListener("keydown", (e) => {
     if (e.key === "Enter") _runFromInput();
   });
-
-  // Clear
   document.getElementById("clawClearBtn").addEventListener("click", () => {
     document.getElementById("clawOutput").innerHTML = "";
   });
-
-  // Manual ON/OFF toggle
-  document.getElementById("clawToggleBtn").addEventListener("click", () => {
-    _clawEnabled = !_clawEnabled;
-    const btn = document.getElementById("clawToggleBtn");
-    btn.textContent = _clawEnabled ? "ON" : "OFF";
-    btn.classList.toggle("clawBtnOff", !_clawEnabled);
-    _log(
-      "SYSTEM",
-      _clawEnabled
-        ? "Claw enabled."
-        : "Claw disabled — commands will not execute.",
-      "info",
-    );
-    if (!_clawEnabled)
-      fetch("/api/claw/kill", { method: "POST" }).catch(() => {});
-    else fetch("/api/claw/resume", { method: "POST" }).catch(() => {});
+  document.getElementById("clawCloseBtn").addEventListener("click", () => {
+    panel.classList.remove("open");
   });
 
-  // Visualizer mode
-  document.getElementById("clawVizBtn").addEventListener("click", () => {
-    _visualizerMode = !_visualizerMode;
-    document
-      .getElementById("clawVizBtn")
-      .classList.toggle("active", _visualizerMode);
+  // ON/OFF toggle
+  document.getElementById("clawToggleBtn").addEventListener("click", () => {
+    _enabled = !_enabled;
+    const btn = document.getElementById("clawToggleBtn");
+    btn.textContent = _enabled ? "ON" : "OFF";
+    btn.classList.toggle("clawBtnOff", !_enabled);
     _log(
       "SYSTEM",
-      _visualizerMode
-        ? "Visualizer ON — you will see every command as it is executed."
+      _enabled ? "Claw enabled." : "Claw paused — commands will not execute.",
+      "info",
+    );
+    fetch(_enabled ? "/api/claw/resume" : "/api/claw/kill", {
+      method: "POST",
+    }).catch(() => {});
+  });
+
+  // Visualizer
+  document.getElementById("clawVizBtn").addEventListener("click", () => {
+    _vizMode = !_vizMode;
+    document.getElementById("clawVizBtn").classList.toggle("active", _vizMode);
+    _log(
+      "SYSTEM",
+      _vizMode
+        ? "Visualizer ON — showing each command step."
         : "Visualizer OFF.",
       "info",
     );
   });
 
   // Setup guide
-  document
-    .getElementById("clawSetupLink")
-    .addEventListener("click", () =>
-      _log(
-        "SETUP",
-        [
-          "HOW TO CONNECT YOUR PC TO ARIA CLAW",
-          "",
-          "1. Copy  claw-relay.js  to any folder on your PC",
-          "2. Open a terminal and run:",
-          "   node claw-relay.js https://your-aria-url.onrender.com",
-          "",
-          "Requirements: Node.js (already installed if you dev locally)",
-          "No npm install, no pip, zero extra dependencies.",
-          "Works on Windows, macOS, and Linux.",
-          "",
-          "While the relay runs, ARIA has full control of your PC.",
-          "Use the ⬡ KILL button bottom-right to stop instantly.",
-          "The ON/OFF toggle in this panel also pauses execution.",
-        ].join("\n"),
-        "info",
-      ),
+  document.getElementById("clawSetupLink").addEventListener("click", () => {
+    _log(
+      "SETUP",
+      [
+        "HOW TO CONNECT YOUR PC TO ARIA CLAW",
+        "",
+        "1. Download  claw-relay.js  from your ARIA repo root",
+        "2. Open a terminal and run:",
+        "   node claw-relay.js https://your-aria-url.onrender.com",
+        "",
+        "Requirements: Node.js only. Zero npm installs.",
+        "Works on Windows, macOS, Linux.",
+        "",
+        "While the relay runs, ARIA can:",
+        "  • Open apps and browser tabs",
+        "  • Press keyboard shortcuts",
+        "  • Type text into any window",
+        "  • Run shell commands",
+        "  • Write code to VS Code / Arduino IDE",
+        "  • Take screenshots",
+        "  • Control mouse",
+        "",
+        "Kill switch: ⬡ KILL button (bottom-right) stops everything instantly.",
+      ].join("\n"),
+      "info",
     );
+  });
 
   _log(
     "SYSTEM",
-    "ARIA Claw initialized.\nConnect relay → full PC control.\nClick 'setup guide' for instructions.",
+    "ARIA Claw initialized.\nConnect relay → full PC control.\nClick 'setup guide' above for instructions.",
     "info",
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   CONFIRM DIALOG — for SENSITIVE actions
-═══════════════════════════════════════════════════════════ */
+/* ── Confirm dialog ──────────────────────────────────────── */
 let _confirmResolve = null;
 
 function _buildConfirmDialog() {
@@ -205,19 +202,19 @@ function _buildConfirmDialog() {
   dlg.id = "clawConfirmOverlay";
   dlg.innerHTML = `
     <div id="clawConfirmBox">
-      <div id="clawConfirmTitle">⚠ CLAW PERMISSION REQUEST</div>
-      <div id="clawConfirmBody"></div>
+      <div id="clawConfirmTitle">⚠ PERMISSION REQUIRED</div>
+      <div id="clawConfirmBody">ARIA wants to run a sensitive action:</div>
       <div id="clawConfirmAction"></div>
       <div id="clawConfirmBtns">
-        <button id="clawConfirmDeny"  class="clawConfirmBtn deny">✕ DENY</button>
-        <button id="clawConfirmAllow" class="clawConfirmBtn allow">✓ ALLOW</button>
+        <button class="clawConfirmBtn deny"  id="clawDenyBtn">✕ DENY</button>
+        <button class="clawConfirmBtn allow" id="clawAllowBtn">✓ ALLOW</button>
       </div>
     </div>`;
   document.body.appendChild(dlg);
 
-  document.getElementById("clawConfirmDeny").addEventListener("click", () => {
+  document.getElementById("clawDenyBtn").addEventListener("click", () => {
     dlg.style.display = "none";
-    _log("CONFIRM", "Action DENIED by user.", "error");
+    _log("CONFIRM", "Action DENIED.", "error");
     fetch("/api/claw/confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -228,7 +225,8 @@ function _buildConfirmDialog() {
       _confirmResolve = null;
     }
   });
-  document.getElementById("clawConfirmAllow").addEventListener("click", () => {
+
+  document.getElementById("clawAllowBtn").addEventListener("click", () => {
     const action = document.getElementById("clawConfirmAction").dataset.action;
     dlg.style.display = "none";
     _log("CONFIRM", "Action APPROVED — executing.", "output");
@@ -244,64 +242,68 @@ function _buildConfirmDialog() {
   });
 }
 
-function showConfirmDialog({ action, description }) {
+export function showConfirmDialog({ action, description }) {
   const dlg = document.getElementById("clawConfirmOverlay");
   document.getElementById("clawConfirmBody").textContent =
-    description || "ARIA wants to run a sensitive action:";
+    description || "ARIA wants to run:";
   document.getElementById("clawConfirmAction").textContent = action;
   document.getElementById("clawConfirmAction").dataset.action = action;
   dlg.style.display = "flex";
-  // Open claw panel so user can see context
   document.getElementById("clawPanel")?.classList.add("open");
-  _log("⚠ CONFIRM NEEDED", "Action: " + action, "error");
+  _log("⚠ NEEDS APPROVAL", action, "error");
   return new Promise((r) => {
     _confirmResolve = r;
   });
 }
 
-/* ═══════════════════════════════════════════════════════════
-   STATUS POLL — relay connection + visualizer updates
-═══════════════════════════════════════════════════════════ */
+/* ── Status poll ─────────────────────────────────────────── */
 function _startStatusPoll() {
   async function poll() {
     try {
       const d = await fetch("/api/claw/status").then((r) => r.json());
+
+      // Update relay dot + name
       const dot = document.getElementById("clawRelayDot");
-      const nameEl = document.getElementById("clawRelayName");
-      const platEl = document.getElementById("clawRelayPlatform");
-      const killBtn = document.getElementById("clawKillSwitch");
+      const name = document.getElementById("clawRelayName");
+      const plat = document.getElementById("clawRelayPlatform");
+      const ks = document.getElementById("clawKillSwitch");
 
-      // Kill switch state
-      if (d.killed) {
-        killBtn?.classList.add("killed");
-        killBtn && (killBtn.innerHTML = "⬡<br>RESUME");
-      } else {
-        killBtn?.classList.remove("killed");
-        killBtn && (killBtn.innerHTML = "⬡<br>KILL");
-      }
+      window.ARIA_clawRelayConnected = d.relays?.length > 0;
 
-      // Relay status
       if (d.relays?.length) {
         const relay = d.relays[0];
         if (dot) {
           dot.textContent = "●";
           dot.className = "clawDotOn";
-          dot.title = "Relay connected";
         }
-        const setupLink =
-          '<span id="clawSetupLink" style="text-decoration:underline;cursor:pointer">setup guide</span>';
-        if (nameEl) nameEl.innerHTML = relay.hostname || relay.id;
-        if (platEl) platEl.textContent = relay.platform || "";
+        if (name) name.innerHTML = relay.hostname || relay.id;
+        if (plat) plat.textContent = relay.platform || "";
       } else {
         if (dot) {
           dot.textContent = "⬡";
           dot.className = "clawDotOff";
-          dot.title = "No relay";
         }
-        if (nameEl)
-          nameEl.innerHTML =
-            'No relay — <span id="clawSetupLink" style="text-decoration:underline;cursor:pointer" onclick="document.getElementById(\'clawSetupLink\').dispatchEvent(new Event(\'click\'))">setup guide</span>';
-        if (platEl) platEl.textContent = "";
+        if (name)
+          name.innerHTML =
+            'No relay — <u id="clawSetupLink" style="cursor:pointer">setup guide</u>';
+        // Re-wire setup link if re-rendered
+        document
+          .getElementById("clawSetupLink")
+          ?.addEventListener("click", () =>
+            document
+              .getElementById("clawSetupLink")
+              ?.dispatchEvent(new Event("click")),
+          );
+        if (plat) plat.textContent = "";
+      }
+
+      // Sync kill state
+      if (d.killed) {
+        ks?.classList.add("killed");
+        if (ks) ks.innerHTML = "⬡<br>RESUME";
+      } else {
+        ks?.classList.remove("killed");
+        if (ks) ks.innerHTML = "⬡<br>KILL";
       }
     } catch {}
   }
@@ -309,17 +311,24 @@ function _startStatusPoll() {
   setInterval(poll, 4000);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   COMMAND EXECUTION (from panel input)
-═══════════════════════════════════════════════════════════ */
+/* ── Toggle ──────────────────────────────────────────────── */
+function toggleClaw() {
+  const panel = document.getElementById("clawPanel");
+  panel?.classList.toggle("open");
+  if (panel?.classList.contains("open"))
+    document.getElementById("clawInput")?.focus();
+}
+
+/* ── Run command from panel ──────────────────────────────── */
 async function _runFromInput() {
   const v = document.getElementById("clawInput")?.value.trim();
   if (!v) return;
   document.getElementById("clawInput").value = "";
-  if (!_clawEnabled) {
+  if (!_enabled) {
     _log("BLOCKED", "Claw is OFF. Toggle ON to execute.", "error");
     return;
   }
+
   _log("YOU", v, "user");
   _setStatus("● RUNNING", "var(--red-neon)");
 
@@ -330,17 +339,18 @@ async function _runFromInput() {
       body: JSON.stringify({ input: v, mode: _activeMode }),
     });
     const data = await res.json();
+
     if (data.error) {
       _log("ERROR", data.error, "error");
     } else {
       if (data.output) _log("ARIA", data.output, "output");
-      if (_visualizerMode && data.queued?.length) {
-        data.queued.forEach((q) => _log("EXEC", q, "viz"));
+      if (_vizMode && data.queued?.length) {
+        data.queued.forEach((q) => _log("STEP", q, "viz"));
       }
-      if (!data.relayConnected && _activeMode !== "ai") {
+      if (!data.relayConnected) {
         _log(
           "WARN",
-          "No relay connected. Start claw-relay.js on your machine.",
+          "No relay. Run: node claw-relay.js <your-aria-url>",
           "error",
         );
       }
@@ -353,19 +363,7 @@ async function _runFromInput() {
   }
 }
 
-/* ═══════════════════════════════════════════════════════════
-   PANEL TOGGLE
-═══════════════════════════════════════════════════════════ */
-function toggleClaw() {
-  document.getElementById("clawPanel")?.classList.toggle("open");
-  if (document.getElementById("clawPanel")?.classList.contains("open")) {
-    document.getElementById("clawInput")?.focus();
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   HELPERS
-═══════════════════════════════════════════════════════════ */
+/* ── Helpers ─────────────────────────────────────────────── */
 function _setStatus(text, color) {
   const el = document.getElementById("clawStatus");
   if (el) {
@@ -384,18 +382,11 @@ function _log(label, text, type = "output") {
     label +
     "</span>" +
     '<pre class="clawEntryText">' +
-    _esc(text) +
+    String(text)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;") +
     "</pre>";
   out.appendChild(e);
   out.scrollTop = out.scrollHeight;
 }
-
-function _esc(t) {
-  return String(t)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-// Called from chat.js when ARIA's reply has clawConfirm
-window.ARIA_handleClawConfirm = showConfirmDialog;

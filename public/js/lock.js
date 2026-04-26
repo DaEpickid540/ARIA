@@ -180,9 +180,17 @@ async function loadChatModules() {
           mod.initVoiceControls();
       } catch {}
     }
-    // ── Init settings (wires settingsBtn, TTS, VTT, all controls) ──
+    // ── Init settings (wires TTS, VTT, theme, all controls) ──
     const { initSettings } = await import("./settings.js");
     initSettings();
+
+    // ── New standalone settings button (independent of old wireAllControls) ──
+    try {
+      const { initSettingsBtn } = await import("./settingsBtn.js");
+      initSettingsBtn();
+    } catch (e) {
+      console.warn("[ARIA] settingsBtn init failed:", e);
+    }
 
     // ── New feature modules ──
     try {

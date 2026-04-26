@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <title>ARIA — Adaptive Reasoning Intelligence Architecture</title>
@@ -283,9 +283,7 @@
           <button id="bgTasksListBtn" class="secondaryBtn glitch">
             ⚙ BG Tasks
           </button>
-          <button id="settingsBtn" class="secondaryBtn glitch">
-            ⚙ Settings
-          </button>
+          <!-- settingsBtn removed — new #ariaSettingsBtn used instead -->
         </div>
       </aside>
 
@@ -334,6 +332,7 @@
           <div id="chatHeaderRight">
             <div id="ariaStatusDot" class="statusDot"></div>
             <span id="ariaStatusLabel">ONLINE</span>
+            <button id="ariaSettingsBtn" title="Settings">⚙</button>
           </div>
         </div>
 
@@ -367,13 +366,7 @@
             >
               ☰ Menu
             </button>
-            <button
-              id="mobilSettingsBtn"
-              class="voiceBtn glitch"
-              aria-label="Settings"
-            >
-              ⚙ Settings
-            </button>
+            <!-- mobilSettingsBtn removed — new #ariaSettingsBtn used instead -->
             <button id="callModeBtn" class="voiceBtn glitch">📞 Call</button>
             <button id="pushToTalkBtn" class="voiceBtn glitch">🎙 PTT</button>
             <button id="vttBtn" class="voiceBtn glitch">🗣 VTT</button>
@@ -570,7 +563,7 @@
               </div>
               <label
                 style="
-                  font-family: &quot;Share Tech Mono&quot;, monospace;
+                  font-family: 'Share Tech Mono', monospace;
                   font-size: 10px;
                   color: var(--text-muted);
                   margin-top: 6px;
