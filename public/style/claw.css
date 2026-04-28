@@ -1,3 +1,8 @@
+/* Prevent claw panel from expanding scroll width */
+html {
+  overflow: hidden;
+}
+
 /* ============================================================
    ARIA CLAW — paste at bottom of style.css
    ============================================================ */
@@ -51,7 +56,7 @@
 /* Panel */
 #clawPanel {
   position: fixed;
-  right: -520px;
+  right: 0;
   top: 0;
   width: 500px;
   height: 100dvh;
@@ -61,10 +66,15 @@
   z-index: 8000;
   display: flex;
   flex-direction: column;
-  transition: right 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  /* Use transform instead of right to avoid scroll-width expansion */
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  /* Isolate from document flow completely */
+  will-change: transform;
+  contain: layout style;
 }
 #clawPanel.open {
-  right: 0;
+  transform: translateX(0);
 }
 
 #clawHeader {

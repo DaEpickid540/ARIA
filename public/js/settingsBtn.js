@@ -1,34 +1,62 @@
 /**
- * settingsBtn.js — standalone settings button wiring
- * Completely independent of the old wireAllControls() / initSettings() flow.
- * Just finds #ariaSettingsBtn and wires it directly to ARIA_openSettings.
- * Called from lock.js after all modules load.
+ * settingsBtn.js — all settings open/close wiring in one place.
+ * Wires: #settingsBtn (sidebar), #ariaSettingsBtn (chat header),
+ *        #settingsCloseBtn (X button), backdrop click, Escape, Ctrl+,
  */
 export function initSettingsBtn() {
-  const btn = document.getElementById("ariaSettingsBtn");
-  if (!btn) {
-    console.warn("[ARIA] #ariaSettingsBtn not found");
-    return;
-  }
-
-  btn.addEventListener("click", () => {
-    // Try the global exposed by settings.js first
+  function openSettings() {
+    // settings.js exposes ARIA_openSettings which calls applySettingsToUI too
     if (typeof window.ARIA_openSettings === "function") {
       window.ARIA_openSettings();
-      return;
+    } else {
+      // Direct fallback
+      const overlay = document.getElementById("settingsOverlay");
+      if (overlay) overlay.classList.add("active");
     }
-    // Fallback: manually flip the overlay active class
-    const overlay = document.getElementById("settingsOverlay");
-    if (overlay) {
-      overlay.classList.add("active");
+  }
+
+  function closeSettings() {
+    if (typeof window.ARIA_closeSettings === "function") {
+      window.ARIA_closeSettings();
+    } else {
+      const overlay = document.getElementById("settingsOverlay");
+      if (overlay) overlay.classList.remove("active");
+    }
+  }
+
+  // ── Open triggers ──
+  document
+    .getElementById("settingsBtn")
+    ?.addEventListener("click", openSettings);
+
+  document
+    .getElementById("ariaSettingsBtn")
+    ?.addEventListener("click", openSettings);
+
+  // ── Close triggers ──
+  document
+    .getElementById("settingsCloseBtn")
+    ?.addEventListener("click", closeSettings);
+
+  // Backdrop click
+  document.getElementById("settingsOverlay")?.addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) closeSettings();
+  });
+
+  // Escape key
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      const overlay = document.getElementById("settingsOverlay");
+      if (overlay?.classList.contains("active")) closeSettings();
     }
   });
 
-  // Keyboard shortcut — Ctrl+, (standard settings shortcut)
+  // Ctrl+, shortcut
   document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === ",") {
       e.preventDefault();
-      btn.click();
+      const overlay = document.getElementById("settingsOverlay");
+      overlay?.classList.contains("active") ? closeSettings() : openSettings();
     }
   });
 
