@@ -1,26 +1,30 @@
 /**
  * settingsBtn.js — settings modal open/close.
- * Uses display:flex / display:none directly — same as commandsModal.
- * No class toggling, no dependency on ARIA_openSettings timing.
+ * Uses classList.add/remove("active") — consistent with settings.js,
+ * shortcuts.js, ui.js, and the CSS which uses #settingsOverlay.active { display:flex }
+ * DO NOT set style.display directly — it overrides the class and breaks close.
  */
 export function initSettingsBtn() {
   function openSettings() {
-    const overlay = document.getElementById("settingsOverlay");
-    if (!overlay) return;
-    // Call settings.js hook if available (applies UI, populates voice select)
-    window.ARIA_openSettings?.();
-    // Force display regardless of whether hook worked
-    overlay.style.display = "flex";
+    // ARIA_openSettings (from settings.js) calls applySettingsToUI,
+    // populateVoiceSelect, classList.add("active"), switchSettingsTab — use it.
+    if (typeof window.ARIA_openSettings === "function") {
+      window.ARIA_openSettings();
+    } else {
+      // Fallback: just add active class (CSS handles display:flex)
+      document.getElementById("settingsOverlay")?.classList.add("active");
+    }
   }
 
   function closeSettings() {
-    const overlay = document.getElementById("settingsOverlay");
-    if (!overlay) return;
-    window.ARIA_closeSettings?.();
-    overlay.style.display = "none";
+    if (typeof window.ARIA_closeSettings === "function") {
+      window.ARIA_closeSettings();
+    } else {
+      document.getElementById("settingsOverlay")?.classList.remove("active");
+    }
   }
 
-  // Wire open buttons
+  // ── Open triggers ──
   document
     .getElementById("settingsBtn")
     ?.addEventListener("click", openSettings);
@@ -28,31 +32,31 @@ export function initSettingsBtn() {
     .getElementById("ariaSettingsBtn")
     ?.addEventListener("click", openSettings);
 
-  // Wire close
+  // ── Close triggers ──
   document
     .getElementById("settingsCloseBtn")
     ?.addEventListener("click", closeSettings);
 
-  // Backdrop
+  // Backdrop click
   document.getElementById("settingsOverlay")?.addEventListener("click", (e) => {
     if (e.target === e.currentTarget) closeSettings();
   });
 
-  // Escape
+  // Escape key
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       const o = document.getElementById("settingsOverlay");
-      if (o && o.style.display !== "none" && o.style.display !== "")
-        closeSettings();
+      if (o?.classList.contains("active")) closeSettings();
     }
   });
 
-  // Ctrl+,
+  // Ctrl+/ (matches shortcuts.js Ctrl+/ → ARIA_openSettings)
+  // Ctrl+, as alternate shortcut
   document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === ",") {
       e.preventDefault();
       const o = document.getElementById("settingsOverlay");
-      o?.style.display === "flex" ? closeSettings() : openSettings();
+      o?.classList.contains("active") ? closeSettings() : openSettings();
     }
   });
 
