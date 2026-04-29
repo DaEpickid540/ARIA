@@ -343,11 +343,17 @@ function renderCustomVoiceList() {
           <span class="cviType">${v.elVoiceId ? "⚡ EL" : "🎙 FILE"}</span>
           <div>
             <div class="cviName">${v.name}</div>
-            <div class="cviDesc">${v.elVoiceId ? "ElevenLabs: " + v.elVoiceId : v.fileName || "audio file"}</div>
+            <div class="cviDesc">${
+              v.elVoiceId
+                ? "ElevenLabs: " + v.elVoiceId
+                : v.fileName || "audio file"
+            }</div>
           </div>
         </div>
         <div class="cviActions">
-          <button class="cviSelectBtn ${active ? "active" : ""}" onclick="window.ARIA_selectCustomVoice(${i})">
+          <button class="cviSelectBtn ${
+            active ? "active" : ""
+          }" onclick="window.ARIA_selectCustomVoice(${i})">
             ${active ? "✓ ACTIVE" : "USE"}
           </button>
           <button class="cviDeleteBtn" onclick="window.ARIA_removeCustomVoice(${i})">✕</button>
@@ -414,7 +420,9 @@ async function validateAndLoadElevenLabs() {
       : "",
   );
   if (statusEl) {
-    statusEl.textContent = `✓ Connected — ${voices.length} voice${voices.length !== 1 ? "s" : ""} found.`;
+    statusEl.textContent = `✓ Connected — ${voices.length} voice${
+      voices.length !== 1 ? "s" : ""
+    } found.`;
     statusEl.className = "elStatus ok";
   }
 
@@ -423,7 +431,9 @@ async function validateAndLoadElevenLabs() {
     elSelEl.innerHTML = voices
       .map(
         (v) =>
-          `<option value="${v.id}">${v.name}${v.category ? " — " + v.category : ""}</option>`,
+          `<option value="${v.id}">${v.name}${
+            v.category ? " — " + v.category : ""
+          }</option>`,
       )
       .join("");
   }
@@ -486,7 +496,9 @@ function renderEmotionSummary() {
   const current = getEmotion();
   const e = EMOTIONS[current] || EMOTIONS.neutral;
   el.innerHTML = `
-    <div class="emotionCurrent" style="color:${e.color}; text-shadow: 0 0 8px ${e.color}">
+    <div class="emotionCurrent" style="color:${e.color}; text-shadow: 0 0 8px ${
+    e.color
+  }">
       ${e.icon} ${e.label.toUpperCase()}
     </div>
     <div class="settingsHint" style="margin-top:6px">
@@ -614,9 +626,17 @@ function wireAllControls() {
   async function loadOllamaModels() {
     const sel = document.getElementById("ollamaModelSelect");
     if (!sel) return;
+    sel.innerHTML = "<option value=''>Checking Ollama...</option>";
     try {
-      const cfg = await fetch("/api/config").then((r) => r.json());
-      const models = cfg.ollamaModels || [];
+      const d = await fetch("/api/ollama/status").then((r) => r.json());
+      const urlDisplay = document.getElementById("ollamaUrlDisplay");
+      if (urlDisplay) urlDisplay.textContent = d.url || "localhost:11434";
+      if (!d.running) {
+        sel.innerHTML =
+          "<option value=''>Ollama not running — run: ollama serve</option>";
+        return;
+      }
+      const models = d.models || [];
       if (!models.length) {
         sel.innerHTML =
           '<option value="">No models found — is Ollama running?</option>';
@@ -625,7 +645,9 @@ function wireAllControls() {
       sel.innerHTML = models
         .map(
           (m) =>
-            `<option value="${m}"${currentSettings.ollamaModel === m ? " selected" : ""}>${m}</option>`,
+            `<option value="${m}"${
+              currentSettings.ollamaModel === m ? " selected" : ""
+            }>${m}</option>`,
         )
         .join("");
       if (!currentSettings.ollamaModel) currentSettings.ollamaModel = models[0];
@@ -785,7 +807,9 @@ function wireAllControls() {
       elSelEl.innerHTML = currentSettings.elVoices
         .map(
           (v) =>
-            `<option value="${v.id}">${v.name}${v.category ? " — " + v.category : ""}</option>`,
+            `<option value="${v.id}">${v.name}${
+              v.category ? " — " + v.category : ""
+            }</option>`,
         )
         .join("");
     }

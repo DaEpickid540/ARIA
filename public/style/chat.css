@@ -26,6 +26,8 @@
   animation: msgSlideIn 0.3s ease forwards;
 }
 
+/* User messages keep the bubble; ARIA messages are full-width borderless */
+
 .msg.user {
   background: linear-gradient(135deg, var(--red-core) 0%, var(--red-dim) 100%);
   color: #fff;
@@ -43,26 +45,27 @@
 }
 
 .msg.aria {
-  background: var(--bg-elevated);
-  color: var(--text-blaze);
-  border: 1px solid var(--border-cut);
-  border-left: 3px solid var(--red-dim);
-  box-shadow:
-    0 2px 16px rgba(0, 0, 0, 0.8),
-    inset 1px 0 0 rgba(255, 0, 0, 0.05);
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  /* Full-width — no bubble box */
+  max-width: 100%;
+  background: transparent;
+  border: none;
+  border-left: 2px solid var(--red-dim);
+  box-shadow: none;
+  clip-path: none;
+  padding: 10px 16px 10px 16px;
+  margin-left: 0;
 }
 
 .msg.aria::before {
   content: "ARIA//";
   position: absolute;
-  top: -1px;
-  left: 12px;
+  top: 4px;
+  left: 16px;
   font-size: 9px;
   color: var(--red-core);
   letter-spacing: 0.15em;
   font-family: "Orbitron", sans-serif;
-  opacity: 0.7;
+  opacity: 0.5;
 }
 
 .msgSender {
@@ -137,9 +140,7 @@
 #userInput:focus {
   border-color: var(--red-core);
   border-bottom-color: var(--red-hot);
-  box-shadow:
-    var(--glow-sm),
-    inset 0 0 12px rgba(255, 0, 0, 0.05);
+  box-shadow: var(--glow-sm), inset 0 0 12px rgba(255, 0, 0, 0.05);
   background: rgba(30, 0, 0, 0.5);
 }
 

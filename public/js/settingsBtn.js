@@ -1,64 +1,60 @@
 /**
- * settingsBtn.js — all settings open/close wiring in one place.
- * Wires: #settingsBtn (sidebar), #ariaSettingsBtn (chat header),
- *        #settingsCloseBtn (X button), backdrop click, Escape, Ctrl+,
+ * settingsBtn.js — settings modal open/close.
+ * Uses display:flex / display:none directly — same as commandsModal.
+ * No class toggling, no dependency on ARIA_openSettings timing.
  */
 export function initSettingsBtn() {
   function openSettings() {
-    // settings.js exposes ARIA_openSettings which calls applySettingsToUI too
-    if (typeof window.ARIA_openSettings === "function") {
-      window.ARIA_openSettings();
-    } else {
-      // Direct fallback
-      const overlay = document.getElementById("settingsOverlay");
-      if (overlay) overlay.classList.add("active");
-    }
+    const overlay = document.getElementById("settingsOverlay");
+    if (!overlay) return;
+    // Call settings.js hook if available (applies UI, populates voice select)
+    window.ARIA_openSettings?.();
+    // Force display regardless of whether hook worked
+    overlay.style.display = "flex";
   }
 
   function closeSettings() {
-    if (typeof window.ARIA_closeSettings === "function") {
-      window.ARIA_closeSettings();
-    } else {
-      const overlay = document.getElementById("settingsOverlay");
-      if (overlay) overlay.classList.remove("active");
-    }
+    const overlay = document.getElementById("settingsOverlay");
+    if (!overlay) return;
+    window.ARIA_closeSettings?.();
+    overlay.style.display = "none";
   }
 
-  // ── Open triggers ──
+  // Wire open buttons
   document
     .getElementById("settingsBtn")
     ?.addEventListener("click", openSettings);
-
   document
     .getElementById("ariaSettingsBtn")
     ?.addEventListener("click", openSettings);
 
-  // ── Close triggers ──
+  // Wire close
   document
     .getElementById("settingsCloseBtn")
     ?.addEventListener("click", closeSettings);
 
-  // Backdrop click
+  // Backdrop
   document.getElementById("settingsOverlay")?.addEventListener("click", (e) => {
     if (e.target === e.currentTarget) closeSettings();
   });
 
-  // Escape key
+  // Escape
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      const overlay = document.getElementById("settingsOverlay");
-      if (overlay?.classList.contains("active")) closeSettings();
+      const o = document.getElementById("settingsOverlay");
+      if (o && o.style.display !== "none" && o.style.display !== "")
+        closeSettings();
     }
   });
 
-  // Ctrl+, shortcut
+  // Ctrl+,
   document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === ",") {
       e.preventDefault();
-      const overlay = document.getElementById("settingsOverlay");
-      overlay?.classList.contains("active") ? closeSettings() : openSettings();
+      const o = document.getElementById("settingsOverlay");
+      o?.style.display === "flex" ? closeSettings() : openSettings();
     }
   });
 
-  console.log("[ARIA] Settings button wired ✓");
+  console.log("[ARIA] Settings buttons wired ✓");
 }

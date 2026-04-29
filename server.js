@@ -249,7 +249,9 @@ RESPONSE FORMAT:
 /* ── memory ── */
 function buildMemoryContext() {
   if (!ariaMemory.facts?.length) return "";
-  return `\n\n[YOUR MEMORY — facts about the user:\n${ariaMemory.facts.map((f) => `- ${f}`).join("\n")}\n]`;
+  return `\n\n[YOUR MEMORY — facts about the user:\n${ariaMemory.facts
+    .map((f) => `- ${f}`)
+    .join("\n")}\n]`;
 }
 
 function detectFact(text) {
@@ -878,7 +880,10 @@ app.post("/api/chat", async (req, res) => {
     sysPrompt +=
       "\n\n[TONE OVERRIDE: User seems frustrated. Be extra patient, break things down, be encouraging.]";
   if (documentContext)
-    sysPrompt += `\n\n[DOCUMENT CONTEXT (user uploaded):\n${documentContext.slice(0, 8000)}\n]`;
+    sysPrompt += `\n\n[DOCUMENT CONTEXT (user uploaded):\n${documentContext.slice(
+      0,
+      8000,
+    )}\n]`;
 
   if (thinkingMode || thinkDeeper) {
     sysPrompt += `
@@ -1024,7 +1029,9 @@ app.post("/api/search", async (req, res) => {
     const serpKey = process.env.SERPAPI_KEY;
     if (serpKey) {
       const r = await fetch(
-        `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${serpKey}&num=5`,
+        `https://serpapi.com/search.json?q=${encodeURIComponent(
+          query,
+        )}&api_key=${serpKey}&num=5`,
       );
       const d = await r.json();
       return res.json({
@@ -1034,7 +1041,9 @@ app.post("/api/search", async (req, res) => {
       });
     }
     const r = await fetch(
-      `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`,
+      `https://api.duckduckgo.com/?q=${encodeURIComponent(
+        query,
+      )}&format=json&no_html=1&skip_disambig=1`,
     );
     const d = await r.json();
     const results = [];
@@ -1070,7 +1079,9 @@ app.post("/api/imagine", async (req, res) => {
     process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_API
   );
   const dalleKey = process.env.OPENAI_KEY;
-  const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
+  const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
+    prompt,
+  )}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
 
   // ── Explicit cloudflare ──
   if (imageProvider === "cloudflare") {
@@ -1510,10 +1521,10 @@ app.post("/api/claw", async (req, res) => {
             (c.cmd
               ? ": " + String(c.cmd).slice(0, 30)
               : c.app
-                ? " → " + c.app
-                : c.url
-                  ? " → " + c.url
-                  : ""),
+              ? " → " + c.app
+              : c.url
+              ? " → " + c.url
+              : ""),
         ),
         relayConnected: !!tid,
       });
@@ -1550,6 +1561,39 @@ app.post("/api/claw/confirm", (req, res) => {
   if (!clawQueue.has(tid)) clawQueue.set(tid, []);
   clawQueue.get(tid).push(cmd);
   res.json({ ok: true, queued: cmd.type });
+});
+
+/* ============================================================
+   OLLAMA — local LLM status + model listing
+   ============================================================ */
+app.get("/api/ollama/status", async (req, res) => {
+  const url = process.env.OLLAMA_URL || "http://localhost:11434";
+  try {
+    const r = await fetch(`${url}/api/tags`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!r.ok)
+      return res.json({ running: false, url, error: `HTTP ${r.status}` });
+    const d = await r.json();
+    const models = (d.models || []).map((m) => m.name);
+    res.json({ running: true, url, models });
+  } catch (e) {
+    res.json({ running: false, url, error: e.message });
+  }
+});
+
+app.get("/api/ollama/models", async (req, res) => {
+  const url = process.env.OLLAMA_URL || "http://localhost:11434";
+  try {
+    const r = await fetch(`${url}/api/tags`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!r.ok) return res.json({ models: [], error: `HTTP ${r.status}` });
+    const d = await r.json();
+    res.json({ models: (d.models || []).map((m) => m.name), url });
+  } catch (e) {
+    res.json({ models: [], error: e.message, url });
+  }
 });
 
 /* ── Fallback ── */
