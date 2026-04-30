@@ -199,6 +199,22 @@ function showToast(msg, isError = false) {
 window.ARIA_showToast = showToast;
 
 /* ============================================================
+   PROVIDER SECTION VISIBILITY — used by applySettingsToUI and wireAllControls
+   ============================================================ */
+function updateProviderSections(prov) {
+  // Show/hide the correct model picker based on selected provider
+  document.getElementById("orModelSection")?.style &&
+    (document.getElementById("orModelSection").style.display =
+      prov === "openrouter" ? "" : "none");
+  document.getElementById("cfModelSection")?.style &&
+    (document.getElementById("cfModelSection").style.display =
+      prov === "cloudflare" ? "" : "none");
+  document.getElementById("ollamaModelSection")?.style &&
+    (document.getElementById("ollamaModelSection").style.display =
+      prov === "ollama" ? "" : "none");
+}
+
+/* ============================================================
    APPLY ALL SETTINGS TO UI
    (called every time settings panel opens or a value changes)
    ============================================================ */
@@ -569,18 +585,6 @@ function wireAllControls() {
   );
 
   // ── Provider ──
-  function updateProviderSections(prov) {
-    // Show/hide the correct model picker based on selected provider
-    document.getElementById("orModelSection")?.style &&
-      (document.getElementById("orModelSection").style.display =
-        prov === "openrouter" ? "" : "none");
-    document.getElementById("cfModelSection")?.style &&
-      (document.getElementById("cfModelSection").style.display =
-        prov === "cloudflare" ? "" : "none");
-    document.getElementById("ollamaModelSection")?.style &&
-      (document.getElementById("ollamaModelSection").style.display =
-        prov === "ollama" ? "" : "none");
-  }
 
   document.getElementById("providerSelect")?.addEventListener("change", (e) => {
     currentSettings.provider = e.target.value;
