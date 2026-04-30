@@ -82,18 +82,44 @@ window.ARIA_openSidebar = () => {
   else expandSidebar();
 };
 
-/* ── MOBILE SETTINGS BUTTON (in inputBtnRow, always visible on mobile) ── */
-document.getElementById("mobilSettingsBtn")?.addEventListener("click", () => {
-  // Call the settings module's open function directly — avoids the fragile
-  // click-delegation chain and the inline-style bug it could leave behind.
+/* ── SETTINGS BUTTONS — all wired here for reliability ── */
+function _openSettingsOverlay() {
   if (typeof window.ARIA_openSettings === "function") {
     window.ARIA_openSettings();
   } else {
-    // Settings not initialised yet — add the active class directly so closeSettings
-    // (which removes the class) will still clean up correctly.
     document.getElementById("settingsOverlay")?.classList.add("active");
   }
+}
+function _closeSettingsOverlay() {
+  if (typeof window.ARIA_closeSettings === "function") {
+    window.ARIA_closeSettings();
+  } else {
+    document.getElementById("settingsOverlay")?.classList.remove("active");
+  }
+}
+
+// Wire all three settings open buttons
+document
+  .getElementById("settingsBtn")
+  ?.addEventListener("click", _openSettingsOverlay);
+document
+  .getElementById("ariaSettingsBtn")
+  ?.addEventListener("click", _openSettingsOverlay);
+document
+  .getElementById("mobilSettingsBtn")
+  ?.addEventListener("click", _openSettingsOverlay);
+
+// Wire close button + backdrop
+document
+  .getElementById("settingsCloseBtn")
+  ?.addEventListener("click", _closeSettingsOverlay);
+document.getElementById("settingsOverlay")?.addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) _closeSettingsOverlay();
 });
+
+// Expose globally so other modules can call them
+window.ARIA_showSettings = _openSettingsOverlay;
+window.ARIA_hideSettings = _closeSettingsOverlay;
 
 /* ── ESC KEY ── */
 document.addEventListener("keydown", (e) => {
