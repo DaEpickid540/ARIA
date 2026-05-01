@@ -212,6 +212,12 @@ function updateProviderSections(prov) {
   document.getElementById("ollamaModelSection")?.style &&
     (document.getElementById("ollamaModelSection").style.display =
       prov === "ollama" ? "" : "none");
+<<<<<<< Updated upstream
+=======
+  document.getElementById("lmstudioModelSection")?.style &&
+    (document.getElementById("lmstudioModelSection").style.display =
+      prov === "lmstudio" ? "" : "none");
+>>>>>>> Stashed changes
 }
 
 /* ============================================================
@@ -308,9 +314,13 @@ function applySettingsToUI() {
   applyBrightness(currentSettings.brightness ?? 1);
 
   // Feature toggles
-  ["glitchEffects", "scanlines", "sendOnEnter", "showTimestamps"].forEach((k) =>
-    syncToggle("toggle_" + k, currentSettings[k] !== false),
-  );
+  [
+    "glitchEffects",
+    "scanlines",
+    "sendOnEnter",
+    "showTimestamps",
+    "haloEffects",
+  ].forEach((k) => syncToggle("toggle_" + k, currentSettings[k] !== false));
   document.body.classList.toggle(
     "no-scanlines",
     currentSettings.scanlines === false,
@@ -546,6 +556,12 @@ function openSettings() {
   populateVoiceSelect();
   document.getElementById("settingsOverlay")?.classList.add("active");
   switchSettingsTab("appearance");
+  // Auto-load local model lists if currently using a local provider
+  const prov = currentSettings.provider;
+  if (prov === "ollama")
+    setTimeout(() => window._aria_loadOllamaModels?.(), 100);
+  if (prov === "lmstudio")
+    setTimeout(() => window._aria_loadLMStudioModels?.(), 100);
 }
 function closeSettings() {
   document.getElementById("settingsOverlay")?.classList.remove("active");
@@ -589,8 +605,9 @@ function wireAllControls() {
   document.getElementById("providerSelect")?.addEventListener("change", (e) => {
     currentSettings.provider = e.target.value;
     updateProviderSections(e.target.value);
-    // Load Ollama models on demand
+    // Load local models on demand
     if (e.target.value === "ollama") loadOllamaModels();
+    if (e.target.value === "lmstudio") loadLMStudioModels();
   });
 
   // OpenRouter model select
@@ -663,7 +680,57 @@ function wireAllControls() {
     });
   }
 
-  // ── TTS toggle ──
+  // LM Studio model loader (OpenAI-compatible local API)
+  async function loadLMStudioModels() {
+    const sel = document.getElementById("lmstudioModelSelect");
+    if (!sel) return;
+    sel.innerHTML = "<option value=''>Checking LM Studio...</option>";
+    try {
+      const d = await fetch("/api/lmstudio/status").then((r) => r.json());
+      const urlDisplay = document.getElementById("lmstudioUrlDisplay");
+      if (urlDisplay) urlDisplay.textContent = d.url || "localhost:1234";
+      if (!d.running) {
+        sel.innerHTML =
+          "<option value=''>LM Studio not running — start the local server</option>";
+        return;
+      }
+      const models = d.models || [];
+      if (!models.length) {
+        sel.innerHTML =
+          '<option value="">No models loaded — load a model in LM Studio first</option>';
+        return;
+      }
+      sel.innerHTML = models
+        .map(
+          (m) =>
+            `<option value="${m}"${
+              currentSettings.lmstudioModel === m ? " selected" : ""
+            }>${m}</option>`,
+        )
+        .join("");
+      if (!currentSettings.lmstudioModel)
+        currentSettings.lmstudioModel = models[0];
+    } catch {
+      sel.innerHTML =
+        '<option value="">Could not connect to LM Studio</option>';
+    }
+    sel.addEventListener("change", (e) => {
+      currentSettings.lmstudioModel = e.target.value;
+    });
+  }
+
+  // Expose loaders so openSettings() can call them
+  window._aria_loadOllamaModels = loadOllamaModels;
+  window._aria_loadLMStudioModels = loadLMStudioModels;
+
+  // ── Halo intensity slider ──
+  document.getElementById("haloIntensity")?.addEventListener("input", (e) => {
+    currentSettings.haloIntensity = parseFloat(e.target.value);
+    document.documentElement.style.setProperty(
+      "--halo-intensity",
+      String(currentSettings.haloIntensity),
+    );
+  });
   document.getElementById("ttsToggle")?.addEventListener("click", () => {
     currentSettings.ttsEnabled = !currentSettings.ttsEnabled;
     setTTSEnabled(currentSettings.ttsEnabled);
@@ -752,23 +819,22 @@ function wireAllControls() {
   );
 
   // ── Feature toggles ──
-  ["glitchEffects", "scanlines", "sendOnEnter", "showTimestamps"].forEach(
-    (key) => {
-      document
-        .getElementById("toggle_" + key)
-        ?.addEventListener("click", () => {
-          currentSettings[key] = currentSettings[key] === false ? true : false;
-          syncToggle("toggle_" + key, currentSettings[key]);
-          if (key === "scanlines")
-            document.body.classList.toggle(
-              "no-scanlines",
-              !currentSettings[key],
-            );
-          if (key === "glitchEffects")
-            document.body.classList.toggle("no-glitch", !currentSettings[key]);
-        });
-    },
-  );
+  [
+    "glitchEffects",
+    "scanlines",
+    "sendOnEnter",
+    "showTimestamps",
+    "haloEffects",
+  ].forEach((key) => {
+    document.getElementById("toggle_" + key)?.addEventListener("click", () => {
+      currentSettings[key] = currentSettings[key] === false ? true : false;
+      syncToggle("toggle_" + key, currentSettings[key]);
+      if (key === "scanlines")
+        document.body.classList.toggle("no-scanlines", !currentSettings[key]);
+      if (key === "glitchEffects")
+        document.body.classList.toggle("no-glitch", !currentSettings[key]);
+    });
+  });
 
   // ── Font size ──
   document.getElementById("fontSizeSelect")?.addEventListener("change", (e) => {

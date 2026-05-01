@@ -50,7 +50,7 @@
     <link rel="stylesheet" href="style/homepage.css" />
     <link rel="stylesheet" href="style/settings.css" />
     <link rel="stylesheet" href="style/overlays.css" />
-    <link rel="stylesheet" href="style/theme" />
+    <link rel="stylesheet" href="style/theme.css" />
     <link rel="stylesheet" href="style/components.css" />
     <link rel="stylesheet" href="style/panels.css" />
     <link rel="stylesheet" href="style/hometools.css" />
@@ -1020,6 +1020,7 @@
                 <option value="nemotron">⚡ NVIDIA Nemotron 70B</option>
                 <option value="deepseek">🐳 DeepSeek</option>
                 <option value="ollama">🏠 Local Ollama</option>
+                <option value="lmstudio">🦙 LM Studio (Local Llama)</option>
               </select>
             </section>
 
@@ -1122,6 +1123,26 @@
               </select>
               <p class="settingsHint" style="margin-top: 6px">
                 URL: <code id="ollamaUrlDisplay">localhost:11434</code>
+              </p>
+            </section>
+
+            <!-- LM Studio model picker -->
+            <section
+              class="settingsSection"
+              id="lmstudioModelSection"
+              style="display: none"
+            >
+              <h3>LM Studio Model</h3>
+              <p class="settingsHint">
+                Runs any GGUF Llama model locally via LM Studio's
+                OpenAI-compatible server. Start the server in LM Studio before
+                connecting.
+              </p>
+              <select id="lmstudioModelSelect">
+                <option value="">Loading models…</option>
+              </select>
+              <p class="settingsHint" style="margin-top: 6px">
+                URL: <code id="lmstudioUrlDisplay">localhost:1234</code>
               </p>
             </section>
 

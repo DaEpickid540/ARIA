@@ -561,7 +561,7 @@ async function generateEmbedding(text) {
 
 /* ============================================================
    AI DISPATCH — callAI()
-   Providers: cloudflare | groq | openrouter | ollama
+   Providers: cloudflare | groq | openrouter | ollama | lmstudio
    Auto-routes coding/math to Cloudflare specialist models when CF keys present.
    Falls back gracefully: CF → Groq → OpenRouter → error.
    ============================================================ */
@@ -590,6 +590,36 @@ async function callAI(messages, provider, model, modeOpts = {}) {
     } catch (e) {
       // Ollama not running — fall through to next provider
       console.warn("[AI] Ollama unavailable:", e.message, "— falling back");
+      if (hasCF) return callCloudflare(messages, pickCFModel(modeOpts));
+      if (hasGroq) return callGroq(messages, model);
+      if (hasOR) return callOpenRouter(messages, model, modeOpts);
+      throw e;
+    }
+  }
+
+  // ── LM STUDIO (OpenAI-compatible local API, default port 1234) ──
+  if (provider === "lmstudio") {
+    const lmUrl = process.env.LMSTUDIO_URL || "http://localhost:1234";
+    const lmModel = model || process.env.LMSTUDIO_MODEL || "";
+    try {
+      const res = await fetch(`${lmUrl}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: lmModel || undefined,
+          messages,
+          stream: false,
+          temperature: 0.7,
+        }),
+        signal: AbortSignal.timeout(60000),
+      });
+      if (!res.ok) throw new Error(`LM Studio HTTP ${res.status}`);
+      const data = await res.json();
+      const reply = data?.choices?.[0]?.message?.content?.trim();
+      if (!reply) throw new Error("Empty LM Studio response");
+      return reply;
+    } catch (e) {
+      console.warn("[AI] LM Studio unavailable:", e.message, "— falling back");
       if (hasCF) return callCloudflare(messages, pickCFModel(modeOpts));
       if (hasGroq) return callGroq(messages, model);
       if (hasOR) return callOpenRouter(messages, model, modeOpts);
@@ -888,30 +918,61 @@ app.post("/api/chat", async (req, res) => {
   if (thinkingMode || thinkDeeper) {
     sysPrompt += `
 
-[THINKING MODE ENABLED]
-Before every response, wrap your reasoning in <think> tags:
+[CHAIN-OF-THOUGHT REASONING — MANDATORY]
+You MUST start your response with a <think> block. Zero text before it.
+Structure your thinking exactly like this:
+
 <think>
-Step 1: What is the user actually asking?
-Step 2: What do I know about this?
-Step 3: What's the best approach?
-Step 4: Draft my answer...
+## Problem Decomposition
+What is the user actually asking? What's the real underlying need?
+
+## Context & Constraints
+Relevant facts I know. What assumptions am I making? What are the limits?
+
+## Approach Selection
+What strategy should I use? Why is it better than alternatives?
+
+## Step-by-Step Reasoning
+1. [First logical step]
+2. [Next step, building on previous]
+3. [Continue until the answer is clear]
+...
+
+## Potential Issues
+Edge cases, gotchas, or things I might be wrong about.
+
+## Draft Answer
+Rough outline of what I'll say before I write the final version.
 </think>
-Then write your actual response after the closing </think> tag.`;
+
+Write your final polished response after the closing </think> tag.
+NEVER output anything before the opening <think> tag.
+NEVER explain that you are going to think — just think.`;
   }
 
   if (thinkDeeper) {
     sysPrompt += `
 
-[THINK DEEPER MODE]
-You have extra reasoning budget. For EVERY question:
-- Spend at least 6-8 steps in your <think> block
-- Consider alternative interpretations of the question
-- Identify potential edge cases and failure modes
-- Research your own knowledge thoroughly before answering
-- Draft, critique, and revise your answer inside the think block
-- Only output the final polished answer after </think>
-- Your final answer should be comprehensive, well-structured, and at least 3x longer than you'd normally write
-- Use headers, examples, and code snippets where helpful`;
+[THINK DEEPER — EXTENDED REASONING]
+You have maximum reasoning budget. Apply these additional steps INSIDE your <think> block:
+
+## Alternative Interpretations
+Could the user mean something else? List 2-3 readings of their question.
+
+## First-Principles Check
+Break the problem down to its foundations. Don't assume anything.
+
+## Self-Critique
+What's wrong or incomplete with my initial reasoning? Play devil's advocate.
+
+## Revised Reasoning
+Update my approach based on the self-critique.
+
+## Confidence Assessment
+How confident am I? What would change my answer?
+
+Your final response should be comprehensive — use headers, examples, and code where helpful.
+Minimum 3x longer than a casual answer. Quality over brevity.`;
   }
 
   if (musicTutorMode) {
@@ -1591,6 +1652,39 @@ app.get("/api/ollama/models", async (req, res) => {
     if (!r.ok) return res.json({ models: [], error: `HTTP ${r.status}` });
     const d = await r.json();
     res.json({ models: (d.models || []).map((m) => m.name), url });
+  } catch (e) {
+    res.json({ models: [], error: e.message, url });
+  }
+});
+
+/* ============================================================
+   LM STUDIO — local OpenAI-compatible server (default port 1234)
+   ============================================================ */
+app.get("/api/lmstudio/status", async (req, res) => {
+  const url = process.env.LMSTUDIO_URL || "http://localhost:1234";
+  try {
+    const r = await fetch(`${url}/v1/models`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!r.ok)
+      return res.json({ running: false, url, error: `HTTP ${r.status}` });
+    const d = await r.json();
+    const models = (d.data || []).map((m) => m.id);
+    res.json({ running: true, url, models });
+  } catch (e) {
+    res.json({ running: false, url, error: e.message });
+  }
+});
+
+app.get("/api/lmstudio/models", async (req, res) => {
+  const url = process.env.LMSTUDIO_URL || "http://localhost:1234";
+  try {
+    const r = await fetch(`${url}/v1/models`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!r.ok) return res.json({ models: [], error: `HTTP ${r.status}` });
+    const d = await r.json();
+    res.json({ models: (d.data || []).map((m) => m.id), url });
   } catch (e) {
     res.json({ models: [], error: e.message, url });
   }

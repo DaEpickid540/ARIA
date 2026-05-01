@@ -11,7 +11,7 @@ let documentContext = "";
 let mathMode = false;
 let programmingMode = false;
 let studyMode = false;
-let thinkingMode = false;
+let thinkingMode = true;   // on by default — dropdown always shown
 let pendingFiles = [];
 let thinkDeeper = false;
 let musicTutorMode = false;
@@ -1746,6 +1746,7 @@ async function sendMessageContent(text, chat, attachments = []) {
               ? undefined
               : currentSettings.cfModel || undefined;
           if (p === "ollama") return currentSettings.ollamaModel || undefined;
+          if (p === "lmstudio") return currentSettings.lmstudioModel || undefined;
           return undefined; // groq, nemotron, deepseek use their fixed models
         })(),
         imageProvider: currentSettings.imageProvider || "auto",
@@ -1833,6 +1834,13 @@ function escapeHtml(t) {
 function renderMarkdown(text) {
   if (!text) return "";
 
+  // Strip any text that appears before the first <think> block
+  // (model sometimes outputs a preamble paragraph before thinking)
+  text = text.replace(/^[\s\S]*?(?=<think>)/i, (pre) => {
+    // Only strip if there's actually a <think> block ahead
+    return /<think>/i.test(text) ? "" : pre;
+  });
+
   // Think blocks first (before escaping)
   text = text.replace(/<think>([\s\S]*?)<\/think>/gi, (_, inner) => {
     const escaped = escapeHtml(inner.trim());
@@ -1842,10 +1850,11 @@ function renderMarkdown(text) {
 
   let h = escapeHtml(text);
 
-  // Restore think blocks as collapsible
+  // Restore think blocks as open collapsible — open by default
   h = h.replace(/__THINK__([A-Za-z0-9+/=]+)__THINK__/g, (_, b64) => {
     const c = decodeURIComponent(escape(atob(b64)));
-    return `<details class="thinkBlock"><summary>🧠 ARIA is thinking…</summary><div class="thinkContent">${c}</div></details>`;
+    return `<details class="thinkBlock" open><summary>◈ Chain of Thought</summary><div class="thinkContent">${c}</div></details>`;
+  });
   });
 
   // Code blocks — with Panel + Copy + Download

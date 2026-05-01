@@ -93,6 +93,55 @@
   scrollbar-color: var(--red-dim) transparent;
 }
 
+/* ============================================================
+   TAB BAR — the row of tab buttons above settingsContent
+   ============================================================ */
+#settingsTabs {
+  display: flex;
+  gap: 0;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border-cut);
+  background: rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+#settingsTabs::-webkit-scrollbar {
+  display: none;
+}
+
+.settingsTab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-family: "Orbitron", sans-serif;
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  padding: 10px 13px;
+  cursor: crosshair;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s, text-shadow 0.15s;
+  text-transform: uppercase;
+}
+.settingsTab:hover {
+  color: var(--text-hot);
+}
+.settingsTab.active {
+  color: var(--red-core);
+  border-bottom-color: var(--red-core);
+  text-shadow: var(--glow-sm);
+}
+
+/* ── TAB PANES — hide all, show only .active ── */
+.settingsTabPane {
+  display: none;
+}
+.settingsTabPane.active {
+  display: block;
+}
+
 .settingsSection {
   margin-bottom: 20px;
   padding-bottom: 16px;
