@@ -1427,3 +1427,78 @@ body.mathPanelOpen #chatWindow {
   right: 0;
   bottom: 0;
 }
+
+/* ============================================================
+   LIVE THINKING PANEL — shown during SSE streaming
+   ============================================================ */
+.thinkLivePanel {
+  margin: 4px 0 6px 0;
+  border-left: 2px solid var(--red-dim);
+  padding: 6px 0 6px 10px;
+  transition: border-color 0.3s;
+}
+.thinkLivePanel.thinkLiveDone {
+  border-left-color: rgba(255, 0, 0, 0.2);
+}
+.thinkLiveHeader {
+  font-family: "Orbitron", sans-serif;
+  font-size: 7.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--red-dim);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+  transition: color 0.3s;
+}
+.thinkLiveDone .thinkLiveHeader {
+  color: rgba(255, 0, 0, 0.35);
+}
+.thinkLiveDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--red-core);
+  flex-shrink: 0;
+  animation: thinkPulse 1s ease-in-out infinite;
+}
+.thinkLiveDot.done {
+  animation: none;
+  background: rgba(255, 0, 0, 0.3);
+}
+@keyframes thinkPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.7);
+  }
+}
+.thinkLiveSteps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.thinkLiveStep {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  opacity: 0;
+  transform: translateY(4px);
+}
+.thinkLiveStepIn {
+  animation: thinkStepIn 0.25s ease forwards;
+}
+@keyframes thinkStepIn {
+  to {
+    opacity: 0.75;
+    transform: translateY(0);
+  }
+}

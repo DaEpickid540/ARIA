@@ -926,8 +926,6 @@ app.post("/api/chat", async (req, res) => {
     programmingMode = false,
     studyMode = false,
     documentContext = "",
-    thinkingMode = false,
-    thinkDeeper = false,
     musicTutorMode = false,
     workspaceRepo = "",
     imageProvider = "auto",
@@ -958,7 +956,7 @@ app.post("/api/chat", async (req, res) => {
     )}\n]`;
 
   // Auto-decide thinking: explicit toggle OR auto-detected complex message
-  const shouldThink = thinkingMode || thinkDeeper || needsThinking(message);
+  const shouldThink = needsThinking(message);
 
   if (shouldThink) {
     sysPrompt += `
@@ -982,7 +980,13 @@ Rules:
 - If you verify code/math in [STEP 5], explicitly say what you checked.`;
   }
 
-  if (thinkDeeper) {
+  // Extended reasoning for very complex requests (long messages or explicit ask)
+  if (
+    message.split(/\s+/).length > 30 ||
+    /\b(deeply|thoroughly|comprehensive|in depth|step by step|think through|explain everything)\b/i.test(
+      message,
+    )
+  ) {
     sysPrompt += `
 
 [THINK DEEPER — EXTENDED]
@@ -1106,8 +1110,8 @@ Active GitHub repo: ${workspaceRepo}
       messages,
       provider,
       requestedModel,
-      thinkDeeper,
-      { mathMode, programmingMode, thinkDeeper, musicTutorMode },
+      false,
+      { mathMode, programmingMode, thinkDeeper: false, musicTutorMode },
     );
     res.json({
       reply: result.reply,

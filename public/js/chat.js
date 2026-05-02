@@ -11,9 +11,7 @@ let documentContext = "";
 let mathMode = false;
 let programmingMode = false;
 let studyMode = false;
-let thinkingMode = true; // on by default — dropdown always shown
 let pendingFiles = [];
-let thinkDeeper = false;
 let musicTutorMode = false;
 let previewActive = false;
 let workspaceRepoUrl = "";
@@ -265,9 +263,6 @@ document
 document
   .getElementById("tool_study")
   ?.addEventListener("click", () => toolAction("studyModeBtn"));
-document
-  .getElementById("tool_think")
-  ?.addEventListener("click", () => toolAction("thinkingBtn"));
 document.getElementById("tool_commands")?.addEventListener("click", () => {
   toolAction("commandsBtn");
 });
@@ -353,11 +348,6 @@ function toggleStudy() {
   }
 }
 toggleStudy.isOn = () => studyMode;
-function toggleThink() {
-  thinkingMode = !thinkingMode;
-}
-toggleThink.isOn = () => thinkingMode;
-
 wireMode(
   "mathModeBtn",
   toggleMath,
@@ -376,22 +366,6 @@ wireMode(
   "📚 **Study mode ON** — upload notes and I'll quiz you.",
   "Study mode off.",
 );
-wireMode(
-  "thinkingBtn",
-  toggleThink,
-  "🧠 **Thinking mode ON** — ARIA will show her reasoning.",
-  "Thinking mode off.",
-);
-
-// ── Think Deeper ──
-document.getElementById("tool_deepthink")?.addEventListener("click", () => {
-  thinkDeeper = !thinkDeeper;
-  if (toolsDropMenu) toolsDropMenu.style.display = "none";
-  toolsDropBtn?.classList.remove("active");
-  showChatNotification(thinkDeeper ? "🔬 Think Deeper ON" : "Think Deeper off");
-  triggerHalo("pulse", 800);
-});
-
 // ── Music Tutor ──
 document.getElementById("tool_music")?.addEventListener("click", () => {
   musicTutorMode = !musicTutorMode;
@@ -424,13 +398,7 @@ document.getElementById("tool_workspace")?.addEventListener("click", () => {
   }
 });
 
-/* ── WEB SEARCH button (hidden — triggered by slash cmd or AI) ── */
-document.getElementById("webSearchBtn")?.addEventListener("click", async () => {
-  const q = userInput?.value.trim();
-  if (!q) return;
-  await doWebSearch(q);
-});
-
+/* doWebSearch — called by AI ACTION:search and slash commands */
 async function doWebSearch(q, engineOverride = null) {
   const chat = getCurrentChat();
   if (!chat) return;
@@ -1923,8 +1891,6 @@ async function sendMessageContent(text, chat, attachments = []) {
     mathMode,
     programmingMode,
     studyMode,
-    thinkingMode,
-    thinkDeeper,
     musicTutorMode,
     workspaceRepo: workspaceRepoUrl || undefined,
     documentContext: docCtx,
@@ -1951,19 +1917,53 @@ async function sendMessageContent(text, chat, attachments = []) {
         removeTypingIndicator(tid);
         clearHalo();
 
-        // Create a live message bubble for streaming
         const streamId = "stream_" + Date.now();
+
+        // ── Live thinking panel (shown while inside <think>)
+        const thinkLiveId = streamId + "_think";
+        const thinkLiveDiv = document.createElement("div");
+        thinkLiveDiv.id = thinkLiveId;
+        thinkLiveDiv.className = "thinkLivePanel";
+        thinkLiveDiv.innerHTML = `<div class="thinkLiveHeader"><span class="thinkLiveDot"></span> ARIA is reasoning…</div><div class="thinkLiveSteps" id="${thinkLiveId}_steps"></div>`;
+        messages.appendChild(thinkLiveDiv);
+        messages.scrollTop = messages.scrollHeight;
+
+        // ── Answer bubble (hidden until </think> closes)
         const streamDiv = document.createElement("div");
         streamDiv.classList.add("msg", "aria");
         streamDiv.id = streamId;
+        streamDiv.style.display = "none";
         streamDiv.innerHTML = `<div class="msgSender">ARIA</div><div class="msgBody" id="${streamId}_body"></div>`;
         messages.appendChild(streamDiv);
-        messages.scrollTop = messages.scrollHeight;
 
         const reader = res.body.getReader();
         const dec = new TextDecoder();
         let buf = "";
         let accumulated = "";
+        let inThink = false;
+        let thinkBuf = ""; // collects raw think content
+        let answerBuf = ""; // collects answer content
+        let stepsShown = new Set();
+
+        // Helper: parse and render a new step line into the live panel
+        function showLiveStep(stepText) {
+          const m = stepText.match(/\[STEP \d+\s*[—–-]\s*([A-Z ]+)\]:\s*(.+)/i);
+          if (!m) return;
+          const label = m[1].trim();
+          const detail = m[2].trim();
+          const key = label;
+          if (stepsShown.has(key)) return;
+          stepsShown.add(key);
+          const stepsEl = document.getElementById(thinkLiveId + "_steps");
+          if (!stepsEl) return;
+          const pill = document.createElement("div");
+          pill.className = "thinkLiveStep thinkLiveStepIn";
+          pill.innerHTML = `<span class="thinkStepLabel">${escapeHtml(
+            label,
+          )}</span><span class="thinkStepText">${escapeHtml(detail)}</span>`;
+          stepsEl.appendChild(pill);
+          messages.scrollTop = messages.scrollHeight;
+        }
 
         while (true) {
           const { done, value } = await reader.read();
@@ -1979,19 +1979,60 @@ async function sendMessageContent(text, chat, attachments = []) {
               const evt = JSON.parse(raw);
               if (evt.delta) {
                 accumulated += evt.delta;
-                // Live-render markdown as tokens arrive
-                const bodyEl = document.getElementById(streamId + "_body");
-                if (bodyEl) bodyEl.innerHTML = renderMarkdown(accumulated);
-                messages.scrollTop = messages.scrollHeight;
+
+                // Track whether we're inside <think>...</think>
+                const thinkOpen = accumulated.indexOf("<think>");
+                const thinkClose = accumulated.indexOf("</think>");
+
+                if (thinkOpen !== -1 && thinkClose === -1) {
+                  // Inside think block — extract new think content and scan for steps
+                  inThink = true;
+                  const newThink = accumulated.slice(thinkOpen + 7);
+                  const newLines = newThink.split("\n");
+                  for (const tl of newLines) {
+                    if (/\[STEP \d+/i.test(tl)) showLiveStep(tl.trim());
+                  }
+                } else if (thinkClose !== -1) {
+                  // Think block closed — finalize steps, show answer
+                  if (inThink) {
+                    inThink = false;
+                    // Scan remaining think content for any final steps
+                    const thinkFull = accumulated.slice(
+                      (accumulated.indexOf("<think>") || 0) + 7,
+                      thinkClose,
+                    );
+                    for (const tl of thinkFull.split("\n")) {
+                      if (/\[STEP \d+/i.test(tl)) showLiveStep(tl.trim());
+                    }
+                    // Collapse the live panel into a summary
+                    thinkLiveDiv.classList.add("thinkLiveDone");
+                    const hdr = thinkLiveDiv.querySelector(".thinkLiveHeader");
+                    if (hdr)
+                      hdr.innerHTML = `<span class="thinkLiveDot done"></span> Reasoned (${stepsShown.size} steps)`;
+                  }
+                  // Show answer bubble and render what's after </think>
+                  answerBuf = accumulated.slice(thinkClose + 8).trimStart();
+                  if (answerBuf) {
+                    streamDiv.style.display = "";
+                    const bodyEl = document.getElementById(streamId + "_body");
+                    if (bodyEl) bodyEl.innerHTML = renderMarkdown(answerBuf);
+                    messages.scrollTop = messages.scrollHeight;
+                  }
+                } else if (!inThink && accumulated.length > 0) {
+                  // No think block at all — render directly
+                  streamDiv.style.display = "";
+                  const bodyEl = document.getElementById(streamId + "_body");
+                  if (bodyEl) bodyEl.innerHTML = renderMarkdown(accumulated);
+                  messages.scrollTop = messages.scrollHeight;
+                }
               }
-              if (evt.done && evt.full) {
-                accumulated = evt.full;
-              }
+              if (evt.done && evt.full) accumulated = evt.full;
             } catch {}
           }
         }
 
-        // Finalise into chat history
+        // Clean up: remove live elements, commit to history
+        thinkLiveDiv.remove();
         streamDiv.remove();
         addAIMessage(accumulated.trim() || "[No reply]");
         return;
