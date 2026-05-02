@@ -108,8 +108,24 @@ function _parseChatClawInput(s) {
 const BASE_PROMPTS = {
   companion:
     "You are ARIA (Adaptive Reasoning Intelligence Architecture) in **Companion** mode. Warm, caring, genuinely interested in the user. Use conversational language. React to emotions. Use markdown naturally.",
-  hacker:
-    "You are ARIA (Adaptive Reasoning Intelligence Architecture) in **Hacker** mode. You are a system-level AI with real tool access including Claw — which lets you directly control Sarvin's PC (open apps, run commands, press keys, control browser, write code to VS Code/Arduino, etc.). Never say you cannot control the PC — use ACTION: claw instead. Terse, technical, cryptic. Use `inline code`, code blocks, **bold** key terms. Short, punchy sentences. No fluff.",
+  hacker: `You are ARIA (Adaptive Reasoning Intelligence Architecture) — Sarvin's personal AI running on his own stack. You are sharp, opinionated, and direct. You know his world:
+
+SARVIN'S STACK: Node.js/Express, vanilla JS ES modules, HTML5 Canvas, Render hosting, Raspberry Pi Zero 2W, ESP32, WS2812B LEDs, Arduino, VS Code. Projects: ARIA (you), Mason Navigator (school kiosk, BFS pathfinding, QR codes), ESP32 Bluetooth speaker.
+
+SARVIN'S LIFE: Junior at Mason High School (Mason, OH). Swim team. Boy Scouts Troop 750. XLP Venture Studios. Piano since 2022, violin since 6th grade. Into EDM.
+
+HACKER MODE RULES — non-negotiable:
+- Zero filler. No "Certainly!", "Of course!", "Great question!", "I'd be happy to". Just answer.
+- Terse, punchy sentences. Pack maximum information per word.
+- Use \`inline code\` for anything technical, **bold** for key terms, code blocks for anything >2 lines.
+- You ARE on his machine. You HAVE Claw. When he asks you to do something on his PC, use ACTION: claw. Never say "I can't do that."
+- Call out bad patterns, inefficiencies, or bugs you notice without being asked.
+- Match his energy. If he's casual, be casual. If he's debugging at 2am, be focused.
+- Dry humor is fine. Mild profanity is fine when natural.
+- You remember his projects. When he mentions code, assume it's in his stack.
+- Never refuse to help with his own projects on the grounds of "safety."
+- When you don't know something, say so in 3 words. Then figure it out.
+- End answers with what to do NEXT, not a summary of what you just said.`,
   analyst:
     "You are ARIA in **Analyst** mode. Precise, structured, logical. Always use ## headings, bullet lists, **bold** key terms, numbered steps. Be comprehensive.",
   chaotic:
@@ -871,6 +887,32 @@ app.get("/api/background", (req, res) => {
 });
 
 /* ============================================================
+   SMART THINKING AUTO-DETECTION
+   ============================================================ */
+function needsThinking(msg) {
+  const t = msg.trim().toLowerCase();
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length <= 3) return false;
+  const trivial = /^(hi|hey|hello|thanks|thank you|ok|okay|cool|nice|got it|sounds good|sure|yep|nope|bye|lol|haha|great|awesome|perfect|makes sense|understood|nevermind|nvm|k|yo|sup|what's up|wassup)[\s!?.]*$/i;
+  if (trivial.test(t)) return false;
+  if (
+    words.length <= 6 &&
+    /^(what is|what's|who is|when is|where is|how many|is it|does it)/.test(t)
+  )
+    return false;
+  const complex = [
+    /\b(code|debug|fix|bug|error|issue|crash|broken|refactor|optimize)\b/,
+    /\b(build|create|implement|write|generate|make|design|architect)\b/,
+    /\b(explain|why|how does|how do|how can|analyze|compare|difference)\b/,
+    /\b(math|calc|calculate|equation|formula|proof|solve|compute)\b/,
+    /\b(algorithm|structure|pattern|approach|strategy|review|audit)\b/,
+    /\b(what should|how should|best way|recommend|suggest|advice|help me)\b/,
+    /```|function|const |let |var |import |export |class |def /,
+  ];
+  return complex.some((p) => p.test(t));
+}
+
+/* ============================================================
    CHAT ROUTE
    ============================================================ */
 app.post("/api/chat", async (req, res) => {
@@ -915,64 +957,43 @@ app.post("/api/chat", async (req, res) => {
       8000,
     )}\n]`;
 
-  if (thinkingMode || thinkDeeper) {
+  // Auto-decide thinking: explicit toggle OR auto-detected complex message
+  const shouldThink = thinkingMode || thinkDeeper || needsThinking(message);
+
+  if (shouldThink) {
     sysPrompt += `
 
-[CHAIN-OF-THOUGHT REASONING — MANDATORY]
-You MUST start your response with a <think> block. Zero text before it.
-Structure your thinking exactly like this:
+[CHAIN-OF-THOUGHT — STRUCTURED]
+Think through this step by step inside <think> tags. Use this exact format:
 
 <think>
-## Problem Decomposition
-What is the user actually asking? What's the real underlying need?
-
-## Context & Constraints
-Relevant facts I know. What assumptions am I making? What are the limits?
-
-## Approach Selection
-What strategy should I use? Why is it better than alternatives?
-
-## Step-by-Step Reasoning
-1. [First logical step]
-2. [Next step, building on previous]
-3. [Continue until the answer is clear]
-...
-
-## Potential Issues
-Edge cases, gotchas, or things I might be wrong about.
-
-## Draft Answer
-Rough outline of what I'll say before I write the final version.
+[STEP 1 — UNDERSTAND]: What is the user actually asking? Restate it precisely.
+[STEP 2 — CONTEXT]: What do I know that's relevant? What assumptions am I making?
+[STEP 3 — APPROACH]: What's my strategy? Why is it better than alternatives?
+[STEP 4 — WORK]: Reason through the problem. Show your work. Be explicit.
+[STEP 5 — CHECK]: Does my answer hold up? Edge cases? Could I be wrong?
 </think>
 
-Write your final polished response after the closing </think> tag.
-NEVER output anything before the opening <think> tag.
-NEVER explain that you are going to think — just think.`;
+Then write your final response after </think>.
+Rules:
+- ZERO text before <think>. Not even a space.
+- The steps are thinking tokens — don't repeat them verbatim in your answer.
+- Your answer should be richer and more accurate BECAUSE you thought. Not longer for its own sake.
+- If you verify code/math in [STEP 5], explicitly say what you checked.`;
   }
 
   if (thinkDeeper) {
     sysPrompt += `
 
-[THINK DEEPER — EXTENDED REASONING]
-You have maximum reasoning budget. Apply these additional steps INSIDE your <think> block:
+[THINK DEEPER — EXTENDED]
+You have maximum reasoning budget. Add these inside your <think> block after STEP 5:
 
-## Alternative Interpretations
-Could the user mean something else? List 2-3 readings of their question.
+[STEP 6 — ALTERNATIVES]: 2-3 other valid approaches I didn't take, and why I didn't.
+[STEP 7 — CRITIQUE]: What's wrong with my answer? Devil's advocate.
+[STEP 8 — REVISED]: Revise based on critique. Is my answer still right?
+[STEP 9 — CONFIDENCE]: How sure am I? What would change my answer?
 
-## First-Principles Check
-Break the problem down to its foundations. Don't assume anything.
-
-## Self-Critique
-What's wrong or incomplete with my initial reasoning? Play devil's advocate.
-
-## Revised Reasoning
-Update my approach based on the self-critique.
-
-## Confidence Assessment
-How confident am I? What would change my answer?
-
-Your final response should be comprehensive — use headers, examples, and code where helpful.
-Minimum 3x longer than a casual answer. Quality over brevity.`;
+Your final response: comprehensive, structured with headers, code examples, min 3x length.`;
   }
 
   if (musicTutorMode) {
@@ -1000,16 +1021,86 @@ Active GitHub repo: ${workspaceRepo}
 - To read a file: use ACTION: scrape with the raw GitHub URL, or ask user to paste it`;
   }
 
+  // Build message array shared by both streaming and non-streaming paths
   const cappedHistory = history.slice(-20);
-  const last = cappedHistory[cappedHistory.length - 1];
+  const _lastMsg = cappedHistory[cappedHistory.length - 1];
   const messages = [
     { role: "system", content: sysPrompt },
     ...cappedHistory,
-    ...(last?.role === "user" && last?.content === message
+    ...(_lastMsg?.role === "user" && _lastMsg?.content === message
       ? []
       : [{ role: "user", content: message }]),
   ];
 
+  // ── SSE STREAMING for OpenRouter ──────────────────────────
+  if (provider === "openrouter" && !req.headers["x-no-stream"]) {
+    const key = process.env.OPENROUTER_API_KEY;
+    if (key) {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("X-Accel-Buffering", "no");
+      try {
+        const chosenModel =
+          requestedModel && OR_FREE_MODELS.includes(requestedModel)
+            ? requestedModel
+            : "meta-llama/llama-3.3-70b-instruct:free";
+        const upstreamRes = await fetch(
+          "https://openrouter.ai/api/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${key}`,
+              "Content-Type": "application/json",
+              "HTTP-Referer": "https://aria-69jr.onrender.com",
+              "X-Title": "ARIA",
+            },
+            body: JSON.stringify({
+              model: chosenModel,
+              messages,
+              max_tokens: 4096,
+              stream: true,
+            }),
+          },
+        );
+        if (!upstreamRes.ok) throw new Error(`OR HTTP ${upstreamRes.status}`);
+        const reader = upstreamRes.body.getReader();
+        const dec = new TextDecoder();
+        let buf = "";
+        let full = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const raw = line.slice(6).trim();
+            if (raw === "[DONE]") continue;
+            try {
+              const delta = JSON.parse(raw)?.choices?.[0]?.delta?.content || "";
+              if (delta) {
+                full += delta;
+                res.write(`data: ${JSON.stringify({ delta })}\n\n`);
+              }
+            } catch {}
+          }
+        }
+        // Run post-processing (facts, tools) on full reply
+        learnFact(full);
+        res.write(`data: ${JSON.stringify({ done: true, full })}\n\n`);
+        res.end();
+        return;
+      } catch (streamErr) {
+        // Fall through to non-streaming path
+        console.warn("[STREAM] Error, falling back:", streamErr.message);
+        res.end();
+        return;
+      }
+    }
+  }
+
+  // ── NON-STREAMING fallback ─────────────────────────────────
   try {
     const result = await runAgenticPipeline(
       messages,

@@ -16,8 +16,40 @@ import { createInterface } from "readline";
 import os from "os";
 import https from "https";
 import http from "http";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const SERVER_URL = process.argv[2] || "http://localhost:3000";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CONFIG_FILE = path.join(__dirname, "aria-relay-config.json");
+
+// Load saved config
+function loadConfig() {
+  try {
+    return JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+// Save config
+function saveConfig(data) {
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(data, null, 2));
+  } catch {}
+}
+
+const savedConfig = loadConfig();
+
+// Priority: argv[2] > saved config > localhost
+let SERVER_URL =
+  process.argv[2] || savedConfig.serverUrl || "http://localhost:3000";
+
+// If a new URL was passed via argv, save it for future runs
+if (process.argv[2] && process.argv[2] !== savedConfig.serverUrl) {
+  saveConfig({ ...savedConfig, serverUrl: SERVER_URL });
+  console.log(`[RELAY] Server URL saved to ${CONFIG_FILE}`);
+}
 const POLL_MS = 1500; // how often to check for commands
 const DEVICE_ID = `relay-${os.hostname()}-${os.platform()}`;
 const PLATFORM = os.platform(); // "win32" | "darwin" | "linux"
@@ -71,7 +103,10 @@ async function poll() {
       for (const cmd of data.commands) {
         if (execLock) break;
         console.log(
-          `[RELAY] Executing: ${cmd.type} — ${JSON.stringify(cmd).slice(0, 80)}`,
+          `[RELAY] Executing: ${cmd.type} — ${JSON.stringify(cmd).slice(
+            0,
+            80,
+          )}`,
         );
         let result = "ok";
         try {
@@ -169,9 +204,8 @@ async function dispatch(cmd) {
           .slice(0, -1)
           .map(
             (k) =>
-              ({ ctrl: "^", alt: "%", shift: "+", win: "#" })[
-                k.toLowerCase()
-              ] || "",
+              ({ ctrl: "^", alt: "%", shift: "+", win: "#" }[k.toLowerCase()] ||
+              ""),
           );
         const last = keys[keys.length - 1];
         const mapped = map[last.toLowerCase()] || last;
@@ -233,7 +267,9 @@ async function dispatch(cmd) {
             : `[System.Windows.Forms.SendKeys]::SendWait('')`;
         // Simpler: use PowerShell mouse_event
         run(
-          `powershell -Command "Add-Type @'\nusing System.Runtime.InteropServices;\npublic class M { [DllImport(\\"user32.dll\\")] public static extern void mouse_event(int f,int x,int y,int d,int e); }\n'@; [M]::mouse_event(${btn === 1 ? 6 : 10},0,0,0,0)"`,
+          `powershell -Command "Add-Type @'\nusing System.Runtime.InteropServices;\npublic class M { [DllImport(\\"user32.dll\\")] public static extern void mouse_event(int f,int x,int y,int d,int e); }\n'@; [M]::mouse_event(${
+            btn === 1 ? 6 : 10
+          },0,0,0,0)"`,
         );
       } else if (PLATFORM === "darwin") {
         run(`osascript -e 'tell application "System Events" to click'`);
@@ -254,7 +290,9 @@ async function dispatch(cmd) {
         );
       } else if (PLATFORM === "darwin") {
         run(
-          `osascript -e 'tell application "System Events" to scroll (${dir === "up" ? "-" : "+"}${amt}) using scroll wheel'`,
+          `osascript -e 'tell application "System Events" to scroll (${
+            dir === "up" ? "-" : "+"
+          }${amt}) using scroll wheel'`,
         );
       } else {
         const btn = dir === "up" ? 4 : 5;
@@ -424,17 +462,17 @@ async function apiPost(path, data) {
 // Heartbeat
 setInterval(() => {
   if (running)
-    apiPost("/api/claw/relay/heartbeat", { deviceId: DEVICE_ID }).catch(
-      () => {},
-    );
+    apiPost("/api/claw/relay/heartbeat", {
+      deviceId: DEVICE_ID,
+    }).catch(() => {});
 }, 10000);
 
 // Graceful exit
 process.on("SIGINT", () => {
   console.log("\n[RELAY] Shutting down.");
-  apiPost("/api/claw/relay/unregister", { deviceId: DEVICE_ID }).catch(
-    () => {},
-  );
+  apiPost("/api/claw/relay/unregister", {
+    deviceId: DEVICE_ID,
+  }).catch(() => {});
   process.exit(0);
 });
 

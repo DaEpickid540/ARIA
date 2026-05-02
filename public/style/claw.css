@@ -1,6 +1,10 @@
 /* Prevent claw panel from expanding scroll width */
 html {
   overflow: hidden;
+  background: #000;
+}
+body {
+  background: var(--bg-void, #000);
 }
 
 /* ============================================================
@@ -66,12 +70,8 @@ html {
   z-index: 8000;
   display: flex;
   flex-direction: column;
-  /* Use transform instead of right to avoid scroll-width expansion */
   transform: translateX(100%);
   transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
-  /* Isolate from document flow completely */
-  will-change: transform;
-  contain: layout style;
 }
 #clawPanel.open {
   transform: translateX(0);

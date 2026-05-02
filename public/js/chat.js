@@ -1881,69 +1881,152 @@ async function sendMessageContent(text, chat, attachments = []) {
     renderMessages();
   };
 
+  const docCtx =
+    attachments.map((a) => a.text || "").join("\n") || documentContext;
+  const payload = {
+    message: text,
+    history: chat.messages.slice(-20).map((m) => {
+      const images = (m.attachments || []).filter(
+        (a) => a.type === "image" && a.base64,
+      );
+      if (m.role === "user" && images.length) {
+        return {
+          role: "user",
+          content: [
+            ...images.map((img) => ({
+              type: "image_url",
+              image_url: { url: img.base64, detail: "auto" },
+            })),
+            { type: "text", text: m.content || "" },
+          ],
+        };
+      }
+      return {
+        role: m.role === "aria" ? "assistant" : "user",
+        content: m.content,
+      };
+    }),
+    provider: currentSettings.provider || "openrouter",
+    model: (() => {
+      const p = currentSettings.provider;
+      if (p === "openrouter") return currentSettings.orModel || undefined;
+      if (p === "cloudflare")
+        return currentSettings.cfAutoModel !== false
+          ? undefined
+          : currentSettings.cfModel || undefined;
+      if (p === "ollama") return currentSettings.ollamaModel || undefined;
+      if (p === "lmstudio") return currentSettings.lmstudioModel || undefined;
+      return undefined;
+    })(),
+    imageProvider: currentSettings.imageProvider || "auto",
+    personality: currentSettings.personality || "hacker",
+    mathMode,
+    programmingMode,
+    studyMode,
+    thinkingMode,
+    thinkDeeper,
+    musicTutorMode,
+    workspaceRepo: workspaceRepoUrl || undefined,
+    documentContext: docCtx,
+    imageAttachments: attachments
+      .filter((a) => a.type === "image" && a.base64)
+      .map((a) => ({
+        base64: a.base64,
+        mimeType: a.mimeType || "image/jpeg",
+        name: a.name,
+      })),
+  };
+
   try {
-    const docCtx =
-      attachments.map((a) => a.text || "").join("\n") || documentContext;
+    // ── STREAMING PATH (OpenRouter) ───────────────────────────
+    if ((currentSettings.provider || "openrouter") === "openrouter") {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: abort.signal,
+        body: JSON.stringify(payload),
+      });
+
+      if (res.headers.get("content-type")?.includes("text/event-stream")) {
+        removeTypingIndicator(tid);
+        clearHalo();
+
+        // Create a live message bubble for streaming
+        const streamId = "stream_" + Date.now();
+        const streamDiv = document.createElement("div");
+        streamDiv.classList.add("msg", "aria");
+        streamDiv.id = streamId;
+        streamDiv.innerHTML = `<div class="msgSender">ARIA</div><div class="msgBody" id="${streamId}_body"></div>`;
+        messages.appendChild(streamDiv);
+        messages.scrollTop = messages.scrollHeight;
+
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let buf = "";
+        let accumulated = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const raw = line.slice(6).trim();
+            try {
+              const evt = JSON.parse(raw);
+              if (evt.delta) {
+                accumulated += evt.delta;
+                // Live-render markdown as tokens arrive
+                const bodyEl = document.getElementById(streamId + "_body");
+                if (bodyEl) bodyEl.innerHTML = renderMarkdown(accumulated);
+                messages.scrollTop = messages.scrollHeight;
+              }
+              if (evt.done && evt.full) {
+                accumulated = evt.full;
+              }
+            } catch {}
+          }
+        }
+
+        // Finalise into chat history
+        streamDiv.remove();
+        addAIMessage(accumulated.trim() || "[No reply]");
+        return;
+      }
+
+      // SSE not returned — treat as regular JSON
+      const data = await res.json();
+      removeTypingIndicator(tid);
+      clearHalo();
+      if (data.imageUrl) {
+        const chat2 = getCurrentChat();
+        if (chat2) {
+          chat2.messages.push({
+            role: "aria",
+            type: "image",
+            imageUrl: data.imageUrl,
+            content: `Generated: ${data.imagePrompt || text}`,
+            timestamp: Date.now(),
+          });
+          saveChats();
+          renderMessages();
+        }
+        if (data.reply) addAIMessage(data.reply);
+      } else {
+        addAIMessage(data.reply?.trim() || "[No reply]");
+      }
+      return;
+    }
+
+    // ── NON-STREAMING PATH (all other providers) ──────────────
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: abort.signal,
-      body: JSON.stringify({
-        message: text,
-        history: chat.messages.slice(-20).map((m) => {
-          // If user message has image attachments, use OpenAI vision format
-          const images = (m.attachments || []).filter(
-            (a) => a.type === "image" && a.base64,
-          );
-          if (m.role === "user" && images.length) {
-            return {
-              role: "user",
-              content: [
-                ...images.map((img) => ({
-                  type: "image_url",
-                  image_url: { url: img.base64, detail: "auto" },
-                })),
-                { type: "text", text: m.content || "" },
-              ],
-            };
-          }
-          return {
-            role: m.role === "aria" ? "assistant" : "user",
-            content: m.content,
-          };
-        }),
-        provider: currentSettings.provider || "openrouter",
-        // Send the right model ID for the chosen provider
-        model: (() => {
-          const p = currentSettings.provider;
-          if (p === "openrouter") return currentSettings.orModel || undefined;
-          if (p === "cloudflare")
-            return currentSettings.cfAutoModel !== false
-              ? undefined
-              : currentSettings.cfModel || undefined;
-          if (p === "ollama") return currentSettings.ollamaModel || undefined;
-          if (p === "lmstudio")
-            return currentSettings.lmstudioModel || undefined;
-          return undefined; // groq, nemotron, deepseek use their fixed models
-        })(),
-        imageProvider: currentSettings.imageProvider || "auto",
-        personality: currentSettings.personality || "hacker",
-        mathMode,
-        programmingMode,
-        studyMode,
-        thinkingMode,
-        thinkDeeper,
-        musicTutorMode,
-        workspaceRepo: workspaceRepoUrl || undefined,
-        documentContext: docCtx,
-        imageAttachments: attachments
-          .filter((a) => a.type === "image" && a.base64)
-          .map((a) => ({
-            base64: a.base64,
-            mimeType: a.mimeType || "image/jpeg",
-            name: a.name,
-          })),
-      }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     removeTypingIndicator(tid);
@@ -2016,19 +2099,43 @@ function renderMarkdown(text) {
     text = text.replace(/^[\s\S]*?(?=<think>)/i, "");
   }
 
-  // Think blocks first (before escaping)
+  // Think blocks — extract, render steps inline + keep collapsible full log
   text = text.replace(/<think>([\s\S]*?)<\/think>/gi, (_, inner) => {
-    const escaped = escapeHtml(inner.trim());
-    const b64 = btoa(unescape(encodeURIComponent(escaped)));
-    return `__THINK__${b64}__THINK__`;
+    const cleaned = inner.trim();
+
+    // Parse structured [STEP N — LABEL]: content lines
+    const stepRegex = /\[STEP \d+\s*[—–-]\s*([A-Z ]+)\]:\s*([^\n]+)/gi;
+    const steps = [];
+    let m;
+    while ((m = stepRegex.exec(cleaned)) !== null) {
+      steps.push({ label: m[1].trim(), text: m[2].trim() });
+    }
+
+    // Build inline step pills (shown in chat flow)
+    const pills = steps.length
+      ? `<div class="thinkSteps">${steps
+          .map(
+            (s) =>
+              `<span class="thinkStep"><span class="thinkStepLabel">${escapeHtml(
+                s.label,
+              )}</span><span class="thinkStepText">${escapeHtml(
+                s.text,
+              )}</span></span>`,
+          )
+          .join("")}</div>`
+      : "";
+
+    // Full log collapsible (always available)
+    const b64 = btoa(unescape(encodeURIComponent(escapeHtml(cleaned))));
+    return `${pills}__THINK__${b64}__THINK__`;
   });
 
   let h = escapeHtml(text);
 
-  // Restore think blocks as open collapsible — open by default
+  // Restore think full-log as collapsible (closed by default — steps already shown inline)
   h = h.replace(/__THINK__([A-Za-z0-9+/=]+)__THINK__/g, (_, b64) => {
     const c = decodeURIComponent(escape(atob(b64)));
-    return `<details class="thinkBlock" open><summary>◈ Chain of Thought</summary><div class="thinkContent">${c}</div></details>`;
+    return `<details class="thinkBlock"><summary>◈ Full reasoning log</summary><div class="thinkContent">${c}</div></details>`;
   });
 
   // Code blocks — with Panel + Copy + Download
