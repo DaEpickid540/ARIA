@@ -212,12 +212,9 @@ function updateProviderSections(prov) {
   document.getElementById("ollamaModelSection")?.style &&
     (document.getElementById("ollamaModelSection").style.display =
       prov === "ollama" ? "" : "none");
-<<<<<<< Updated upstream
-=======
   document.getElementById("lmstudioModelSection")?.style &&
     (document.getElementById("lmstudioModelSection").style.display =
       prov === "lmstudio" ? "" : "none");
->>>>>>> Stashed changes
 }
 
 /* ============================================================
@@ -725,11 +722,9 @@ function wireAllControls() {
 
   // ── Halo intensity slider ──
   document.getElementById("haloIntensity")?.addEventListener("input", (e) => {
-    currentSettings.haloIntensity = parseFloat(e.target.value);
-    document.documentElement.style.setProperty(
-      "--halo-intensity",
-      String(currentSettings.haloIntensity),
-    );
+    const val = parseFloat(/** @type {HTMLInputElement} */ (e.target).value);
+    currentSettings.haloIntensity = val;
+    document.documentElement.style.setProperty("--halo-intensity", String(val));
   });
   document.getElementById("ttsToggle")?.addEventListener("click", () => {
     currentSettings.ttsEnabled = !currentSettings.ttsEnabled;

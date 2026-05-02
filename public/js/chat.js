@@ -11,7 +11,7 @@ let documentContext = "";
 let mathMode = false;
 let programmingMode = false;
 let studyMode = false;
-let thinkingMode = true;   // on by default — dropdown always shown
+let thinkingMode = true; // on by default — dropdown always shown
 let pendingFiles = [];
 let thinkDeeper = false;
 let musicTutorMode = false;
@@ -695,7 +695,9 @@ async function fetchAndShowCalendar() {
               hour: "2-digit",
               minute: "2-digit",
             });
-            return `📅 **${e.title}** — ${d}${e.location ? ` @ ${e.location}` : ""}`;
+            return `📅 **${e.title}** — ${d}${
+              e.location ? ` @ ${e.location}` : ""
+            }`;
           })
           .join("\n"),
     );
@@ -827,7 +829,13 @@ document
         : tasks
             .map(
               (t) =>
-                `<div class="bgTaskItem ${t.status}"><div style="color:var(--text-blaze);font-size:11px">${t.task}</div><div style="color:var(--text-muted);font-size:10px;margin-top:3px">${t.status.toUpperCase()} — ${new Date(t.started).toLocaleTimeString()}</div></div>`,
+                `<div class="bgTaskItem ${
+                  t.status
+                }"><div style="color:var(--text-blaze);font-size:11px">${
+                  t.task
+                }</div><div style="color:var(--text-muted);font-size:10px;margin-top:3px">${t.status.toUpperCase()} — ${new Date(
+                  t.started,
+                ).toLocaleTimeString()}</div></div>`,
             )
             .join("");
     } catch {
@@ -870,7 +878,10 @@ document
             name: file.name,
             text: data.text,
           });
-          documentContext += `\n[Doc: ${file.name}]\n${data.text.slice(0, 2000)}`;
+          documentContext += `\n[Doc: ${file.name}]\n${data.text.slice(
+            0,
+            2000,
+          )}`;
         }
         renderAttachPreviews();
       } catch (err) {
@@ -893,7 +904,11 @@ function renderAttachPreviews() {
     .map(
       (f, i) => `
     <div class="attachThumb" title="${f.name}">
-      ${f.type === "image" ? `<img src="${f.base64}" alt="${f.name}">` : `<span>${f.name.slice(0, 8)}</span>`}
+      ${
+        f.type === "image"
+          ? `<img src="${f.base64}" alt="${f.name}">`
+          : `<span>${f.name.slice(0, 8)}</span>`
+      }
       <span class="attachRemove" onclick="window.ARIA_removeAttach(${i})">✕</span>
     </div>`,
     )
@@ -1123,11 +1138,17 @@ function renderMessages() {
         .map((a) =>
           a.type === "image"
             ? `<div class="msgAttachThumb"><img src="${a.base64}" alt="${a.name}"></div>`
-            : `<div class="msgAttachThumb docThumb">${a.name.slice(0, 10)}</div>`,
+            : `<div class="msgAttachThumb docThumb">${a.name.slice(
+                0,
+                10,
+              )}</div>`,
         )
         .join("");
       bodyHTML = `${thumbs ? `<div class="msgAttachments">${thumbs}</div>` : ""}
-        <p class="userPara">${escapeHtml(msg.content).replace(/\n/g, "<br>")}</p>`;
+        <p class="userPara">${escapeHtml(msg.content).replace(
+          /\n/g,
+          "<br>",
+        )}</p>`;
     } else {
       bodyHTML = renderMarkdown(msg.content);
       // Append download links for any code blocks
@@ -1150,7 +1171,9 @@ function renderMessages() {
             const lang = m[1] || "txt";
             const ext = extMap[lang] || lang || "txt";
             const enc = encodeURIComponent(m[2].trim());
-            return `<button class="fileDownloadBtn" onclick="window.ARIA_downloadCode(decodeURIComponent('${enc}'),'aria-code-${i + 1}.${ext}')">⬇ Download .${ext}</button>`;
+            return `<button class="fileDownloadBtn" onclick="window.ARIA_downloadCode(decodeURIComponent('${enc}'),'aria-code-${
+              i + 1
+            }.${ext}')">⬇ Download .${ext}</button>`;
           })
           .join(" ");
         bodyHTML += `<div class="codeDownloadRow">${dlLinks}</div>`;
@@ -1167,9 +1190,17 @@ function renderMessages() {
         <div class="msgSender">${msg.role === "user" ? "YOU" : "ARIA"}</div>
         <div class="msgMeta">
           <span class="msgTimestamp">${time}</span>
-          <button class="msgActionBtn msgCopyBtn" title="Copy" onclick="window.ARIA_copyMessage(${JSON.stringify(msg.content)})">⎘</button>
-          ${isAria ? `<button class="msgActionBtn msgRegenBtn" title="Regenerate" onclick="window.ARIA_regenerateMsg('${chat.id}',${idx})">↺</button>` : ""}
-          <button class="msgActionBtn msgDeleteBtn" title="Delete" onclick="window.ARIA_deleteMessage('${chat.id}',${idx})">✕</button>
+          <button class="msgActionBtn msgCopyBtn" title="Copy" onclick="window.ARIA_copyMessage(${JSON.stringify(
+            msg.content,
+          )})">⎘</button>
+          ${
+            isAria
+              ? `<button class="msgActionBtn msgRegenBtn" title="Regenerate" onclick="window.ARIA_regenerateMsg('${chat.id}',${idx})">↺</button>`
+              : ""
+          }
+          <button class="msgActionBtn msgDeleteBtn" title="Delete" onclick="window.ARIA_deleteMessage('${
+            chat.id
+          }',${idx})">✕</button>
         </div>
       </div>
       <div class="msgBody">${bodyHTML}</div>`;
@@ -1512,7 +1543,9 @@ function hideMusicPanel() {
 
 function buildMusicPanelHTML() {
   const mk = (sym, label) =>
-    `<button class="mathKey" onclick="window.insertMath('${sym}')">${label || sym}</button>`;
+    `<button class="mathKey" onclick="window.insertMath('${sym}')">${
+      label || sym
+    }</button>`;
   return `
     <div id="musicPanelHeader">
       <span>🎵 MUSIC KEYBOARD</span>
@@ -1521,52 +1554,195 @@ function buildMusicPanelHTML() {
     <div id="musicPanelBody">
       <div class="mathSection"><div class="mathSectionLabel">CLEF / NOTATION</div>
         <div class="mathKeyGrid">
-          ${mk("𝄞", "Treble 𝄞")}${mk("𝄢", "Bass 𝄢")}${mk("𝄡", "Staff")}${mk("𝄀", "Bar |")}
-          ${mk("♩", "♩ Quarter")}${mk("♪", "♪ 8th")}${mk("♫", "♫ Beam")}${mk("𝅗𝅥", "Half")}
-          ${mk("𝅝", "Whole")}${mk("𝄽", "Rest")}${mk("𝄾", "8th Rest")}${mk("𝄿", "16th Rest")}
+          ${mk("𝄞", "Treble 𝄞")}${mk("𝄢", "Bass 𝄢")}${mk("𝄡", "Staff")}${mk(
+    "𝄀",
+    "Bar |",
+  )}
+          ${mk("♩", "♩ Quarter")}${mk("♪", "♪ 8th")}${mk("♫", "♫ Beam")}${mk(
+    "𝅗𝅥",
+    "Half",
+  )}
+          ${mk("𝅝", "Whole")}${mk("𝄽", "Rest")}${mk("𝄾", "8th Rest")}${mk(
+    "𝄿",
+    "16th Rest",
+  )}
         </div>
       </div>
       <div class="mathSection"><div class="mathSectionLabel">ACCIDENTALS</div>
         <div class="mathKeyGrid">
-          ${mk("♭", "♭ Flat")}${mk("♯", "♯ Sharp")}${mk("♮", "♮ Natural")}${mk("𝄪", "𝄪 Dbl#")}
-          ${mk("𝄫", "𝄫 Dbl♭")}${mk("½♭", "Half♭")}${mk("½♯", "Half♯")}${mk("¾♯", "3/4♯")}
+          ${mk("♭", "♭ Flat")}${mk("♯", "♯ Sharp")}${mk("♮", "♮ Natural")}${mk(
+    "𝄪",
+    "𝄪 Dbl#",
+  )}
+          ${mk("𝄫", "𝄫 Dbl♭")}${mk("½♭", "Half♭")}${mk("½♯", "Half♯")}${mk(
+    "¾♯",
+    "3/4♯",
+  )}
         </div>
       </div>
       <div class="mathSection"><div class="mathSectionLabel">NOTES (C-B)</div>
         <div class="mathKeyGrid">
           ${["C", "D", "E", "F", "G", "A", "B"].map((n) => mk(n)).join("")}
-          ${["C#", "Db", "D#", "Eb", "F#", "Gb", "G#", "Ab", "A#", "Bb"].map((n) => mk(n)).join("")}
+          ${["C#", "Db", "D#", "Eb", "F#", "Gb", "G#", "Ab", "A#", "Bb"]
+            .map((n) => mk(n))
+            .join("")}
         </div>
       </div>
       <div class="mathSection"><div class="mathSectionLabel">INTERVALS (RCM)</div>
         <div class="mathKeyGrid">
-          ${["Unison", "min 2nd", "Maj 2nd", "min 3rd", "Maj 3rd", "P4", "Aug 4th", "Dim 5th", "P5", "min 6th", "Maj 6th", "min 7th", "Maj 7th", "Octave"].map((n) => mk(n + " ")).join("")}
+          ${[
+            "Unison",
+            "min 2nd",
+            "Maj 2nd",
+            "min 3rd",
+            "Maj 3rd",
+            "P4",
+            "Aug 4th",
+            "Dim 5th",
+            "P5",
+            "min 6th",
+            "Maj 6th",
+            "min 7th",
+            "Maj 7th",
+            "Octave",
+          ]
+            .map((n) => mk(n + " "))
+            .join("")}
         </div>
       </div>
       <div class="mathSection"><div class="mathSectionLabel">DYNAMICS</div>
         <div class="mathKeyGrid">
-          ${["ppp", "pp", "p", "mp", "mf", "f", "ff", "fff", "sf", "sfz", "fz", "fp", "cresc.", "dim.", "decresc.", "subito f"].map((n) => mk(n + " ")).join("")}
+          ${[
+            "ppp",
+            "pp",
+            "p",
+            "mp",
+            "mf",
+            "f",
+            "ff",
+            "fff",
+            "sf",
+            "sfz",
+            "fz",
+            "fp",
+            "cresc.",
+            "dim.",
+            "decresc.",
+            "subito f",
+          ]
+            .map((n) => mk(n + " "))
+            .join("")}
         </div>
       </div>
       <div class="mathSection"><div class="mathSectionLabel">TEMPO / EXPRESSION</div>
         <div class="mathKeyGrid">
-          ${["Allegro", "Andante", "Adagio", "Presto", "Largo", "Moderato", "Vivace", "rit.", "accel.", "a tempo", "poco a poco", "con fuoco", "legato", "staccato", "tenuto", "marcato"].map((n) => mk(n + " ")).join("")}
+          ${[
+            "Allegro",
+            "Andante",
+            "Adagio",
+            "Presto",
+            "Largo",
+            "Moderato",
+            "Vivace",
+            "rit.",
+            "accel.",
+            "a tempo",
+            "poco a poco",
+            "con fuoco",
+            "legato",
+            "staccato",
+            "tenuto",
+            "marcato",
+          ]
+            .map((n) => mk(n + " "))
+            .join("")}
         </div>
       </div>
       <div class="mathSection"><div class="mathSectionLabel">TIME / KEY SIGNATURES</div>
         <div class="mathKeyGrid">
-          ${["4/4", "3/4", "2/4", "6/8", "9/8", "12/8", "2/2", "3/8", "5/4", "7/8"].map((n) => mk(n + " ")).join("")}
-          ${["C major", "G major", "D major", "A major", "E major", "B major", "F major", "Bb major", "Eb major", "Ab major", "Db major", "Gb major", "A minor", "E minor", "B minor", "D minor", "G minor", "C minor", "F minor", "Bb minor"].map((n) => mk(n + " ")).join("")}
+          ${[
+            "4/4",
+            "3/4",
+            "2/4",
+            "6/8",
+            "9/8",
+            "12/8",
+            "2/2",
+            "3/8",
+            "5/4",
+            "7/8",
+          ]
+            .map((n) => mk(n + " "))
+            .join("")}
+          ${[
+            "C major",
+            "G major",
+            "D major",
+            "A major",
+            "E major",
+            "B major",
+            "F major",
+            "Bb major",
+            "Eb major",
+            "Ab major",
+            "Db major",
+            "Gb major",
+            "A minor",
+            "E minor",
+            "B minor",
+            "D minor",
+            "G minor",
+            "C minor",
+            "F minor",
+            "Bb minor",
+          ]
+            .map((n) => mk(n + " "))
+            .join("")}
         </div>
       </div>
       <div class="mathSection"><div class="mathSectionLabel">RCM LEVELS (PIANO)</div>
         <div class="mathKeyGrid">
-          ${["Prep A", "Prep B", "Level 1", "Level 2", "Level 3", "Level 4", "Level 5", "Level 6", "Level 7", "Level 8", "Level 9", "Level 10", "ARCT"].map((n) => mk("RCM " + n + " ")).join("")}
+          ${[
+            "Prep A",
+            "Prep B",
+            "Level 1",
+            "Level 2",
+            "Level 3",
+            "Level 4",
+            "Level 5",
+            "Level 6",
+            "Level 7",
+            "Level 8",
+            "Level 9",
+            "Level 10",
+            "ARCT",
+          ]
+            .map((n) => mk("RCM " + n + " "))
+            .join("")}
         </div>
       </div>
       <div class="mathSection"><div class="mathSectionLabel">VIOLIN (RCM)</div>
         <div class="mathKeyGrid">
-          ${["Open string", "1st pos", "2nd pos", "3rd pos", "Shift", "Vibrato", "Détaché", "Martelé", "Spiccato", "Sautillé", "Col legno", "Sul ponticello", "Sul tasto", "Pizzicato", "Arco", "Harmonics"].map((n) => mk(n + " ")).join("")}
+          ${[
+            "Open string",
+            "1st pos",
+            "2nd pos",
+            "3rd pos",
+            "Shift",
+            "Vibrato",
+            "Détaché",
+            "Martelé",
+            "Spiccato",
+            "Sautillé",
+            "Col legno",
+            "Sul ponticello",
+            "Sul tasto",
+            "Pizzicato",
+            "Arco",
+            "Harmonics",
+          ]
+            .map((n) => mk(n + " "))
+            .join("")}
         </div>
       </div>
     </div>`;
@@ -1746,7 +1922,8 @@ async function sendMessageContent(text, chat, attachments = []) {
               ? undefined
               : currentSettings.cfModel || undefined;
           if (p === "ollama") return currentSettings.ollamaModel || undefined;
-          if (p === "lmstudio") return currentSettings.lmstudioModel || undefined;
+          if (p === "lmstudio")
+            return currentSettings.lmstudioModel || undefined;
           return undefined; // groq, nemotron, deepseek use their fixed models
         })(),
         imageProvider: currentSettings.imageProvider || "auto",
@@ -1834,12 +2011,10 @@ function escapeHtml(t) {
 function renderMarkdown(text) {
   if (!text) return "";
 
-  // Strip any text that appears before the first <think> block
-  // (model sometimes outputs a preamble paragraph before thinking)
-  text = text.replace(/^[\s\S]*?(?=<think>)/i, (pre) => {
-    // Only strip if there's actually a <think> block ahead
-    return /<think>/i.test(text) ? "" : pre;
-  });
+  // Strip any text before the first <think> block
+  if (/<think>/i.test(text)) {
+    text = text.replace(/^[\s\S]*?(?=<think>)/i, "");
+  }
 
   // Think blocks first (before escaping)
   text = text.replace(/<think>([\s\S]*?)<\/think>/gi, (_, inner) => {
@@ -1854,7 +2029,6 @@ function renderMarkdown(text) {
   h = h.replace(/__THINK__([A-Za-z0-9+/=]+)__THINK__/g, (_, b64) => {
     const c = decodeURIComponent(escape(atob(b64)));
     return `<details class="thinkBlock" open><summary>◈ Chain of Thought</summary><div class="thinkContent">${c}</div></details>`;
-  });
   });
 
   // Code blocks — with Panel + Copy + Download
@@ -2027,7 +2201,9 @@ setInterval(loadVersionFromGitHub, 300_000); // refresh every 5 min
     if (!pipMsgs) return;
     const d = document.createElement("div");
     d.className = "pipMsg " + (sender === "You" ? "pipMsgUser" : "pipMsgAria");
-    d.innerHTML = `<b>${sender}:</b> ${String(text).replace(/</g, "&lt;").slice(0, 300)}`;
+    d.innerHTML = `<b>${sender}:</b> ${String(text)
+      .replace(/</g, "&lt;")
+      .slice(0, 300)}`;
     pipMsgs.appendChild(d);
     pipMsgs.scrollTop = pipMsgs.scrollHeight;
   }
@@ -2072,9 +2248,10 @@ async function loadFromServer() {
     const data = await res.json();
     if (data.chats?.length > chats.length) {
       const localIds = new Set(chats.map((c) => c.id));
-      chats = [...data.chats.filter((c) => !localIds.has(c.id)), ...chats].sort(
-        (a, b) => b.id.localeCompare(a.id),
-      );
+      chats = [
+        ...data.chats.filter((c) => !localIds.has(c.id)),
+        ...chats,
+      ].sort((a, b) => b.id.localeCompare(a.id));
       currentChatId = chats[0].id;
       saveChats();
       renderChatList();
