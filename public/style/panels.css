@@ -1502,3 +1502,132 @@ body.mathPanelOpen #chatWindow {
     transform: translateY(0);
   }
 }
+
+/* ============================================================
+   ACTION TOAST — top-right corner
+   ============================================================ */
+#ariaToast {
+  position: fixed;
+  top: 14px;
+  right: 16px;
+  z-index: 99999;
+  background: var(--bg-panel, #0a0a0a);
+  border: 1px solid var(--red-dim, #4a0000);
+  color: var(--text-hot, #ff4444);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 6px 12px 6px 9px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.15s, transform 0.15s;
+}
+#ariaToast.ariaToastIn {
+  opacity: 1;
+  transform: translateY(0);
+}
+#ariaToast.ariaToastOut {
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.35s 1.6s, transform 0.35s 1.6s;
+}
+.ariaToastIcon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* ============================================================
+   PERSISTENT STOP / PAUSE BAR
+   ============================================================ */
+#ariaStopBar {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  background: rgba(255, 0, 0, 0.04);
+  border-top: 1px solid var(--red-dim, #4a0000);
+  flex-shrink: 0;
+}
+#ariaStopBtn,
+#ariaPauseBtn,
+#ariaPauseResumeBtn {
+  font-family: "Orbitron", sans-serif;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--red-dim, #4a0000);
+  color: var(--text-muted);
+  cursor: crosshair;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+#ariaStopBtn:hover {
+  border-color: var(--red-core);
+  color: var(--red-core);
+}
+#ariaPauseBtn:hover {
+  border-color: #446;
+  color: #88f;
+}
+#ariaPauseInject {
+  display: none;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+}
+#ariaPauseInput {
+  flex: 1;
+  background: var(--bg-abyss, #000);
+  border: 1px solid var(--red-dim, #4a0000);
+  color: var(--text-hot);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  padding: 3px 8px;
+  outline: none;
+}
+#ariaPauseInput:focus {
+  border-color: var(--red-core);
+}
+#ariaPauseResumeBtn {
+  border-color: #446;
+  color: #88f;
+}
+#ariaPauseResumeBtn:hover {
+  border-color: #88f;
+  background: rgba(100, 100, 255, 0.08);
+}
+
+/* ============================================================
+   MATH PANEL — Desmos tab buttons
+   ============================================================ */
+.mathTabBtn {
+  font-family: "Orbitron", sans-serif;
+  font-size: 7.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid var(--red-dim, #4a0000);
+  color: var(--text-muted);
+  cursor: crosshair;
+  transition: all 0.15s;
+}
+.mathTabBtn.active,
+.mathTabBtn:hover {
+  border-color: var(--red-core);
+  color: var(--red-core);
+  background: rgba(255, 0, 0, 0.06);
+}
+#desmosContainer {
+  flex: 1;
+  min-height: 380px;
+}
+#desmosContainer .dcg-container {
+  background: #000 !important;
+}

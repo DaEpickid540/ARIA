@@ -200,7 +200,12 @@ ACTION: weather | (blank = Mason OH, or lat,lon)
 ACTION: calendar | 
 ACTION: calendar add | EventTitle | 2025-06-15T14:00 | 2025-06-15T15:00
 ACTION: news | technology
-ACTION: search | your search query here
+ACTION: agent | codeReview | <paste code here>
+ACTION: agent | testGen | <paste code here>
+ACTION: agent | summarise | <paste long text here>
+ACTION: agent | planner | <describe the task>
+ACTION: agent | factCheck | <specific factual question>
+ACTION: agent | qaCheck | <your own draft response>
 ACTION: scrape | https://example.com
 ACTION: imagine | a detailed description of the image
 ACTION: calc | 2+2*sqrt(16)
@@ -238,7 +243,11 @@ MANDATORY TRIGGER CONDITIONS:
 - User asks about schedule/events → ACTION: calendar
 - User asks to add event/reminder → ACTION: calendar add
 - User asks about news → ACTION: news
-- User says search/look up/google → ACTION: search
+- User asks to search/look up/google → ACTION: search
+- User shows code and asks for review/bugs/tests → ACTION: agent | codeReview (then testGen if tests wanted)
+- User asks to summarise/tldr long content → ACTION: agent | summarise
+- Before writing complex code → ACTION: agent | planner to outline first
+- You're unsure about a fact → ACTION: agent | factCheck
 - User asks to read/visit a URL → ACTION: scrape
 - User asks for an image/picture → ACTION: imagine
 - User asks for a calculation → ACTION: calc
@@ -402,6 +411,52 @@ async function runAgenticPipeline(
             "[CLAW RESULT]: " +
             clawResult +
             "\n\nNow continue your response to the user.",
+        },
+      ];
+      continue;
+    }
+
+    // ── Sub-agent dispatch ──
+    if (toolName === "agent") {
+      const parts = toolInput.split("|").map((s) => s.trim());
+      const agentId = parts[0];
+      const agentInput = parts.slice(1).join("|").trim() || preText;
+      const agent = SUB_AGENTS[agentId];
+      let agentResult;
+      if (!agent) {
+        agentResult = `Unknown agent "${agentId}". Available: ${Object.keys(
+          SUB_AGENTS,
+        ).join(", ")}`;
+      } else {
+        try {
+          const agentMessages = [
+            { role: "system", content: agent.systemPrompt },
+            { role: "user", content: String(agentInput).slice(0, 8000) },
+          ];
+          agentResult = await callAI(
+            agentMessages,
+            provider,
+            "meta-llama/llama-3.1-8b-instruct:free",
+            {},
+          );
+        } catch (e) {
+          agentResult = `Agent error: ${e.message}`;
+        }
+      }
+      steps.push({
+        tool: `agent:${agentId}`,
+        input: agentInput.slice(0, 100),
+        preText,
+        result: agentResult,
+      });
+      currentMessages = [
+        ...currentMessages,
+        { role: "assistant", content: rawReply },
+        {
+          role: "user",
+          content: `[AGENT RESULT from ${
+            agent?.name || agentId
+          }]:\n${agentResult}\n\nNow write your response using this.`,
         },
       ];
       continue;
@@ -1556,6 +1611,100 @@ app.get("/api/version", (req, res) => {
    ============================================================ */
 
 // Relay registers when claw-relay.js starts on user's machine
+/* ============================================================
+   SUB-AGENTS — tiny single-purpose bots, free-tier safe
+   Each runs one focused callAI() with a tight system prompt.
+   No loops, no tool calls, minimal tokens. Results fed back
+   into the main conversation as context.
+   ============================================================ */
+
+const SUB_AGENTS = {
+  // Checks code for bugs, style, and security
+  codeReview: {
+    name: "Code Reviewer",
+    systemPrompt: `You are a code review bot. Your ONLY job: scan the provided code and output a JSON array of issues.
+Format: [{"severity":"error"|"warn"|"info","line":"N or range","issue":"short description","fix":"one-line suggestion"}]
+Output ONLY valid JSON. No prose, no markdown, no explanation.`,
+    maxTokens: 600,
+  },
+  // Generates concise test cases
+  testGen: {
+    name: "Test Generator",
+    systemPrompt: `You are a test generation bot. Generate concise unit tests for the given code.
+Use the same language/framework as the input. Output ONLY the test code, no explanation.
+Keep tests tight — no unnecessary boilerplate.`,
+    maxTokens: 800,
+  },
+  // Summarises long text to key points
+  summarise: {
+    name: "Summariser",
+    systemPrompt: `You are a summarisation bot. Output ONLY a tight bullet list of the key points.
+Max 8 bullets. Each bullet ≤ 15 words. No intro, no outro, just bullets starting with •`,
+    maxTokens: 400,
+  },
+  // Checks ARIA's own response for quality
+  qaCheck: {
+    name: "QA Checker",
+    systemPrompt: `You are a QA bot reviewing an AI response. Output JSON:
+{"score":0-10,"issues":["issue1","issue2"],"suggestion":"one improvement"}
+Output ONLY valid JSON. Be harsh but fair.`,
+    maxTokens: 300,
+  },
+  // Generates a quick plan/outline before coding
+  planner: {
+    name: "Planner",
+    systemPrompt: `You are a planning bot. Break the given task into numbered implementation steps.
+Max 8 steps. Each step ≤ 20 words. Output ONLY the numbered list, no prose.`,
+    maxTokens: 400,
+  },
+  // Answers a factual sub-question to help the main agent
+  factCheck: {
+    name: "Fact Checker",
+    systemPrompt: `You are a fact-checking bot. Answer the given question with a single concise factual answer.
+Max 2 sentences. No opinion, no hedging, just the fact. If unsure, say "Uncertain: " then your best answer.`,
+    maxTokens: 200,
+  },
+};
+
+app.post("/api/agent", async (req, res) => {
+  const { agentId, input, provider = "openrouter", model } = req.body || {};
+  const agent = SUB_AGENTS[agentId];
+  if (!agent) {
+    return res
+      .status(400)
+      .json({
+        error: `Unknown agent: ${agentId}. Available: ${Object.keys(
+          SUB_AGENTS,
+        ).join(", ")}`,
+      });
+  }
+  try {
+    const messages = [
+      { role: "system", content: agent.systemPrompt },
+      { role: "user", content: String(input).slice(0, 8000) }, // cap input
+    ];
+    // Always use a fast free model for sub-agents to save quota
+    const agentModel = "meta-llama/llama-3.1-8b-instruct:free";
+    const rawResult = await callAI(messages, provider, agentModel, {});
+    res.json({ agent: agent.name, agentId, result: rawResult });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/api/agent/list", (_, res) => {
+  res.json(
+    Object.entries(SUB_AGENTS).map(([id, a]) => ({
+      id,
+      name: a.name,
+      maxTokens: a.maxTokens,
+    })),
+  );
+});
+
+/* ============================================================
+   CLAW RELAY ENDPOINTS
+   ============================================================ */
 app.post("/api/claw/relay/register", (req, res) => {
   const { deviceId, platform, hostname } = req.body;
   if (!deviceId) return res.json({ error: "No deviceId" });

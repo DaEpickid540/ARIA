@@ -169,7 +169,9 @@ function closeCodePanel() {
 }
 
 codePanelCopy?.addEventListener("click", () => {
-  navigator.clipboard?.writeText(currentCodeContent);
+  navigator.clipboard
+    ?.writeText(currentCodeContent)
+    .then(() => showToast("Code copied", "⎘"));
   if (codePanelCopy) {
     codePanelCopy.textContent = "✓ Copied!";
     setTimeout(() => (codePanelCopy.textContent = "⎘ Copy"), 1500);
@@ -226,8 +228,80 @@ function downloadText(content, filename) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+  showToast("Downloaded " + filename, "⬇");
 }
 window.ARIA_downloadCode = downloadText;
+
+/* ── PERSISTENT STOP / PAUSE BAR ── */
+window._ariaPaused = false;
+window._ariaPauseResolve = null;
+
+(function injectStopBar() {
+  const existing = document.getElementById("ariaStopBar");
+  if (existing) return;
+  const bar = document.createElement("div");
+  bar.id = "ariaStopBar";
+  bar.style.display = "none";
+  bar.innerHTML = `
+    <button id="ariaStopBtn" title="Stop generation">⏹ Stop</button>
+    <button id="ariaPauseBtn" title="Pause and inject a thought">⏸ Pause</button>
+    <div id="ariaPauseInject" style="display:none">
+      <input id="ariaPauseInput" type="text" placeholder="Inject a thought before ARIA continues…" autocomplete="off">
+      <button id="ariaPauseResumeBtn">▶ Resume with thought</button>
+    </div>
+  `;
+  // Insert above the input area
+  const inputArea =
+    document.getElementById("inputArea") ||
+    document.getElementById("chatInputRow") ||
+    document.querySelector(".inputRow");
+  if (inputArea) inputArea.parentNode?.insertBefore(bar, inputArea);
+  else document.body.appendChild(bar);
+
+  document.getElementById("ariaStopBtn")?.addEventListener("click", () => {
+    window.ARIA_stopGeneration?.();
+    window._ariaPaused = false;
+    bar.style.display = "none";
+    showToast("Generation stopped", "⏹");
+  });
+
+  document.getElementById("ariaPauseBtn")?.addEventListener("click", () => {
+    if (window._ariaPaused) {
+      // Resume
+      window._ariaPaused = false;
+      const inject = document.getElementById("ariaPauseInject");
+      if (inject) inject.style.display = "none";
+      document.getElementById("ariaPauseBtn").textContent = "⏸ Pause";
+      if (userInput) userInput.disabled = true;
+      window._ariaPauseResolve?.("resume");
+      showToast("Resumed", "▶");
+    } else {
+      // Pause
+      window._ariaPaused = true;
+      const inject = document.getElementById("ariaPauseInject");
+      if (inject) inject.style.display = "flex";
+      document.getElementById("ariaPauseBtn").textContent = "▶ Resume";
+      if (userInput) userInput.disabled = false;
+      document.getElementById("ariaPauseInput")?.focus();
+      showToast("Paused — type your thought and resume", "⏸");
+    }
+  });
+
+  document
+    .getElementById("ariaPauseResumeBtn")
+    ?.addEventListener("click", () => {
+      const val = document.getElementById("ariaPauseInput")?.value.trim();
+      window._ariaPaused = false;
+      const inject = document.getElementById("ariaPauseInject");
+      if (inject) inject.style.display = "none";
+      document.getElementById("ariaPauseBtn").textContent = "⏸ Pause";
+      if (userInput) userInput.disabled = true;
+      if (document.getElementById("ariaPauseInput"))
+        document.getElementById("ariaPauseInput").value = "";
+      window._ariaPauseResolve?.(val || "resume");
+      if (val) showToast("Thought injected", "💉");
+    });
+})();
 
 /* ============================================================
    TOOLS DROPDOWN (sidebar)
@@ -939,7 +1013,10 @@ export function deleteMessage(chatId, idx) {
   renderMessages();
 }
 export function copyMessage(content) {
-  navigator.clipboard?.writeText(content);
+  navigator.clipboard
+    ?.writeText(content)
+    .then(() => showToast("Copied to clipboard", "⎘"))
+    .catch(() => showToast("Copy failed", "✗"));
 }
 export function regenerateMessage(chatId, idx) {
   const chat = chats.find((c) => c.id === chatId);
@@ -1182,13 +1259,6 @@ function renderMessages() {
     );
   });
 
-  if (isGenerating) {
-    const stop = document.createElement("div");
-    stop.id = "stopGenBtn";
-    stop.innerHTML = `<button onclick="window.ARIA_stopGeneration?.()">⏹ Stop generating</button>`;
-    messages.appendChild(stop);
-  }
-
   messages.scrollTop = messages.scrollHeight;
 }
 
@@ -1204,6 +1274,25 @@ function showChatNotification(text, ms = 3000) {
 }
 window.ARIA_showNotification = showChatNotification;
 
+/* ── ACTION TOAST — top-right corner notice ── */
+let _toastTimer = null;
+function showToast(msg, icon = "✓") {
+  let el = document.getElementById("ariaToast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "ariaToast";
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `<span class="ariaToastIcon">${icon}</span><span>${msg}</span>`;
+  el.classList.remove("ariaToastOut");
+  el.classList.add("ariaToastIn");
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => {
+    el.classList.replace("ariaToastIn", "ariaToastOut");
+  }, 2200);
+}
+window.ARIA_showToast = showToast;
+
 /* ── INSERT MATH / SYMBOL into textarea ── */
 window.insertMath = function (sym) {
   const inp = document.getElementById("userInput");
@@ -1216,7 +1305,7 @@ window.insertMath = function (sym) {
   inp.dispatchEvent(new Event("input"));
 };
 
-/* ── MATH KEYBOARD PANEL (right-side, full calc layout) ── */
+/* ── MATH PANEL — Desmos embed + symbol keyboard ── */
 function showMathPanel() {
   let p = document.getElementById("mathPanel");
   if (!p) {
@@ -1224,10 +1313,33 @@ function showMathPanel() {
     p.id = "mathPanel";
     p.innerHTML = buildMathPanelHTML();
     document.body.appendChild(p);
+    // Load Desmos API if not already loaded
+    if (!window.Desmos) {
+      const s = document.createElement("script");
+      s.src =
+        "https://www.desmos.com/api/v1.9/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6";
+      s.onload = () => _initDesmos();
+      document.head.appendChild(s);
+    } else {
+      setTimeout(_initDesmos, 50);
+    }
   }
   requestAnimationFrame(() => {
     p.classList.add("open");
     document.body.classList.add("mathPanelOpen");
+  });
+}
+
+function _initDesmos() {
+  const el = document.getElementById("desmosContainer");
+  if (!el || window._desmosCalc) return;
+  window._desmosCalc = window.Desmos?.GraphingCalculator(el, {
+    keypad: true,
+    expressions: true,
+    settingsMenu: true,
+    zoomButtons: true,
+    expressionsTopbar: true,
+    border: false,
   });
 }
 function hideMathPanel() {
@@ -1236,6 +1348,25 @@ function hideMathPanel() {
   document.body.classList.remove("mathPanelOpen");
 }
 window.ARIA_hideMathPanel = hideMathPanel;
+
+window._switchMathTab = function (tab) {
+  const calc = document.getElementById("desmosContainer");
+  const keys = document.getElementById("mathPanelBody");
+  const btnCalc = document.getElementById("mathTabCalc");
+  const btnKeys = document.getElementById("mathTabKeys");
+  if (tab === "calc") {
+    if (calc) calc.style.display = "";
+    if (keys) keys.style.display = "none";
+    btnCalc?.classList.add("active");
+    btnKeys?.classList.remove("active");
+    if (!window._desmosCalc) _initDesmos();
+  } else {
+    if (calc) calc.style.display = "none";
+    if (keys) keys.style.display = "";
+    btnCalc?.classList.remove("active");
+    btnKeys?.classList.add("active");
+  }
+};
 
 function buildMathPanelHTML() {
   const INS = {
@@ -1483,14 +1614,15 @@ function buildMathPanelHTML() {
 
   return `
     <div id="mathPanelHeader">
-      <span>∑ MATH KEYBOARD</span>
-      <div style="display:flex;gap:6px;align-items:center">
-        <button onclick="window.insertMath('\\n')" title="New line">⏎</button>
-        <button onclick="window.insertMath('  ')" title="Space">␣</button>
-        <button onclick="window.ARIA_hideMathPanel()" title="Close">✕</button>
+      <span>∑ MATH</span>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="mathTabBtn active" id="mathTabCalc" onclick="window._switchMathTab('calc')">Calculator</button>
+        <button class="mathTabBtn" id="mathTabKeys" onclick="window._switchMathTab('keys')">Symbols</button>
+        <button onclick="window.ARIA_hideMathPanel()" title="Close" style="margin-left:6px">✕</button>
       </div>
     </div>
-    <div id="mathPanelBody">${body}</div>`;
+    <div id="desmosContainer" style="flex:1;min-height:380px;"></div>
+    <div id="mathPanelBody" style="display:none">${body}</div>`;
 }
 
 /* ── MUSIC TUTOR PANEL (right-side) ── */
@@ -2106,7 +2238,10 @@ function setSendState(on) {
     sendBtn.textContent = on ? "…" : "Send";
     sendBtn.style.opacity = on ? "0.5" : "1";
   }
-  if (userInput) userInput.disabled = on;
+  // Show/hide the persistent stop bar
+  const stopBar = document.getElementById("ariaStopBar");
+  if (stopBar) stopBar.style.display = on ? "flex" : "none";
+  if (userInput) userInput.disabled = on && !window._ariaPaused;
 }
 function showTypingIndicator() {
   const id = "typing_" + Date.now();
@@ -2171,6 +2306,14 @@ function renderMarkdown(text) {
     return `${pills}__THINK__${b64}__THINK__`;
   });
 
+  // Scrub any remaining <think> tags and raw HTML the model leaked
+  text = text.replace(/<\/think>/gi, "").replace(/<think>/gi, "");
+  // Strip any other HTML-looking tags except our own placeholders
+  text = text.replace(
+    /<(?!\/?(b|i|strong|em|code|pre|br|hr|ul|ol|li|p|h[1-6]|blockquote|a|img|span|div|details|summary)\b)[^>]+>/gi,
+    "",
+  );
+
   let h = escapeHtml(text);
 
   // Restore think full-log as collapsible (closed by default — steps already shown inline)
@@ -2198,7 +2341,7 @@ function renderMarkdown(text) {
       ${lang ? `<span class="codeLabel">${lang.toUpperCase()}</span>` : ""}
       <div class="codeActions">
         <button class="codePanelBtn codeActionBtn" data-code="${enc}" data-lang="${lang}">⤢ Panel</button>
-        <button class="codeActionBtn" onclick="navigator.clipboard?.writeText(decodeURIComponent('${enc}'));this.textContent='✓';setTimeout(()=>this.textContent='⎘',1300)">⎘ Copy</button>
+        <button class="codeActionBtn" onclick="navigator.clipboard?.writeText(decodeURIComponent('${enc}')).then(()=>window.ARIA_showToast('Code copied','⎘'));this.textContent='✓';setTimeout(()=>this.textContent='⎘',1300)">⎘ Copy</button>
         <button class="codeActionBtn" onclick="window.ARIA_downloadCode(decodeURIComponent('${enc}'),'aria-code.${ext}')">⬇ .${ext}</button>
       </div>
       <pre><code>${escapeHtml(clean)}</code></pre>
