@@ -279,6 +279,166 @@ function buildMemoryContext() {
     .join("\n")}\n]`;
 }
 
+/* ============================================================
+   SELF-TRAINING — behaviour.json
+   Tracks positive/negative feedback, generates improved rules,
+   exports LoRA-ready JSONL training data.
+   ============================================================ */
+const BEHAVIOUR_FILE = path.join(DATA_DIR, "behaviour.json");
+
+function loadBehaviour() {
+  try {
+    return JSON.parse(fs.readFileSync(BEHAVIOUR_FILE, "utf8"));
+  } catch {
+    return {
+      version: 1,
+      positives: [],
+      negatives: [],
+      rules: [],
+      trainingData: [],
+    };
+  }
+}
+function saveBehaviour(b) {
+  try {
+    fs.writeFileSync(BEHAVIOUR_FILE, JSON.stringify(b, null, 2));
+  } catch {}
+}
+
+let ariaBehaviour = loadBehaviour();
+
+// Sentiment detection
+function detectFeedback(userMsg) {
+  const t = userMsg.toLowerCase();
+  const positive = /\b(good job|well done|perfect|exactly|that'?s? (?:right|correct|great|perfect)|nice work|love it|keep doing|do (?:that|this) (?:again|more)|thanks? (?:that was|for that)|yes[!. ]|exactly[!. ]|correct[!. ])\b/i.test(
+    t,
+  );
+  const negative = /\b(wrong|stop|don'?t|bad|never|shouldn'?t|hate|terrible|not (?:like (?:that|this)|allowed|ok)|you (?:messed|screwed)|that'?s? (?:wrong|bad|not right|not ok)|don'?t do that|stop doing)\b/i.test(
+    t,
+  );
+  return { positive, negative };
+}
+
+// Called when user gives explicit feedback — stores it and generates improved rule
+async function processFeedback(userMsg, lastAriaMsgContent, type) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    type,
+    userFeedback: userMsg.slice(0, 300),
+    ariaAction: (lastAriaMsgContent || "").slice(0, 400),
+    rule: null,
+  };
+
+  // Generate a rule from the feedback using a quick LLM call
+  try {
+    const prompt =
+      type === "negative"
+        ? `The user said: "${userMsg}"\nARIA just did: "${entry.ariaAction}"\n\nGenerate ONE short rule (max 20 words) ARIA should NEVER do, starting with "Never ".`
+        : `The user said: "${userMsg}"\nARIA just did: "${entry.ariaAction}"\n\nGenerate ONE short rule (max 20 words) ARIA should always do, starting with "Always ".`;
+
+    const ruleMsg = await callAI(
+      [{ role: "user", content: prompt }],
+      "openrouter",
+      "meta-llama/llama-3.1-8b-instruct:free",
+      {},
+    );
+    entry.rule = ruleMsg
+      .trim()
+      .replace(/^["\s]+|["\s]+$/g, "")
+      .slice(0, 100);
+  } catch {}
+
+  if (type === "negative") {
+    ariaBehaviour.negatives.push(entry);
+    if (entry.rule && !ariaBehaviour.rules.some((r) => r.rule === entry.rule)) {
+      ariaBehaviour.rules.push({
+        type: "negative",
+        rule: entry.rule,
+        count: 1,
+        source: "user_feedback",
+      });
+    } else if (entry.rule) {
+      const existing = ariaBehaviour.rules.find((r) => r.rule === entry.rule);
+      if (existing) existing.count++;
+    }
+  } else {
+    ariaBehaviour.positives.push(entry);
+    if (entry.rule && !ariaBehaviour.rules.some((r) => r.rule === entry.rule)) {
+      ariaBehaviour.rules.push({
+        type: "positive",
+        rule: entry.rule,
+        count: 1,
+        source: "user_feedback",
+      });
+    } else if (entry.rule) {
+      const existing = ariaBehaviour.rules.find((r) => r.rule === entry.rule);
+      if (existing) existing.count++;
+    }
+  }
+
+  // Generate LoRA-ready training entry (instruction/input/output format)
+  if (entry.ariaAction && entry.rule) {
+    const trainEntry =
+      type === "negative"
+        ? {
+            instruction: "You are ARIA. Follow your behaviour rules.",
+            input: entry.ariaAction.slice(0, 200),
+            output: `I should not do that. Rule: ${entry.rule}`,
+          }
+        : {
+            instruction: "You are ARIA. Follow your behaviour rules.",
+            input: entry.ariaAction.slice(0, 200),
+            output: `Good response. Rule to reinforce: ${entry.rule}`,
+          };
+    ariaBehaviour.trainingData.push(trainEntry);
+  }
+
+  saveBehaviour(ariaBehaviour);
+  return entry.rule;
+}
+
+// Build behaviour context injected into every system prompt
+function buildBehaviourContext() {
+  if (!ariaBehaviour.rules?.length) return "";
+  const neg = ariaBehaviour.rules
+    .filter((r) => r.type === "negative")
+    .map((r) => `- ${r.rule}`)
+    .join("\n");
+  const pos = ariaBehaviour.rules
+    .filter((r) => r.type === "positive")
+    .map((r) => `- ${r.rule}`)
+    .join("\n");
+  let ctx = "\n\n[BEHAVIOUR RULES — learned from user feedback:";
+  if (neg) ctx += `\nNEVER:\n${neg}`;
+  if (pos) ctx += `\nALWAYS:\n${pos}`;
+  ctx += "\n]";
+  return ctx;
+}
+
+// API endpoints for behaviour system
+app.get("/api/behaviour", (_, res) => res.json(ariaBehaviour));
+app.get("/api/behaviour/export-jsonl", (_, res) => {
+  const jsonl = ariaBehaviour.trainingData
+    .map((d) => JSON.stringify(d))
+    .join("\n");
+  res.setHeader("Content-Type", "application/x-ndjson");
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=aria-lora-training.jsonl",
+  );
+  res.send(jsonl);
+});
+app.delete("/api/behaviour/rule/:idx", (req, res) => {
+  const idx = parseInt(req.params.idx);
+  if (idx >= 0 && idx < ariaBehaviour.rules.length) {
+    ariaBehaviour.rules.splice(idx, 1);
+    saveBehaviour(ariaBehaviour);
+    res.json({ ok: true });
+  } else {
+    res.status(400).json({ error: "Invalid index" });
+  }
+});
+
 function detectFact(text) {
   const patterns = [
     { re: /my name is ([a-z\s]+)/i, x: (m) => `User's name is ${m[1].trim()}` },
@@ -1000,6 +1160,7 @@ app.post("/api/chat", async (req, res) => {
   let sysPrompt = BASE_PROMPTS[activePersonality] || BASE_PROMPTS.hacker;
   sysPrompt += TOOL_SYSTEM;
   sysPrompt += buildMemoryContext();
+  sysPrompt += buildBehaviourContext();
 
   if (frustrated)
     sysPrompt +=
@@ -1145,8 +1306,15 @@ Active GitHub repo: ${workspaceRepo}
             } catch {}
           }
         }
-        // Run post-processing (facts, tools) on full reply
+        // Run post-processing (facts, tools, feedback) on full reply
         learnFact(full);
+        const fb = detectFeedback(message);
+        const lastAriaMsg =
+          history.filter((m) => m.role === "assistant").pop()?.content || "";
+        if (fb.negative && lastAriaMsg)
+          processFeedback(message, lastAriaMsg, "negative").catch(() => {});
+        if (fb.positive && lastAriaMsg)
+          processFeedback(message, lastAriaMsg, "positive").catch(() => {});
         res.write(`data: ${JSON.stringify({ done: true, full })}\n\n`);
         res.end();
         return;
@@ -1175,6 +1343,14 @@ Active GitHub repo: ${workspaceRepo}
       imageUrl: result.imageUrl,
       imagePrompt: result.imagePrompt,
     });
+    // Async feedback detection (don't block response)
+    const fb2 = detectFeedback(message);
+    const lastAriaMsg2 =
+      history.filter((m) => m.role === "assistant").pop()?.content || "";
+    if (fb2.negative && lastAriaMsg2)
+      processFeedback(message, lastAriaMsg2, "negative").catch(() => {});
+    if (fb2.positive && lastAriaMsg2)
+      processFeedback(message, lastAriaMsg2, "positive").catch(() => {});
   } catch (err) {
     console.error("[AI]", err.message);
     res.json({ reply: `⚠ ${err.message}` });

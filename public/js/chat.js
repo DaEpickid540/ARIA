@@ -241,36 +241,37 @@ window._ariaPauseResolve = null;
   if (existing) return;
   const bar = document.createElement("div");
   bar.id = "ariaStopBar";
-  bar.style.display = "none";
+  // Always in DOM, visibility controlled by class not display
   bar.innerHTML = `
     <button id="ariaStopBtn" title="Stop generation">⏹ Stop</button>
     <button id="ariaPauseBtn" title="Pause and inject a thought">⏸ Pause</button>
-    <div id="ariaPauseInject" style="display:none">
-      <input id="ariaPauseInput" type="text" placeholder="Inject a thought before ARIA continues…" autocomplete="off">
-      <button id="ariaPauseResumeBtn">▶ Resume with thought</button>
+    <div id="ariaPauseInject">
+      <input id="ariaPauseInput" type="text" placeholder="Inject a thought… ARIA will consider it before continuing" autocomplete="off">
+      <button id="ariaPauseResumeBtn">▶ Resume</button>
     </div>
   `;
-  // Insert above the input area
-  const inputArea =
-    document.getElementById("inputArea") ||
-    document.getElementById("chatInputRow") ||
-    document.querySelector(".inputRow");
-  if (inputArea) inputArea.parentNode?.insertBefore(bar, inputArea);
-  else document.body.appendChild(bar);
+  // Insert directly above #inputBar (inside #chatWindow so it doesn't float)
+  const inputBar = document.getElementById("inputBar");
+  if (inputBar) {
+    inputBar.parentNode.insertBefore(bar, inputBar);
+  } else {
+    document.body.appendChild(bar);
+  }
 
   document.getElementById("ariaStopBtn")?.addEventListener("click", () => {
     window.ARIA_stopGeneration?.();
     window._ariaPaused = false;
-    bar.style.display = "none";
+    bar.classList.remove("active");
+    document.getElementById("ariaPauseInject")?.classList.remove("active");
+    document.getElementById("ariaPauseBtn").textContent = "⏸ Pause";
     showToast("Generation stopped", "⏹");
   });
 
   document.getElementById("ariaPauseBtn")?.addEventListener("click", () => {
     if (window._ariaPaused) {
-      // Resume
+      // Resume without a thought
       window._ariaPaused = false;
-      const inject = document.getElementById("ariaPauseInject");
-      if (inject) inject.style.display = "none";
+      document.getElementById("ariaPauseInject")?.classList.remove("active");
       document.getElementById("ariaPauseBtn").textContent = "⏸ Pause";
       if (userInput) userInput.disabled = true;
       window._ariaPauseResolve?.("resume");
@@ -278,12 +279,11 @@ window._ariaPauseResolve = null;
     } else {
       // Pause
       window._ariaPaused = true;
-      const inject = document.getElementById("ariaPauseInject");
-      if (inject) inject.style.display = "flex";
+      document.getElementById("ariaPauseInject")?.classList.add("active");
       document.getElementById("ariaPauseBtn").textContent = "▶ Resume";
       if (userInput) userInput.disabled = false;
       document.getElementById("ariaPauseInput")?.focus();
-      showToast("Paused — type your thought and resume", "⏸");
+      showToast("Paused — inject a thought then resume", "⏸");
     }
   });
 
@@ -292,14 +292,21 @@ window._ariaPauseResolve = null;
     ?.addEventListener("click", () => {
       const val = document.getElementById("ariaPauseInput")?.value.trim();
       window._ariaPaused = false;
-      const inject = document.getElementById("ariaPauseInject");
-      if (inject) inject.style.display = "none";
+      document.getElementById("ariaPauseInject")?.classList.remove("active");
       document.getElementById("ariaPauseBtn").textContent = "⏸ Pause";
       if (userInput) userInput.disabled = true;
       if (document.getElementById("ariaPauseInput"))
         document.getElementById("ariaPauseInput").value = "";
       window._ariaPauseResolve?.(val || "resume");
-      if (val) showToast("Thought injected", "💉");
+      if (val) showToast("Thought injected — resuming", "💡");
+    });
+
+  // Enter key in pause input = resume
+  document
+    .getElementById("ariaPauseInput")
+    ?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter")
+        document.getElementById("ariaPauseResumeBtn")?.click();
     });
 })();
 
@@ -1351,22 +1358,329 @@ window.ARIA_hideMathPanel = hideMathPanel;
 
 window._switchMathTab = function (tab) {
   const calc = document.getElementById("desmosContainer");
+  const viz = document.getElementById("mathVizContainer");
   const keys = document.getElementById("mathPanelBody");
   const btnCalc = document.getElementById("mathTabCalc");
+  const btnViz = document.getElementById("mathTabViz");
   const btnKeys = document.getElementById("mathTabKeys");
+  [calc, viz, keys].forEach((el) => {
+    if (el) el.style.display = "none";
+  });
+  [btnCalc, btnViz, btnKeys].forEach((b) => b?.classList.remove("active"));
   if (tab === "calc") {
     if (calc) calc.style.display = "";
-    if (keys) keys.style.display = "none";
     btnCalc?.classList.add("active");
-    btnKeys?.classList.remove("active");
     if (!window._desmosCalc) _initDesmos();
+  } else if (tab === "viz") {
+    if (viz) {
+      viz.style.display = "flex";
+      viz.style.flexDirection = "column";
+    }
+    btnViz?.classList.add("active");
+    _initMathViz();
   } else {
-    if (calc) calc.style.display = "none";
     if (keys) keys.style.display = "";
-    btnCalc?.classList.remove("active");
     btnKeys?.classList.add("active");
   }
 };
+
+/* ── 3D / 2D Math Visualiser using Canvas + function parser ── */
+let _mathVizCtx = null;
+let _mathVizAnimId = null;
+let _mathViz3dScene = null;
+
+function _initMathViz() {
+  const canvas = document.getElementById("mathVizCanvas");
+  if (!canvas || _mathVizCtx) return;
+  _mathVizCtx = canvas.getContext("2d");
+  // Set canvas resolution to match display
+  const resize = () => {
+    canvas.width = canvas.clientWidth * devicePixelRatio;
+    canvas.height = canvas.clientHeight * devicePixelRatio;
+  };
+  resize();
+  new ResizeObserver(resize).observe(canvas);
+}
+
+window._renderMathViz = function () {
+  const expr = document.getElementById("mathVizExpr")?.value.trim();
+  const type = document.getElementById("mathVizType")?.value || "2d";
+  if (!expr) return;
+  cancelAnimationFrame(_mathVizAnimId);
+  if (type === "3d" || type === "shape") {
+    _render3D(expr, type);
+  } else {
+    _render2D(expr, type);
+  }
+  // Render LaTeX via MathJax if available
+  const latexEl = document.getElementById("mathVizLatex");
+  if (latexEl) {
+    latexEl.textContent = expr;
+    if (window.MathJax?.typesetPromise) {
+      latexEl.innerHTML =
+        "\\(" +
+        expr
+          .replace(/\*\*/g, "^")
+          .replace(/\*/g, "\\cdot ")
+          .replace(/sqrt\(([^)]+)\)/g, "\\sqrt{$1}")
+          .replace(/pi/g, "\\pi")
+          .replace(/inf/g, "\\infty") +
+        "\\)";
+      window.MathJax.typesetPromise([latexEl]).catch(() => {});
+    }
+  }
+};
+
+function _safeEval(expr, vars = {}) {
+  try {
+    const fn = new Function(
+      ...Object.keys(vars),
+      `
+      const sin=Math.sin,cos=Math.cos,tan=Math.tan,sqrt=Math.sqrt,
+            abs=Math.abs,log=Math.log,exp=Math.exp,pow=Math.pow,
+            pi=Math.PI,e=Math.E,sign=Math.sign,floor=Math.floor,
+            ceil=Math.ceil,round=Math.round;
+      return ${expr.replace(/\^/g, "**")};
+    `,
+    );
+    return fn(...Object.values(vars));
+  } catch {
+    return NaN;
+  }
+}
+
+function _render2D(expr, type) {
+  const canvas = document.getElementById("mathVizCanvas");
+  const ctx = _mathVizCtx;
+  if (!canvas || !ctx) return;
+  const W = canvas.width,
+    H = canvas.height;
+  const dpr = devicePixelRatio;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, H);
+
+  const xMin = -8,
+    xMax = 8,
+    yMin = -6,
+    yMax = 6;
+  const toCanvasX = (x) => ((x - xMin) / (xMax - xMin)) * W;
+  const toCanvasY = (y) => H - ((y - yMin) / (yMax - yMin)) * H;
+
+  // Grid
+  ctx.strokeStyle = "rgba(255,0,0,0.12)";
+  ctx.lineWidth = 1;
+  for (let gx = Math.ceil(xMin); gx <= xMax; gx++) {
+    ctx.beginPath();
+    ctx.moveTo(toCanvasX(gx), 0);
+    ctx.lineTo(toCanvasX(gx), H);
+    ctx.stroke();
+  }
+  for (let gy = Math.ceil(yMin); gy <= yMax; gy++) {
+    ctx.beginPath();
+    ctx.moveTo(0, toCanvasY(gy));
+    ctx.lineTo(W, toCanvasY(gy));
+    ctx.stroke();
+  }
+  // Axes
+  ctx.strokeStyle = "rgba(255,0,0,0.5)";
+  ctx.lineWidth = 1.5 * dpr;
+  ctx.beginPath();
+  ctx.moveTo(0, toCanvasY(0));
+  ctx.lineTo(W, toCanvasY(0));
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(toCanvasX(0), 0);
+  ctx.lineTo(toCanvasX(0), H);
+  ctx.stroke();
+
+  // Plot
+  const steps = W * 2;
+  ctx.strokeStyle = "#ff2222";
+  ctx.lineWidth = 2 * dpr;
+  ctx.beginPath();
+  let first = true;
+  for (let i = 0; i <= steps; i++) {
+    const x = xMin + (i / steps) * (xMax - xMin);
+    let y;
+    if (type === "polar") {
+      const r = _safeEval(expr, { t: x });
+      const px = r * Math.cos(x),
+        py = r * Math.sin(x);
+      const cx = toCanvasX(px),
+        cy = toCanvasY(py);
+      first ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+      first = false;
+      continue;
+    }
+    y = _safeEval(expr, { x });
+    if (!isFinite(y)) {
+      first = true;
+      continue;
+    }
+    const cx = toCanvasX(x),
+      cy = toCanvasY(y);
+    first ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+    first = false;
+  }
+  ctx.stroke();
+
+  // Label
+  ctx.fillStyle = "rgba(255,100,100,0.7)";
+  ctx.font = `${12 * dpr}px Share Tech Mono, monospace`;
+  ctx.fillText("y = " + expr, 8 * dpr, 18 * dpr);
+}
+
+function _render3D(expr, type) {
+  const canvas = document.getElementById("mathVizCanvas");
+  const ctx = _mathVizCtx;
+  if (!canvas || !ctx) return;
+  const W = canvas.width,
+    H = canvas.height;
+  const dpr = devicePixelRatio;
+  let angle = 0;
+
+  // Simple 3D wireframe renderer (no external lib)
+  function project(x, y, z, rot) {
+    const cos = Math.cos(rot),
+      sin = Math.sin(rot);
+    const rx = x * cos - z * sin;
+    const rz = x * sin + z * cos;
+    const scale = (350 * dpr) / (rz + 6);
+    return { sx: W / 2 + rx * scale, sy: H / 2 - y * scale };
+  }
+
+  function drawFrame() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, W, H);
+    angle += 0.008;
+
+    if (type === "shape") {
+      // Named shapes
+      const name = expr.toLowerCase().trim();
+      if (name === "sphere") {
+        for (let lat = -Math.PI / 2; lat < Math.PI / 2; lat += 0.25) {
+          ctx.beginPath();
+          let f = true;
+          for (let lon = 0; lon <= Math.PI * 2 + 0.01; lon += 0.1) {
+            const x = Math.cos(lat) * Math.cos(lon) * 2;
+            const z = Math.cos(lat) * Math.sin(lon) * 2;
+            const y = Math.sin(lat) * 2;
+            const p = project(x, y, z, angle);
+            f ? ctx.moveTo(p.sx, p.sy) : ctx.lineTo(p.sx, p.sy);
+            f = false;
+          }
+          ctx.strokeStyle = `rgba(255,${Math.floor(128 + lat * 80)},50,0.6)`;
+          ctx.lineWidth = 1 * dpr;
+          ctx.stroke();
+        }
+      } else if (name === "torus") {
+        const R = 2,
+          r = 0.8;
+        for (let u = 0; u < Math.PI * 2; u += 0.2) {
+          ctx.beginPath();
+          let f = true;
+          for (let v = 0; v < Math.PI * 2 + 0.01; v += 0.1) {
+            const x = (R + r * Math.cos(v)) * Math.cos(u);
+            const z = (R + r * Math.cos(v)) * Math.sin(u);
+            const y = r * Math.sin(v);
+            const p = project(x, y, z, angle);
+            f ? ctx.moveTo(p.sx, p.sy) : ctx.lineTo(p.sx, p.sy);
+            f = false;
+          }
+          ctx.strokeStyle = "rgba(255,60,60,0.5)";
+          ctx.lineWidth = 1 * dpr;
+          ctx.stroke();
+        }
+      } else if (name === "cone") {
+        for (let t = 0; t < Math.PI * 2; t += 0.2) {
+          ctx.beginPath();
+          const top = project(0, 2, 0, angle);
+          ctx.moveTo(top.sx, top.sy);
+          const b = project(Math.cos(t) * 1.5, -2, Math.sin(t) * 1.5, angle);
+          ctx.lineTo(b.sx, b.sy);
+          ctx.strokeStyle = "rgba(255,80,40,0.6)";
+          ctx.lineWidth = 1 * dpr;
+          ctx.stroke();
+        }
+        // Base circle
+        ctx.beginPath();
+        let f = true;
+        for (let t = 0; t < Math.PI * 2 + 0.01; t += 0.1) {
+          const p = project(Math.cos(t) * 1.5, -2, Math.sin(t) * 1.5, angle);
+          f ? ctx.moveTo(p.sx, p.sy) : ctx.lineTo(p.sx, p.sy);
+          f = false;
+        }
+        ctx.strokeStyle = "rgba(255,80,40,0.6)";
+        ctx.stroke();
+      }
+    } else {
+      // 3D surface z = f(x,y)
+      const N = 20,
+        range = 3;
+      const pts = [];
+      for (let i = 0; i <= N; i++) {
+        pts[i] = [];
+        for (let j = 0; j <= N; j++) {
+          const x = (i / N) * range * 2 - range;
+          const y_val = (j / N) * range * 2 - range;
+          const z = _safeEval(expr, { x, y: y_val });
+          pts[i][j] = {
+            x,
+            y: isFinite(z) ? Math.max(-3, Math.min(3, z)) : 0,
+            z: y_val,
+          };
+        }
+      }
+      for (let i = 0; i < N; i++) {
+        for (let j = 0; j < N; j++) {
+          const p1 = project(pts[i][j].x, pts[i][j].y, pts[i][j].z, angle);
+          const p2 = project(
+            pts[i + 1][j].x,
+            pts[i + 1][j].y,
+            pts[i + 1][j].z,
+            angle,
+          );
+          const p3 = project(
+            pts[i][j + 1].x,
+            pts[i][j + 1].y,
+            pts[i][j + 1].z,
+            angle,
+          );
+          const h = Math.floor(((pts[i][j].y + 3) / 6) * 180);
+          ctx.strokeStyle = `hsla(${h},80%,55%,0.5)`;
+          ctx.lineWidth = 0.8 * dpr;
+          ctx.beginPath();
+          ctx.moveTo(p1.sx, p1.sy);
+          ctx.lineTo(p2.sx, p2.sy);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(p1.sx, p1.sy);
+          ctx.lineTo(p3.sx, p3.sy);
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.fillStyle = "rgba(255,80,80,0.6)";
+    ctx.font = `${11 * dpr}px Share Tech Mono,monospace`;
+    ctx.fillText(expr, 8 * dpr, 18 * dpr);
+    _mathVizAnimId = requestAnimationFrame(drawFrame);
+  }
+  drawFrame();
+}
+
+// Load MathJax for LaTeX rendering
+if (!window.MathJax) {
+  window.MathJax = {
+    tex: { inlineMath: [["\\(", "\\)"]] },
+    startup: { typeset: false },
+  };
+  const s = document.createElement("script");
+  s.src = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js";
+  s.async = true;
+  document.head.appendChild(s);
+}
 
 function buildMathPanelHTML() {
   const INS = {
@@ -1617,11 +1931,26 @@ function buildMathPanelHTML() {
       <span>∑ MATH</span>
       <div style="display:flex;gap:4px;align-items:center">
         <button class="mathTabBtn active" id="mathTabCalc" onclick="window._switchMathTab('calc')">Calculator</button>
+        <button class="mathTabBtn" id="mathTabViz" onclick="window._switchMathTab('viz')">Visualise</button>
         <button class="mathTabBtn" id="mathTabKeys" onclick="window._switchMathTab('keys')">Symbols</button>
         <button onclick="window.ARIA_hideMathPanel()" title="Close" style="margin-left:6px">✕</button>
       </div>
     </div>
     <div id="desmosContainer" style="flex:1;min-height:380px;"></div>
+    <div id="mathVizContainer" style="display:none;flex:1;flex-direction:column;min-height:380px;overflow:hidden;">
+      <div id="mathVizInput" style="display:flex;gap:6px;padding:8px;border-bottom:1px solid var(--red-dim)">
+        <input id="mathVizExpr" type="text" placeholder="e.g. sin(x), x^2-4, sphere, torus" style="flex:1;background:var(--bg-abyss);border:1px solid var(--red-dim);color:var(--text-hot);font-family:'Share Tech Mono',monospace;font-size:11px;padding:4px 8px;outline:none">
+        <select id="mathVizType" style="background:var(--bg-abyss);border:1px solid var(--red-dim);color:var(--text-hot);font-family:'Share Tech Mono',monospace;font-size:10px;padding:3px">
+          <option value="2d">2D Graph</option>
+          <option value="3d">3D Surface</option>
+          <option value="shape">3D Shape</option>
+          <option value="polar">Polar</option>
+        </select>
+        <button onclick="window._renderMathViz()" style="background:transparent;border:1px solid var(--red-core);color:var(--red-core);font-family:'Orbitron',sans-serif;font-size:8px;letter-spacing:.1em;padding:4px 10px;cursor:crosshair">PLOT</button>
+      </div>
+      <canvas id="mathVizCanvas" style="flex:1;width:100%;background:#000"></canvas>
+      <div id="mathVizLatex" style="padding:8px;font-size:12px;color:var(--text-muted);min-height:40px;border-top:1px solid var(--border-cut)"></div>
+    </div>
     <div id="mathPanelBody" style="display:none">${body}</div>`;
 }
 
@@ -2238,9 +2567,8 @@ function setSendState(on) {
     sendBtn.textContent = on ? "…" : "Send";
     sendBtn.style.opacity = on ? "0.5" : "1";
   }
-  // Show/hide the persistent stop bar
-  const stopBar = document.getElementById("ariaStopBar");
-  if (stopBar) stopBar.style.display = on ? "flex" : "none";
+  // Show/hide stop bar via class (it lives in the DOM always)
+  document.getElementById("ariaStopBar")?.classList.toggle("active", on);
   if (userInput) userInput.disabled = on && !window._ariaPaused;
 }
 function showTypingIndicator() {
@@ -2306,12 +2634,15 @@ function renderMarkdown(text) {
     return `${pills}__THINK__${b64}__THINK__`;
   });
 
-  // Scrub any remaining <think> tags and raw HTML the model leaked
+  // ── Tag leak prevention ─────────────────────────────────────
+  // 1. Strip any <think> tags the regex didn't catch (partial stream)
   text = text.replace(/<\/think>/gi, "").replace(/<think>/gi, "");
-  // Strip any other HTML-looking tags except our own placeholders
-  text = text.replace(
-    /<(?!\/?(b|i|strong|em|code|pre|br|hr|ul|ol|li|p|h[1-6]|blockquote|a|img|span|div|details|summary)\b)[^>]+>/gi,
-    "",
+  // 2. Strip incomplete tags at end of string (stream cut off mid-tag)
+  text = text.replace(/<[^>]{0,200}$/, "");
+  // 3. Strip all HTML tags except a safe markdown-rendering allowlist
+  const SAFE_TAG_RE = /^\/?(b|i|strong|em|code|pre|br|hr|ul|ol|li|blockquote|details|summary|table|thead|tbody|tr|th|td)$/i;
+  text = text.replace(/<(\/?[a-zA-Z][a-zA-Z0-9]*)[^>]*>/g, (match, tag) =>
+    SAFE_TAG_RE.test(tag) ? match : "",
   );
 
   let h = escapeHtml(text);
