@@ -2438,6 +2438,40 @@ async function sendMessageContent(text, chat, attachments = []) {
             const raw = line.slice(6).trim();
             try {
               const evt = JSON.parse(raw);
+              // ── Intermediate step events (tool calls, agent results) ──
+              if (evt.step) {
+                const stepBar =
+                  document.getElementById("clawLiveStepBar") ||
+                  (() => {
+                    const el = document.createElement("div");
+                    el.id = "clawLiveStepBar";
+                    el.className = "clawLiveStepBar";
+                    messages.appendChild(el);
+                    return el;
+                  })();
+                let icon = "⚙";
+                let label = evt.msg || evt.tool || evt.agent || "";
+                if (evt.type === "tool_start") icon = "🔧";
+                if (evt.type === "tool_done") icon = "✓";
+                if (evt.type === "agent") icon = "🤖";
+                if (evt.type === "source") icon = "🌐";
+                if (evt.type === "thinking") icon = "💭";
+                const pill = document.createElement("div");
+                pill.className = "clawStepPill clawStepIn";
+                pill.innerHTML = `<span class="clawStepIcon">${icon}</span><span class="clawStepText">${escapeHtml(
+                  label.slice(0, 120),
+                )}</span>`;
+                if (evt.type === "source" && evt.url) {
+                  pill.innerHTML = `<span class="clawStepIcon">🌐</span><a href="${escapeHtml(
+                    evt.url,
+                  )}" target="_blank" class="clawStepText clawStepLink">${escapeHtml(
+                    evt.title || evt.url,
+                  ).slice(0, 100)}</a>`;
+                }
+                stepBar.appendChild(pill);
+                messages.scrollTop = messages.scrollHeight;
+              }
+
               if (evt.delta) {
                 accumulated += evt.delta;
 
@@ -2598,24 +2632,27 @@ function escapeHtml(t) {
 function renderMarkdown(text) {
   if (!text) return "";
 
-  // Strip any text before the first <think> block
+  // ── STEP 1: Strip think tags and HTML leaks (on raw text) ──
   if (/<think>/i.test(text)) {
     text = text.replace(/^[\s\S]*?(?=<think>)/i, "");
   }
+  text = text.replace(/<\/think>/gi, "").replace(/<think>/gi, "");
+  text = text.replace(/<[^>]{0,200}$/, ""); // incomplete trailing tag
+  const SAFE_TAG_RE = /^\/?(b|i|strong|em|code|pre|br|hr|ul|ol|li|blockquote|details|summary|table|thead|tbody|tr|th|td)$/i;
+  text = text.replace(/<(\/?[a-zA-Z][a-zA-Z0-9]*)[^>]*>/g, (m, tag) =>
+    SAFE_TAG_RE.test(tag) ? m : "",
+  );
 
-  // Think blocks — extract, render steps inline + keep collapsible full log
+  // ── STEP 2: Extract think blocks BEFORE any escaping ──
+  const thinkPlaceholders = [];
   text = text.replace(/<think>([\s\S]*?)<\/think>/gi, (_, inner) => {
     const cleaned = inner.trim();
-
-    // Parse structured [STEP N — LABEL]: content lines
     const stepRegex = /\[STEP \d+\s*[—–-]\s*([A-Z ]+)\]:\s*([^\n]+)/gi;
     const steps = [];
     let m;
     while ((m = stepRegex.exec(cleaned)) !== null) {
       steps.push({ label: m[1].trim(), text: m[2].trim() });
     }
-
-    // Build inline step pills (shown in chat flow)
     const pills = steps.length
       ? `<div class="thinkSteps">${steps
           .map(
@@ -2628,33 +2665,14 @@ function renderMarkdown(text) {
           )
           .join("")}</div>`
       : "";
-
-    // Full log collapsible (always available)
-    const b64 = btoa(unescape(encodeURIComponent(escapeHtml(cleaned))));
-    return `${pills}__THINK__${b64}__THINK__`;
+    const idx = thinkPlaceholders.length;
+    thinkPlaceholders.push({ pills, raw: cleaned });
+    return `\x00THINK${idx}\x00`;
   });
 
-  // ── Tag leak prevention ─────────────────────────────────────
-  // 1. Strip any <think> tags the regex didn't catch (partial stream)
-  text = text.replace(/<\/think>/gi, "").replace(/<think>/gi, "");
-  // 2. Strip incomplete tags at end of string (stream cut off mid-tag)
-  text = text.replace(/<[^>]{0,200}$/, "");
-  // 3. Strip all HTML tags except a safe markdown-rendering allowlist
-  const SAFE_TAG_RE = /^\/?(b|i|strong|em|code|pre|br|hr|ul|ol|li|blockquote|details|summary|table|thead|tbody|tr|th|td)$/i;
-  text = text.replace(/<(\/?[a-zA-Z][a-zA-Z0-9]*)[^>]*>/g, (match, tag) =>
-    SAFE_TAG_RE.test(tag) ? match : "",
-  );
-
-  let h = escapeHtml(text);
-
-  // Restore think full-log as collapsible (closed by default — steps already shown inline)
-  h = h.replace(/__THINK__([A-Za-z0-9+/=]+)__THINK__/g, (_, b64) => {
-    const c = decodeURIComponent(escape(atob(b64)));
-    return `<details class="thinkBlock"><summary>◈ Full reasoning log</summary><div class="thinkContent">${c}</div></details>`;
-  });
-
-  // Code blocks — with Panel + Copy + Download
-  h = h.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+  // ── STEP 3: Extract code blocks BEFORE escaping (protect content) ──
+  const codePlaceholders = [];
+  text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
     const clean = code.trim();
     const enc = encodeURIComponent(clean);
     const extMap = {
@@ -2666,9 +2684,13 @@ function renderMarkdown(text) {
       json: "json",
       bash: "sh",
       shell: "sh",
+      cpp: "cpp",
+      c: "c",
+      rust: "rs",
+      go: "go",
     };
     const ext = extMap[lang] || lang || "txt";
-    return `<div class="codeBlock">
+    const html = `<div class="codeBlock">
       ${lang ? `<span class="codeLabel">${lang.toUpperCase()}</span>` : ""}
       <div class="codeActions">
         <button class="codePanelBtn codeActionBtn" data-code="${enc}" data-lang="${lang}">⤢ Panel</button>
@@ -2677,9 +2699,16 @@ function renderMarkdown(text) {
       </div>
       <pre><code>${escapeHtml(clean)}</code></pre>
     </div>`;
+    const idx = codePlaceholders.length;
+    codePlaceholders.push(html);
+    return `\x00CODE${idx}\x00`;
   });
 
-  h = h.replace(/`([^`]+)`/g, '<code class="inlineCode">$1</code>');
+  // ── STEP 4: escapeHtml the remaining text (safe, no code or think) ──
+  let h = escapeHtml(text);
+
+  // ── STEP 5: Apply markdown formatting on escaped text ──
+  h = h.replace(/`([^`\n]+)`/g, '<code class="inlineCode">$1</code>');
   h = h.replace(/^### (.+)$/gm, '<h3 class="mdH3">$1</h3>');
   h = h.replace(/^## (.+)$/gm, '<h2 class="mdH2">$1</h2>');
   h = h.replace(/^# (.+)$/gm, '<h1 class="mdH1">$1</h1>');
@@ -2696,6 +2725,7 @@ function renderMarkdown(text) {
     /\[([^\]]+)\]\(([^)]+)\)/g,
     '<a href="$2" target="_blank" rel="noopener" class="mdLink">$1</a>',
   );
+  // Bullet lists
   h = h.replace(
     /((?:^[*\-] .+\n?)+)/gm,
     (b) =>
@@ -2705,6 +2735,7 @@ function renderMarkdown(text) {
         .map((l) => `<li>${l.replace(/^[*\-] /, "")}</li>`)
         .join("")}</ul>`,
   );
+  // Ordered lists
   h = h.replace(
     /((?:^\d+\. .+\n?)+)/gm,
     (b) =>
@@ -2714,14 +2745,33 @@ function renderMarkdown(text) {
         .map((l) => `<li>${l.replace(/^\d+\. /, "")}</li>`)
         .join("")}</ol>`,
   );
+  // Paragraphs
   h = h
     .split(/\n{2,}/)
     .map((b) => {
       const t = b.trim();
-      if (!t || /^<(h[1-3]|ul|ol|div|details|pre|hr)/.test(t)) return t;
+      if (!t || /^<(h[1-3]|ul|ol|div|details|pre|hr|\x00)/.test(t)) return t;
       return `<p class="mdPara">${t.replace(/\n/g, "<br/>")}</p>`;
     })
     .join("\n");
+
+  // ── STEP 6: Restore code and think placeholders ──
+  h = h.replace(
+    /\x00CODE(\d+)\x00/g,
+    (_, i) => codePlaceholders[parseInt(i)] || "",
+  );
+  h = h.replace(/\x00THINK(\d+)\x00/g, (_, i) => {
+    const t = thinkPlaceholders[parseInt(i)];
+    if (!t) return "";
+    const b64 = btoa(unescape(encodeURIComponent(escapeHtml(t.raw))));
+    return (
+      t.pills +
+      `<details class="thinkBlock"><summary>◈ Full reasoning log</summary><div class="thinkContent">${t.raw
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")}</div></details>`
+    );
+  });
+
   return h;
 }
 

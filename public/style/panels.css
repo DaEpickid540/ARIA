@@ -1694,3 +1694,50 @@ body.mathPanelOpen #chatWindow {
   background: rgba(0, 0, 0, 0.3);
   flex-shrink: 0;
 }
+
+/* ============================================================
+   LIVE STEP PILLS — shown during agentic tool calls
+   ============================================================ */
+.clawLiveStepBar {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 4px 0 8px 0;
+  padding-left: 10px;
+  border-left: 2px solid rgba(255, 0, 0, 0.2);
+}
+.clawStepPill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9.5px;
+  color: var(--text-muted);
+  opacity: 0;
+  transform: translateX(-4px);
+}
+.clawStepIn {
+  animation: clawStepSlide 0.2s ease forwards;
+}
+@keyframes clawStepSlide {
+  to {
+    opacity: 0.8;
+    transform: translateX(0);
+  }
+}
+.clawStepIcon {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+.clawStepText {
+  flex: 1;
+  word-break: break-word;
+}
+.clawStepLink {
+  color: var(--red-dim);
+  text-decoration: none;
+}
+.clawStepLink:hover {
+  color: var(--red-core);
+  text-decoration: underline;
+}

@@ -496,7 +496,7 @@ async function runAgenticPipeline(
 ) {
   const steps = [];
   let iteration = 0;
-  const MAX_ITER = thinkDeeper ? 6 : 4;
+  const MAX_ITER = 8; // always use full agentic budget
   let currentMessages = [...messages];
 
   while (iteration < MAX_ITER) {
@@ -1172,7 +1172,7 @@ app.post("/api/chat", async (req, res) => {
     )}\n]`;
 
   // Auto-decide thinking: explicit toggle OR auto-detected complex message
-  const shouldThink = needsThinking(message);
+  const shouldThink = true; // always think
 
   if (shouldThink) {
     sysPrompt += `
@@ -1315,7 +1315,47 @@ Active GitHub repo: ${workspaceRepo}
           processFeedback(message, lastAriaMsg, "negative").catch(() => {});
         if (fb.positive && lastAriaMsg)
           processFeedback(message, lastAriaMsg, "positive").catch(() => {});
-        res.write(`data: ${JSON.stringify({ done: true, full })}\n\n`);
+        // Run agentic pipeline on the streamed full reply
+        // Check if it contains an ACTION that needs tool use
+        const actionCheck = full.match(
+          /^\s*ACTION:\s*([^|\n]+?)\s*\|\s*(.*)$/im,
+        );
+        if (actionCheck) {
+          // Stream step notifications then run pipeline
+          res.write(
+            `data: ${JSON.stringify({
+              step: true,
+              msg: "Running tools…",
+            })}\n\n`,
+          );
+          try {
+            const agentMessages2 = [
+              { role: "system", content: sysPrompt },
+              ...cappedHistory,
+              { role: "assistant", content: full },
+            ];
+            const pipeResult = await runAgenticPipelineStreaming(
+              agentMessages2,
+              provider,
+              requestedModel,
+              false,
+              { mathMode, programmingMode, thinkDeeper: false, musicTutorMode },
+              (stepEvt) => {
+                res.write(`data: ${JSON.stringify(stepEvt)}\n\n`);
+              },
+            );
+            res.write(
+              `data: ${JSON.stringify({
+                done: true,
+                full: pipeResult.reply,
+              })}\n\n`,
+            );
+          } catch {
+            res.write(`data: ${JSON.stringify({ done: true, full })}\n\n`);
+          }
+        } else {
+          res.write(`data: ${JSON.stringify({ done: true, full })}\n\n`);
+        }
         res.end();
         return;
       } catch (streamErr) {

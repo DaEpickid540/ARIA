@@ -16,40 +16,8 @@ import { createInterface } from "readline";
 import os from "os";
 import https from "https";
 import http from "http";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CONFIG_FILE = path.join(__dirname, "aria-relay-config.json");
-
-// Load saved config
-function loadConfig() {
-  try {
-    return JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
-  } catch {
-    return {};
-  }
-}
-
-// Save config
-function saveConfig(data) {
-  try {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(data, null, 2));
-  } catch {}
-}
-
-const savedConfig = loadConfig();
-
-// Priority: argv[2] > saved config > localhost
-let SERVER_URL =
-  process.argv[2] || savedConfig.serverUrl || "http://localhost:3000";
-
-// If a new URL was passed via argv, save it for future runs
-if (process.argv[2] && process.argv[2] !== savedConfig.serverUrl) {
-  saveConfig({ ...savedConfig, serverUrl: SERVER_URL });
-  console.log(`[RELAY] Server URL saved to ${CONFIG_FILE}`);
-}
+const SERVER_URL = process.argv[2] || "http://localhost:3000";
 const POLL_MS = 1500; // how often to check for commands
 const DEVICE_ID = `relay-${os.hostname()}-${os.platform()}`;
 const PLATFORM = os.platform(); // "win32" | "darwin" | "linux"
@@ -242,7 +210,7 @@ async function dispatch(cmd) {
       const { x = 0, y = 0 } = cmd;
       if (PLATFORM === "win32") {
         run(
-          `powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${x},${y})"`,
+          `powershell -Command "Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; [System.Windows.Forms.Cursor]::Position = [System.Drawing.Point]::new(${x},${y})"`,
         );
       } else if (PLATFORM === "darwin") {
         run(
@@ -261,15 +229,23 @@ async function dispatch(cmd) {
       const btn = { left: 1, right: 3, middle: 2 }[button] || 1;
       if (x != null && y != null) await dispatch({ ...cmd, type: "move" });
       if (PLATFORM === "win32") {
-        const click =
-          button === "right"
-            ? `$wsh.SendKeys('+{F10}')`
-            : `[System.Windows.Forms.SendKeys]::SendWait('')`;
-        // Simpler: use PowerShell mouse_event
+        // Move first if coords given, then click with proper flags
+        const pinvoke = `Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Mouse {
+  [DllImport("user32.dll")] public static extern void mouse_event(uint f,uint x,uint y,uint d,IntPtr e);
+  [DllImport("user32.dll")] public static extern bool SetCursorPos(int x,int y);
+}
+"@ -ErrorAction SilentlyContinue`;
+        const downFlag = btn === 1 ? 2 : btn === 3 ? 8 : 32;
+        const upFlag = btn === 1 ? 4 : btn === 3 ? 16 : 64;
+        const posCmd =
+          x != null && y != null
+            ? `[Mouse]::SetCursorPos(${x},${y}); Start-Sleep -Milliseconds 80;`
+            : "";
         run(
-          `powershell -Command "Add-Type @'\nusing System.Runtime.InteropServices;\npublic class M { [DllImport(\\"user32.dll\\")] public static extern void mouse_event(int f,int x,int y,int d,int e); }\n'@; [M]::mouse_event(${
-            btn === 1 ? 6 : 10
-          },0,0,0,0)"`,
+          `powershell -Command "${pinvoke}; ${posCmd} [Mouse]::mouse_event(${downFlag},0,0,0,[IntPtr]::Zero); Start-Sleep -Milliseconds 50; [Mouse]::mouse_event(${upFlag},0,0,0,[IntPtr]::Zero)"`,
         );
       } else if (PLATFORM === "darwin") {
         run(`osascript -e 'tell application "System Events" to click'`);
@@ -317,21 +293,39 @@ async function dispatch(cmd) {
       return `switched to ${app}`;
     }
 
-    // ── Open URL in browser ──
+    // ── Open URL in Edge (or default browser) ──
     case "open_url":
     case "browser": {
       const url = cmd.url || cmd.raw || "";
-      if (PLATFORM === "win32") run(`start "" "${url}"`);
-      else if (PLATFORM === "darwin") run(`open "${url}"`);
+      if (PLATFORM === "win32") {
+        // Try Edge first, fall back to start
+        try {
+          run(`start msedge "${url}"`);
+        } catch {
+          run(`start "" "${url}"`);
+        }
+      } else if (PLATFORM === "darwin") run(`open "${url}"`);
       else run(`xdg-open "${url}"`);
       return `opened ${url}`;
     }
 
-    // ── New browser tab ──
+    // ── New Edge tab ──
     case "new_tab": {
+      if (PLATFORM === "win32" && cmd.url) {
+        // Open URL directly in Edge new tab
+        try {
+          run(
+            `powershell -Command "Start-Process msedge '${cmd.url.replace(
+              /'/g,
+              "''",
+            )}' -ArgumentList '--new-tab'"`,
+          );
+          return "edge tab opened: " + cmd.url;
+        } catch {}
+      }
       await dispatch({ type: "hotkey", keys: ["ctrl", "t"] });
       if (cmd.url) {
-        await sleep(500);
+        await sleep(600);
         await dispatch({ type: "type", text: cmd.url });
         await dispatch({ type: "hotkey", keys: ["enter"] });
       }
@@ -344,27 +338,53 @@ async function dispatch(cmd) {
       return "tab closed";
     }
 
-    // ── Screenshot ──
+    // ── Screenshot — saves AND returns base64 for ARIA to see ──
     case "screenshot": {
-      const fname = cmd.path || os.tmpdir() + "/aria-claw-screenshot.png";
+      const fname =
+        cmd.path || os.tmpdir() + "/aria-claw-shot-" + Date.now() + ".png";
       if (PLATFORM === "win32") {
         run(
-          `powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::PrimaryScreen; $bmp = New-Object System.Drawing.Bitmap([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width,[System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height); $g = [System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen(0,0,0,0,$bmp.Size); $bmp.Save('${fname}')"`,
+          `powershell -Command "Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $b=New-Object System.Drawing.Bitmap([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width,[System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height); $g=[System.Drawing.Graphics]::FromImage($b); $g.CopyFromScreen(0,0,0,0,$b.Size); $b.Save('${fname}')"`,
         );
       } else if (PLATFORM === "darwin") {
         run(`screencapture -x "${fname}"`);
       } else {
         run(`import -window root "${fname}"`);
       }
-      return `screenshot saved: ${fname}`;
+      // Send screenshot back to server so ARIA can see it
+      try {
+        const { readFileSync } = await import("fs");
+        const b64 = readFileSync(fname).toString("base64");
+        await apiPost("/api/claw/relay/result", {
+          deviceId: DEVICE_ID,
+          cmdId: cmd.id,
+          result: "screenshot_ok",
+          screenshot: b64,
+          fname,
+        });
+        return `screenshot: ${fname}`;
+      } catch {
+        return `screenshot saved: ${fname}`;
+      }
     }
 
     // ── Run program / open file ──
     case "run":
     case "open_file": {
       const target = cmd.path || cmd.program || cmd.raw || "";
-      if (PLATFORM === "win32") run(`start "" "${target}"`);
-      else if (PLATFORM === "darwin") run(`open "${target}"`);
+      if (PLATFORM === "win32") {
+        // Use Start-Process -WindowStyle Normal to prevent black window flash
+        try {
+          run(
+            `powershell -Command "Start-Process '${target.replace(
+              /'/g,
+              "''",
+            )}' -WindowStyle Normal"`,
+          );
+        } catch {
+          run(`start "" "${target}"`);
+        }
+      } else if (PLATFORM === "darwin") run(`open "${target}"`);
       else run(`xdg-open "${target}" &`);
       return `opened: ${target}`;
     }
@@ -387,6 +407,59 @@ async function dispatch(cmd) {
       const ms = cmd.ms || cmd.seconds * 1000 || 1000;
       await sleep(ms);
       return `waited ${ms}ms`;
+    }
+
+    // ── Continuous screen watch — sends screenshots every N seconds ──
+    case "continuous_screen": {
+      const interval = (cmd.interval || 3) * 1000;
+      const count = cmd.count || 10;
+      let sent = 0;
+      while (sent < count && !execLock) {
+        await dispatch({ ...cmd, type: "screenshot" });
+        await sleep(interval);
+        sent++;
+      }
+      return `continuous screen: ${sent} shots sent`;
+    }
+
+    // ── app search — find an app by name and launch it ──
+    case "launch_app": {
+      const appName = (cmd.app || cmd.raw || "").toLowerCase().trim();
+      if (PLATFORM === "win32") {
+        // Common app mappings
+        const appMap = {
+          discord:
+            "C:\\Users\\${process.env.USERNAME}\\AppData\\Local\\Discord\\Update.exe --processStart Discord.exe",
+          "github desktop":
+            "C:\\Users\\${process.env.USERNAME}\\AppData\\Local\\GitHubDesktop\\GitHubDesktop.exe",
+          vscode: "code",
+          "visual studio code": "code",
+          notepad: "notepad.exe",
+          explorer: "explorer.exe",
+          terminal: "wt.exe",
+          "windows terminal": "wt.exe",
+          edge: "msedge.exe",
+          chrome: "chrome.exe",
+          spotify: "spotify.exe",
+        };
+        const mapped = appMap[appName];
+        if (mapped) {
+          try {
+            run(
+              `powershell -Command "Start-Process '${mapped}' -WindowStyle Normal"`,
+            );
+            return `launched ${appName}`;
+          } catch {}
+        }
+        // Fallback: search Start Menu
+        run(`powershell -Command "Start-Process '${appName}'" `);
+        return `attempted: ${appName}`;
+      } else if (PLATFORM === "darwin") {
+        run(`open -a "${appName}"`);
+      } else {
+        run(`${appName} &`);
+      }
+      return `launch attempted: ${appName}`;
     }
 
     default:

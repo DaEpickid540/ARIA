@@ -71,6 +71,7 @@ function _buildPanel() {
         <span id="clawStatus">● READY</span>
         <button class="clawHdrBtn" id="clawToggleBtn" title="Enable/disable Claw execution">ON</button>
         <button class="clawHdrBtn" id="clawVizBtn"    title="Visualizer mode — see each step">VIZ</button>
+        <button class="clawHdrBtn" id="clawScreenBtn" title="Continuous screen watch — ARIA watches your screen">📷 WATCH</button>
         <button class="clawHdrBtn" onclick="document.getElementById('clawPanel').classList.remove('open')">✕</button>
       </div>
     </div>
@@ -152,6 +153,36 @@ function _buildPanel() {
     if (!_clawEnabled)
       fetch("/api/claw/kill", { method: "POST" }).catch(() => {});
     else fetch("/api/claw/resume", { method: "POST" }).catch(() => {});
+  });
+
+  // Continuous screen watch
+  let _screenWatchInterval = null;
+  document.getElementById("clawScreenBtn")?.addEventListener("click", () => {
+    const btn = document.getElementById("clawScreenBtn");
+    if (_screenWatchInterval) {
+      clearInterval(_screenWatchInterval);
+      _screenWatchInterval = null;
+      btn.classList.remove("active");
+      btn.textContent = "📷 WATCH";
+      _log("SCREEN", "Screen watch stopped.", "info");
+    } else {
+      btn.classList.add("active");
+      btn.textContent = "📷 ON";
+      _log(
+        "SCREEN",
+        "Continuous screen watch active — ARIA sees your screen every 4s.",
+        "info",
+      );
+      const doShot = () => {
+        fetch("/api/claw", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ input: "take a screenshot", mode: "ai" }),
+        }).catch(() => {});
+      };
+      doShot();
+      _screenWatchInterval = setInterval(doShot, 4000);
+    }
   });
 
   // Visualizer mode
