@@ -45,6 +45,10 @@
 #define DEVICE_ID       "esp32-hid-relay"
 #define BLE_DEVICE_NAME "ARIA Claw"
 #define USB_MODE        false   // true = USB HID (ESP32-S2/S3 only, needs TinyUSB)
+// Screen resolution for absolute→relative mouse conversion
+// Change these to match your monitor!
+#define SCREEN_W        1920
+#define SCREEN_H        1080
 // ─────────────────────────────────────────────────────────────
 
 BleKeyboard bleKB(BLE_DEVICE_NAME, "ARIA", 100);
@@ -180,22 +184,41 @@ String executeCommand(JsonObject cmd) {
   // ── hotkey ───────────────────────────────────────────────────
   if (type == "hotkey") {
     if (!bleKB.isConnected()) return "kb_not_connected";
+    
+    // Get key list: prefer array, else parse "ctrl+t" style string
+    String raw = "";
     JsonArray keys = cmd["keys"];
-    if (keys.isNull()) {
-      // parse "ctrl+c" style
-      String raw = cmd["keys"] | cmd["raw"] | "";
-      // simple single key
-      bleKB.press(keyNameToCode(raw.c_str()));
-      delay(30);
-      bleKB.releaseAll();
-      return "hotkey_sent";
+    bool hasArray = !keys.isNull() && keys.size() > 0;
+    if (!hasArray) raw = (const char*)(cmd["keys"] | cmd["raw"] | "");
+
+    // Parse "ctrl+shift+t" into tokens
+    String tokens[8];
+    int count = 0;
+    if (hasArray) {
+      for (JsonVariant v : keys) {
+        if (count < 8) tokens[count++] = v.as<String>();
+      }
+    } else {
+      // Split raw string on "+"
+      int start = 0;
+      for (int i = 0; i <= (int)raw.length() && count < 8; i++) {
+        if (i == (int)raw.length() || raw[i] == '+') {
+          String tok = raw.substring(start, i);
+          tok.trim();
+          tok.toLowerCase();
+          if (tok.length() > 0) tokens[count++] = tok;
+          start = i + 1;
+        }
+      }
     }
-    // Press all modifiers first, then the final key
-    for (int i = 0; i < (int)keys.size() - 1; i++) {
-      uint8_t code = keyNameToCode(keys[i]);
+    if (count == 0) return "no_keys";
+
+    // Press all modifiers first, then final key
+    for (int i = 0; i < count - 1; i++) {
+      uint8_t code = keyNameToCode(tokens[i].c_str());
       if (code) bleKB.press(code);
     }
-    uint8_t last = keyNameToCode(keys[keys.size()-1]);
+    uint8_t last = keyNameToCode(tokens[count - 1].c_str());
     if (last) bleKB.press(last);
     delay(50);
     bleKB.releaseAll();
@@ -210,11 +233,11 @@ String executeCommand(JsonObject cmd) {
     int dx = (int)(cmd["dx"] | 0);
     int dy = (int)(cmd["dy"] | 0);
     if (dx == 0 && dy == 0) {
-      // absolute x,y given — convert to relative (assume 1920x1080 center)
-      int x = cmd["x"] | 960;
-      int y = cmd["y"] | 540;
-      dx = x - 960;
-      dy = y - 540;
+      // absolute x,y given — convert to relative using configured screen size
+      int x = cmd["x"] | (SCREEN_W / 2);
+      int y = cmd["y"] | (SCREEN_H / 2);
+      dx = x - (SCREEN_W / 2);
+      dy = y - (SCREEN_H / 2);
     }
     // BLE HID mouse_move caps at -127..127 per report
     // Send in chunks if needed

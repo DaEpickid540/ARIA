@@ -1,17 +1,8 @@
-/* Prevent claw panel from expanding scroll width */
-html {
-  overflow: hidden;
-  background: #000;
-}
-body {
-  background: var(--bg-void, #000);
-}
-
 /* ============================================================
-   ARIA CLAW — paste at bottom of style.css
+   ARIA CLAW — Control Panel CSS
    ============================================================ */
 
-/* Kill switch — always bottom-right, always on top */
+/* Kill switch */
 #clawKillSwitch {
   position: fixed;
   bottom: 20px;
@@ -28,18 +19,19 @@ body {
   font-weight: 900;
   letter-spacing: 0.05em;
   text-align: center;
-  line-height: 1.3;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
+  line-height: 1.3;
   transition: all 0.15s;
   box-shadow: 0 0 8px rgba(255, 0, 0, 0.05);
 }
 #clawKillSwitch:hover {
-  border-color: var(--red-core);
-  color: var(--red-neon);
-  box-shadow: var(--glow-md);
+  border-color: #cc0000;
+  color: #ff2222;
+  box-shadow: 0 0 18px rgba(255, 0, 0, 0.4);
   transform: scale(1.08);
 }
 #clawKillSwitch.killed {
@@ -57,39 +49,48 @@ body {
   }
 }
 
-/* Panel */
+/* ── Panel shell ── */
 #clawPanel {
   position: fixed;
   right: 0;
   top: 0;
-  width: 500px;
+  width: 480px;
   height: 100dvh;
-  background: var(--bg-abyss);
-  border-left: 1px solid var(--red-dim);
-  box-shadow: -4px 0 40px rgba(255, 0, 0, 0.15);
+  background: #050000;
+  border-left: 1px solid #3a0000;
+  box-shadow: -6px 0 40px rgba(255, 0, 0, 0.18);
   z-index: 8000;
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
   transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  overflow: hidden;
 }
 #clawPanel.open {
   transform: translateX(0);
 }
 
+/* ── Header ── */
 #clawHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--red-dim);
+  border-bottom: 1px solid #2a0000;
   flex-shrink: 0;
+  background: #080000;
+}
+#clawHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 #clawTitle {
   font-family: "Orbitron", sans-serif;
   font-size: 11px;
-  letter-spacing: 0.2em;
-  color: var(--red-neon);
+  letter-spacing: 0.22em;
+  color: #ff2222;
+  text-shadow: 0 0 12px rgba(255, 0, 0, 0.5);
 }
 #clawHeaderRight {
   display: flex;
@@ -99,68 +100,167 @@ body {
 #clawStatus {
   font-family: "Share Tech Mono", monospace;
   font-size: 10px;
-  color: var(--text-muted);
+  color: #555;
 }
-
 .clawDotOn {
   color: #44ff88;
-  font-size: 12px;
+  font-size: 13px;
 }
 .clawDotOff {
-  color: var(--text-muted);
-  font-size: 12px;
+  color: #333;
+  font-size: 13px;
 }
 
-.clawHdrBtn {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-cut);
-  color: var(--text-muted);
-  padding: 2px 7px;
-  font-family: "Share Tech Mono", monospace;
-  font-size: 9px;
-  cursor: crosshair;
-}
-.clawHdrBtn:hover {
-  border-color: var(--red-dim);
-  color: var(--text-hot);
-}
-.clawHdrBtn.active {
-  background: rgba(255, 0, 0, 0.15);
-  border-color: var(--red-core);
-  color: var(--red-neon);
-}
-.clawHdrBtn.clawBtnOff {
-  border-color: #330000;
-  color: #330000;
-}
-
+/* ── Relay bar ── */
 #clawRelayBar {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 5px 14px;
-  background: rgba(0, 0, 0, 0.5);
-  border-bottom: 1px solid var(--red-dim);
+  background: #030000;
+  border-bottom: 1px solid #1e0000;
   font-family: "Share Tech Mono", monospace;
   font-size: 10px;
   flex-shrink: 0;
 }
 #clawRelayName {
-  color: var(--text-hot);
+  color: #cc4444;
   flex: 1;
 }
 #clawRelayPlatform {
-  color: var(--text-muted);
+  color: #444;
+}
+.clawSetupLinkInline {
+  text-decoration: underline;
+  cursor: pointer;
+  color: #ff4444;
+}
+.clawSetupLinkInline:hover {
+  color: #ff6666;
 }
 
-#clawTerminal {
+/* ── Tab bar ── */
+#clawTabBar {
+  display: flex;
+  border-bottom: 1px solid #1e0000;
+  background: #040000;
+  flex-shrink: 0;
+}
+.clawTab {
+  flex: 1;
+  padding: 8px 4px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #444;
+  font-family: "Orbitron", sans-serif;
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.clawTab:hover {
+  color: #cc2222;
+}
+.clawTab.active {
+  color: #ff2222;
+  border-bottom-color: #ff2222;
+  background: rgba(255, 0, 0, 0.06);
+  text-shadow: 0 0 8px rgba(255, 0, 0, 0.4);
+}
+
+/* ── Tab content wrapper ── */
+.clawTabContent {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #000;
+  min-height: 0;
 }
 
+/* ══════════════════════════════════════
+   CONTROL TAB
+══════════════════════════════════════ */
+#clawModeRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #1a0000;
+  background: #040000;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.clawModeLabel {
+  font-family: "Orbitron", sans-serif;
+  font-size: 7px;
+  letter-spacing: 0.2em;
+  color: #333;
+  margin-right: 2px;
+}
+.clawModeBtn {
+  background: #0a0000;
+  border: 1px solid #1e0000;
+  color: #444;
+  padding: 4px 9px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  cursor: pointer;
+  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+  transition: all 0.12s;
+}
+.clawModeBtn:hover {
+  border-color: #550000;
+  color: #cc2222;
+}
+.clawModeBtn.active {
+  background: rgba(255, 0, 0, 0.13);
+  border-color: #cc0000;
+  color: #ff2222;
+  text-shadow: 0 0 6px rgba(255, 0, 0, 0.4);
+}
+
+/* Quick actions row */
+#clawQuickRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-bottom: 1px solid #1a0000;
+  background: #030000;
+  flex-shrink: 0;
+}
+.clawQuickBtn {
+  background: #0a0000;
+  border: 1px solid #1e0000;
+  color: #555;
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: all 0.12s;
+  flex-shrink: 0;
+}
+.clawQuickBtn:hover {
+  background: rgba(255, 0, 0, 0.1);
+  border-color: #550000;
+  color: #ff4444;
+}
+.clawQuickDanger {
+  margin-left: auto;
+  border-color: #330000;
+  color: #440000;
+}
+.clawQuickDanger:hover {
+  border-color: #ff4444 !important;
+  color: #ff4444 !important;
+}
+
+/* Output log */
 #clawOutput {
   flex: 1;
   overflow-y: auto;
@@ -168,14 +268,16 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: #000;
   scrollbar-width: thin;
-  scrollbar-color: var(--red-dim) transparent;
+  scrollbar-color: #330000 transparent;
+  min-height: 0;
 }
 #clawOutput::-webkit-scrollbar {
   width: 3px;
 }
 #clawOutput::-webkit-scrollbar-thumb {
-  background: var(--red-dim);
+  background: #330000;
 }
 
 .clawEntry {
@@ -185,21 +287,21 @@ body {
 }
 .clawEntryLabel {
   font-family: "Orbitron", sans-serif;
-  font-size: 8px;
+  font-size: 7px;
   letter-spacing: 0.2em;
   opacity: 0.5;
 }
 .clawEntry-user .clawEntryLabel {
-  color: var(--text-blaze);
+  color: #ff8844;
 }
 .clawEntry-output .clawEntryLabel {
-  color: var(--red-neon);
+  color: #ff2222;
 }
 .clawEntry-error .clawEntryLabel {
   color: #ff4444;
 }
 .clawEntry-info .clawEntryLabel {
-  color: var(--text-muted);
+  color: #555;
 }
 .clawEntry-viz .clawEntryLabel {
   color: #44aaff;
@@ -214,35 +316,36 @@ pre.clawEntryText {
   margin: 0;
 }
 .clawEntry-user pre {
-  color: var(--text-blaze);
+  color: #ff8844;
 }
 .clawEntry-output pre {
-  color: var(--red-neon);
+  color: #ff4444;
 }
 .clawEntry-error pre {
   color: #ff6666;
 }
 .clawEntry-info pre {
-  color: var(--text-muted);
+  color: #444;
 }
 .clawEntry-viz pre {
   color: #44aaff;
   font-size: 10px;
 }
 
+/* Input row */
 #clawInputRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   padding: 8px 12px;
-  border-top: 1px solid var(--red-dim);
-  background: var(--bg-panel);
+  border-top: 1px solid #1e0000;
+  background: #060000;
   flex-shrink: 0;
 }
 .clawPrompt {
   font-family: "Share Tech Mono", monospace;
-  font-size: 11px;
-  color: var(--red-core);
+  font-size: 12px;
+  color: #660000;
   flex-shrink: 0;
 }
 #clawInput {
@@ -252,94 +355,280 @@ pre.clawEntryText {
   outline: none;
   font-family: "Share Tech Mono", monospace;
   font-size: 11px;
-  color: var(--text-blaze);
-  caret-color: var(--red-core);
+  color: #ff8844;
+  caret-color: #ff2222;
 }
 #clawInput::placeholder {
-  color: var(--text-muted);
+  color: #2a0000;
 }
 #clawRunBtn {
-  background: var(--red-core);
+  background: #cc0000;
   color: #000;
   border: none;
   padding: 5px 10px;
   font-size: 13px;
-  cursor: crosshair;
+  cursor: pointer;
   flex-shrink: 0;
   clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+  font-weight: 900;
 }
 #clawRunBtn:hover {
-  background: var(--red-hot);
-}
-
-#clawModeRow {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 7px 12px;
-  border-top: 1px solid var(--red-dim);
-  background: var(--bg-panel);
-  flex-shrink: 0;
-  flex-wrap: wrap;
-}
-.clawModeLabel {
-  font-family: "Orbitron", sans-serif;
-  font-size: 8px;
-  letter-spacing: 0.2em;
-  color: var(--text-muted);
-}
-.clawModeBtn {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-cut);
-  color: var(--text-muted);
-  padding: 3px 8px;
-  font-family: "Share Tech Mono", monospace;
-  font-size: 9px;
-  cursor: crosshair;
-  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
-}
-.clawModeBtn:hover {
-  border-color: var(--red-dim);
-  color: var(--text-hot);
-}
-.clawModeBtn.active {
-  background: rgba(255, 0, 0, 0.12);
-  border-color: var(--red-core);
-  color: var(--red-neon);
+  background: #ff0000;
 }
 #clawClearBtn {
   background: none;
-  border: 1px solid var(--border-cut);
-  color: var(--text-muted);
-  padding: 3px 7px;
+  border: 1px solid #1a0000;
+  color: #333;
+  padding: 4px 7px;
   font-size: 11px;
-  cursor: crosshair;
-  margin-left: auto;
+  cursor: pointer;
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 #clawClearBtn:hover {
-  border-color: var(--red-dim);
-  color: var(--text-hot);
+  border-color: #440000;
+  color: #cc2222;
 }
 
-@media (max-width: 768px) {
-  #clawPanel {
-    width: 100vw;
-    right: -100vw;
-  }
+/* Header buttons */
+.clawHdrBtn {
+  background: #0a0000;
+  border: 1px solid #220000;
+  color: #444;
+  padding: 3px 8px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.clawHdrBtn:hover {
+  border-color: #550000;
+  color: #cc2222;
+}
+.clawHdrBtn.active {
+  background: rgba(255, 0, 0, 0.15);
+  border-color: #cc0000;
+  color: #ff2222;
+}
+.clawHdrBtn.clawBtnOff {
+  border-color: #1a0000;
+  color: #1a0000;
 }
 
-/* Confirm dialog */
+/* ══════════════════════════════════════
+   SCREEN TAB
+══════════════════════════════════════ */
+#clawTab-screen {
+  flex-direction: column;
+  background: #020000;
+}
+#clawScreenControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #1a0000;
+  flex-shrink: 0;
+}
+.clawScreenStatusText {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: #444;
+  margin-left: auto;
+}
+#clawScreenIntervalRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-bottom: 1px solid #1a0000;
+  background: #030000;
+  flex-shrink: 0;
+}
+#clawScreenIntervalSlider {
+  flex: 1;
+  accent-color: #cc0000;
+}
+#clawScreenIntervalVal {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: #cc2222;
+  min-width: 24px;
+  text-align: right;
+}
+
+#clawPovFrame {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  min-height: 0;
+}
+#clawPovEmpty {
+  text-align: center;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 12px;
+  color: #222;
+  line-height: 2;
+}
+#clawPovEmpty span {
+  font-size: 10px;
+  color: #1a0000;
+}
+#clawPovImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+#clawPovTimestamp {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: rgba(255, 34, 34, 0.5);
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px 5px;
+  border-radius: 2px;
+}
+
+/* ══════════════════════════════════════
+   CONFIG TAB
+══════════════════════════════════════ */
+#clawTab-config {
+  overflow-y: auto;
+  flex-direction: column;
+  gap: 0;
+  background: #020000;
+  padding: 4px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #330000 transparent;
+}
+.clawCfgSection {
+  padding: 14px 16px;
+  border-bottom: 1px solid #150000;
+}
+.clawCfgTitle {
+  font-family: "Orbitron", sans-serif;
+  font-size: 8px;
+  letter-spacing: 0.25em;
+  color: #660000;
+  margin-bottom: 12px;
+}
+.clawCfgRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+.clawCfgLabel {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: #666;
+  flex: 1;
+}
+.clawCfgVal {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: #cc2222;
+  min-width: 30px;
+  text-align: right;
+}
+
+/* Range sliders */
+.clawCfgRow input[type="range"] {
+  flex: 1;
+  accent-color: #cc0000;
+  cursor: pointer;
+}
+
+/* Toggle switch */
+.clawToggleWrap {
+  position: relative;
+  width: 36px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.clawToggleWrap input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.clawToggleSlider {
+  position: absolute;
+  inset: 0;
+  background: #1a0000;
+  border-radius: 18px;
+  border: 1px solid #330000;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.clawToggleSlider::before {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #440000;
+  border-radius: 50%;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: 0.2s;
+}
+.clawToggleWrap input:checked + .clawToggleSlider {
+  background: rgba(255, 0, 0, 0.25);
+  border-color: #cc0000;
+}
+.clawToggleWrap input:checked + .clawToggleSlider::before {
+  background: #ff2222;
+  transform: translate(18px, -50%);
+}
+
+/* Setup guide block in config */
+.clawCfgGuide {
+  background: #080000;
+  border: 1px solid #1e0000;
+  padding: 12px;
+  border-radius: 2px;
+}
+.clawCfgGuide code {
+  display: block;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: #ff4444;
+  background: #000;
+  padding: 8px;
+  margin: 8px 0;
+  word-break: break-all;
+  border: 1px solid #1a0000;
+}
+.clawCfgGuide p {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: #444;
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+/* ── Confirm overlay ── */
 #clawConfirmOverlay {
   display: none;
   position: fixed;
   inset: 0;
   z-index: 999998;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.88);
   align-items: center;
   justify-content: center;
 }
 #clawConfirmBox {
-  background: var(--bg-panel);
+  background: #050000;
   border: 2px solid #ff4444;
   box-shadow: 0 0 40px rgba(255, 68, 68, 0.4);
   width: 440px;
@@ -364,15 +653,15 @@ pre.clawEntryText {
 #clawConfirmBody {
   font-family: "Share Tech Mono", monospace;
   font-size: 11px;
-  color: var(--text-hot);
+  color: #cc4444;
   margin-bottom: 10px;
 }
 #clawConfirmAction {
   font-family: "Share Tech Mono", monospace;
   font-size: 11px;
-  color: var(--text-blaze);
-  background: rgba(255, 0, 0, 0.08);
-  border: 1px solid var(--red-dim);
+  color: #ff8844;
+  background: rgba(255, 0, 0, 0.06);
+  border: 1px solid #330000;
   padding: 8px 10px;
   margin-bottom: 18px;
   word-break: break-all;
@@ -387,24 +676,31 @@ pre.clawEntryText {
   font-family: "Orbitron", sans-serif;
   font-size: 10px;
   letter-spacing: 0.1em;
-  cursor: crosshair;
+  cursor: pointer;
   border: 1px solid;
   clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
 }
 .clawConfirmBtn.deny {
   background: transparent;
-  border-color: var(--red-dim);
-  color: var(--text-muted);
+  border-color: #440000;
+  color: #666;
 }
 .clawConfirmBtn.deny:hover {
-  border-color: var(--red-core);
-  color: var(--red-neon);
+  border-color: #cc0000;
+  color: #ff2222;
 }
 .clawConfirmBtn.allow {
-  background: var(--red-core);
-  border-color: var(--red-neon);
+  background: #cc0000;
+  border-color: #ff2222;
   color: #000;
+  font-weight: 900;
 }
 .clawConfirmBtn.allow:hover {
-  background: var(--red-hot);
+  background: #ff0000;
+}
+
+@media (max-width: 768px) {
+  #clawPanel {
+    width: 100vw;
+  }
 }

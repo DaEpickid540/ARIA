@@ -25,6 +25,96 @@ const PLATFORM = os.platform(); // "win32" | "darwin" | "linux"
 let running = true;
 let execLock = false; // prevent parallel execution
 
+// ── Runtime config (updated live from server) ─────────────────
+let typeDelay = 25; // ms between each character when typing
+let mouseSpeed = 1; // movement speed multiplier (future use)
+let monitorIdx = -1; // -1 = all monitors combined, 0 = primary, 1+ = secondary
+
+// ── Browser detection (Windows) ──────────────────────────────
+let DEFAULT_BROWSER = "default"; // detected at startup
+function detectDefaultBrowser() {
+  if (PLATFORM !== "win32") return;
+  try {
+    const progId = run(
+      `powershell -Command "(Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\http\\UserChoice').ProgId"`,
+    )
+      .trim()
+      .toLowerCase();
+    if (progId.includes("msedge")) DEFAULT_BROWSER = "edge";
+    else if (progId.includes("chrome")) DEFAULT_BROWSER = "chrome";
+    else if (progId.includes("brave")) DEFAULT_BROWSER = "brave";
+    else if (progId.includes("firefox") || progId.includes("firefoxurl"))
+      DEFAULT_BROWSER = "firefox";
+    else if (progId.includes("tor")) DEFAULT_BROWSER = "tor";
+    else DEFAULT_BROWSER = "default";
+    console.log(`[RELAY] Default browser detected: ${DEFAULT_BROWSER}`);
+  } catch {
+    DEFAULT_BROWSER = "default";
+  }
+}
+
+// Returns the right executable / launch command for the detected browser
+function browserCmd(url) {
+  const q = `"${url}"`;
+  switch (DEFAULT_BROWSER) {
+    case "edge":
+      return `start msedge ${q}`;
+    case "chrome":
+      return `start chrome ${q}`;
+    case "brave":
+      return `start brave ${q}`;
+    case "firefox":
+      return `start firefox ${q}`;
+    case "tor": {
+      // Tor Browser lives in various places; find it then launch
+      const torPaths = [
+        `%USERPROFILE%\\Desktop\\Tor Browser\\Browser\\firefox.exe`,
+        `%APPDATA%\\Tor Browser\\Browser\\firefox.exe`,
+        `C:\\Tor Browser\\Browser\\firefox.exe`,
+      ];
+      for (const p of torPaths) {
+        try {
+          const expanded = run(
+            `powershell -Command "[System.Environment]::ExpandEnvironmentVariables('${p}')"`,
+          ).trim();
+          if (
+            expanded &&
+            run(`powershell -Command "Test-Path '${expanded}'"`).trim() ===
+              "True"
+          ) {
+            return `powershell -Command "Start-Process '${expanded}' '${url.replace(
+              /'/g,
+              "''",
+            )}'"`;
+          }
+        } catch {}
+      }
+      return `start "" ${q}`; // fallback
+    }
+    default:
+      return `start "" ${q}`;
+  }
+}
+
+// Returns flag to open a new tab in the detected browser
+function newTabCmd(url) {
+  const u = url ? url.replace(/'/g, "''") : "";
+  switch (DEFAULT_BROWSER) {
+    case "edge":
+      return `powershell -Command "Start-Process msedge '${u}' '--new-tab'"`;
+    case "chrome":
+      return `powershell -Command "Start-Process chrome '${u}' '--new-tab'"`;
+    case "brave":
+      return `powershell -Command "Start-Process brave '${u}' '--new-tab'"`;
+    case "firefox":
+      return `powershell -Command "Start-Process firefox '-new-tab' '${u}'"`;
+    case "tor":
+      return browserCmd(url); // Tor: just open URL
+    default:
+      return `start "" "${url || ""}"`;
+  }
+}
+
 console.log(`
 ╔═══════════════════════════════════════════════╗
 ║  ARIA CLAW RELAY  v1.0                        ║
@@ -38,11 +128,13 @@ console.log(`
 
 // ── Register with server ──────────────────────────────────────
 async function register() {
+  detectDefaultBrowser();
   await apiPost("/api/claw/relay/register", {
     deviceId: DEVICE_ID,
     platform: PLATFORM,
     hostname: os.hostname(),
     arch: os.arch(),
+    browser: DEFAULT_BROWSER,
   });
   console.log("[RELAY] Registered with ARIA server ✓");
 }
@@ -67,6 +159,12 @@ async function poll() {
       if (execLock && !data.killed) {
         console.log("[RELAY] Resumed by server.");
         execLock = false;
+      }
+      // Apply live config pushed from claw panel sliders
+      if (data.config) {
+        if (data.config.typeDelay != null) typeDelay = data.config.typeDelay;
+        if (data.config.mouseSpeed != null) mouseSpeed = data.config.mouseSpeed;
+        if (data.config.monitorIdx != null) monitorIdx = data.config.monitorIdx;
       }
       if (!data.commands?.length || execLock) continue;
 
@@ -110,23 +208,51 @@ async function dispatch(cmd) {
       return run(raw);
     }
 
-    // ── Type text ──
+    // ── Type text (with configurable per-char delay) ──
     case "type":
     case "keys": {
       const text = cmd.text || cmd.raw || "";
       if (PLATFORM === "win32") {
-        // PowerShell SendKeys via WScript.Shell
-        const escaped = text.replace(/'/g, "''");
-        run(
-          `powershell -Command "$wsh = New-Object -ComObject WScript.Shell; $wsh.SendKeys('${escaped}')"`,
-        );
+        if (typeDelay <= 5) {
+          // Fast mode: dump all at once via SendKeys
+          const escaped = text.replace(/'/g, "''");
+          run(
+            `powershell -Command "$wsh = New-Object -ComObject WScript.Shell; $wsh.SendKeys('${escaped}')"`,
+          );
+        } else {
+          // Slow mode: char by char via SetForegroundWindow + SendKeys
+          for (const ch of text) {
+            const esc = ch
+              .replace(/'/g, "''")
+              .replace(/[~+^%(){}[\]]/g, "{$&}"); // escape SendKeys specials
+            run(
+              `powershell -Command "$wsh = New-Object -ComObject WScript.Shell; $wsh.SendKeys('${esc}')"`,
+            );
+            await sleep(typeDelay);
+          }
+        }
       } else if (PLATFORM === "darwin") {
-        const escaped = text.replace(/'/g, "\\'");
-        run(
-          `osascript -e 'tell application "System Events" to keystroke "${escaped}"'`,
-        );
+        if (typeDelay <= 5) {
+          const escaped = text.replace(/'/g, "\\'");
+          run(
+            `osascript -e 'tell application "System Events" to keystroke "${escaped}"'`,
+          );
+        } else {
+          for (const ch of text) {
+            const escaped = ch.replace(/'/g, "\\'");
+            run(
+              `osascript -e 'tell application "System Events" to keystroke "${escaped}"'`,
+            );
+            await sleep(typeDelay);
+          }
+        }
       } else {
-        run(`xdotool type --clearmodifiers "${text.replace(/"/g, '\\"')}"`);
+        run(
+          `xdotool type --clearmodifiers --delay ${typeDelay} "${text.replace(
+            /"/g,
+            '\\"',
+          )}"`,
+        );
       }
       return "typed";
     }
@@ -212,7 +338,7 @@ async function dispatch(cmd) {
       const { x = 0, y = 0 } = cmd;
       if (PLATFORM === "win32") {
         run(
-          `powershell -Command "Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; [System.Windows.Forms.Cursor]::Position = [System.Drawing.Point]::new(${x},${y})"`,
+          `powershell -Command "Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public class CP { [DllImport(\"user32.dll\")] public static extern bool SetCursorPos(int x, int y); }' -ErrorAction SilentlyContinue; [CP]::SetCursorPos(${x}, ${y})"`,
         );
       } else if (PLATFORM === "darwin") {
         run(
@@ -295,35 +421,27 @@ public class Mouse {
       return `switched to ${app}`;
     }
 
-    // ── Open URL in Edge (or default browser) ──
+    // ── Open URL in default browser ──
     case "open_url":
     case "browser": {
       const url = cmd.url || cmd.raw || "";
       if (PLATFORM === "win32") {
-        // Try Edge first, fall back to start
-        try {
-          run(`start msedge "${url}"`);
-        } catch {
-          run(`start "" "${url}"`);
-        }
+        run(browserCmd(url));
       } else if (PLATFORM === "darwin") run(`open "${url}"`);
       else run(`xdg-open "${url}"`);
-      return `opened ${url}`;
+      return `opened ${url} in ${DEFAULT_BROWSER}`;
     }
 
-    // ── New Edge tab ──
+    // ── New tab in default browser ──
     case "new_tab": {
-      if (PLATFORM === "win32" && cmd.url) {
-        // Open URL directly in Edge new tab
-        try {
-          run(
-            `powershell -Command "Start-Process msedge '${cmd.url.replace(
-              /'/g,
-              "''",
-            )}' -ArgumentList '--new-tab'"`,
-          );
-          return "edge tab opened: " + cmd.url;
-        } catch {}
+      if (PLATFORM === "win32") {
+        if (cmd.url) {
+          run(newTabCmd(cmd.url));
+          return `new tab: ${cmd.url} in ${DEFAULT_BROWSER}`;
+        }
+        // No URL — just Ctrl+T in whatever's focused
+        await dispatch({ type: "hotkey", keys: ["ctrl", "t"] });
+        return "new tab opened";
       }
       await dispatch({ type: "hotkey", keys: ["ctrl", "t"] });
       if (cmd.url) {
@@ -340,20 +458,42 @@ public class Mouse {
       return "tab closed";
     }
 
-    // ── Screenshot — saves AND returns base64 for ARIA to see ──
+    // ── Screenshot — multi-monitor aware ──
     case "screenshot": {
       const fname =
         cmd.path || os.tmpdir() + "/aria-claw-shot-" + Date.now() + ".png";
+      const mIdx = cmd.monitor ?? monitorIdx; // -1=all, 0=primary, 1+=secondary
       if (PLATFORM === "win32") {
-        run(
-          `powershell -Command "Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $b=New-Object System.Drawing.Bitmap([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width,[System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height); $g=[System.Drawing.Graphics]::FromImage($b); $g.CopyFromScreen(0,0,0,0,$b.Size); $b.Save('${fname}')"`,
-        );
+        if (mIdx === -1) {
+          // Capture ALL monitors combined (virtual desktop)
+          run(
+            `powershell -Command "` +
+              `Add-Type -AssemblyName System.Windows.Forms,System.Drawing; ` +
+              `$vd=[System.Windows.Forms.SystemInformation]::VirtualScreen; ` +
+              `$b=New-Object System.Drawing.Bitmap($vd.Width,$vd.Height); ` +
+              `$g=[System.Drawing.Graphics]::FromImage($b); ` +
+              `$g.CopyFromScreen($vd.Left,$vd.Top,0,0,$b.Size); ` +
+              `$b.Save('${fname}')"`,
+          );
+        } else {
+          // Specific monitor by index
+          run(
+            `powershell -Command "` +
+              `Add-Type -AssemblyName System.Windows.Forms,System.Drawing; ` +
+              `$screens=[System.Windows.Forms.Screen]::AllScreens; ` +
+              `$s=if(${mIdx} -lt $screens.Length){$screens[${mIdx}]}else{[System.Windows.Forms.Screen]::PrimaryScreen}; ` +
+              `$b=New-Object System.Drawing.Bitmap($s.Bounds.Width,$s.Bounds.Height); ` +
+              `$g=[System.Drawing.Graphics]::FromImage($b); ` +
+              `$g.CopyFromScreen($s.Bounds.X,$s.Bounds.Y,0,0,$b.Size); ` +
+              `$b.Save('${fname}')"`,
+          );
+        }
       } else if (PLATFORM === "darwin") {
-        run(`screencapture -x "${fname}"`);
+        const mFlag = mIdx >= 0 ? `-D ${mIdx + 1}` : "";
+        run(`screencapture -x ${mFlag} "${fname}"`);
       } else {
         run(`import -window root "${fname}"`);
       }
-      // Send screenshot back to server so ARIA can see it
       try {
         const { readFileSync } = await import("fs");
         const b64 = readFileSync(fname).toString("base64");
@@ -426,42 +566,82 @@ public class Mouse {
 
     // ── app search — find an app by name and launch it ──
     case "launch_app": {
-      const appName = (cmd.app || cmd.raw || "").toLowerCase().trim();
+      const appRaw = (cmd.app || cmd.raw || "").trim(); // preserve original casing for search
+      const appName = appRaw.toLowerCase(); // lowercase only for map lookup
       if (PLATFORM === "win32") {
-        // Common app mappings
+        // ── Tier 1: known exact .exe mappings (instant) ───────
         const appMap = {
-          discord:
-            "C:\\Users\\${process.env.USERNAME}\\AppData\\Local\\Discord\\Update.exe --processStart Discord.exe",
-          "github desktop":
-            "C:\\Users\\${process.env.USERNAME}\\AppData\\Local\\GitHubDesktop\\GitHubDesktop.exe",
+          discord: `C:\\Users\\${process.env.USERNAME}\\AppData\\Local\\Discord\\Update.exe --processStart Discord.exe`,
+          "github desktop": `C:\\Users\\${process.env.USERNAME}\\AppData\\Local\\GitHubDesktop\\GitHubDesktop.exe`,
           vscode: "code",
           "visual studio code": "code",
           notepad: "notepad.exe",
           explorer: "explorer.exe",
+          "file explorer": "explorer.exe",
+          "file manager": "explorer.exe",
+          files: "explorer.exe",
           terminal: "wt.exe",
           "windows terminal": "wt.exe",
           edge: "msedge.exe",
+          "microsoft edge": "msedge.exe",
           chrome: "chrome.exe",
+          "google chrome": "chrome.exe",
+          firefox: "firefox.exe",
           spotify: "spotify.exe",
+          calculator: "calc.exe",
+          calc: "calc.exe",
+          paint: "mspaint.exe",
+          "task manager": "taskmgr.exe",
+          taskmgr: "taskmgr.exe",
+          wordpad: "wordpad.exe",
+          cmd: "cmd.exe",
+          powershell: "powershell.exe",
+          snip: "snippingtool.exe",
+          "snipping tool": "snippingtool.exe",
         };
+
         const mapped = appMap[appName];
         if (mapped) {
-          try {
-            run(
-              `powershell -Command "Start-Process '${mapped}' -WindowStyle Normal"`,
-            );
-            return `launched ${appName}`;
-          } catch {}
+          const r = run(
+            `powershell -Command "Start-Process '${mapped}' -WindowStyle Normal"`,
+          );
+          if (!r.startsWith("exit")) return `launched ${appName}`;
+          console.log(
+            `[RELAY] Mapped launch failed for "${appRaw}", falling back to Windows Search...`,
+          );
         }
-        // Fallback: search Start Menu
-        run(`powershell -Command "Start-Process '${appName}'" `);
-        return `attempted: ${appName}`;
+
+        // ── Tier 2: Windows Search via Ctrl+Esc ───────────────
+        // Note: WScript.Shell SendKeys uses ^{ESC} for Ctrl+Esc (= Start menu).
+        // {LWIN} is NOT supported by WScript.Shell — Ctrl+Esc is the correct substitute.
+        console.log(`[RELAY] Using Windows Search for "${appRaw}"...`);
+        const searchText = appRaw.replace(/'/g, "''");
+        run(
+          `powershell -Command "$wsh = New-Object -ComObject WScript.Shell; $wsh.SendKeys('^{ESC}'); Start-Sleep -Milliseconds 900; $wsh.SendKeys('${searchText}'); Start-Sleep -Milliseconds 1400; $wsh.SendKeys('{ENTER}')"`,
+        );
+        return `searched and launched: ${appRaw}`;
       } else if (PLATFORM === "darwin") {
-        run(`open -a "${appName}"`);
+        const r = run(`open -a "${appRaw}" 2>/dev/null`);
+        if (r.startsWith("exit")) {
+          // Spotlight fallback
+          run(
+            `osascript -e 'tell application "System Events" to key code 49 using command down'`,
+          );
+          await sleep(600);
+          run(
+            `osascript -e 'tell application "System Events" to keystroke "${appRaw.replace(
+              /"/g,
+              '\\"',
+            )}"'`,
+          );
+          await sleep(1000);
+          run(`osascript -e 'tell application "System Events" to key code 36'`);
+          return `spotlight launched: ${appRaw}`;
+        }
       } else {
-        run(`${appName} &`);
+        run(`${appRaw} &`);
       }
-      return `launch attempted: ${appName}`;
+      return `launch attempted: ${appRaw}`;
     }
 
     default:

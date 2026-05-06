@@ -68,6 +68,7 @@ function _parseChatClawInput(s) {
   if (s.startsWith("screenshot")) return { id, type: "screenshot" };
   if (s.startsWith("new_tab:"))
     return { id, type: "new_tab", url: s.slice(8).trim() };
+  if (s === "new_tab" || s === "new tab") return { id, type: "new_tab" };
   if (s.startsWith("close_tab")) return { id, type: "close_tab" };
   if (s.startsWith("switch:"))
     return { id, type: "switch_app", app: s.slice(7).trim() };
@@ -1944,8 +1945,41 @@ app.post("/api/claw/relay/unregister", (req, res) => {
 
 // Relay reports result of executed command
 app.post("/api/claw/relay/result", (req, res) => {
-  // Could store results for visualizer — for now just ack
+  const { screenshot, fname, deviceId } = req.body;
+  if (screenshot && deviceId) {
+    // Store latest screenshot per device for POV feed
+    if (!global.clawScreenshots) global.clawScreenshots = new Map();
+    global.clawScreenshots.set(deviceId, {
+      b64: screenshot,
+      fname: fname || "",
+      ts: Date.now(),
+    });
+  }
   res.json({ ok: true });
+});
+
+// Latest screenshot for POV feed in claw panel
+app.get("/api/claw/screenshot", (req, res) => {
+  const shots = global.clawScreenshots;
+  if (!shots || shots.size === 0) return res.json({ ok: false });
+  // Return most recent across all devices
+  let latest = null;
+  for (const [, v] of shots) {
+    if (!latest || v.ts > latest.ts) latest = v;
+  }
+  res.json({ ok: true, b64: latest.b64, ts: latest.ts });
+});
+
+// Relay live config (pushed from claw panel sliders, returned in every queue poll)
+let relayConfig = { typeDelay: 25, mouseSpeed: 1, monitorIdx: -1 };
+
+// POST /api/claw/config — claw panel sliders push updates here
+app.post("/api/claw/config", (req, res) => {
+  const { typeDelay, mouseSpeed, monitorIdx } = req.body;
+  if (typeDelay != null) relayConfig.typeDelay = Number(typeDelay);
+  if (mouseSpeed != null) relayConfig.mouseSpeed = Number(mouseSpeed);
+  if (monitorIdx != null) relayConfig.monitorIdx = Number(monitorIdx);
+  res.json({ ok: true, config: relayConfig });
 });
 
 // Relay polls this for pending commands
@@ -1954,7 +1988,7 @@ app.get("/api/claw/queue", (req, res) => {
   if (!deviceId) return res.json({ commands: [] });
   const q = clawQueue.get(deviceId) || [];
   clawQueue.set(deviceId, []); // clear after sending
-  res.json({ commands: q, killed: clawKilled });
+  res.json({ commands: q, killed: clawKilled, config: relayConfig });
 });
 
 // Kill switch — clears all queues, locks relay
