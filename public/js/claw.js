@@ -200,30 +200,36 @@ function _buildPanel() {
     );
   });
 
-  // Setup guide
+  // Setup guide — also handles dynamically regenerated links from status poll
+  const _showSetupGuide = () =>
+    _log(
+      "SETUP",
+      [
+        "HOW TO CONNECT YOUR PC TO ARIA CLAW",
+        "",
+        "1. Copy  claw-relay.js  to any folder on your PC",
+        "2. Open a terminal and run:",
+        "   node claw-relay.js https://your-aria-url.onrender.com",
+        "",
+        "Requirements: Node.js (already installed if you dev locally)",
+        "No npm install, no pip, zero extra dependencies.",
+        "Works on Windows, macOS, and Linux.",
+        "",
+        "While the relay runs, ARIA has full control of your PC.",
+        "Use the ⬡ KILL button bottom-right to stop instantly.",
+        "The ON/OFF toggle in this panel also pauses execution.",
+      ].join("\n"),
+      "info",
+    );
+
   document
     .getElementById("clawSetupLink")
-    .addEventListener("click", () =>
-      _log(
-        "SETUP",
-        [
-          "HOW TO CONNECT YOUR PC TO ARIA CLAW",
-          "",
-          "1. Copy  claw-relay.js  to any folder on your PC",
-          "2. Open a terminal and run:",
-          "   node claw-relay.js https://your-aria-url.onrender.com",
-          "",
-          "Requirements: Node.js (already installed if you dev locally)",
-          "No npm install, no pip, zero extra dependencies.",
-          "Works on Windows, macOS, and Linux.",
-          "",
-          "While the relay runs, ARIA has full control of your PC.",
-          "Use the ⬡ KILL button bottom-right to stop instantly.",
-          "The ON/OFF toggle in this panel also pauses execution.",
-        ].join("\n"),
-        "info",
-      ),
-    );
+    .addEventListener("click", _showSetupGuide);
+
+  // Delegate clicks from dynamically created .clawSetupLinkInline spans
+  document.getElementById("clawRelayBar").addEventListener("click", (e) => {
+    if (e.target.classList.contains("clawSetupLinkInline")) _showSetupGuide();
+  });
 
   _log(
     "SYSTEM",
@@ -337,7 +343,7 @@ function _startStatusPoll() {
         }
         if (nameEl)
           nameEl.innerHTML =
-            'No relay — <span id="clawSetupLink" style="text-decoration:underline;cursor:pointer" onclick="document.getElementById(\'clawSetupLink\').dispatchEvent(new Event(\'click\'))">setup guide</span>';
+            'No relay — <span class="clawSetupLinkInline" style="text-decoration:underline;cursor:pointer">setup guide</span>';
         if (platEl) platEl.textContent = "";
       }
     } catch {}

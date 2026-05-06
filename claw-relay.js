@@ -56,13 +56,15 @@ async function poll() {
         `/api/claw/queue?deviceId=${encodeURIComponent(DEVICE_ID)}`,
       );
       if (data.killed) {
-        console.log(
-          "[RELAY] Kill signal received from server. Stopping execution.",
-        );
-        execLock = true;
+        if (!execLock) {
+          console.log(
+            "[RELAY] Kill signal received from server. Stopping execution.",
+          );
+          execLock = true;
+        }
         continue;
       }
-      if (data.resumed) {
+      if (execLock && !data.killed) {
         console.log("[RELAY] Resumed by server.");
         execLock = false;
       }

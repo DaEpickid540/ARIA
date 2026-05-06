@@ -92,7 +92,7 @@ function _parseChatClawInput(s) {
     const t = s.slice(5).trim();
     return t.startsWith("http")
       ? { id, type: "browser", url: t }
-      : { id, type: "switch_app", app: t };
+      : { id, type: "launch_app", app: t };
   }
   // Fallback: echo what we're trying to do
   return {
@@ -1886,13 +1886,11 @@ app.post("/api/agent", async (req, res) => {
   const { agentId, input, provider = "openrouter", model } = req.body || {};
   const agent = SUB_AGENTS[agentId];
   if (!agent) {
-    return res
-      .status(400)
-      .json({
-        error: `Unknown agent: ${agentId}. Available: ${Object.keys(
-          SUB_AGENTS,
-        ).join(", ")}`,
-      });
+    return res.status(400).json({
+      error: `Unknown agent: ${agentId}. Available: ${Object.keys(
+        SUB_AGENTS,
+      ).join(", ")}`,
+    });
   }
   try {
     const messages = [
