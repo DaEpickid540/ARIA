@@ -1,0 +1,182 @@
+/* ============================================================
+   ARIA STREAMING UI — streaming.css
+   Add to index.html: <link rel="stylesheet" href="style/streaming.css">
+   ============================================================ */
+
+/* ── Live reasoning block (inside bubble) ─────────────────── */
+.streamThink {
+  margin-bottom: 10px;
+  border: 1px solid #1e0000;
+  border-radius: 3px;
+  background: #040000;
+  overflow: hidden;
+}
+
+.streamThinkSummary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  user-select: none;
+  font-family: "Orbitron", sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: #550000;
+  list-style: none;
+  background: #060000;
+  transition: background 0.15s;
+}
+.streamThinkSummary:hover {
+  background: #0a0000;
+  color: #cc2222;
+}
+.streamThinkSummary::-webkit-details-marker {
+  display: none;
+}
+.streamThink[open] .streamThinkSummary {
+  border-bottom: 1px solid #1a0000;
+}
+
+/* Pulsing dot while reasoning, solid when done */
+.streamThinkDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #440000;
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.streamThinkDot.pulse {
+  background: #ff2222;
+  animation: streamDotPulse 1s ease-in-out infinite;
+}
+.streamThinkDot.done {
+  background: #44ff88;
+  animation: none;
+}
+@keyframes streamDotPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.75);
+  }
+}
+
+/* Step list inside the think block */
+.streamThinkSteps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 6px 0;
+  max-height: 280px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #220000 transparent;
+}
+
+.streamStep {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 14px;
+  border-bottom: 1px solid #0d0000;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+.streamStep:last-child {
+  border-bottom: none;
+}
+.streamStepIn {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}
+
+.streamStepLabel {
+  font-family: "Orbitron", sans-serif;
+  font-size: 7.5px;
+  letter-spacing: 0.15em;
+  color: #660000;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 90px;
+}
+.streamStepText {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: #442222;
+  line-height: 1.5;
+}
+
+/* ── Sub-agent action track ───────────────────────────────── */
+.streamAgentTrack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.streamAgentPill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background: #050000;
+  border: 1px solid #1a0000;
+  border-left: 3px solid #440000;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  color: #664444;
+  border-radius: 0 2px 2px 0;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 0.18s, transform 0.18s, border-left-color 0.2s;
+}
+.streamAgentPillIn {
+  opacity: 1 !important;
+  transform: translateX(0) !important;
+}
+.streamAgentPill.done {
+  border-left-color: #22cc55;
+  color: #446644;
+}
+.streamAgentIcon {
+  font-size: 12px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.streamAgentText {
+  flex: 1;
+}
+.streamAgentLink {
+  flex: 1;
+  color: #cc4422;
+  text-decoration: none;
+}
+.streamAgentLink:hover {
+  text-decoration: underline;
+  color: #ff6644;
+}
+
+/* ── Answer body (streaming in) ───────────────────────────── */
+.streamBody {
+  min-height: 1em;
+}
+/* Blinking cursor at end of streaming text */
+.streamBody::after {
+  content: "▋";
+  display: inline-block;
+  color: #ff2222;
+  animation: streamCursor 0.7s step-end infinite;
+  margin-left: 1px;
+  font-size: 0.85em;
+}
+/* Remove cursor once streaming finishes - add class streamDone to bubble */
+.msg.streamDone .streamBody::after {
+  display: none;
+}

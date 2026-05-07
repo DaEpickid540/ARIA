@@ -13,6 +13,7 @@
 
 import { execSync, exec } from "child_process";
 import { createInterface } from "readline";
+import { writeFileSync, unlinkSync } from "fs";
 import os from "os";
 import https from "https";
 import http from "http";
@@ -761,7 +762,6 @@ function run(cmd) {
 // Writes a .ps1 file and runs it — avoids all quote-escaping issues
 // Use this whenever the PowerShell needs Add-Type / here-strings
 function runPs1(script) {
-  const { writeFileSync, unlinkSync } = require("fs");
   const tmp = `${os.tmpdir()}\\aria-${Date.now()}.ps1`;
   try {
     writeFileSync(tmp, script, "utf8");
