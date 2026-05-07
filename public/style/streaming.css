@@ -3,43 +3,36 @@
    Add to index.html: <link rel="stylesheet" href="style/streaming.css">
    ============================================================ */
 
-/* ── Live reasoning block (inside bubble) ─────────────────── */
-.streamThink {
-  margin-bottom: 10px;
+/* ── Live reasoning panel (during <think> streaming) ──────── */
+.thinkLivePanel {
+  margin: 4px 12px 2px;
   border: 1px solid #1e0000;
   border-radius: 3px;
   background: #040000;
   overflow: hidden;
+  transition: opacity 0.3s;
+}
+.thinkLiveDone {
+  opacity: 0.6;
 }
 
-.streamThinkSummary {
+.thinkLiveHeader {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 7px 12px;
-  cursor: pointer;
-  user-select: none;
   font-family: "Orbitron", sans-serif;
-  font-size: 9px;
+  font-size: 8.5px;
   letter-spacing: 0.18em;
   color: #550000;
-  list-style: none;
   background: #060000;
-  transition: background 0.15s;
+  user-select: none;
 }
-.streamThinkSummary:hover {
-  background: #0a0000;
-  color: #cc2222;
-}
-.streamThinkSummary::-webkit-details-marker {
-  display: none;
-}
-.streamThink[open] .streamThinkSummary {
-  border-bottom: 1px solid #1a0000;
+.thinkLiveDone .thinkLiveHeader {
+  color: #333;
 }
 
-/* Pulsing dot while reasoning, solid when done */
-.streamThinkDot {
+.thinkLiveDot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -47,136 +40,200 @@
   flex-shrink: 0;
   transition: background 0.3s;
 }
-.streamThinkDot.pulse {
+.thinkLiveDot.pulse {
   background: #ff2222;
-  animation: streamDotPulse 1s ease-in-out infinite;
+  animation: thinkDotPulse 1s ease-in-out infinite;
 }
-.streamThinkDot.done {
+.thinkLiveDot.done {
   background: #44ff88;
   animation: none;
 }
-@keyframes streamDotPulse {
+@keyframes thinkDotPulse {
   0%,
   100% {
     opacity: 1;
     transform: scale(1);
   }
   50% {
-    opacity: 0.4;
-    transform: scale(0.75);
+    opacity: 0.35;
+    transform: scale(0.7);
   }
 }
 
-/* Step list inside the think block */
-.streamThinkSteps {
+.thinkLiveSteps {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  padding: 6px 0;
-  max-height: 280px;
+  max-height: 220px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #220000 transparent;
+  scrollbar-color: #1a0000 transparent;
 }
 
-.streamStep {
+.thinkLiveStep {
   display: flex;
   align-items: baseline;
   gap: 10px;
   padding: 5px 14px;
-  border-bottom: 1px solid #0d0000;
+  border-top: 1px solid #0d0000;
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(-3px);
   transition: opacity 0.2s, transform 0.2s;
 }
-.streamStep:last-child {
-  border-bottom: none;
-}
-.streamStepIn {
+.thinkLiveStepIn {
   opacity: 1 !important;
   transform: translateY(0) !important;
 }
 
-.streamStepLabel {
+.thinkStepLabel {
   font-family: "Orbitron", sans-serif;
-  font-size: 7.5px;
-  letter-spacing: 0.15em;
-  color: #660000;
+  font-size: 7px;
+  letter-spacing: 0.13em;
+  color: #550000;
   white-space: nowrap;
   flex-shrink: 0;
-  min-width: 90px;
+  min-width: 80px;
 }
-.streamStepText {
+.thinkStepText {
   font-family: "Share Tech Mono", monospace;
   font-size: 10px;
-  color: #442222;
+  color: #3a1a1a;
   line-height: 1.5;
 }
 
-/* ── Sub-agent action track ───────────────────────────────── */
-.streamAgentTrack {
+/* ── Sub-agent / tool step pill track ─────────────────────── */
+.clawLiveStepBar {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-bottom: 10px;
+  gap: 3px;
+  margin: 4px 12px;
 }
 
-.streamAgentPill {
+.clawStepPill {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 5px 10px;
-  background: #050000;
+  background: #040000;
   border: 1px solid #1a0000;
-  border-left: 3px solid #440000;
+  border-left: 3px solid #330000;
   font-family: "Share Tech Mono", monospace;
   font-size: 10px;
-  color: #664444;
+  color: #553333;
   border-radius: 0 2px 2px 0;
   opacity: 0;
-  transform: translateX(-6px);
-  transition: opacity 0.18s, transform 0.18s, border-left-color 0.2s;
+  transform: translateX(-5px);
+  transition: opacity 0.18s, transform 0.18s;
 }
-.streamAgentPillIn {
+.clawStepIn {
   opacity: 1 !important;
   transform: translateX(0) !important;
 }
-.streamAgentPill.done {
-  border-left-color: #22cc55;
-  color: #446644;
+.clawStepDone {
+  border-left-color: #22aa55;
+  color: #336644;
 }
-.streamAgentIcon {
+
+.clawStepIcon {
   font-size: 12px;
   flex-shrink: 0;
-  line-height: 1;
 }
-.streamAgentText {
+.clawStepText {
   flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.streamAgentLink {
+.clawStepLink {
   flex: 1;
-  color: #cc4422;
+  color: #aa4422;
   text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.streamAgentLink:hover {
+.clawStepLink:hover {
   text-decoration: underline;
   color: #ff6644;
 }
 
-/* ── Answer body (streaming in) ───────────────────────────── */
-.streamBody {
-  min-height: 1em;
-}
-/* Blinking cursor at end of streaming text */
+/* ── Streaming answer body (blinking cursor while live) ────── */
 .streamBody::after {
   content: "▋";
-  display: inline-block;
   color: #ff2222;
-  animation: streamCursor 0.7s step-end infinite;
-  margin-left: 1px;
+  animation: streamCursor 0.65s step-end infinite;
   font-size: 0.85em;
+  margin-left: 1px;
 }
-/* Remove cursor once streaming finishes - add class streamDone to bubble */
-.msg.streamDone .streamBody::after {
+@keyframes streamCursor {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ── Final thinkBlock dropdown (rendered by renderMarkdown) ── */
+.thinkBlock {
+  margin: 8px 0;
+  border: 1px solid #1e0000;
+  border-radius: 3px;
+  background: #030000;
+  overflow: hidden;
+}
+.thinkBlock summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  user-select: none;
+  font-family: "Orbitron", sans-serif;
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  color: #440000;
+  background: #060000;
+  list-style: none;
+  transition: background 0.15s, color 0.15s;
+}
+.thinkBlock summary:hover {
+  background: #0a0000;
+  color: #cc2222;
+}
+.thinkBlock summary::-webkit-details-marker {
   display: none;
+}
+.thinkBlock[open] summary {
+  border-bottom: 1px solid #1a0000;
+  color: #882222;
+}
+.thinkBlock summary::before {
+  content: "◈";
+  font-size: 10px;
+  color: #550000;
+  flex-shrink: 0;
+}
+.thinkBlock[open] summary::before {
+  color: #cc2222;
+}
+
+.thinkContent {
+  padding: 10px 14px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10.5px;
+  color: #3a1a1a;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  max-height: 340px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #1a0000 transparent;
+  word-break: break-word;
+}
+.thinkContent::-webkit-scrollbar {
+  width: 3px;
+}
+.thinkContent::-webkit-scrollbar-thumb {
+  background: #220000;
 }

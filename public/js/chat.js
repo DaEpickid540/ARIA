@@ -2388,111 +2388,65 @@ async function sendMessageContent(text, chat, attachments = []) {
         removeTypingIndicator(tid);
         clearHalo();
 
-        const sid = "stream_" + Date.now();
+        const streamId = "stream_" + Date.now();
 
-        // ── Single bubble that holds everything ──────────────────
-        const bubble = document.createElement("div");
-        bubble.classList.add("msg", "aria");
-        bubble.id = sid;
-        bubble.innerHTML = `
-          <div class="msgSender">ARIA</div>
-          <details class="streamThink" id="${sid}_think" open>
-            <summary class="streamThinkSummary">
-              <span class="streamThinkDot pulse"></span>
-              <span id="${sid}_think_label">Reasoning…</span>
-            </summary>
-            <div class="streamThinkSteps" id="${sid}_steps"></div>
-          </details>
-          <div class="streamAgentTrack" id="${sid}_agent"></div>
-          <div class="msgBody streamBody" id="${sid}_body"></div>`;
-        messages.appendChild(bubble);
+        // ── Live thinking panel (shown while inside <think>)
+        const thinkLiveId = streamId + "_think";
+        const thinkLiveDiv = document.createElement("div");
+        thinkLiveDiv.id = thinkLiveId;
+        thinkLiveDiv.className = "thinkLivePanel";
+        thinkLiveDiv.innerHTML = `<div class="thinkLiveHeader"><span class="thinkLiveDot pulse"></span> ARIA is reasoning…</div><div class="thinkLiveSteps" id="${thinkLiveId}_steps"></div>`;
+        messages.appendChild(thinkLiveDiv);
         messages.scrollTop = messages.scrollHeight;
 
-        const stepsEl = () => document.getElementById(`${sid}_steps`);
-        const agentEl = () => document.getElementById(`${sid}_agent`);
-        const bodyEl = () => document.getElementById(`${sid}_body`);
-        const thinkEl = () => document.getElementById(`${sid}_think`);
-        const thinkLabel = () => document.getElementById(`${sid}_think_label`);
+        // ── Answer bubble (hidden until </think> closes or no think block)
+        const streamDiv = document.createElement("div");
+        streamDiv.classList.add("msg", "aria");
+        streamDiv.id = streamId;
+        streamDiv.style.display = "none";
+        streamDiv.innerHTML = `<div class="msgSender">ARIA</div><div class="msgBody streamBody" id="${streamId}_body"></div>`;
+        messages.appendChild(streamDiv);
 
         const reader = res.body.getReader();
         const dec = new TextDecoder();
         let buf = "";
         let accumulated = "";
         let inThink = false;
-        let thinkDone = false;
+        let answerBuf = "";
         let stepsShown = new Set();
 
-        // ── Render a [STEP N — LABEL]: detail line ──────────────
-        function showThinkStep(line) {
-          const m = line.match(/\[STEP\s*\d+\s*[—–-]\s*([A-Z &]+)\]:\s*(.+)/i);
+        function showLiveStep(stepText) {
+          const m = stepText.match(
+            /\[STEP \d+\s*[—–-]\s*([A-Z &]+)\]:\s*(.+)/i,
+          );
           if (!m) return;
           const label = m[1].trim();
           const detail = m[2].trim();
           if (stepsShown.has(label)) return;
           stepsShown.add(label);
+          const stepsEl = document.getElementById(thinkLiveId + "_steps");
+          if (!stepsEl) return;
           const pill = document.createElement("div");
-          pill.className = "streamStep streamStepIn";
+          pill.className = "thinkLiveStep thinkLiveStepIn";
           pill.innerHTML =
-            `<span class="streamStepLabel">${escapeHtml(label)}</span>` +
-            `<span class="streamStepText">${escapeHtml(detail)}</span>`;
-          stepsEl()?.appendChild(pill);
+            `<span class="thinkStepLabel">${escapeHtml(label)}</span>` +
+            `<span class="thinkStepText">${escapeHtml(detail)}</span>`;
+          stepsEl.appendChild(pill);
           messages.scrollTop = messages.scrollHeight;
         }
 
-        // ── Render a sub-agent action pill ───────────────────────
-        function showAgentStep(evt) {
-          const track = agentEl();
-          if (!track) return;
-          const icons = {
-            tool_start: "🔧",
-            tool_done: "✓",
-            agent: "🤖",
-            source: "🌐",
-            thinking: "💭",
-            claw: "🦾",
-          };
-          const icon = icons[evt.type] || "⚙";
-          const pill = document.createElement("div");
-          pill.className = "streamAgentPill streamAgentPillIn";
-          if (evt.type === "source" && evt.url) {
-            pill.innerHTML =
-              `<span class="streamAgentIcon">🌐</span>` +
-              `<a href="${escapeHtml(
-                evt.url,
-              )}" target="_blank" class="streamAgentLink">${escapeHtml(
-                (evt.title || evt.url).slice(0, 90),
-              )}</a>`;
-          } else {
-            const label = (evt.msg || evt.tool || evt.agent || "").slice(
-              0,
-              120,
-            );
-            pill.innerHTML =
-              `<span class="streamAgentIcon">${icon}</span>` +
-              `<span class="streamAgentText">${escapeHtml(label)}</span>`;
+        // ── Step bar for tool/agent events (injected right before final msg)
+        let stepBar = null;
+        function getStepBar() {
+          if (!stepBar) {
+            stepBar = document.createElement("div");
+            stepBar.className = "clawLiveStepBar";
+            // Insert before streamDiv so pills end up above the answer
+            messages.insertBefore(stepBar, streamDiv);
           }
-          if (evt.type === "tool_done") pill.classList.add("done");
-          track.appendChild(pill);
-          messages.scrollTop = messages.scrollHeight;
+          return stepBar;
         }
 
-        // ── Collapse the think block when reasoning ends ─────────
-        function collapseThink() {
-          const d = thinkEl();
-          if (d) d.removeAttribute("open");
-          const dot = d?.querySelector(".streamThinkDot");
-          if (dot) {
-            dot.classList.remove("pulse");
-            dot.classList.add("done");
-          }
-          const lbl = thinkLabel();
-          if (lbl)
-            lbl.textContent = `Reasoned · ${stepsShown.size} step${
-              stepsShown.size !== 1 ? "s" : ""
-            }`;
-        }
-
-        // ── Main read loop ───────────────────────────────────────
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -2506,90 +2460,107 @@ async function sendMessageContent(text, chat, attachments = []) {
             try {
               const evt = JSON.parse(raw);
 
-              // Sub-agent step events
+              // Sub-agent / tool step events
               if (evt.step) {
-                showAgentStep(evt);
-                continue;
+                const bar = getStepBar();
+                let icon = "⚙";
+                const label = (evt.msg || evt.tool || evt.agent || "").slice(
+                  0,
+                  120,
+                );
+                if (evt.type === "tool_start") icon = "🔧";
+                if (evt.type === "tool_done") icon = "✓";
+                if (evt.type === "agent") icon = "🤖";
+                if (evt.type === "source") icon = "🌐";
+                if (evt.type === "thinking") icon = "💭";
+                if (evt.type === "claw") icon = "🦾";
+                const pill = document.createElement("div");
+                pill.className =
+                  "clawStepPill clawStepIn" +
+                  (evt.type === "tool_done" ? " clawStepDone" : "");
+                if (evt.type === "source" && evt.url) {
+                  pill.innerHTML =
+                    `<span class="clawStepIcon">🌐</span>` +
+                    `<a href="${escapeHtml(
+                      evt.url,
+                    )}" target="_blank" class="clawStepLink">` +
+                    `${escapeHtml((evt.title || evt.url).slice(0, 100))}</a>`;
+                } else {
+                  pill.innerHTML =
+                    `<span class="clawStepIcon">${icon}</span>` +
+                    `<span class="clawStepText">${escapeHtml(label)}</span>`;
+                }
+                bar.appendChild(pill);
+                messages.scrollTop = messages.scrollHeight;
               }
 
               if (evt.delta) {
                 accumulated += evt.delta;
-
                 const thinkOpen = accumulated.indexOf("<think>");
                 const thinkClose = accumulated.indexOf("</think>");
 
                 if (thinkOpen !== -1 && thinkClose === -1) {
-                  // ── Inside think block — show steps live ──
                   inThink = true;
-                  const thinkContent = accumulated.slice(thinkOpen + 7);
-                  for (const tl of thinkContent.split("\n")) {
-                    if (/\[STEP\s*\d+/i.test(tl)) showThinkStep(tl.trim());
+                  const newThink = accumulated.slice(thinkOpen + 7);
+                  for (const tl of newThink.split("\n")) {
+                    if (/\[STEP \d+/i.test(tl)) showLiveStep(tl.trim());
                   }
-                } else if (thinkClose !== -1 && !thinkDone) {
-                  // ── Think block just closed ──
-                  thinkDone = true;
-                  // Flush any final steps
-                  const thinkFull = accumulated.slice(
-                    (accumulated.indexOf("<think>") ?? 0) + 7,
-                    thinkClose,
-                  );
-                  for (const tl of thinkFull.split("\n")) {
-                    if (/\[STEP\s*\d+/i.test(tl)) showThinkStep(tl.trim());
+                } else if (thinkClose !== -1) {
+                  if (inThink) {
+                    inThink = false;
+                    const thinkFull = accumulated.slice(
+                      (accumulated.indexOf("<think>") || 0) + 7,
+                      thinkClose,
+                    );
+                    for (const tl of thinkFull.split("\n")) {
+                      if (/\[STEP \d+/i.test(tl)) showLiveStep(tl.trim());
+                    }
+                    thinkLiveDiv.classList.add("thinkLiveDone");
+                    const hdr = thinkLiveDiv.querySelector(".thinkLiveHeader");
+                    if (hdr) {
+                      const dot = hdr.querySelector(".thinkLiveDot");
+                      if (dot) {
+                        dot.classList.remove("pulse");
+                        dot.classList.add("done");
+                      }
+                      hdr.innerHTML =
+                        `<span class="thinkLiveDot done"></span> ` +
+                        `Reasoned · ${stepsShown.size} step${
+                          stepsShown.size !== 1 ? "s" : ""
+                        }`;
+                    }
                   }
-                  collapseThink();
-                  // Render answer content after </think>
-                  const answer = accumulated.slice(thinkClose + 8).trimStart();
-                  if (answer) {
-                    const b = bodyEl();
-                    if (b) b.innerHTML = renderMarkdown(answer);
+                  answerBuf = accumulated.slice(thinkClose + 8).trimStart();
+                  if (answerBuf) {
+                    streamDiv.style.display = "";
+                    const bodyEl = document.getElementById(streamId + "_body");
+                    if (bodyEl) bodyEl.innerHTML = renderMarkdown(answerBuf);
+                    messages.scrollTop = messages.scrollHeight;
                   }
-                } else if (thinkDone || thinkOpen === -1) {
-                  // ── No think block / already past it — stream answer ──
-                  const answer = thinkDone
-                    ? accumulated
-                        .slice(accumulated.indexOf("</think>") + 8)
-                        .trimStart()
-                    : accumulated;
-                  const b = bodyEl();
-                  if (b) b.innerHTML = renderMarkdown(answer);
+                } else if (!inThink && accumulated.length > 0) {
+                  streamDiv.style.display = "";
+                  const bodyEl = document.getElementById(streamId + "_body");
+                  if (bodyEl) bodyEl.innerHTML = renderMarkdown(accumulated);
                   messages.scrollTop = messages.scrollHeight;
                 }
               }
-
-              // Pipeline done — set full final text and re-render
-              if (evt.done && evt.full) {
-                accumulated = evt.full;
-                const thinkClose2 = accumulated.indexOf("</think>");
-                const answer =
-                  thinkClose2 !== -1
-                    ? accumulated.slice(thinkClose2 + 8).trimStart()
-                    : accumulated;
-                const b = bodyEl();
-                if (b) b.innerHTML = renderMarkdown(answer);
-                if (!thinkDone) collapseThink();
-                messages.scrollTop = messages.scrollHeight;
-              }
+              if (evt.done && evt.full) accumulated = evt.full;
             } catch {}
           }
         }
 
-        // ── Commit to chat history (keep bubble, no removal) ─────
-        // Hide think block if it's empty (model skipped reasoning)
-        if (stepsShown.size === 0) thinkEl()?.remove();
-        // Hide agent track if empty
-        if (!agentEl()?.children.length) agentEl()?.remove();
-
-        const finalText = accumulated.trim() || "[No reply]";
-        const chat2 = getCurrentChat();
-        if (chat2) {
-          chat2.messages.push({
-            role: "aria",
-            content: finalText,
-            timestamp: Date.now(),
-          });
-          saveChats();
+        // Collapse think panel (keep it — don't remove)
+        // if the model produced no steps, hide it entirely
+        if (stepsShown.size === 0) {
+          thinkLiveDiv.remove();
+        } else {
+          thinkLiveDiv.classList.add("thinkLiveDone");
         }
-        learnFact(finalText);
+
+        // Remove the live stream preview — addAIMessage renders the final version
+        // with the proper <details class="thinkBlock"> dropdown from renderMarkdown
+        streamDiv.remove();
+        addAIMessage(accumulated.trim() || "[No reply]");
         return;
       }
 
