@@ -337,9 +337,15 @@ async function dispatch(cmd) {
     case "move": {
       const { x = 0, y = 0 } = cmd;
       if (PLATFORM === "win32") {
-        run(
-          `powershell -Command "Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public class CP { [DllImport(\"user32.dll\")] public static extern bool SetCursorPos(int x, int y); }' -ErrorAction SilentlyContinue; [CP]::SetCursorPos(${x}, ${y})"`,
-        );
+        runPs1(`
+Add-Type -TypeDefinition @"
+using System.Runtime.InteropServices;
+public class AriaInput {
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+}
+"@ -ErrorAction SilentlyContinue
+[AriaInput]::SetCursorPos(${x}, ${y})
+`);
       } else if (PLATFORM === "darwin") {
         run(
           `osascript -e 'tell application "System Events" to set the position of the mouse to {${x}, ${y}}'`,
@@ -355,29 +361,34 @@ async function dispatch(cmd) {
     case "click": {
       const { x, y, button = "left" } = cmd;
       const btn = { left: 1, right: 3, middle: 2 }[button] || 1;
-      if (x != null && y != null) await dispatch({ ...cmd, type: "move" });
       if (PLATFORM === "win32") {
-        // Move first if coords given, then click with proper flags
-        const pinvoke = `Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class Mouse {
-  [DllImport("user32.dll")] public static extern void mouse_event(uint f,uint x,uint y,uint d,IntPtr e);
-  [DllImport("user32.dll")] public static extern bool SetCursorPos(int x,int y);
-}
-"@ -ErrorAction SilentlyContinue`;
-        const downFlag = btn === 1 ? 2 : btn === 3 ? 8 : 32;
-        const upFlag = btn === 1 ? 4 : btn === 3 ? 16 : 64;
-        const posCmd =
+        const downFlag = btn === 1 ? 0x0002 : btn === 3 ? 0x0008 : 0x0020;
+        const upFlag = btn === 1 ? 0x0004 : btn === 3 ? 0x0010 : 0x0040;
+        const posLine =
           x != null && y != null
-            ? `[Mouse]::SetCursorPos(${x},${y}); Start-Sleep -Milliseconds 80;`
+            ? `[AriaInput]::SetCursorPos(${x}, ${y})\r\nStart-Sleep -Milliseconds 60`
             : "";
-        run(
-          `powershell -Command "${pinvoke}; ${posCmd} [Mouse]::mouse_event(${downFlag},0,0,0,[IntPtr]::Zero); Start-Sleep -Milliseconds 50; [Mouse]::mouse_event(${upFlag},0,0,0,[IntPtr]::Zero)"`,
-        );
+        runPs1(`
+Add-Type -TypeDefinition @"
+using System.Runtime.InteropServices;
+public class AriaInput {
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+}
+"@ -ErrorAction SilentlyContinue
+${posLine}
+[AriaInput]::mouse_event(${downFlag}, 0, 0, 0, [UIntPtr]::Zero)
+Start-Sleep -Milliseconds 50
+[AriaInput]::mouse_event(${upFlag}, 0, 0, 0, [UIntPtr]::Zero)
+`);
       } else if (PLATFORM === "darwin") {
+        if (x != null)
+          run(
+            `osascript -e 'tell application "System Events" to set the position of the mouse to {${x}, ${y}}'`,
+          );
         run(`osascript -e 'tell application "System Events" to click'`);
       } else {
+        if (x != null) run(`xdotool mousemove ${x} ${y}`);
         run(`xdotool click ${btn}`);
       }
       return `clicked ${button} at ${x ?? "current"},${y ?? "current"}`;
@@ -389,9 +400,15 @@ public class Mouse {
       const amt = cmd.amount || 3;
       if (PLATFORM === "win32") {
         const delta = dir === "up" ? amt * 120 : -amt * 120;
-        run(
-          `powershell -Command "Add-Type @'\nusing System.Runtime.InteropServices;\npublic class M { [DllImport(\\"user32.dll\\")] public static extern void mouse_event(int f,int x,int y,int d,int e); }\n'@; [M]::mouse_event(0x800,0,0,${delta},0)"`,
-        );
+        runPs1(`
+Add-Type -TypeDefinition @"
+using System.Runtime.InteropServices;
+public class AriaInput {
+    [DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+}
+"@ -ErrorAction SilentlyContinue
+[AriaInput]::mouse_event(0x0800, 0, 0, [uint](${delta}), [UIntPtr]::Zero)
+`);
       } else if (PLATFORM === "darwin") {
         run(
           `osascript -e 'tell application "System Events" to scroll (${
@@ -399,10 +416,93 @@ public class Mouse {
           }${amt}) using scroll wheel'`,
         );
       } else {
-        const btn = dir === "up" ? 4 : 5;
-        for (let i = 0; i < amt; i++) run(`xdotool click ${btn}`);
+        const xbtn = dir === "up" ? 4 : 5;
+        for (let i = 0; i < amt; i++) run(`xdotool click ${xbtn}`);
       }
       return `scrolled ${dir} ${amt}`;
+    }
+
+    // ── Double click ──
+    case "double_click": {
+      const { x, y } = cmd;
+      if (PLATFORM === "win32") {
+        const posLine =
+          x != null && y != null
+            ? `[AriaInput]::SetCursorPos(${x}, ${y})\r\nStart-Sleep -Milliseconds 60`
+            : "";
+        runPs1(`
+Add-Type -TypeDefinition @"
+using System.Runtime.InteropServices;
+public class AriaInput {
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+}
+"@ -ErrorAction SilentlyContinue
+${posLine}
+[AriaInput]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+Start-Sleep -Milliseconds 50
+[AriaInput]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+Start-Sleep -Milliseconds 80
+[AriaInput]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+Start-Sleep -Milliseconds 50
+[AriaInput]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+`);
+      } else if (PLATFORM === "darwin") {
+        if (x != null)
+          run(
+            `osascript -e 'tell application "System Events" to set the position of the mouse to {${x}, ${y}}'`,
+          );
+        run(
+          `osascript -e 'tell application "System Events" to double click at the position of the mouse'`,
+        );
+      } else {
+        if (x != null) run(`xdotool mousemove ${x} ${y}`);
+        run(`xdotool click --repeat 2 --delay 80 1`);
+      }
+      return `double clicked at ${x ?? "current"},${y ?? "current"}`;
+    }
+
+    // ── Drag ──
+    case "drag": {
+      const { x1 = 0, y1 = 0, x2 = 0, y2 = 0 } = cmd;
+      if (PLATFORM === "win32") {
+        runPs1(`
+Add-Type -TypeDefinition @"
+using System.Runtime.InteropServices;
+public class AriaInput {
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+}
+"@ -ErrorAction SilentlyContinue
+[AriaInput]::SetCursorPos(${x1}, ${y1})
+Start-Sleep -Milliseconds 80
+[AriaInput]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+Start-Sleep -Milliseconds 50
+[AriaInput]::SetCursorPos(${x2}, ${y2})
+Start-Sleep -Milliseconds 100
+[AriaInput]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+`);
+      } else if (PLATFORM === "darwin") {
+        run(
+          `osascript -e 'tell application "System Events" to set the position of the mouse to {${x1}, ${y1}}'`,
+        );
+        run(
+          `osascript -e 'tell application "System Events" to key down {button 1}'`,
+        );
+        await sleep(100);
+        run(
+          `osascript -e 'tell application "System Events" to set the position of the mouse to {${x2}, ${y2}}'`,
+        );
+        await sleep(80);
+        run(
+          `osascript -e 'tell application "System Events" to key up {button 1}'`,
+        );
+      } else {
+        run(
+          `xdotool mousemove ${x1} ${y1} mousedown 1 mousemove ${x2} ${y2} mouseup 1`,
+        );
+      }
+      return `dragged (${x1},${y1}) → (${x2},${y2})`;
     }
 
     // ── Focus / switch to app ──
@@ -655,6 +755,28 @@ function run(cmd) {
     return execSync(cmd, { encoding: "utf8", timeout: 15000 }).trim() || "ok";
   } catch (e) {
     return `exit ${e.status}: ${e.stderr?.trim() || e.message}`;
+  }
+}
+
+// Writes a .ps1 file and runs it — avoids all quote-escaping issues
+// Use this whenever the PowerShell needs Add-Type / here-strings
+function runPs1(script) {
+  const { writeFileSync, unlinkSync } = require("fs");
+  const tmp = `${os.tmpdir()}\\aria-${Date.now()}.ps1`;
+  try {
+    writeFileSync(tmp, script, "utf8");
+    return (
+      execSync(`powershell -ExecutionPolicy Bypass -NoProfile -File "${tmp}"`, {
+        encoding: "utf8",
+        timeout: 12000,
+      }).trim() || "ok"
+    );
+  } catch (e) {
+    return `exit ${e.status}: ${e.stderr?.trim() || e.message}`;
+  } finally {
+    try {
+      unlinkSync(tmp);
+    } catch {}
   }
 }
 

@@ -76,9 +76,28 @@ function _parseChatClawInput(s) {
     const p = s.slice(11).split("|");
     return { id, type: "write_code", app: p[0]?.trim(), code: p[1]?.trim() };
   }
+  // ── Mouse actions ──────────────────────────────────────────
+  if (s.startsWith("move:")) {
+    const [x, y] = s.slice(5).trim().split(/[, ]+/);
+    return { id, type: "mouse_move", x: +x || 0, y: +y || 0 };
+  }
   if (s.startsWith("click:")) {
-    const [x, y] = s.slice(6).trim().split(",");
-    return { id, type: "click", x: +x || 0, y: +y || 0 };
+    const [x, y] = s.slice(6).trim().split(/[, ]+/);
+    return { id, type: "click", x: +x || 0, y: +y || 0, button: "left" };
+  }
+  if (s.startsWith("right_click:")) {
+    const [x, y] = s.slice(12).trim().split(/[, ]+/);
+    return { id, type: "click", x: +x || 0, y: +y || 0, button: "right" };
+  }
+  if (s.startsWith("double_click:")) {
+    const [x, y] = s.slice(13).trim().split(/[, ]+/);
+    return { id, type: "double_click", x: +x || 0, y: +y || 0 };
+  }
+  if (s.startsWith("drag:")) {
+    // drag: X1,Y1 to X2,Y2
+    const m = s.match(/drag:\s*(\d+)[, ]+(\d+)\s+to\s+(\d+)[, ]+(\d+)/i);
+    if (m)
+      return { id, type: "drag", x1: +m[1], y1: +m[2], x2: +m[3], y2: +m[4] };
   }
   if (s.startsWith("scroll:")) {
     const p = s.slice(7).trim().split(" ");
@@ -232,7 +251,23 @@ ACTION: claw | shell: ls -la
 ACTION: claw | screenshot
 ACTION: claw | write_code: Visual Studio Code|console.log("hello")
 ACTION: claw | scroll: down 3
+ACTION: claw | move: 500,300
 ACTION: claw | click: 500,300
+ACTION: claw | right_click: 500,300
+ACTION: claw | double_click: 500,300
+ACTION: claw | drag: 100,200 to 400,500
+
+MOUSE RULES — CRITICAL:
+- NEVER use shell: to move the mouse or click. shell: is for terminal commands only.
+- To move the mouse: ACTION: claw | move: X,Y
+- To click somewhere: ACTION: claw | click: X,Y  (moves AND clicks in one step)
+- To click without moving: ACTION: claw | click: (no coordinates)
+- Multi-step mouse sequences require multiple separate ACTION lines, one per step:
+  ACTION: claw | screenshot         ← see the screen first
+  ACTION: claw | move: 960,540      ← then move
+  ACTION: claw | click: 960,540     ← then click
+- When the user asks to click something you can't see, take a screenshot first to find its coordinates, then click.
+- Coordinates are screen pixels from top-left corner (0,0).
 
 SENSITIVE CLAW (requires Sarvin's approval — use CONFIRM: prefix):
 CONFIRM: claw | shell: rm -rf somefolder
@@ -263,6 +298,10 @@ MANDATORY TRIGGER CONDITIONS:
 - User asks to open/close a browser tab → ACTION: claw | new_tab: <url> or close_tab
 - User asks to write code in VS Code or Arduino → ACTION: claw | write_code: <app>|<code>
 - ANY request to control the computer, mouse, keyboard → ACTION: claw | <action>
+- User asks to move the mouse / go to a position → ACTION: claw | move: X,Y
+- User asks to click something on screen → ACTION: claw | click: X,Y  (always use coordinates, take screenshot first if unsure)
+- User asks to right-click → ACTION: claw | right_click: X,Y
+- User asks to drag something → ACTION: claw | drag: X1,Y1 to X2,Y2
 
 CLAW STATUS: Check window.ARIA_clawRelayConnected for relay status. If no relay, tell user to run claw-relay.js.
 
