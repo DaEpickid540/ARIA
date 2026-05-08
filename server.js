@@ -1960,11 +1960,27 @@ app.get("/api/agent/list", (_, res) => {
    CLAW RELAY ENDPOINTS
    ============================================================ */
 app.post("/api/claw/relay/register", (req, res) => {
-  const { deviceId, platform, hostname } = req.body;
+  const { deviceId, platform, hostname, relayType, browser, arch } = req.body;
   if (!deviceId) return res.json({ error: "No deviceId" });
-  clawRelays.set(deviceId, { platform, hostname, lastSeen: Date.now() });
+  const inferredType =
+    relayType ||
+    (deviceId.startsWith("esp32")
+      ? "esp32"
+      : deviceId.startsWith("electron")
+      ? "electron"
+      : "node");
+  clawRelays.set(deviceId, {
+    platform,
+    hostname,
+    browser,
+    arch,
+    relayType: inferredType,
+    lastSeen: Date.now(),
+  });
   if (!clawQueue.has(deviceId)) clawQueue.set(deviceId, []);
-  console.log("[CLAW] Relay connected: " + deviceId + " (" + platform + ")");
+  console.log(
+    `[CLAW] Relay connected: ${deviceId} (${inferredType} / ${platform})`,
+  );
   res.json({ ok: true, killed: clawKilled });
 });
 
@@ -2049,7 +2065,13 @@ app.post("/api/claw/resume", (req, res) => {
 app.get("/api/claw/status", (req, res) => {
   const relays = [...clawRelays.entries()]
     .filter(([, v]) => Date.now() - v.lastSeen < 20000)
-    .map(([id, v]) => ({ id, platform: v.platform, hostname: v.hostname }));
+    .map(([id, v]) => ({
+      id,
+      platform: v.platform,
+      hostname: v.hostname,
+      relayType: v.relayType || "node",
+      browser: v.browser,
+    }));
   res.json({ killed: clawKilled, relays });
 });
 

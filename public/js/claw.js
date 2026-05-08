@@ -573,7 +573,13 @@ function _startStatusPoll() {
           dot.title = "Relay connected";
         }
         if (nameEl)
-          nameEl.innerHTML = `<strong>${relay.hostname || relay.id}</strong>`;
+          nameEl.innerHTML = `<strong>${
+            relay.hostname || relay.id
+          }</strong> <span style="opacity:.45;font-size:9px">${
+            { esp32: "📟 ESP32", electron: "🖥 Electron", node: "⬡ Node" }[
+              relay.relayType
+            ] || "⬡ Node"
+          }</span>`;
         if (platEl) platEl.textContent = relay.platform || "";
       } else {
         if (dot) {

@@ -2663,22 +2663,13 @@ function escapeHtml(t) {
 function renderMarkdown(text) {
   if (!text) return "";
 
-  // ── STEP 1: Strip think tags and HTML leaks (on raw text) ──
-  if (/<think>/i.test(text)) {
-    text = text.replace(/^[\s\S]*?(?=<think>)/i, "");
-  }
-  text = text.replace(/<\/think>/gi, "").replace(/<think>/gi, "");
-  text = text.replace(/<[^>]{0,200}$/, ""); // incomplete trailing tag
-  const SAFE_TAG_RE = /^\/?(b|i|strong|em|code|pre|br|hr|ul|ol|li|blockquote|details|summary|table|thead|tbody|tr|th|td)$/i;
-  text = text.replace(/<(\/?[a-zA-Z][a-zA-Z0-9]*)[^>]*>/g, (m, tag) =>
-    SAFE_TAG_RE.test(tag) ? m : "",
-  );
-
-  // ── STEP 2: Extract think blocks BEFORE any escaping ──
+  // ── STEP 1: Extract think blocks FIRST (before any tag stripping) ──
+  // CRITICAL ORDER: stripping <think> tags first (old code) means the
+  // extraction regex below never matches → raw reasoning leaks into output.
   const thinkPlaceholders = [];
   text = text.replace(/<think>([\s\S]*?)<\/think>/gi, (_, inner) => {
     const cleaned = inner.trim();
-    const stepRegex = /\[STEP \d+\s*[—–-]\s*([A-Z ]+)\]:\s*([^\n]+)/gi;
+    const stepRegex = /\[STEP \d+\s*[—–-]\s*([A-Z &]+)\]:\s*([^\n]+)/gi;
     const steps = [];
     let m;
     while ((m = stepRegex.exec(cleaned)) !== null) {
@@ -2700,6 +2691,15 @@ function renderMarkdown(text) {
     thinkPlaceholders.push({ pills, raw: cleaned });
     return `\x00THINK${idx}\x00`;
   });
+
+  // ── STEP 2: Strip leftover/unclosed think tags and unsafe HTML ──
+  text = text.replace(/<think>[\s\S]*/gi, ""); // unclosed <think> — drop remainder
+  text = text.replace(/<\/think>/gi, "");
+  text = text.replace(/<[^>]{0,200}$/, ""); // incomplete trailing tag
+  const SAFE_TAG_RE = /^\/?(b|i|strong|em|code|pre|br|hr|ul|ol|li|blockquote|details|summary|table|thead|tbody|tr|th|td)$/i;
+  text = text.replace(/<(\/?[a-zA-Z][a-zA-Z0-9]*)[^>]*>/g, (m, tag) =>
+    SAFE_TAG_RE.test(tag) ? m : "",
+  );
 
   // ── STEP 3: Extract code blocks BEFORE escaping (protect content) ──
   const codePlaceholders = [];
