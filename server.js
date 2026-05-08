@@ -1307,6 +1307,8 @@ Active GitHub repo: ${workspaceRepo}
       } | Type: ${relayType}${browserLabel}\nFull PC control is available. All claw commands work including shell, screenshot, launch_app, browser, mouse, keyboard.`;
     }
   }
+  // Build message array
+  const cappedHistory = history.slice(-20);
   const _lastMsg = cappedHistory[cappedHistory.length - 1];
   const messages = [
     { role: "system", content: sysPrompt },
