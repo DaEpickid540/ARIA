@@ -303,7 +303,7 @@ MANDATORY TRIGGER CONDITIONS:
 - User asks to right-click → ACTION: claw | right_click: X,Y
 - User asks to drag something → ACTION: claw | drag: X1,Y1 to X2,Y2
 
-CLAW STATUS: Check window.ARIA_clawRelayConnected for relay status. If no relay, tell user to run claw-relay.js.
+CLAW STATUS: Injected dynamically per-request based on live relay connections.
 
 RESPONSE FORMAT:
 1. If you need a tool: write ACTION: tool | input on its own line FIRST
@@ -1281,8 +1281,32 @@ Active GitHub repo: ${workspaceRepo}
 - To read a file: use ACTION: scrape with the raw GitHub URL, or ask user to paste it`;
   }
 
-  // Build message array shared by both streaming and non-streaming paths
-  const cappedHistory = history.slice(-20);
+  // ── Live relay status — injected so AI knows what's connected ──
+  const liveRelaysForPrompt = [...clawRelays.entries()].filter(
+    ([, v]) => Date.now() - v.lastSeen < 20000,
+  );
+
+  if (liveRelaysForPrompt.length === 0) {
+    sysPrompt += `\n\n[CLAW STATUS — NO RELAY]\nNo relay is currently connected. DO NOT attempt any claw/ACTION commands.\nIf the user asks to control their PC, tell them:\n- For full PC control: run \`node claw-relay.js ${
+      process.env.RENDER_EXTERNAL_URL || "https://aria-69jr.onrender.com"
+    }\` on their machine\n- For wireless BLE control: flash the ESP32 relay and pair "ARIA Claw" via Bluetooth`;
+  } else {
+    const relay = liveRelaysForPrompt[0][1];
+    const relayType = relay.relayType || "node";
+    if (relayType === "esp32") {
+      sysPrompt += `\n\n[CLAW STATUS — ESP32 BLE RELAY CONNECTED]\nDevice: ${
+        relay.hostname || "ARIA Claw"
+      } | Type: ESP32 BLE HID\nThe ESP32 is paired and ready. You CAN control the keyboard and mouse.\n\nESP32 SUPPORTED COMMANDS (use these freely):\n  ACTION: claw | type: Hello World\n  ACTION: claw | hotkey: ctrl+c\n  ACTION: claw | hotkey: win+d\n  ACTION: claw | move: X,Y\n  ACTION: claw | click: X,Y\n  ACTION: claw | right_click: X,Y\n  ACTION: claw | double_click: X,Y\n  ACTION: claw | drag: X1,Y1 to X2,Y2\n  ACTION: claw | scroll: down 3\n\nESP32 UNSUPPORTED — DO NOT USE:\n  shell: (no terminal — ESP32 has no OS)\n  screenshot: (ESP32 has no screen capture)\n  launch_app: (use hotkey: win to open Start, then type: AppName, then hotkey: enter)\n  open: (use hotkey+type to navigate instead)\n\nFor launching apps on ESP32: hotkey: win → wait → type: AppName → hotkey: enter`;
+    } else {
+      const browserLabel =
+        relay.browser && relay.browser !== "default"
+          ? ` | Browser: ${relay.browser}`
+          : "";
+      sysPrompt += `\n\n[CLAW STATUS — PC RELAY CONNECTED]\nDevice: ${
+        relay.hostname || relay.platform
+      } | Type: ${relayType}${browserLabel}\nFull PC control is available. All claw commands work including shell, screenshot, launch_app, browser, mouse, keyboard.`;
+    }
+  }
   const _lastMsg = cappedHistory[cappedHistory.length - 1];
   const messages = [
     { role: "system", content: sysPrompt },
@@ -2092,19 +2116,28 @@ app.post("/api/claw", async (req, res) => {
   if (mode === "ai") {
     // AI plans steps then queues them
     try {
+      const relayInfo = tid ? clawRelays.get(tid) : null;
+      const relayType = relayInfo?.relayType || "node";
+      const isEsp32 = relayType === "esp32";
+
       const platHint = tid
-        ? "Target: " +
-          (clawRelays.get(tid)?.platform || "?") +
-          " — " +
-          (clawRelays.get(tid)?.hostname || "?")
+        ? `Target: ${relayInfo?.platform || "?"} — ${
+            relayInfo?.hostname || "?"
+          } (${relayType})`
         : "No relay connected.";
+
+      const cmdTypes = isEsp32
+        ? "{type:type,text:string} {type:hotkey,keys:[string]} {type:mouse_move,x:number,y:number} {type:click,x:number,y:number,button:string} {type:double_click,x:number,y:number} {type:scroll,direction:string,amount:number} {type:drag,x1:number,y1:number,x2:number,y2:number} {type:wait,ms:number}"
+        : "{type:shell,cmd:string} {type:type,text:string} {type:hotkey,keys:[string]} {type:launch_app,app:string} {type:browser,url:string} {type:new_tab,url:string} {type:close_tab} {type:screenshot} {type:mouse_move,x:number,y:number} {type:click,x:number,y:number,button:string} {type:scroll,direction:string,amount:number} {type:drag,x1:number,y1:number,x2:number,y2:number} {type:wait,ms:number}";
+
+      const esp32Note = isEsp32
+        ? " IMPORTANT: This is an ESP32 BLE relay — NO shell/screenshot/launch_app. To open apps: use hotkey:{keys:[win]}, wait, type the app name, hotkey:{keys:[enter]}."
+        : "";
+
       const msgs = [
         {
           role: "system",
-          content:
-            "You are ARIA Claw. " +
-            platHint +
-            ". Output ONLY a JSON array of command objects. No other text. Commands: {type:shell,cmd:string} {type:type,text:string} {type:hotkey,keys:[string]} {type:switch_app,app:string} {type:browser,url:string} {type:new_tab,url:string} {type:close_tab} {type:screenshot} {type:write_code,app:string,code:string} {type:click,x:number,y:number} {type:scroll,direction:string,amount:number} {type:wait,ms:number}",
+          content: `You are ARIA Claw. ${platHint}.${esp32Note} Output ONLY a JSON array of command objects. No other text. Commands: ${cmdTypes}`,
         },
         { role: "user", content: input },
       ];
@@ -2150,7 +2183,8 @@ app.post("/api/claw", async (req, res) => {
   // Direct modes: shell, type, hotkey, mouse
   if (!tid)
     return res.json({
-      error: "No relay connected. Run claw-relay.js on your machine first.",
+      error:
+        "No relay connected. Run claw-relay.js on your machine, or flash and pair the ESP32 relay.",
     });
   const cmd = _parseChatClawInput(mode + ": " + input);
   if (!clawQueue.has(tid)) clawQueue.set(tid, []);
