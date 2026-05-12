@@ -19,16 +19,25 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <WiFiMulti.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <NimBLEDevice.h>
 #include <NimBLEServer.h>
 #include <NimBLEHIDDevice.h>
 
-// ── USER CONFIG ───────────────────────────────────────────────
-#define WIFI_SSID       "Sarvin"
-#define WIFI_PASS       "tabletdomain540"
-#define SERVER_URL      "https://your-aria.onrender.com"
+// ── WIFI NETWORKS — add as many as you need ───────────────────
+// Format: { "SSID", "password" }
+// The ESP32 will scan and connect to whichever is in range.
+struct WifiNet { const char* ssid; const char* pass; };
+static const WifiNet WIFI_NETWORKS[] = {
+  { "home-wifi",          "" },   // home
+  { "school-wifi",      ""               },   // school (open network — leave pass blank)
+  // add more here:
+  // { "YourSSID",     "YourPassword"   },
+};
+WiFiMulti wifiMulti;
+#define SERVER_URL      "https://aria-69jr.onrender.com"
 #define POLL_MS         1500
 #define DEVICE_ID       "esp32-hid-relay"
 #define BLE_NAME        "ARIA Claw"
@@ -227,18 +236,24 @@ void ledFlash(int n) {
 
 // ── WiFi ──────────────────────────────────────────────────────
 void wifiConnect() {
-  Serial.print(F("[WiFi] connecting"));
+  // Add all known networks (safe to call addAP multiple times)
+  static bool networksAdded = false;
+  if (!networksAdded) {
+    for (auto& n : WIFI_NETWORKS) wifiMulti.addAP(n.ssid, n.pass);
+    networksAdded = true;
+  }
+  Serial.print(F("[WiFi] scanning networks"));
   WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  for(int i=0;i<40&&WiFi.status()!=WL_CONNECTED;i++){
+  for (int i = 0; i < 40; i++) {
+    if (wifiMulti.run() == WL_CONNECTED) {
+      Serial.printf("\n[WiFi] %s  IP:%s\n",
+        WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+      return;
+    }
     delay(500); Serial.print('.');
   }
-  if(WiFi.status()==WL_CONNECTED){
-    Serial.printf("\n[WiFi] %s\n", WiFi.localIP().toString().c_str());
-  } else {
-    Serial.println(F("\n[WiFi] failed, rebooting"));
-    delay(3000); ESP.restart();
-  }
+  Serial.println(F("\n[WiFi] no known network found, rebooting"));
+  delay(3000); ESP.restart();
 }
 
 // ── ARIA comms ────────────────────────────────────────────────
@@ -478,6 +493,6 @@ void loop() {
   }
   unsigned long br=bleOK?2000:300;
   if(now-tLed>=br){ tLed=now; ledSt=!ledSt; digitalWrite(LED_BUILTIN,ledSt); }
-  if(WiFi.status()!=WL_CONNECTED){ registered=false; wifiConnect(); ariaRegister(); }
+  if(WiFi.status()!=WL_CONNECTED){ registered=false; wifiMulti.run(); if(WiFi.status()==WL_CONNECTED) ariaRegister(); }
   delay(10);
 }
