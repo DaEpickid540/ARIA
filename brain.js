@@ -4,11 +4,11 @@ import fs from "fs";
 import runTools from "./tools/index.js";
 
 // Simple provider config — later you can move this to a separate file
+// KEYS MUST come from environment variables, never hardcoded here.
 const PROVIDERS = {
   openrouter: {
     name: "openrouter",
-    apiKey:
-      "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",
+    apiKey: process.env.OPENROUTER_API_KEY || "",
     apiUrl: "https://openrouter.ai/api/v1/chat/completions",
     model: "meta-llama/llama-3-8b-instruct",
     headers: {
@@ -18,7 +18,7 @@ const PROVIDERS = {
   },
   deepseek: {
     name: "deepseek",
-    apiKey: "sk-9c6bd245b71c4d5f97fca5821360369a",
+    apiKey: process.env.DEEPSEEK_KEY || "",
     apiUrl: "https://api.deepseek.com/chat/completions",
     model: "deepseek-chat",
     headers: {},

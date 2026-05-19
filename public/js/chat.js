@@ -864,38 +864,13 @@ async function openCommandsModal() {
   triggerHalo("pulse", 600);
 }
 
-/* ── BG TASKS MODAL ── */
+/* ── BG TASKS MODAL ── (rendering now handled by taskPanel.js) */
 document
   .getElementById("bgTasksListBtn")
-  ?.addEventListener("click", async () => {
+  ?.addEventListener("click", () => {
     const modal = document.getElementById("bgTasksModal");
-    const list = document.getElementById("bgTasksList");
-    if (!modal || !list) return;
-    try {
-      const tasks = await (await fetch("/api/background")).json();
-      list.innerHTML = !tasks.length
-        ? "<div style='color:var(--text-muted);font-size:11px;padding:12px'>No background tasks yet.</div>"
-        : tasks
-            .map(
-              (t) =>
-                `<div class="bgTaskItem ${
-                  t.status
-                }"><div style="color:var(--text-blaze);font-size:11px">${
-                  t.task
-                }</div><div style="color:var(--text-muted);font-size:10px;margin-top:3px">${t.status.toUpperCase()} — ${new Date(
-                  t.started,
-                ).toLocaleTimeString()}</div></div>`,
-            )
-            .join("");
-    } catch {
-      list.innerHTML =
-        "<div style='color:#ff4444;padding:12px'>Error loading tasks.</div>";
-    }
-    modal.style.display = "flex";
+    if (modal) modal.style.display = "flex";
   });
-document.getElementById("bgTasksCloseBtn")?.addEventListener("click", () => {
-  document.getElementById("bgTasksModal").style.display = "none";
-});
 
 /* ============================================================
    FILE UPLOAD — attach inside textarea
@@ -1125,6 +1100,78 @@ if (_dndWrap) {
 /* ============================================================
    RENDER CHAT LIST
    ============================================================ */
+/* ── EMPTY / NEW CHAT STATE ── */
+// Shown when the current chat has no messages. Provides a welcome and
+// quick-start suggestions that drop into the input box when clicked.
+function renderEmptyState() {
+  if (!messages) return;
+
+  const greetings = [
+    "What's on your mind?",
+    "Where do we start?",
+    "What can I help with?",
+    "What are we building?",
+    "Ready when you are.",
+  ];
+  const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+
+  // Hour-aware sub-greeting
+  const hour = new Date().getHours();
+  let timeOfDay = "";
+  if (hour < 5) timeOfDay = "Up late.";
+  else if (hour < 12) timeOfDay = "Good morning.";
+  else if (hour < 17) timeOfDay = "Good afternoon.";
+  else if (hour < 22) timeOfDay = "Good evening.";
+  else timeOfDay = "Working late.";
+
+  const suggestions = [
+    { icon: "💻", label: "Help me debug code", text: "Help me debug this code: " },
+    { icon: "📚", label: "Explain a concept", text: "Explain " },
+    { icon: "✍️", label: "Draft something", text: "Help me write " },
+    { icon: "🧮", label: "Quick math", text: "Calculate " },
+    { icon: "🔍", label: "Search the web", text: "Search for " },
+    { icon: "🎨", label: "Generate an image", text: "Imagine: " },
+  ];
+
+  const html = `
+    <div class="emptyChatState">
+      <div class="emptyChatLogo">
+        <span class="bootLogoA">A</span><span class="bootLogoR">R</span><span class="bootLogoI">I</span><span class="bootLogoA2">A</span>
+      </div>
+      <div class="emptyChatGreeting">${timeOfDay}</div>
+      <div class="emptyChatPrompt">${greeting}</div>
+      <div class="emptyChatSuggestions">
+        ${suggestions
+          .map(
+            (s) =>
+              `<button class="emptyChatSuggestion" data-text="${s.text.replace(/"/g, "&quot;")}">
+                <span class="emptyChatIcon">${s.icon}</span>
+                <span class="emptyChatLabel">${s.label}</span>
+              </button>`,
+          )
+          .join("")}
+      </div>
+      <div class="emptyChatHint">Tip: Press <kbd>Ctrl</kbd>+<kbd>K</kbd> for commands</div>
+    </div>
+  `;
+  messages.innerHTML = html;
+
+  // Wire suggestion clicks
+  messages.querySelectorAll(".emptyChatSuggestion").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const input = document.getElementById("userInput");
+      if (input) {
+        input.value = btn.dataset.text;
+        input.focus();
+        // Place caret at end
+        input.setSelectionRange(input.value.length, input.value.length);
+        // Trigger resize/halo if any listeners are attached
+        input.dispatchEvent(new Event("input"));
+      }
+    });
+  });
+}
+
 function renderChatList() {
   if (!chatList) return;
   chatList.innerHTML = "";
@@ -1172,6 +1219,12 @@ function renderMessages() {
   messages.innerHTML = "";
   const chat = getCurrentChat();
   if (!chat) return;
+
+  // ── Empty state: show welcome + suggestions when chat has no messages ──
+  if (chat.messages.length === 0) {
+    renderEmptyState();
+    return;
+  }
 
   chat.messages.forEach((msg, idx) => {
     const div = document.createElement("div");
@@ -1337,26 +1390,26 @@ function showMathPanel() {
   });
 }
 
-function _initDesmos() {
+async function _initDesmos() {
   const el = document.getElementById("desmosContainer");
-  if (!el || window._desmosCalc) return;
-  window._desmosCalc = window.Desmos?.GraphingCalculator(el, {
-    keypad: true,
-    expressions: true,
-    settingsMenu: true,
-    zoomButtons: true,
-    expressionsTopbar: true,
-    border: false,
-    // Dark theme via API — much more reliable than CSS overrides
-    backgroundColor: "#0d0000",
-    textColor: "#cc4444",
-    defaultAxesNumbers: true,
-  });
-  // Tint the graph canvas lines/labels after init
-  if (window._desmosCalc) {
-    try {
-      window._desmosCalc.updateSettings({ backgroundColor: "#0d0000" });
-    } catch {}
+  if (!el || window._mathGrapher) return;
+  try {
+    const { MathGrapher } = await import("./mathGrapher.js");
+    window._mathGrapher = new MathGrapher(el);
+    // Listen for theme changes — redraw with new colors
+    const observer = new MutationObserver(() => {
+      window._mathGrapher?.draw();
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["style"],
+    });
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+  } catch (e) {
+    el.innerHTML = `<div style="padding:20px;color:#ff4444">Failed to load grapher: ${e.message}</div>`;
   }
 }
 function hideMathPanel() {
@@ -2324,6 +2377,7 @@ async function sendMessageContent(text, chat, attachments = []) {
     attachments.map((a) => a.text || "").join("\n") || documentContext;
   const payload = {
     message: text,
+    chatId: currentChatId,
     history: chat.messages.slice(-20).map((m) => {
       const images = (m.attachments || []).filter(
         (a) => a.type === "image" && a.base64,
@@ -2815,9 +2869,61 @@ async function syncToServer() {
     await fetch("/api/saveChats", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: window.ARIA_userId || "sarvin", chats }),
+      body: JSON.stringify({
+        userId: window.ARIA_userId || "sarvin",
+        chats,
+        sourceDeviceId: getDeviceId(),
+      }),
     });
   } catch {}
+}
+
+/* ── DEVICE ID + CROSS-DEVICE LIVE SYNC ── */
+function getDeviceId() {
+  let id = localStorage.getItem("aria_device_id");
+  if (!id) {
+    id = "dev_" + Math.random().toString(36).slice(2, 10);
+    localStorage.setItem("aria_device_id", id);
+  }
+  return id;
+}
+
+let _syncEventSource = null;
+let _syncReconnectDelay = 1000;
+function startChatSyncSubscription() {
+  const uid = window.ARIA_userId || "sarvin";
+  const did = getDeviceId();
+  try {
+    _syncEventSource?.close();
+  } catch {}
+  _syncEventSource = new EventSource(
+    `/api/sync/subscribe?userId=${encodeURIComponent(uid)}&deviceId=${encodeURIComponent(did)}`,
+  );
+  _syncEventSource.onopen = () => {
+    _syncReconnectDelay = 1000;
+    console.log("[SYNC] Connected — chats now sync live across devices.");
+  };
+  _syncEventSource.onmessage = async (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.type === "chats_updated" && data.sourceDeviceId !== did) {
+        // Another device updated chats — pull the latest
+        await loadFromServer();
+      }
+    } catch {}
+  };
+  _syncEventSource.onerror = () => {
+    try {
+      _syncEventSource.close();
+    } catch {}
+    _syncEventSource = null;
+    setTimeout(startChatSyncSubscription, _syncReconnectDelay);
+    _syncReconnectDelay = Math.min(_syncReconnectDelay * 1.5, 30000);
+  };
+}
+// Start the live sync once on module init
+if (typeof window !== "undefined" && "EventSource" in window) {
+  setTimeout(startChatSyncSubscription, 1500);
 }
 /* ── VERSION DISPLAY ── */
 async function loadVersionFromGitHub() {

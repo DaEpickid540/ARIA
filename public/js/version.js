@@ -6,7 +6,7 @@
 
 export const ARIA_VERSION = {
   mark: 1, // ← change this for major releases
-  point: 0, // ← change this for minor updates
+  point: 4, // ← change this for minor updates
 
   // Auto-computed — do not edit below this line
   get full() {

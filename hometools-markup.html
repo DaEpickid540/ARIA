@@ -1,0 +1,433 @@
+<!--
+═══════════════════════════════════════════════════════════════════
+  ARIA — New Hometools HTML markup (Mark 1.2)
+  Drop these blocks into index.html inside the existing homepage
+  grid (look for where #weatherCard, #tasksPreview, etc. live).
+
+  Each block is independent — add the ones you want, skip the rest.
+═══════════════════════════════════════════════════════════════════
+-->
+
+<!-- ── POMODORO TIMER ─────────────────────────────────────────── -->
+<div class="homeCard pomodoroCard">
+  <div class="homeCardTitle">⏱ Pomodoro</div>
+  <div class="pomodoroBody">
+    <div id="pomodoroDisplay" class="pomodoroDisplay">25:00</div>
+    <div class="pomodoroMeta">
+      <span id="pomodoroPhase">FOCUS</span>
+      <span id="pomodoroCount">0 done</span>
+    </div>
+    <div class="pomodoroBtns">
+      <button id="pomodoroStart" class="pomodoroBtn">▶ Start</button>
+      <button id="pomodoroReset" class="pomodoroBtn">⟳ Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SCRATCHPAD ─────────────────────────────────────────────── -->
+<div class="homeCard scratchpadCard">
+  <div class="homeCardTitle">
+    📝 Scratchpad <span id="scratchpadCount" class="scratchpadCount">0 chars</span>
+  </div>
+  <textarea id="scratchpadText" placeholder="Quick notes, ideas, anything…"></textarea>
+  <div class="scratchpadBtns">
+    <button id="scratchpadCopy" class="scratchpadBtn">📋 Copy</button>
+    <button id="scratchpadClear" class="scratchpadBtn">🗑 Clear</button>
+  </div>
+</div>
+
+<!-- ── LATENCY MONITOR ────────────────────────────────────────── -->
+<div class="homeCard latencyCard">
+  <div class="homeCardTitle">📡 Server Latency</div>
+  <div class="latencyBody">
+    <div class="latencyMain">
+      <span id="latencyValue" class="latencyValue">—</span>
+      <span id="latencyAvg" class="latencyAvg">avg —</span>
+    </div>
+    <div id="latencySpark" class="latencySpark"></div>
+  </div>
+</div>
+
+<!-- ── CRYPTO PRICES ──────────────────────────────────────────── -->
+<div class="homeCard cryptoCard">
+  <div class="homeCardTitle">₿ Crypto</div>
+  <div id="cryptoList" class="cryptoList">
+    <span class="hwEmpty">Loading…</span>
+  </div>
+</div>
+
+<!-- ── WORLD CLOCKS ───────────────────────────────────────────── -->
+<div class="homeCard worldClockCard">
+  <div class="homeCardTitle">🌐 World Clocks</div>
+  <div id="worldClockList" class="worldClockList"></div>
+</div>
+
+<!-- ── DICTIONARY ─────────────────────────────────────────────── -->
+<div class="homeCard dictCard">
+  <div class="homeCardTitle">📖 Define</div>
+  <input
+    id="dictInput"
+    class="dictInput"
+    type="text"
+    placeholder="Type a word…"
+  />
+  <div id="dictResult" class="dictResult"></div>
+</div>
+
+<!-- ── CLIPBOARD HISTORY ──────────────────────────────────────── -->
+<div class="homeCard clipboardCard">
+  <div class="homeCardTitle">
+    📋 Clipboard
+    <button id="clipboardSaveBtn" class="clipboardSaveBtn">+ Save current</button>
+  </div>
+  <div id="clipboardHistoryList" class="clipboardHistoryList"></div>
+</div>
+
+<!-- ── COLOR PICKER ───────────────────────────────────────────── -->
+<div class="homeCard colorPickerCard">
+  <div class="homeCardTitle">🎨 Color Picker</div>
+  <div class="colorPickerBody">
+    <input id="colorInput" class="colorInput" type="color" value="#ff2040" />
+    <div id="colorSwatch" class="colorSwatch"></div>
+    <div class="colorValues">
+      <div><span class="colorLabel">HEX:</span> <span id="colorHex"></span></div>
+      <div><span class="colorLabel">RGB:</span> <span id="colorRgb"></span></div>
+      <div><span class="colorLabel">HSL:</span> <span id="colorHsl"></span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TEXT STATS ─────────────────────────────────────────────── -->
+<div class="homeCard textStatsCard">
+  <div class="homeCardTitle">📊 Text Stats</div>
+  <textarea
+    id="textStatsInput"
+    class="textStatsInput"
+    placeholder="Paste text to analyze…"
+  ></textarea>
+  <div class="textStatsGrid">
+    <div><span id="textStatsChars">0</span> chars</div>
+    <div><span id="textStatsWords">0</span> words</div>
+    <div><span id="textStatsLines">0</span> lines</div>
+    <div id="textStatsRead">—</div>
+  </div>
+</div>
+
+<!-- ── PASSWORD GENERATOR ─────────────────────────────────────── -->
+<div class="homeCard passwordGenCard">
+  <div class="homeCardTitle">🔐 Password Generator</div>
+  <input id="pwOutput" class="pwOutput" type="text" readonly />
+  <div class="pwOpts">
+    <label class="pwOpt"><input type="checkbox" id="pwUpper" checked /> A-Z</label>
+    <label class="pwOpt"><input type="checkbox" id="pwLower" checked /> a-z</label>
+    <label class="pwOpt"><input type="checkbox" id="pwDigits" checked /> 0-9</label>
+    <label class="pwOpt"><input type="checkbox" id="pwSymbols" /> !@#$</label>
+  </div>
+  <div class="pwLengthRow">
+    <input type="range" id="pwLength" min="6" max="48" value="16" />
+    <span id="pwLengthLabel">16 chars</span>
+  </div>
+  <div class="pwBtns">
+    <button id="pwGen" class="pwBtn">⟳ Generate</button>
+    <button id="pwCopy" class="pwBtn">📋 Copy</button>
+  </div>
+</div>
+
+<!--
+═══════════════════════════════════════════════════════════════════
+  CSS for the new hometools — add to public/style/hometools.css
+═══════════════════════════════════════════════════════════════════
+-->
+<style>
+  /* Pomodoro */
+  .pomodoroDisplay {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 2.6rem;
+    font-weight: 200;
+    text-align: center;
+    margin: 8px 0;
+    color: #ff2040;
+    text-shadow: 0 0 12px rgba(255, 32, 64, 0.4);
+  }
+  .pomodoroMeta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+  }
+  .pomodoroBtns {
+    display: flex;
+    gap: 8px;
+  }
+  .pomodoroBtn {
+    flex: 1;
+    padding: 8px;
+    background: rgba(255, 32, 64, 0.1);
+    border: 1px solid rgba(255, 32, 64, 0.3);
+    border-radius: 6px;
+    color: #fff;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .pomodoroBtn:hover {
+    background: rgba(255, 32, 64, 0.2);
+  }
+
+  /* Scratchpad */
+  .scratchpadCard textarea {
+    width: 100%;
+    min-height: 100px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: #fff;
+    padding: 8px;
+    font-family: inherit;
+    resize: vertical;
+  }
+  .scratchpadCount {
+    float: right;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.4);
+  }
+  .scratchpadBtns {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .scratchpadBtn {
+    flex: 1;
+    padding: 5px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+
+  /* Latency */
+  .latencyMain {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .latencyValue {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+  .latencyAvg {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  /* Crypto */
+  .cryptoRow {
+    display: grid;
+    grid-template-columns: 50px 1fr auto;
+    padding: 4px 0;
+    font-size: 0.85rem;
+  }
+  .cryptoSym {
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.7);
+  }
+  .cryptoPrice {
+    text-align: right;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .cryptoChg {
+    text-align: right;
+    margin-left: 8px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.8rem;
+  }
+  .cryptoUp {
+    color: #4cff4c;
+  }
+  .cryptoDown {
+    color: #ff4444;
+  }
+
+  /* World clocks */
+  .worldClockRow {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 10px;
+    padding: 4px 0;
+    font-size: 0.85rem;
+  }
+  .worldClockTime {
+    font-family: "JetBrains Mono", monospace;
+    color: #ff8898;
+  }
+  .worldClockDiff {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.4);
+    min-width: 32px;
+    text-align: right;
+  }
+
+  /* Dictionary */
+  .dictInput {
+    width: 100%;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    color: #fff;
+  }
+  .dictWord {
+    font-size: 1.1rem;
+    margin: 8px 0 4px;
+    color: #ff8898;
+  }
+  .dictMeaning {
+    font-size: 0.85rem;
+    margin: 4px 0;
+  }
+  .dictPos {
+    color: rgba(255, 255, 255, 0.4);
+    font-style: italic;
+    font-size: 0.75rem;
+    margin-right: 4px;
+  }
+
+  /* Clipboard history */
+  .clipboardSaveBtn {
+    float: right;
+    font-size: 0.7rem;
+    background: rgba(255, 32, 64, 0.15);
+    border: 1px solid rgba(255, 32, 64, 0.3);
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .clipItem {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+    font-size: 0.8rem;
+  }
+  .clipText {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: rgba(255, 255, 255, 0.8);
+    font-family: "JetBrains Mono", monospace;
+  }
+  .clipCopy,
+  .clipDel {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+  }
+
+  /* Color picker */
+  .colorPickerBody {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: center;
+  }
+  .colorInput {
+    width: 60px;
+    height: 60px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  .colorSwatch {
+    display: none; /* not used since input shows itself */
+  }
+  .colorValues {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.8rem;
+  }
+  .colorLabel {
+    color: rgba(255, 255, 255, 0.4);
+    margin-right: 6px;
+  }
+
+  /* Text stats */
+  .textStatsInput {
+    width: 100%;
+    min-height: 80px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    color: #fff;
+    padding: 6px;
+    font-family: inherit;
+    margin-bottom: 6px;
+  }
+  .textStatsGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.7);
+  }
+  .textStatsGrid span {
+    color: #ff8898;
+    font-weight: 600;
+  }
+
+  /* Password gen */
+  .pwOutput {
+    width: 100%;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 32, 64, 0.3);
+    border-radius: 4px;
+    color: #fff;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+  .pwOpts {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .pwOpt {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+  }
+  .pwLengthRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  #pwLengthLabel {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+    min-width: 60px;
+  }
+  .pwBtns {
+    display: flex;
+    gap: 6px;
+  }
+  .pwBtn {
+    flex: 1;
+    padding: 5px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+</style>

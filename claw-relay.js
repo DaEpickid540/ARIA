@@ -127,17 +127,31 @@ console.log(`
   Press Ctrl+C or click ⬡ KILL CLAW in ARIA to stop.
 `);
 
-// ── Register with server ──────────────────────────────────────
+// ── Register with server (with retry/backoff) ─────────────────
 async function register() {
   detectDefaultBrowser();
-  await apiPost("/api/claw/relay/register", {
-    deviceId: DEVICE_ID,
-    platform: PLATFORM,
-    hostname: os.hostname(),
-    arch: os.arch(),
-    browser: DEFAULT_BROWSER,
-  });
-  console.log("[RELAY] Registered with ARIA server ✓");
+  let delay = 1000;
+  for (let attempt = 1; attempt <= 10; attempt++) {
+    try {
+      await apiPost("/api/claw/relay/register", {
+        deviceId: DEVICE_ID,
+        platform: PLATFORM,
+        hostname: os.hostname(),
+        arch: os.arch(),
+        browser: DEFAULT_BROWSER,
+      });
+      console.log("[RELAY] Registered with ARIA server ✓");
+      return;
+    } catch (e) {
+      console.warn(
+        `[RELAY] Register failed (attempt ${attempt}/10): ${e.message}. Retrying in ${delay / 1000}s…`,
+      );
+      await sleep(delay);
+      delay = Math.min(delay * 1.5, 15000);
+    }
+  }
+  console.error("[RELAY] Could not register after 10 attempts. Exiting.");
+  process.exit(1);
 }
 
 // ── Main poll loop ─────────────────────────────────────────────
@@ -338,14 +352,29 @@ async function dispatch(cmd) {
     case "move": {
       const { x = 0, y = 0 } = cmd;
       if (PLATFORM === "win32") {
+        // SetCursorPos moves the cursor but many apps only respond to WM_MOUSEMOVE.
+        // Follow with a zero-delta SendInput to fire that message.
         runPs1(`
 Add-Type -TypeDefinition @"
+using System;
 using System.Runtime.InteropServices;
-public class AriaInput {
+public class AriaMove {
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+    [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT {
+        public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr dwExtraInfo;
+    }
+    [StructLayout(LayoutKind.Sequential)] public struct INPUT {
+        public uint type; public MOUSEINPUT mi;
+    }
+    [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint n, INPUT[] pInputs, int cbSize);
+    public static void MoveTo(int x, int y) {
+        SetCursorPos(x, y);
+        var inp = new INPUT[1]; inp[0].type = 0; inp[0].mi.dwFlags = 0x0001;
+        SendInput(1, inp, System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT)));
+    }
 }
 "@ -ErrorAction SilentlyContinue
-[AriaInput]::SetCursorPos(${x}, ${y})
+[AriaMove]::MoveTo(${x}, ${y})
 `);
       } else if (PLATFORM === "darwin") {
         run(
@@ -363,24 +392,40 @@ public class AriaInput {
       const { x, y, button = "left" } = cmd;
       const btn = { left: 1, right: 3, middle: 2 }[button] || 1;
       if (PLATFORM === "win32") {
-        const downFlag = btn === 1 ? 0x0002 : btn === 3 ? 0x0008 : 0x0020;
-        const upFlag = btn === 1 ? 0x0004 : btn === 3 ? 0x0010 : 0x0040;
+        // Use SendInput — more reliable than deprecated mouse_event on Win10/11.
+        // Move cursor first (SetCursorPos is instant and doesn't need INPUT struct),
+        // then fire down+up via SendInput.
         const posLine =
           x != null && y != null
-            ? `[AriaInput]::SetCursorPos(${x}, ${y})\r\nStart-Sleep -Milliseconds 60`
+            ? `[AriaInput]::SetCursorPos(${x}, ${y})\r\nStart-Sleep -Milliseconds 80`
             : "";
+        // MOUSEEVENTF flags for SendInput: MOVE=0x1, ABSOLUTE=0x8000,
+        // LEFTDOWN=0x2, LEFTUP=0x4, RIGHTDOWN=0x8, RIGHTUP=0x10
+        const [downFlag, upFlag] =
+          btn === 3 ? [0x0008, 0x0010] : btn === 2 ? [0x0020, 0x0040] : [0x0002, 0x0004];
         runPs1(`
 Add-Type -TypeDefinition @"
+using System;
 using System.Runtime.InteropServices;
 public class AriaInput {
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
-    [DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+    [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT {
+        public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr dwExtraInfo;
+    }
+    [StructLayout(LayoutKind.Sequential)] public struct INPUT {
+        public uint type; public MOUSEINPUT mi;
+    }
+    [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint n, INPUT[] pInputs, int cbSize);
+    public static void Click(uint downF, uint upF) {
+        var inputs = new INPUT[2];
+        inputs[0].type = 0; inputs[0].mi.dwFlags = downF;
+        inputs[1].type = 0; inputs[1].mi.dwFlags = upF;
+        SendInput(2, inputs, System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT)));
+    }
 }
 "@ -ErrorAction SilentlyContinue
 ${posLine}
-[AriaInput]::mouse_event(${downFlag}, 0, 0, 0, [UIntPtr]::Zero)
-Start-Sleep -Milliseconds 50
-[AriaInput]::mouse_event(${upFlag}, 0, 0, 0, [UIntPtr]::Zero)
+[AriaInput]::Click(${downFlag}, ${upFlag})
 `);
       } else if (PLATFORM === "darwin") {
         if (x != null)
@@ -403,12 +448,26 @@ Start-Sleep -Milliseconds 50
         const delta = dir === "up" ? amt * 120 : -amt * 120;
         runPs1(`
 Add-Type -TypeDefinition @"
+using System;
 using System.Runtime.InteropServices;
-public class AriaInput {
-    [DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+public class AriaScroll {
+    [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT {
+        public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr dwExtraInfo;
+    }
+    [StructLayout(LayoutKind.Sequential)] public struct INPUT {
+        public uint type; public MOUSEINPUT mi;
+    }
+    [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint n, INPUT[] pInputs, int cbSize);
+    public static void Scroll(int delta) {
+        var inp = new INPUT[1];
+        inp[0].type = 0;
+        inp[0].mi.dwFlags = 0x0800; // MOUSEEVENTF_WHEEL
+        inp[0].mi.mouseData = (uint)delta;
+        SendInput(1, inp, System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT)));
+    }
 }
 "@ -ErrorAction SilentlyContinue
-[AriaInput]::mouse_event(0x0800, 0, 0, [uint](${delta}), [UIntPtr]::Zero)
+[AriaScroll]::Scroll(${delta})
 `);
       } else if (PLATFORM === "darwin") {
         run(
@@ -429,24 +488,33 @@ public class AriaInput {
       if (PLATFORM === "win32") {
         const posLine =
           x != null && y != null
-            ? `[AriaInput]::SetCursorPos(${x}, ${y})\r\nStart-Sleep -Milliseconds 60`
+            ? `[AriaInput]::SetCursorPos(${x}, ${y})\r\nStart-Sleep -Milliseconds 80`
             : "";
         runPs1(`
 Add-Type -TypeDefinition @"
+using System;
 using System.Runtime.InteropServices;
 public class AriaInput {
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
-    [DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+    [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT {
+        public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr dwExtraInfo;
+    }
+    [StructLayout(LayoutKind.Sequential)] public struct INPUT {
+        public uint type; public MOUSEINPUT mi;
+    }
+    [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint n, INPUT[] pInputs, int cbSize);
+    public static void DoubleClick() {
+        var inputs = new INPUT[4];
+        inputs[0].type = 0; inputs[0].mi.dwFlags = 0x0002;
+        inputs[1].type = 0; inputs[1].mi.dwFlags = 0x0004;
+        inputs[2].type = 0; inputs[2].mi.dwFlags = 0x0002;
+        inputs[3].type = 0; inputs[3].mi.dwFlags = 0x0004;
+        SendInput(4, inputs, System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT)));
+    }
 }
 "@ -ErrorAction SilentlyContinue
 ${posLine}
-[AriaInput]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
-Start-Sleep -Milliseconds 50
-[AriaInput]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
-Start-Sleep -Milliseconds 80
-[AriaInput]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
-Start-Sleep -Milliseconds 50
-[AriaInput]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+[AriaInput]::DoubleClick()
 `);
       } else if (PLATFORM === "darwin") {
         if (x != null)
@@ -469,19 +537,30 @@ Start-Sleep -Milliseconds 50
       if (PLATFORM === "win32") {
         runPs1(`
 Add-Type -TypeDefinition @"
+using System;
 using System.Runtime.InteropServices;
-public class AriaInput {
+public class AriaDrag {
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
-    [DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+    [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT {
+        public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr dwExtraInfo;
+    }
+    [StructLayout(LayoutKind.Sequential)] public struct INPUT {
+        public uint type; public MOUSEINPUT mi;
+    }
+    [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint n, INPUT[] pInputs, int cbSize);
+    public static void MouseBtn(uint flag) {
+        var inp = new INPUT[1]; inp[0].type = 0; inp[0].mi.dwFlags = flag;
+        SendInput(1, inp, System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT)));
+    }
 }
 "@ -ErrorAction SilentlyContinue
-[AriaInput]::SetCursorPos(${x1}, ${y1})
+[AriaDrag]::SetCursorPos(${x1}, ${y1})
 Start-Sleep -Milliseconds 80
-[AriaInput]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+[AriaDrag]::MouseBtn(0x0002)
 Start-Sleep -Milliseconds 50
-[AriaInput]::SetCursorPos(${x2}, ${y2})
+[AriaDrag]::SetCursorPos(${x2}, ${y2})
 Start-Sleep -Milliseconds 100
-[AriaInput]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+[AriaDrag]::MouseBtn(0x0004)
 `);
       } else if (PLATFORM === "darwin") {
         run(
@@ -836,22 +915,43 @@ async function apiPost(path, data) {
   });
 }
 
-// Heartbeat
-setInterval(() => {
-  if (running)
-    apiPost("/api/claw/relay/heartbeat", {
-      deviceId: DEVICE_ID,
-    }).catch(() => {});
+// Heartbeat — also detects server restart and re-registers if needed
+let _heartbeatFailures = 0;
+setInterval(async () => {
+  if (!running) return;
+  try {
+    const r = await apiPost("/api/claw/relay/heartbeat", { deviceId: DEVICE_ID });
+    _heartbeatFailures = 0;
+    // If server doesn't recognize us (e.g. after a restart), re-register
+    if (r?.error === "unknown_device" || r?.needsRegister) {
+      console.log("[RELAY] Server doesn't recognize us — re-registering…");
+      await register();
+    }
+  } catch {
+    _heartbeatFailures++;
+    if (_heartbeatFailures === 1) {
+      console.warn("[RELAY] Heartbeat failed — server may be down.");
+    }
+    if (_heartbeatFailures > 6) {
+      // 60+ seconds offline → try to re-register
+      console.log("[RELAY] Long disconnect — attempting re-register…");
+      try { await register(); _heartbeatFailures = 0; } catch {}
+    }
+  }
 }, 10000);
 
 // Graceful exit
-process.on("SIGINT", () => {
-  console.log("\n[RELAY] Shutting down.");
-  apiPost("/api/claw/relay/unregister", {
-    deviceId: DEVICE_ID,
-  }).catch(() => {});
-  process.exit(0);
-});
+function shutdown(signal) {
+  console.log(`\n[RELAY] Received ${signal}, shutting down.`);
+  running = false;
+  apiPost("/api/claw/relay/unregister", { deviceId: DEVICE_ID })
+    .catch(() => {})
+    .finally(() => process.exit(0));
+  // Force-exit if unregister hangs
+  setTimeout(() => process.exit(0), 2000);
+}
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 // Start
 register()

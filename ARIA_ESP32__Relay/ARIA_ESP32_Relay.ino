@@ -1,5 +1,5 @@
 /*
- * ARIA CLAW — ESP32 NimBLE HID Relay v2.1
+ * ARIA CLAW — ESP32 NimBLE HID Relay v2.2
  *
  * IMPORTANT — BEFORE FLASHING:
  *   In Arduino IDE: Tools → Partition Scheme → "Huge APP (3MB No OTA/1MB SPIFFS)"
@@ -265,7 +265,7 @@ bool ariaRegister() {
   h.begin(String(F(SERVER_URL)) + F("/api/claw/relay/register"));
   h.addHeader(F("Content-Type"),F("application/json"));
   String b = String(F("{\"deviceId\":\"")) + DEVICE_ID +
-             F("\",\"platform\":\"esp32-nimble\",\"hostname\":\"") + BLE_NAME + F("\"}");
+             F("\",\"platform\":\"esp32-nimble\",\"relayType\":\"esp32\",\"hostname\":\"") + BLE_NAME + F("\"}");
   int c = h.POST(b); h.end();
   if(c==200){ Serial.println(F("[ARIA] registered")); return true; }
   Serial.printf("[ARIA] reg fail %d\n",c);
@@ -287,8 +287,14 @@ void ariaHeartbeat() {
   HTTPClient h;
   h.begin(String(F(SERVER_URL)) + F("/api/claw/relay/heartbeat"));
   h.addHeader(F("Content-Type"),F("application/json"));
-  h.POST(String(F("{\"deviceId\":\"")) + DEVICE_ID +
-         F("\",\"ble\":") + (bleOK?F("true"):F("false")) + F("}"));
+  // Include diagnostic info: uptime, WiFi signal, free heap, BLE state
+  String b = String(F("{\"deviceId\":\"")) + DEVICE_ID +
+             F("\",\"ble\":") + (bleOK?F("true"):F("false")) +
+             F(",\"uptimeMs\":") + String(millis()) +
+             F(",\"rssi\":") + String(WiFi.RSSI()) +
+             F(",\"freeHeap\":") + String(ESP.getFreeHeap()) +
+             F(",\"ssid\":\"") + WiFi.SSID() + F("\"}");
+  h.POST(b);
   h.end();
 }
 
@@ -355,29 +361,62 @@ String execCmd(JsonObject cmd) {
     return F("released");
   }
 
+// Move mouse to an absolute screen position by sending relative steps.
+// HID mouse only supports relative motion, so we nudge in chunks.
+// curX/curY track our estimated position (starts at screen center).
+static int curX = SCREEN_W / 2;
+static int curY = SCREEN_H / 2;
+
+void mouseMoveTo(int targetX, int targetY) {
+  int dx = targetX - curX;
+  int dy = targetY - curY;
+  while (dx || dy) {
+    int sx = constrain(dx, -127, 127);
+    int sy = constrain(dy, -127, 127);
+    msR[0] = 0; msR[1] = (int8_t)sx; msR[2] = (int8_t)sy; msR[3] = 0;
+    msSend();
+    dx -= sx; dy -= sy;
+    delay(4); // small yield between chunks
+  }
+  curX = targetX;
+  curY = targetY;
+}
+
   if(t=="mouse_move"||t=="move") {
     if(!bleOK) return F("ble_nc");
-    int dx=cmd["dx"]|0, dy=cmd["dy"]|0;
-    if(!dx&&!dy){
-      dx=(int)(cmd["x"]|(SCREEN_W/2))-(SCREEN_W/2);
-      dy=(int)(cmd["y"]|(SCREEN_H/2))-(SCREEN_H/2);
-    }
-    while(dx||dy){
-      int sx=constrain(dx,-127,127),sy=constrain(dy,-127,127);
-      msR[0]=0;msR[1]=(int8_t)sx;msR[2]=(int8_t)sy;msR[3]=0;
-      msSend(); dx-=sx; dy-=sy;
+    // Prefer explicit dx/dy (relative). If not provided, treat x/y as absolute.
+    if(cmd["dx"]|cmd["dy"]) {
+      int dx = cmd["dx"]|0;
+      int dy = cmd["dy"]|0;
+      while(dx||dy){
+        int sx=constrain(dx,-127,127),sy=constrain(dy,-127,127);
+        msR[0]=0;msR[1]=(int8_t)sx;msR[2]=(int8_t)sy;msR[3]=0;
+        msSend(); dx-=sx; dy-=sy;
+      }
+    } else {
+      // Absolute target — move from tracked position
+      int tx = cmd["x"]|(SCREEN_W/2);
+      int ty = cmd["y"]|(SCREEN_H/2);
+      mouseMoveTo(tx, ty);
     }
     return F("moved");
   }
 
   if(t=="mouse_click"||t=="click") {
     if(!bleOK) return F("ble_nc");
+    // Move to position first if x/y provided
+    if(cmd["x"]|cmd["y"]) {
+      int tx = cmd["x"]|(SCREEN_W/2);
+      int ty = cmd["y"]|(SCREEN_H/2);
+      mouseMoveTo(tx, ty);
+      delay(30); // settle before click
+    }
     uint8_t b=btnBit(String(cmd["button"]|"left"));
     int times=constrain((int)(cmd["times"]|1),1,5);
     for(int i=0;i<times;i++){
       msR[0]=b;msR[1]=0;msR[2]=0;msR[3]=0; msSend();
-      delay(40); msR[0]=0; msSend();
-      if(i<times-1) delay(60);
+      delay(50); msR[0]=0; msSend();
+      if(i<times-1) delay(80);
     }
     return F("clicked");
   }
@@ -400,34 +439,68 @@ String execCmd(JsonObject cmd) {
     if(!bleOK) return F("ble_nc");
     int amt=cmd["amount"]|3;
     msR[0]=0;msR[1]=0;msR[2]=0;
-    msR[3]=(int8_t)constrain((String(cmd["direction"]|"down")=="up"?amt:-amt),-127,127);
-    msSend(); msR[3]=0;
+    msR[3]=(int8_t)constrain((String(cmd["direction"]|"down")==String(F("up"))?amt:-amt),-127,127);
+    msSend(); msR[3]=0; msSend();
     return F("scrolled");
+  }
+
+  if(t=="double_click") {
+    if(!bleOK) return F("ble_nc");
+    // Move to absolute position if provided
+    if(!cmd["x"].isNull()||!cmd["y"].isNull()) {
+      mouseMoveTo(cmd["x"]|(SCREEN_W/2), cmd["y"]|(SCREEN_H/2));
+      delay(30);
+    }
+    for(int i=0;i<2;i++){
+      msR[0]=0x01;msR[1]=0;msR[2]=0;msR[3]=0; msSend();
+      delay(50); msR[0]=0; msSend();
+      if(i==0) delay(80);
+    }
+    return F("double_clicked");
   }
 
   if(t=="drag") {
     if(!bleOK) return F("ble_nc");
     int x1=cmd["x1"]|0,y1=cmd["y1"]|0,x2=cmd["x2"]|0,y2=cmd["y2"]|0;
-    int dx=x1-(SCREEN_W/2),dy=y1-(SCREEN_H/2);
-    while(dx||dy){
-      int sx=constrain(dx,-127,127),sy=constrain(dy,-127,127);
-      msR[0]=0;msR[1]=(int8_t)sx;msR[2]=(int8_t)sy;msR[3]=0;
-      msSend();dx-=sx;dy-=sy;
-    }
-    delay(30); msR[0]=0x01;msR[1]=0;msR[2]=0;msR[3]=0; msSend(); delay(30);
-    dx=x2-x1;dy=y2-y1;
+    // Move to start using tracked position
+    mouseMoveTo(x1, y1);
+    delay(30);
+    // Press button
+    msR[0]=0x01;msR[1]=0;msR[2]=0;msR[3]=0; msSend();
+    delay(30);
+    // Drag to end while holding
+    int dx=x2-x1, dy=y2-y1;
     while(dx||dy){
       int sx=constrain(dx,-127,127),sy=constrain(dy,-127,127);
       msR[0]=0x01;msR[1]=(int8_t)sx;msR[2]=(int8_t)sy;msR[3]=0;
       msSend();dx-=sx;dy-=sy;delay(16);
     }
-    delay(30);memset(msR,0,4);msSend();
+    curX=x2; curY=y2;
+    delay(30); memset(msR,0,4); msSend();
     return F("dragged");
   }
 
   if(t=="shell") {
     Serial.printf("[SH] %s\n",(const char*)(cmd["cmd"]|cmd["raw"]|""));
     return F("sh_uart");
+  }
+
+  // ── Screenshot ────────────────────────────────────────────────
+  // On ChromeOS:  Ctrl+Show Windows (F5)  →  saves PNG to ~/Downloads + clipboard
+  // On Windows/Linux the companion watcher handles upload; we just fire the shortcut.
+  if(t=="screenshot") {
+    if(!bleOK) return F("ble_nc");
+    // ChromeOS: Ctrl + Show Windows key (HID keycode 0x3E = F5, which is Show Windows on Chromebooks)
+    // This saves a screenshot to Downloads AND copies to clipboard.
+    // The ARIA Screenshot Watcher companion will pick it up and POST it to the server.
+    kbR[0]=M_LCTRL; memset(kbR+2,0,6);
+    kbR[2]=0x3E; // F5 / Show Windows on ChromeOS
+    kbSend();
+    delay(80);
+    kbClear();
+    // Notify ARIA server that a screenshot was triggered (companion watcher will upload the actual image)
+    ariaResult(String(cmd["id"]|"0").c_str(), "screenshot_triggered");
+    return F("screenshot_triggered");
   }
 
   if(t=="wait"||t=="sleep") {

@@ -262,3 +262,169 @@ body.mathPanelOpen #chatWindow {
     margin-right: 0;
   }
 }
+
+/* ════════════════════════════════════════════════════════════
+   NATIVE MATH GRAPHER (Mark 1.3) — replaces Desmos iframe
+   ════════════════════════════════════════════════════════════ */
+.mathGrapher {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-panel);
+  font-family: var(--font-mono);
+  color: var(--text-blaze);
+}
+.mgHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-cut);
+  flex-shrink: 0;
+}
+.mgTitle {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--red-core);
+  text-shadow: var(--glow-sm);
+}
+.mgHeaderBtns {
+  display: flex;
+  gap: 4px;
+}
+.mgHeaderBtns button {
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: 1px solid var(--border-cut);
+  border-radius: var(--radius-sm);
+  color: var(--text-hot);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: all 0.15s;
+}
+.mgHeaderBtns button:hover {
+  border-color: var(--red-core);
+  color: var(--red-core);
+}
+.mgCanvasWrap {
+  position: relative;
+  flex: 1;
+  min-height: 280px;
+  overflow: hidden;
+}
+.mgCanvas {
+  cursor: grab;
+  display: block;
+}
+.mgCanvas:active {
+  cursor: grabbing;
+}
+.mgCoords {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  color: var(--red-core);
+  pointer-events: none;
+  font-family: var(--font-mono);
+}
+.mgFunctions {
+  max-height: 120px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border-cut);
+  padding: 4px 0;
+  flex-shrink: 0;
+}
+.mgFnRow {
+  display: grid;
+  grid-template-columns: 14px 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 12px;
+  font-size: 12px;
+}
+.mgFnRow.hidden .mgFnExpr {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+.mgFnDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px currentColor;
+}
+.mgFnExpr {
+  font-family: var(--font-mono);
+  color: var(--text-blaze);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mgFnToggle,
+.mgFnDel {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+}
+.mgFnToggle:hover,
+.mgFnDel:hover {
+  color: var(--red-core);
+}
+.mgInputRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-cut);
+  flex-shrink: 0;
+}
+.mgInputPrefix {
+  color: var(--red-core);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+.mgInput {
+  flex: 1;
+  background: var(--bg-abyss);
+  border: 1px solid var(--border-cut);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  color: var(--text-blaze);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  outline: none;
+}
+.mgInput:focus {
+  border-color: var(--red-core);
+  box-shadow: var(--glow-sm);
+}
+.mgAdd {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--red-core);
+  border-radius: var(--radius-sm);
+  color: var(--red-core);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+.mgAdd:hover {
+  background: var(--red-core);
+  color: var(--bg-void);
+}
+.mgError {
+  padding: 0 12px 10px;
+  color: #ff4444;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  min-height: 16px;
+}

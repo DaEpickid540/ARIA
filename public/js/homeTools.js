@@ -619,3 +619,463 @@ export function initBluetooth() {
       }
     });
 }
+
+/* ════════════════════════════════════════════════════════════════
+   NEW HOMETOOLS — added in Mark 1.2
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── POMODORO TIMER ───────────────────────────────────────────
+   25-min focus / 5-min break cycles. State persists in localStorage. */
+export function initPomodoro() {
+  const display = document.getElementById("pomodoroDisplay");
+  const startBtn = document.getElementById("pomodoroStart");
+  const resetBtn = document.getElementById("pomodoroReset");
+  const phaseEl = document.getElementById("pomodoroPhase");
+  const countEl = document.getElementById("pomodoroCount");
+  if (!display || !startBtn) return;
+
+  const FOCUS_MS = 25 * 60 * 1000;
+  const BREAK_MS = 5 * 60 * 1000;
+
+  let state = JSON.parse(
+    localStorage.getItem("aria_pomodoro") ||
+      '{"phase":"focus","remaining":1500000,"running":false,"completed":0}',
+  );
+  let tickTimer = null;
+
+  function render() {
+    const m = Math.floor(state.remaining / 60000);
+    const s = Math.floor((state.remaining % 60000) / 1000);
+    display.textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    if (phaseEl) phaseEl.textContent = state.phase === "focus" ? "FOCUS" : "BREAK";
+    if (countEl) countEl.textContent = `${state.completed} done`;
+    startBtn.textContent = state.running ? "⏸ Pause" : "▶ Start";
+  }
+  function save() {
+    localStorage.setItem("aria_pomodoro", JSON.stringify(state));
+  }
+  function tick() {
+    state.remaining -= 1000;
+    if (state.remaining <= 0) {
+      // Phase complete
+      if (state.phase === "focus") {
+        state.completed++;
+        state.phase = "break";
+        state.remaining = BREAK_MS;
+      } else {
+        state.phase = "focus";
+        state.remaining = FOCUS_MS;
+      }
+      state.running = false;
+      clearInterval(tickTimer);
+      tickTimer = null;
+      // Notify
+      try {
+        new Notification("ARIA Pomodoro", {
+          body: state.phase === "focus" ? "Break's over — back to focus." : "Focus done — take a break.",
+        });
+      } catch {}
+      if (typeof navigator.vibrate === "function") navigator.vibrate([200, 100, 200]);
+    }
+    render();
+    save();
+  }
+  startBtn.addEventListener("click", () => {
+    state.running = !state.running;
+    if (state.running) {
+      if (Notification.permission === "default") Notification.requestPermission();
+      tickTimer = setInterval(tick, 1000);
+    } else {
+      clearInterval(tickTimer);
+      tickTimer = null;
+    }
+    save();
+    render();
+  });
+  resetBtn?.addEventListener("click", () => {
+    state.running = false;
+    state.phase = "focus";
+    state.remaining = FOCUS_MS;
+    clearInterval(tickTimer);
+    tickTimer = null;
+    save();
+    render();
+  });
+
+  // Resume if was running
+  if (state.running) {
+    tickTimer = setInterval(tick, 1000);
+  }
+  render();
+}
+
+/* ── SCRATCHPAD ─────────────────────────────────────────────
+   Quick free-form notes that persist in localStorage. */
+export function initScratchpad() {
+  const pad = document.getElementById("scratchpadText");
+  const charCount = document.getElementById("scratchpadCount");
+  if (!pad) return;
+  pad.value = localStorage.getItem("aria_scratchpad") || "";
+  if (charCount) charCount.textContent = `${pad.value.length} chars`;
+  let saveTimer;
+  pad.addEventListener("input", () => {
+    if (charCount) charCount.textContent = `${pad.value.length} chars`;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      localStorage.setItem("aria_scratchpad", pad.value);
+    }, 400);
+  });
+  document.getElementById("scratchpadClear")?.addEventListener("click", () => {
+    if (confirm("Clear scratchpad?")) {
+      pad.value = "";
+      localStorage.setItem("aria_scratchpad", "");
+      if (charCount) charCount.textContent = "0 chars";
+    }
+  });
+  document.getElementById("scratchpadCopy")?.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(pad.value);
+      const btn = document.getElementById("scratchpadCopy");
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = "✓ Copied";
+        setTimeout(() => (btn.textContent = orig), 1200);
+      }
+    } catch {}
+  });
+}
+
+/* ── LATENCY MONITOR ────────────────────────────────────────
+   Pings the server every 5s and shows current/avg latency + history. */
+export function initLatencyMonitor() {
+  const valueEl = document.getElementById("latencyValue");
+  const avgEl = document.getElementById("latencyAvg");
+  const sparkEl = document.getElementById("latencySpark");
+  if (!valueEl) return;
+
+  const samples = [];
+  const MAX_SAMPLES = 30;
+
+  async function ping() {
+    const start = performance.now();
+    try {
+      await fetch("/api/health", { method: "GET", cache: "no-cache" });
+      const ms = Math.round(performance.now() - start);
+      samples.push(ms);
+      if (samples.length > MAX_SAMPLES) samples.shift();
+      valueEl.textContent = `${ms}ms`;
+      valueEl.style.color = ms < 100 ? "#4cff4c" : ms < 300 ? "#ffc107" : "#ff4444";
+      if (avgEl) {
+        const avg = Math.round(samples.reduce((a, b) => a + b, 0) / samples.length);
+        avgEl.textContent = `avg ${avg}ms`;
+      }
+      drawSpark();
+    } catch {
+      valueEl.textContent = "offline";
+      valueEl.style.color = "#ff4444";
+    }
+  }
+  function drawSpark() {
+    if (!sparkEl || !samples.length) return;
+    const max = Math.max(...samples, 100);
+    const w = 100,
+      h = 24;
+    const points = samples
+      .map((v, i) => {
+        const x = (i / (MAX_SAMPLES - 1)) * w;
+        const y = h - (v / max) * h;
+        return `${x},${y}`;
+      })
+      .join(" ");
+    sparkEl.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}"><polyline points="${points}" fill="none" stroke="#ff2040" stroke-width="1.5"/></svg>`;
+  }
+
+  ping();
+  setInterval(ping, 5000);
+}
+
+/* ── CRYPTO PRICES ──────────────────────────────────────────
+   Live BTC/ETH/SOL prices from CoinGecko (free, no key). */
+export async function initCryptoPrices() {
+  const el = document.getElementById("cryptoList");
+  if (!el) return;
+  el.innerHTML = '<span class="hwEmpty">Loading…</span>';
+  async function refresh() {
+    try {
+      const res = await fetch(
+        "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true",
+        { cache: "no-cache" },
+      );
+      const data = await res.json();
+      const rows = [
+        { id: "bitcoin", sym: "BTC" },
+        { id: "ethereum", sym: "ETH" },
+        { id: "solana", sym: "SOL" },
+      ].map((c) => {
+        const d = data[c.id];
+        if (!d) return "";
+        const chg = d.usd_24h_change || 0;
+        const chgClass = chg >= 0 ? "cryptoUp" : "cryptoDown";
+        return `<div class="cryptoRow">
+          <span class="cryptoSym">${c.sym}</span>
+          <span class="cryptoPrice">$${d.usd.toLocaleString(undefined, { maximumFractionDigits: d.usd < 10 ? 4 : 0 })}</span>
+          <span class="cryptoChg ${chgClass}">${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%</span>
+        </div>`;
+      });
+      el.innerHTML = rows.join("");
+    } catch (e) {
+      el.innerHTML = '<span class="hwEmpty">Offline</span>';
+    }
+  }
+  refresh();
+  setInterval(refresh, 60_000);
+}
+
+/* ── WORLD CLOCKS ────────────────────────────────────────────
+   Configurable list of cities; defaults to common dev hubs. */
+export function initWorldClocks() {
+  const el = document.getElementById("worldClockList");
+  if (!el) return;
+  const defaultZones = [
+    { city: "NYC", tz: "America/New_York" },
+    { city: "SF", tz: "America/Los_Angeles" },
+    { city: "London", tz: "Europe/London" },
+    { city: "Tokyo", tz: "Asia/Tokyo" },
+  ];
+  const zones = JSON.parse(
+    localStorage.getItem("aria_world_clocks") || JSON.stringify(defaultZones),
+  );
+  function render() {
+    el.innerHTML = zones
+      .map((z) => {
+        const t = new Date().toLocaleTimeString("en-US", {
+          timeZone: z.tz,
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+        // Compute offset from local
+        const localHour = new Date().getHours();
+        const remoteHour = parseInt(
+          new Date().toLocaleString("en-US", { timeZone: z.tz, hour: "2-digit", hour12: false }),
+        );
+        const diff = remoteHour - localHour;
+        const diffStr = diff === 0 ? "same" : `${diff > 0 ? "+" : ""}${diff}h`;
+        return `<div class="worldClockRow">
+          <span class="worldClockCity">${z.city}</span>
+          <span class="worldClockTime">${t}</span>
+          <span class="worldClockDiff">${diffStr}</span>
+        </div>`;
+      })
+      .join("");
+  }
+  render();
+  setInterval(render, 30_000);
+}
+
+/* ── DICTIONARY / QUICK DEFINE ──────────────────────────────
+   Uses the free dictionaryapi.dev — definitions + synonyms. */
+export function initDictionary() {
+  const input = document.getElementById("dictInput");
+  const result = document.getElementById("dictResult");
+  if (!input) return;
+  let debounceTimer;
+  input.addEventListener("input", () => {
+    clearTimeout(debounceTimer);
+    const word = input.value.trim();
+    if (!word) {
+      result.innerHTML = "";
+      return;
+    }
+    debounceTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
+        );
+        if (!res.ok) {
+          result.innerHTML = '<span class="hwEmpty">No definition found.</span>';
+          return;
+        }
+        const data = await res.json();
+        const first = data[0];
+        const meanings = first.meanings.slice(0, 2).map((m) => {
+          const def = m.definitions[0]?.definition || "";
+          return `<div class="dictMeaning"><span class="dictPos">${m.partOfSpeech}</span> ${def}</div>`;
+        });
+        result.innerHTML = `<div class="dictWord">${first.word}</div>${meanings.join("")}`;
+      } catch {
+        result.innerHTML = '<span class="hwEmpty">Lookup failed.</span>';
+      }
+    }, 400);
+  });
+}
+
+/* ── CLIPBOARD HISTORY ──────────────────────────────────────
+   Tracks recently-copied text from within ARIA (manual save button). */
+export function initClipboardHistory() {
+  const list = document.getElementById("clipboardHistoryList");
+  const addBtn = document.getElementById("clipboardSaveBtn");
+  if (!list) return;
+  let history = JSON.parse(localStorage.getItem("aria_clipboard_history") || "[]");
+  function render() {
+    if (!history.length) {
+      list.innerHTML = '<span class="hwEmpty">No saved snippets yet.</span>';
+      return;
+    }
+    list.innerHTML = history
+      .slice(0, 8)
+      .map(
+        (item, i) =>
+          `<div class="clipItem" data-idx="${i}">
+            <span class="clipText">${item.text.slice(0, 60).replace(/</g, "&lt;")}${item.text.length > 60 ? "…" : ""}</span>
+            <button class="clipCopy" data-idx="${i}">📋</button>
+            <button class="clipDel" data-idx="${i}">×</button>
+          </div>`,
+      )
+      .join("");
+    list.querySelectorAll(".clipCopy").forEach((b) =>
+      b.addEventListener("click", async () => {
+        const idx = parseInt(b.dataset.idx);
+        try {
+          await navigator.clipboard.writeText(history[idx].text);
+          b.textContent = "✓";
+          setTimeout(() => (b.textContent = "📋"), 800);
+        } catch {}
+      }),
+    );
+    list.querySelectorAll(".clipDel").forEach((b) =>
+      b.addEventListener("click", () => {
+        history.splice(parseInt(b.dataset.idx), 1);
+        localStorage.setItem("aria_clipboard_history", JSON.stringify(history));
+        render();
+      }),
+    );
+  }
+  addBtn?.addEventListener("click", async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) return;
+      history.unshift({ text, ts: Date.now() });
+      history = history.slice(0, 20);
+      localStorage.setItem("aria_clipboard_history", JSON.stringify(history));
+      render();
+    } catch {
+      alert("Clipboard access requires HTTPS or localhost.");
+    }
+  });
+  render();
+}
+
+/* ── COLOR PICKER + PALETTE ─────────────────────────────────
+   Pick a color, get HEX / RGB / HSL — useful for design work. */
+export function initColorPicker() {
+  const swatch = document.getElementById("colorSwatch");
+  const hex = document.getElementById("colorHex");
+  const rgb = document.getElementById("colorRgb");
+  const hsl = document.getElementById("colorHsl");
+  const input = document.getElementById("colorInput");
+  if (!input) return;
+  function update(color) {
+    if (swatch) swatch.style.background = color;
+    if (hex) hex.textContent = color.toUpperCase();
+    // Convert to RGB
+    const r = parseInt(color.slice(1, 3), 16);
+    const g = parseInt(color.slice(3, 5), 16);
+    const b = parseInt(color.slice(5, 7), 16);
+    if (rgb) rgb.textContent = `rgb(${r}, ${g}, ${b})`;
+    // Convert to HSL
+    const rn = r / 255,
+      gn = g / 255,
+      bn = b / 255;
+    const max = Math.max(rn, gn, bn),
+      min = Math.min(rn, gn, bn);
+    const l = (max + min) / 2;
+    let h = 0,
+      s = 0;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case rn: h = (gn - bn) / d + (gn < bn ? 6 : 0); break;
+        case gn: h = (bn - rn) / d + 2; break;
+        case bn: h = (rn - gn) / d + 4; break;
+      }
+      h /= 6;
+    }
+    if (hsl) hsl.textContent = `hsl(${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
+  }
+  input.addEventListener("input", () => update(input.value));
+  update(input.value);
+}
+
+/* ── CHARACTER / WORD COUNT ─────────────────────────────────
+   Standalone text analysis tool. */
+export function initTextStats() {
+  const input = document.getElementById("textStatsInput");
+  const charsEl = document.getElementById("textStatsChars");
+  const wordsEl = document.getElementById("textStatsWords");
+  const linesEl = document.getElementById("textStatsLines");
+  const readEl = document.getElementById("textStatsRead");
+  if (!input) return;
+  function update() {
+    const text = input.value;
+    const chars = text.length;
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const lines = text ? text.split("\n").length : 0;
+    const readMin = Math.ceil(words / 200);
+    if (charsEl) charsEl.textContent = chars.toLocaleString();
+    if (wordsEl) wordsEl.textContent = words.toLocaleString();
+    if (linesEl) linesEl.textContent = lines.toLocaleString();
+    if (readEl)
+      readEl.textContent = words ? `~${readMin} min read` : "—";
+  }
+  input.addEventListener("input", update);
+  update();
+}
+
+/* ── PASSWORD GENERATOR ─────────────────────────────────────
+   Crypto-safe random passwords with toggles. */
+export function initPasswordGen() {
+  const output = document.getElementById("pwOutput");
+  const lengthInput = document.getElementById("pwLength");
+  const lengthLabel = document.getElementById("pwLengthLabel");
+  if (!output) return;
+
+  const opts = {
+    upper: document.getElementById("pwUpper"),
+    lower: document.getElementById("pwLower"),
+    digits: document.getElementById("pwDigits"),
+    symbols: document.getElementById("pwSymbols"),
+  };
+
+  function generate() {
+    let pool = "";
+    if (opts.upper?.checked) pool += "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    if (opts.lower?.checked) pool += "abcdefghijkmnpqrstuvwxyz";
+    if (opts.digits?.checked) pool += "23456789";
+    if (opts.symbols?.checked) pool += "!@#$%^&*-_=+";
+    if (!pool) pool = "abcdefghijklmnopqrstuvwxyz";
+    const len = parseInt(lengthInput?.value || "16");
+    if (lengthLabel) lengthLabel.textContent = `${len} chars`;
+    const buf = new Uint32Array(len);
+    crypto.getRandomValues(buf);
+    let pw = "";
+    for (let i = 0; i < len; i++) pw += pool[buf[i] % pool.length];
+    output.value = pw;
+  }
+  lengthInput?.addEventListener("input", generate);
+  Object.values(opts).forEach((el) => el?.addEventListener("change", generate));
+  document.getElementById("pwGen")?.addEventListener("click", generate);
+  document.getElementById("pwCopy")?.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(output.value);
+      const btn = document.getElementById("pwCopy");
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = "✓ Copied";
+        setTimeout(() => (btn.textContent = orig), 1200);
+      }
+    } catch {}
+  });
+  generate();
+}

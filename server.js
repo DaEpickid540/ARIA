@@ -1,5 +1,7 @@
 // server.js — ARIA v3 (working base + Link Mode + Music Tutor + Workspace + Math v2 + Code v2)
 import { runToolServer, TOOL_DEFINITIONS } from "./tools/index.js";
+import * as rag from "./lib/rag.js";
+import * as taskEngine from "./lib/tasks.js";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -9,9 +11,37 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ── Tunables ──────────────────────────────────────────────────
+const MAX_HISTORY = 20;          // chat turns kept in context
+const REQUEST_LOG_ENABLED = true;
+const DEBOUNCE_WRITE_MS = 500;   // batch JSON writes
+const CHATS_MAX_SIZE = 5 * 1024 * 1024; // soft cap before truncating oldest chats
+
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(express.static(path.join(__dirname, "public")));
+
+// ── Request logger ────────────────────────────────────────────
+if (REQUEST_LOG_ENABLED) {
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on("finish", () => {
+      const ms = Date.now() - start;
+      // Skip noisy polling endpoints unless they error
+      const noisy =
+        req.path === "/api/claw/queue" ||
+        req.path === "/api/claw/relay/heartbeat" ||
+        req.path === "/api/link/heartbeat";
+      if (noisy && res.statusCode < 400) return;
+      const color =
+        res.statusCode >= 500 ? "\x1b[31m" : res.statusCode >= 400 ? "\x1b[33m" : "\x1b[36m";
+      console.log(
+        `${color}${req.method}\x1b[0m ${req.path} ${color}${res.statusCode}\x1b[0m ${ms}ms`,
+      );
+    });
+    next();
+  });
+}
 
 /* ── multer ── */
 let upload = null;
@@ -38,10 +68,46 @@ function readJSON(f, fb) {
     return fb;
   }
 }
+
+// Atomic JSON write — writes to temp file then renames, so we never end up
+// with a half-written corrupted file if the process crashes mid-write.
 function writeJSON(f, d) {
   try {
-    fs.writeFileSync(f, JSON.stringify(d, null, 2));
-  } catch {}
+    const tmp = f + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(d, null, 2));
+    fs.renameSync(tmp, f);
+  } catch (e) {
+    console.warn(`[FS] Failed to write ${path.basename(f)}:`, e.message);
+  }
+}
+
+// Debounced writer — coalesce rapid successive writes (e.g. memory fact updates
+// during streaming) into one disk hit. Each file gets its own debounce timer.
+const _writeTimers = new Map();
+function writeJSONDebounced(f, d) {
+  if (_writeTimers.has(f)) clearTimeout(_writeTimers.get(f));
+  _writeTimers.set(
+    f,
+    setTimeout(() => {
+      writeJSON(f, d);
+      _writeTimers.delete(f);
+    }, DEBOUNCE_WRITE_MS),
+  );
+}
+
+// Flush all pending writes on shutdown so we don't lose recent changes
+process.on("SIGTERM", flushPendingWrites);
+process.on("SIGINT", () => {
+  flushPendingWrites();
+  process.exit(0);
+});
+function flushPendingWrites() {
+  for (const [, timer] of _writeTimers) clearTimeout(timer);
+  // Force-write current in-memory state
+  try { writeJSON(CHATS_FILE, userChats); } catch {}
+  try { writeJSON(MEM_FILE, ariaMemory); } catch {}
+  try { rag.flushSync(); } catch {}
+  try { taskEngine.flushSync(); } catch {}
 }
 
 let userChats = readJSON(CHATS_FILE, {});
@@ -510,7 +576,7 @@ function detectFact(text) {
         !ariaMemory.facts.some((f) => f.toLowerCase() === fact.toLowerCase())
       ) {
         ariaMemory.facts.push(fact);
-        writeJSON(MEM_FILE, ariaMemory);
+        writeJSONDebounced(MEM_FILE, ariaMemory);
         return fact;
       }
     }
@@ -589,6 +655,62 @@ async function runAgenticPipeline(
             "` on your machine. Node.js required, zero installs.";
         } else {
           const cmd = _parseChatClawInput(toolInput);
+
+          // ── Screenshot: wait for companion watcher to upload image, then inject as vision ──
+          if (cmd.type === "screenshot") {
+            if (!clawQueue.has(tid)) clawQueue.set(tid, []);
+            clawQueue.get(tid).push(cmd);
+
+            // Wait up to 12s for the companion watcher to POST the screenshot
+            const screenshotB64 = await new Promise((resolve) => {
+              const deviceId = tid;
+              const timeoutTimer = setTimeout(() => {
+                pendingScreenshotResolvers.delete(cmd.id);
+                resolve(null); // timed out — no image
+              }, 12000);
+              pendingScreenshotResolvers.set(cmd.id, {
+                deviceId,
+                resolve,
+                timer: timeoutTimer,
+              });
+            });
+
+            if (screenshotB64) {
+              // Inject screenshot as a vision message so the AI can see the screen
+              const b64Data = screenshotB64.replace(/^data:image\/\w+;base64,/, "");
+              steps.push({ tool: "claw", input: "screenshot", preText, result: "[screenshot captured]" });
+              currentMessages = [
+                ...currentMessages,
+                { role: "assistant", content: rawReply },
+                {
+                  role: "user",
+                  content: [
+                    {
+                      type: "image",
+                      source: { type: "base64", media_type: "image/png", data: b64Data },
+                    },
+                    {
+                      type: "text",
+                      text: "[CLAW RESULT]: Screenshot captured. Analyze this screen and continue your task.",
+                    },
+                  ],
+                },
+              ];
+            } else {
+              // Timed out — tell AI no image arrived
+              steps.push({ tool: "claw", input: "screenshot", preText, result: "screenshot_timeout" });
+              currentMessages = [
+                ...currentMessages,
+                { role: "assistant", content: rawReply },
+                {
+                  role: "user",
+                  content: "[CLAW RESULT]: Screenshot was triggered but no image arrived (is the ARIA Screenshot Watcher running on the target machine?). Continue without visual context.",
+                },
+              ];
+            }
+            continue;
+          }
+
           if (!clawQueue.has(tid)) clawQueue.set(tid, []);
           clawQueue.get(tid).push(cmd);
           const desc = cmd.cmd || cmd.text || cmd.app || cmd.url || cmd.type;
@@ -1074,72 +1196,184 @@ async function callOpenRouter(messages, model, modeOpts = {}) {
 }
 
 /* ============================================================
-   BACKGROUND TASKS
+   BACKGROUND TASKS (Mark 1.4 — Cowork/Copilot-style)
+   Multi-step plans, persistence, scheduling, cancellation, SSE.
+   See lib/tasks.js for engine internals.
    ============================================================ */
-const bgTasks = new Map();
-let bgTaskCounter = 1;
 
-app.post("/api/background", async (req, res) => {
-  const { task, provider, personality } = req.body;
-  if (!task) return res.json({ error: "No task provided" });
-  const id = "bg_" + bgTaskCounter++;
-  bgTasks.set(id, {
-    id,
-    task,
-    status: "running",
-    started: Date.now(),
-    result: null,
+// ── Planner: ask AI to break a task description into structured steps ──
+async function planTask(description, opts = {}) {
+  const planningPrompt = `You are ARIA's task planner. Break the user's request into 2–6 concrete, ordered steps that can each be executed by an AI agent. Each step should produce a useful output.
+
+Respond with ONLY a JSON array (no markdown, no preamble) of this shape:
+[
+  { "title": "Short step name", "description": "What this step should accomplish and produce" },
+  ...
+]
+
+User's request:
+${description}`;
+  const result = await runAgenticPipeline(
+    [
+      { role: "system", content: "You are a precise task planner. Output only valid JSON." },
+      { role: "user", content: planningPrompt },
+    ],
+    opts.provider || "openrouter",
+    null,
+    false,
+    { thinkDeeper: false },
+  );
+  // Extract JSON array from reply
+  const m = (result.reply || "").match(/\[[\s\S]*\]/);
+  if (!m) throw new Error("Planner did not return a JSON array");
+  const steps = JSON.parse(m[0]);
+  if (!Array.isArray(steps) || steps.length === 0)
+    throw new Error("Planner returned empty plan");
+  return steps;
+}
+
+// ── Step runner: execute a single step with context from previous outputs ──
+async function runTaskStep(task, step, prevOutputs) {
+  // Build context: previous step outputs become part of the system prompt
+  let contextSection = "";
+  if (prevOutputs.length > 0) {
+    contextSection =
+      "\n\n[PREVIOUS STEP OUTPUTS in this task — use as context]\n" +
+      prevOutputs
+        .map((p, i) => `Step ${i + 1} (${p.title}):\n${String(p.output).slice(0, 2000)}`)
+        .join("\n\n---\n\n");
+  }
+
+  const sysPrompt =
+    (BASE_PROMPTS[task.personality] || BASE_PROMPTS.hacker) +
+    TOOL_SYSTEM +
+    buildMemoryContext() +
+    `\n\n[BACKGROUND TASK MODE]\nYou are executing step ${task.currentStep + 1} of ${task.steps.length} in a larger task.\nOverall task: "${task.description}"\nThis step: "${step.title}" — ${step.description}` +
+    contextSection +
+    `\n\nFocus only on this step. Produce a complete, self-contained result for it.`;
+
+  const result = await runAgenticPipeline(
+    [
+      { role: "system", content: sysPrompt },
+      { role: "user", content: step.description || step.title },
+    ],
+    task.provider || "openrouter",
+    null,
+    false,
+    { thinkDeeper: true },
+  );
+  return result.reply;
+}
+
+taskEngine.configure({ planner: planTask, stepRunner: runTaskStep });
+
+// ── REST endpoints ─────────────────────────────────────────────
+app.post("/api/tasks/create", async (req, res) => {
+  try {
+    const { description, title, personality, provider, schedule, autoExecute, contextChatId } =
+      req.body;
+    const task = await taskEngine.createTask(description, {
+      title,
+      personality,
+      provider,
+      schedule,
+      autoExecute,
+      contextChatId,
+    });
+    res.json({ ok: true, task });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.get("/api/tasks", (req, res) => {
+  const tasks = taskEngine.listTasks({ status: req.query.status });
+  res.json({ tasks });
+});
+
+app.get("/api/tasks/stats", (_, res) => res.json(taskEngine.getStats()));
+
+app.get("/api/tasks/:id", (req, res) => {
+  const t = taskEngine.getTask(req.params.id);
+  if (!t) return res.status(404).json({ error: "Task not found" });
+  res.json({ task: t });
+});
+
+app.post("/api/tasks/:id/cancel", (req, res) => {
+  res.json({ ok: taskEngine.cancelTask(req.params.id) });
+});
+app.post("/api/tasks/:id/pause", (req, res) => {
+  res.json({ ok: taskEngine.pauseTask(req.params.id) });
+});
+app.post("/api/tasks/:id/resume", (req, res) => {
+  res.json({ ok: taskEngine.resumeTask(req.params.id) });
+});
+app.post("/api/tasks/:id/approve", (req, res) => {
+  res.json({ ok: taskEngine.approveTask(req.params.id) });
+});
+app.post("/api/tasks/:id/edit-steps", (req, res) => {
+  const { steps } = req.body;
+  res.json({ ok: taskEngine.editSteps(req.params.id, steps || []) });
+});
+app.delete("/api/tasks/:id", (req, res) => {
+  res.json({ ok: taskEngine.deleteTask(req.params.id) });
+});
+
+// ── SSE: live task progress ────────────────────────────────────
+app.get("/api/tasks/subscribe", (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
   });
-  res.json({ id, status: "started" });
-
-  (async () => {
-    try {
-      const sysPrompt =
-        (BASE_PROMPTS[personality] || BASE_PROMPTS.hacker) +
-        TOOL_SYSTEM +
-        buildMemoryContext() +
-        `
-
-[THINK DEEPER MODE]
-You have extended reasoning budget. Take your time. Be thorough.
-Use <think>...</think> blocks to reason through each step before acting.`;
-      const messages = [
-        { role: "system", content: sysPrompt },
-        { role: "user", content: task },
-      ];
-      const result = await runAgenticPipeline(
-        messages,
-        provider || "openrouter",
-        null,
-        true,
-        { thinkDeeper: true },
-      );
-      bgTasks.get(id).status = "done";
-      bgTasks.get(id).result = result.reply;
-      bgTasks.get(id).steps = result.steps;
-    } catch (e) {
-      bgTasks.get(id).status = "error";
-      bgTasks.get(id).result = e.message;
-    }
-  })();
+  res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
+  taskEngine.addSubscriber(res);
+  const ping = setInterval(() => {
+    try { res.write(": ping\n\n"); } catch {}
+  }, 25000);
+  req.on("close", () => {
+    clearInterval(ping);
+    taskEngine.removeSubscriber(res);
+  });
 });
 
+// ── LEGACY COMPAT: old /api/background endpoints ─────────────
+// Front-end still calls these; map them to the new engine.
+app.post("/api/background", async (req, res) => {
+  const { task: description, provider, personality } = req.body;
+  if (!description) return res.json({ error: "No task provided" });
+  try {
+    const t = await taskEngine.createTask(description, { provider, personality });
+    res.json({ id: t.id, status: "started" });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
 app.get("/api/background/:id", (req, res) => {
-  const task = bgTasks.get(req.params.id);
-  if (!task) return res.json({ error: "Task not found" });
-  res.json(task);
+  const t = taskEngine.getTask(req.params.id);
+  if (!t) return res.json({ error: "Task not found" });
+  // Translate new task shape to old expected shape
+  res.json({
+    id: t.id,
+    task: t.description,
+    status: t.status === "done" ? "done" : t.status === "error" ? "error" : "running",
+    started: t.created,
+    result: t.result,
+    steps: t.steps,
+  });
 });
-
-app.get("/api/background", (req, res) => {
+app.get("/api/background", (_, res) => {
   res.json(
-    [...bgTasks.values()].map((t) => ({
+    taskEngine.listTasks().map((t) => ({
       id: t.id,
-      task: t.task.slice(0, 60),
+      task: (t.title || t.description).slice(0, 60),
       status: t.status,
-      started: t.started,
+      started: t.created,
     })),
   );
 });
+
 
 /* ============================================================
    SMART THINKING AUTO-DETECTION
@@ -1201,6 +1435,25 @@ app.post("/api/chat", async (req, res) => {
   sysPrompt += TOOL_SYSTEM;
   sysPrompt += buildMemoryContext();
   sysPrompt += buildBehaviourContext();
+
+  // ── RAG: pull relevant context from past chats + training data ──
+  // Run search against the user's message. Cross-chat recall + training data
+  // both surface here. Silent fail: if embeddings aren't configured, this
+  // returns nothing and chat works normally.
+  try {
+    const ragResults = await rag.search(message, generateEmbedding, {
+      namespaces: ["chat", "training"],
+      topK: 4,
+      minScore: 0.45, // only inject high-confidence matches
+    });
+    if (ragResults.length > 0) {
+      const ctx = rag.formatContextBlock(ragResults, 3000);
+      sysPrompt += `\n\n[RELEVANT CONTEXT from past conversations and training data — use only if it helps answer the current question. Do not mention this block explicitly; just use the information naturally.]\n${ctx}\n[END CONTEXT]`;
+    }
+  } catch (e) {
+    // RAG is optional — don't block chat on it
+    console.warn("[RAG] context lookup failed:", e.message);
+  }
 
   if (frustrated)
     sysPrompt +=
@@ -1296,7 +1549,7 @@ Active GitHub repo: ${workspaceRepo}
     if (relayType === "esp32") {
       sysPrompt += `\n\n[CLAW STATUS — ESP32 BLE RELAY CONNECTED]\nDevice: ${
         relay.hostname || "ARIA Claw"
-      } | Type: ESP32 BLE HID\nThe ESP32 is paired and ready. You CAN control the keyboard and mouse.\n\nESP32 SUPPORTED COMMANDS (use these freely):\n  ACTION: claw | type: Hello World\n  ACTION: claw | hotkey: ctrl+c\n  ACTION: claw | hotkey: win+d\n  ACTION: claw | move: X,Y\n  ACTION: claw | click: X,Y\n  ACTION: claw | right_click: X,Y\n  ACTION: claw | double_click: X,Y\n  ACTION: claw | drag: X1,Y1 to X2,Y2\n  ACTION: claw | scroll: down 3\n\nESP32 UNSUPPORTED — DO NOT USE:\n  shell: (no terminal — ESP32 has no OS)\n  screenshot: (ESP32 has no screen capture)\n  launch_app: (use hotkey: win to open Start, then type: AppName, then hotkey: enter)\n  open: (use hotkey+type to navigate instead)\n\nFor launching apps on ESP32: hotkey: win → wait → type: AppName → hotkey: enter`;
+      } | Type: ESP32 BLE HID\nThe ESP32 is paired and ready. You CAN control the keyboard and mouse.\n\nESP32 SUPPORTED COMMANDS (use these freely):\n  ACTION: claw | type: Hello World\n  ACTION: claw | hotkey: ctrl+c\n  ACTION: claw | hotkey: win+d\n  ACTION: claw | move: X,Y\n  ACTION: claw | click: X,Y\n  ACTION: claw | right_click: X,Y\n  ACTION: claw | double_click: X,Y\n  ACTION: claw | drag: X1,Y1 to X2,Y2\n  ACTION: claw | scroll: down 3\n  ACTION: claw | screenshot      ← triggers ChromeOS screenshot shortcut; ARIA Screenshot Watcher uploads the image\n\nESP32 UNSUPPORTED — DO NOT USE:\n  shell: (no terminal — ESP32 has no OS)\n  launch_app: (use hotkey: win to open Start, then type: AppName, then hotkey: enter)\n  open: (use hotkey+type to navigate instead)\n\nFor launching apps on ESP32: hotkey: win → wait → type: AppName → hotkey: enter\nFor screenshots: use ACTION: claw | screenshot — the ARIA Screenshot Watcher on the Chromebook will upload the image automatically.`;
     } else {
       const browserLabel =
         relay.browser && relay.browser !== "default"
@@ -1308,7 +1561,7 @@ Active GitHub repo: ${workspaceRepo}
     }
   }
   // Build message array
-  const cappedHistory = history.slice(-20);
+  const cappedHistory = history.slice(-MAX_HISTORY);
   const _lastMsg = cappedHistory[cappedHistory.length - 1];
   const messages = [
     { role: "system", content: sysPrompt },
@@ -1373,7 +1626,7 @@ Active GitHub repo: ${workspaceRepo}
           }
         }
         // Run post-processing (facts, tools, feedback) on full reply
-        learnFact(full);
+        detectFact(full);
         const fb = detectFeedback(message);
         const lastAriaMsg =
           history.filter((m) => m.role === "assistant").pop()?.content || "";
@@ -1381,18 +1634,23 @@ Active GitHub repo: ${workspaceRepo}
           processFeedback(message, lastAriaMsg, "negative").catch(() => {});
         if (fb.positive && lastAriaMsg)
           processFeedback(message, lastAriaMsg, "positive").catch(() => {});
-        // Run agentic pipeline on the streamed full reply
-        // Check if it contains an ACTION that needs tool use
+
+        // RAG indexing — fire and forget
+        const _chatId = req.body.chatId || "default";
+        if (message.length >= 30) {
+          rag.addEntry("chat", message, { chatId: _chatId, role: "user", timestamp: Date.now() }, generateEmbedding).catch(() => {});
+        }
+        if (full.length >= 30) {
+          rag.addEntry("chat", full, { chatId: _chatId, role: "assistant", timestamp: Date.now() }, generateEmbedding).catch(() => {});
+        }
+        // If the streamed reply contains an ACTION, run the agentic pipeline
+        // to resolve tool calls and stream the final result
         const actionCheck = full.match(
           /^\s*ACTION:\s*([^|\n]+?)\s*\|\s*(.*)$/im,
         );
         if (actionCheck) {
-          // Stream step notifications then run pipeline
           res.write(
-            `data: ${JSON.stringify({
-              step: true,
-              msg: "Running tools…",
-            })}\n\n`,
+            `data: ${JSON.stringify({ step: true, msg: "Running tools…" })}\n\n`,
           );
           try {
             const agentMessages2 = [
@@ -1400,21 +1658,15 @@ Active GitHub repo: ${workspaceRepo}
               ...cappedHistory,
               { role: "assistant", content: full },
             ];
-            const pipeResult = await runAgenticPipelineStreaming(
+            const pipeResult = await runAgenticPipeline(
               agentMessages2,
               provider,
               requestedModel,
               false,
               { mathMode, programmingMode, thinkDeeper: false, musicTutorMode },
-              (stepEvt) => {
-                res.write(`data: ${JSON.stringify(stepEvt)}\n\n`);
-              },
             );
             res.write(
-              `data: ${JSON.stringify({
-                done: true,
-                full: pipeResult.reply,
-              })}\n\n`,
+              `data: ${JSON.stringify({ done: true, full: pipeResult.reply })}\n\n`,
             );
           } catch {
             res.write(`data: ${JSON.stringify({ done: true, full })}\n\n`);
@@ -1457,6 +1709,16 @@ Active GitHub repo: ${workspaceRepo}
       processFeedback(message, lastAriaMsg2, "negative").catch(() => {});
     if (fb2.positive && lastAriaMsg2)
       processFeedback(message, lastAriaMsg2, "positive").catch(() => {});
+
+    // ── RAG: index both turns for future cross-chat recall ──
+    // Fire and forget — failures don't affect the user.
+    const chatId = req.body.chatId || "default";
+    if (message.length >= 30) {
+      rag.addEntry("chat", message, { chatId, role: "user", timestamp: Date.now() }, generateEmbedding).catch(() => {});
+    }
+    if (result.reply && result.reply.length >= 30) {
+      rag.addEntry("chat", result.reply, { chatId, role: "assistant", timestamp: Date.now() }, generateEmbedding).catch(() => {});
+    }
   } catch (err) {
     console.error("[AI]", err.message);
     res.json({ reply: `⚠ ${err.message}` });
@@ -1671,6 +1933,105 @@ app.post("/api/embed", async (req, res) => {
 });
 
 /* ============================================================
+   RAG / MEMORY V4 — semantic memory + training data ingestion
+   ============================================================ */
+
+// Add a single piece of training data
+app.post("/api/rag/add", async (req, res) => {
+  const { text, source, namespace = "training", meta = {} } = req.body;
+  if (!text) return res.status(400).json({ error: "No text provided." });
+  try {
+    const id = await rag.addEntry(
+      namespace,
+      text,
+      { source, ...meta },
+      generateEmbedding,
+    );
+    if (!id)
+      return res.status(503).json({
+        error: "Embeddings unavailable (Cloudflare keys missing or empty input).",
+      });
+    res.json({ ok: true, id });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Ingest a longer document — chunks + embeds + stores
+app.post("/api/rag/ingest", async (req, res) => {
+  const { text, source, namespace = "training", meta = {}, replace } = req.body;
+  if (!text) return res.status(400).json({ error: "No text provided." });
+  if (!source)
+    return res.status(400).json({ error: "Source name required (for dedupe)." });
+  try {
+    if (replace) rag.deleteEntries({ source });
+    else if (rag.isSourceIngested(source)) {
+      return res.json({
+        ok: false,
+        message: "Source already ingested. Pass replace:true to re-ingest.",
+        source,
+      });
+    }
+    const chunks = await rag.addDocument(
+      namespace,
+      text,
+      { source, ...meta },
+      generateEmbedding,
+    );
+    res.json({ ok: true, source, chunks });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Search the vector store
+app.post("/api/rag/search", async (req, res) => {
+  const { query, namespaces, topK = 5, minScore = 0.3 } = req.body;
+  if (!query) return res.status(400).json({ error: "No query." });
+  try {
+    const results = await rag.search(query, generateEmbedding, {
+      namespaces,
+      topK,
+      minScore,
+    });
+    res.json({ ok: true, results });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Stats about the vector store
+app.get("/api/rag/stats", (_, res) => {
+  res.json(rag.getStats());
+});
+
+// Delete entries
+app.post("/api/rag/delete", (req, res) => {
+  const { namespace, source, olderThanMs } = req.body;
+  const deleted = rag.deleteEntries({ namespace, source, olderThanMs });
+  res.json({ ok: true, deleted });
+});
+
+// Index a chat message for cross-chat recall (called by client after each turn)
+app.post("/api/rag/index-chat", async (req, res) => {
+  const { chatId, role, content, chatTitle } = req.body;
+  if (!chatId || !content) return res.json({ ok: false });
+  // Skip very short messages (greetings, acks) — not useful for recall
+  if (content.length < 30) return res.json({ ok: true, skipped: "too short" });
+  try {
+    await rag.addEntry(
+      "chat",
+      content,
+      { chatId, role, chatTitle, timestamp: Date.now() },
+      generateEmbedding,
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
+
+/* ============================================================
    MEMORY
    ============================================================ */
 app.get("/api/memory", (_, res) => res.json(ariaMemory));
@@ -1679,18 +2040,18 @@ app.post("/api/memory", (req, res) => {
   if (action === "add" && fact) {
     if (!ariaMemory.facts.includes(fact)) {
       ariaMemory.facts.push(fact);
-      writeJSON(MEM_FILE, ariaMemory);
+      writeJSONDebounced(MEM_FILE, ariaMemory);
     }
   } else if (action === "delete" && index !== undefined) {
     ariaMemory.facts.splice(index, 1);
-    writeJSON(MEM_FILE, ariaMemory);
+    writeJSONDebounced(MEM_FILE, ariaMemory);
   } else if (action === "clear") {
     ariaMemory.facts = [];
-    writeJSON(MEM_FILE, ariaMemory);
+    writeJSONDebounced(MEM_FILE, ariaMemory);
   } else if (Array.isArray(facts)) {
     // Bulk update from memory.js client
     ariaMemory.facts = facts;
-    writeJSON(MEM_FILE, ariaMemory);
+    writeJSONDebounced(MEM_FILE, ariaMemory);
   }
   res.json({ success: true, facts: ariaMemory.facts });
 });
@@ -1699,16 +2060,60 @@ app.post("/api/memory", (req, res) => {
    CHATS
    ============================================================ */
 app.post("/api/saveChats", (req, res) => {
-  const { userId, chats } = req.body;
+  const { userId, chats, sourceDeviceId } = req.body;
   if (userId) {
     userChats[userId] = chats;
-    writeJSON(CHATS_FILE, userChats);
+    writeJSONDebounced(CHATS_FILE, userChats);
+    // Broadcast to other devices subscribed to this user's chat sync
+    broadcastChatSync(userId, sourceDeviceId);
   }
   res.json({ success: true });
 });
 app.get("/api/loadChats", (req, res) =>
   res.json({ chats: userChats[req.query.userId] || [] }),
 );
+
+// ── Cross-device chat sync via Server-Sent Events ──
+// Each connected device opens a long-lived SSE connection. When any device
+// updates chats via /api/saveChats, all OTHER devices for the same user are
+// notified to re-pull. Their UI updates automatically.
+const _syncSubscribers = new Map(); // userId → Set<{res, deviceId}>
+
+function broadcastChatSync(userId, sourceDeviceId) {
+  const subs = _syncSubscribers.get(userId);
+  if (!subs) return;
+  const payload = `data: ${JSON.stringify({ type: "chats_updated", userId, sourceDeviceId, at: Date.now() })}\n\n`;
+  for (const sub of subs) {
+    if (sub.deviceId === sourceDeviceId) continue; // don't echo to sender
+    try { sub.res.write(payload); } catch {}
+  }
+}
+
+app.get("/api/sync/subscribe", (req, res) => {
+  const { userId = "sarvin", deviceId = "unknown" } = req.query;
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.write(`data: ${JSON.stringify({ type: "connected", userId, deviceId })}\n\n`);
+
+  if (!_syncSubscribers.has(userId)) _syncSubscribers.set(userId, new Set());
+  const sub = { res, deviceId };
+  _syncSubscribers.get(userId).add(sub);
+
+  // Keep-alive ping every 25s so proxies don't kill the connection
+  const ping = setInterval(() => {
+    try { res.write(": ping\n\n"); } catch {}
+  }, 25000);
+
+  req.on("close", () => {
+    clearInterval(ping);
+    _syncSubscribers.get(userId)?.delete(sub);
+    if (_syncSubscribers.get(userId)?.size === 0) _syncSubscribers.delete(userId);
+  });
+});
 
 /* ============================================================
    WEATHER + NEWS
@@ -1805,7 +2210,7 @@ app.get("/api/config", async (_, res) => {
     // OpenRouter free models
     freeModels: OR_FREE_MODELS,
     defaultModel: "meta-llama/llama-3.3-70b-instruct:free",
-    bgTasks: [...bgTasks.values()].length,
+    bgTasks: taskEngine.getStats().total,
     connectedDevices: [...linkDevices.values()].filter(
       (d) => Date.now() - d.lastSeen < 30_000,
     ).length,
@@ -1985,6 +2390,113 @@ app.get("/api/agent/list", (_, res) => {
 /* ============================================================
    CLAW RELAY ENDPOINTS
    ============================================================ */
+/* ============================================================
+   GENERIC ESP32 / IOT DEVICE REGISTRY (Mark 1.3)
+   Any ESP32 project can register here — smartwatch, sensor node,
+   speaker, light controller, etc. Provides command queue +
+   telemetry + key-value state per device.
+
+   Endpoints:
+     POST /api/devices/register   — { deviceId, name, type, capabilities[] }
+     POST /api/devices/heartbeat  — { deviceId, telemetry{} }
+     POST /api/devices/state      — { deviceId, key, value }   (device → server)
+     GET  /api/devices/queue      — ?deviceId=...               (device polls)
+     POST /api/devices/command    — { deviceId, command{} }     (server queues)
+     GET  /api/devices/list       — see all devices
+     POST /api/devices/unregister — { deviceId }
+   ============================================================ */
+const iotDevices = new Map(); // deviceId → { name, type, capabilities, telemetry, state, lastSeen }
+const iotQueue = new Map(); // deviceId → [commands]
+let iotCmdSeq = 0;
+function nextIotCmdId() {
+  return `iot_${++iotCmdSeq}_${Date.now().toString(36)}`;
+}
+
+app.post("/api/devices/register", (req, res) => {
+  const { deviceId, name, type, capabilities = [], firmware, project } =
+    req.body;
+  if (!deviceId)
+    return res.status(400).json({ error: "deviceId required" });
+  const existing = iotDevices.get(deviceId);
+  iotDevices.set(deviceId, {
+    deviceId,
+    name: name || deviceId,
+    type: type || "esp32",
+    capabilities: Array.isArray(capabilities) ? capabilities : [],
+    firmware,
+    project,
+    state: existing?.state || {},
+    telemetry: existing?.telemetry || {},
+    registeredAt: existing?.registeredAt || Date.now(),
+    lastSeen: Date.now(),
+  });
+  if (!iotQueue.has(deviceId)) iotQueue.set(deviceId, []);
+  console.log(
+    `[IOT] Device registered: ${deviceId} (${type}/${name}) caps:[${capabilities.join(",")}]`,
+  );
+  res.json({ ok: true, deviceId });
+});
+
+app.post("/api/devices/heartbeat", (req, res) => {
+  const { deviceId, telemetry = {} } = req.body;
+  if (!deviceId) return res.status(400).json({ error: "deviceId required" });
+  if (!iotDevices.has(deviceId))
+    return res.json({ ok: false, needsRegister: true });
+  const dev = iotDevices.get(deviceId);
+  dev.lastSeen = Date.now();
+  Object.assign(dev.telemetry, telemetry);
+  res.json({ ok: true });
+});
+
+app.post("/api/devices/state", (req, res) => {
+  const { deviceId, key, value } = req.body;
+  if (!deviceId || !key)
+    return res.status(400).json({ error: "deviceId + key required" });
+  const dev = iotDevices.get(deviceId);
+  if (!dev) return res.json({ ok: false });
+  dev.state[key] = value;
+  dev.lastSeen = Date.now();
+  res.json({ ok: true });
+});
+
+app.get("/api/devices/queue", (req, res) => {
+  const deviceId = req.query.deviceId;
+  if (!deviceId) return res.status(400).json({ error: "deviceId required" });
+  if (iotDevices.has(deviceId))
+    iotDevices.get(deviceId).lastSeen = Date.now();
+  const q = iotQueue.get(deviceId) || [];
+  iotQueue.set(deviceId, []);
+  res.json({ commands: q });
+});
+
+app.post("/api/devices/command", (req, res) => {
+  const { deviceId, command } = req.body;
+  if (!deviceId || !command)
+    return res.status(400).json({ error: "deviceId + command required" });
+  if (!iotQueue.has(deviceId)) iotQueue.set(deviceId, []);
+  iotQueue.get(deviceId).push({ ...command, id: nextIotCmdId() });
+  res.json({ ok: true });
+});
+
+app.get("/api/devices/list", (_, res) => {
+  const now = Date.now();
+  const devices = [...iotDevices.values()].map((d) => ({
+    ...d,
+    online: now - d.lastSeen < 20000,
+  }));
+  res.json({ devices });
+});
+
+app.post("/api/devices/unregister", (req, res) => {
+  const { deviceId } = req.body;
+  iotDevices.delete(deviceId);
+  iotQueue.delete(deviceId);
+  res.json({ ok: true });
+});
+
+/* ============================================================
+   CLAW RELAY — keyboard/mouse control (existing)
+   ============================================================ */
 app.post("/api/claw/relay/register", (req, res) => {
   const { deviceId, platform, hostname, relayType, browser, arch } = req.body;
   if (!deviceId) return res.json({ error: "No deviceId" });
@@ -2010,10 +2522,21 @@ app.post("/api/claw/relay/register", (req, res) => {
   res.json({ ok: true, killed: clawKilled });
 });
 
-// Relay heartbeat — keeps relay marked as live
+// Relay heartbeat — keeps relay marked as live; stores telemetry from device
 app.post("/api/claw/relay/heartbeat", (req, res) => {
-  const { deviceId } = req.body;
-  if (clawRelays.has(deviceId)) clawRelays.get(deviceId).lastSeen = Date.now();
+  const { deviceId, ble, uptimeMs, rssi, freeHeap, ssid } = req.body;
+  if (!deviceId) return res.json({ error: "no_device_id" });
+  if (!clawRelays.has(deviceId)) {
+    // Tell the client to re-register; server might have restarted
+    return res.json({ ok: false, needsRegister: true, error: "unknown_device" });
+  }
+  const relay = clawRelays.get(deviceId);
+  relay.lastSeen = Date.now();
+  if (ble !== undefined) relay.ble = ble;
+  if (uptimeMs !== undefined) relay.uptimeMs = uptimeMs;
+  if (rssi !== undefined) relay.rssi = rssi;
+  if (freeHeap !== undefined) relay.freeHeap = freeHeap;
+  if (ssid !== undefined) relay.ssid = ssid;
   res.json({ ok: true, killed: clawKilled });
 });
 
@@ -2025,8 +2548,11 @@ app.post("/api/claw/relay/unregister", (req, res) => {
 });
 
 // Relay reports result of executed command
+// Relay reports result of executed command
+const pendingScreenshotResolvers = new Map(); // cmdId → {resolve, timer}
+
 app.post("/api/claw/relay/result", (req, res) => {
-  const { screenshot, fname, deviceId } = req.body;
+  const { screenshot, fname, deviceId, cmdId, result } = req.body;
   if (screenshot && deviceId) {
     // Store latest screenshot per device for POV feed
     if (!global.clawScreenshots) global.clawScreenshots = new Map();
@@ -2035,6 +2561,15 @@ app.post("/api/claw/relay/result", (req, res) => {
       fname: fname || "",
       ts: Date.now(),
     });
+    // Resolve any AI pipeline waiting on a screenshot for this device
+    for (const [, entry] of pendingScreenshotResolvers) {
+      if (entry.deviceId === deviceId) {
+        clearTimeout(entry.timer);
+        entry.resolve(screenshot);
+        pendingScreenshotResolvers.delete(cmdId);
+        break;
+      }
+    }
   }
   res.json({ ok: true });
 });
@@ -2146,7 +2681,7 @@ app.post("/api/claw", async (req, res) => {
       const r = await callAI(msgs, "openrouter", null, {});
       let cmds = [];
       try {
-        const match = (r.reply || "[]").match(/\[[\s\S]*\]/);
+        const match = (r || "[]").match(/\[[\s\S]*\]/);
         cmds = JSON.parse(match ? match[0] : "[]");
       } catch {}
       cmds = cmds.map((c) => ({ ...c, id: nextClawId() }));
@@ -2279,10 +2814,68 @@ app.get("/api/lmstudio/models", async (req, res) => {
   }
 });
 
+/* ── Health check ── */
+const startTime = Date.now();
+app.get("/api/health", (_, res) => {
+  res.json({
+    ok: true,
+    version: "3.0.0",
+    uptimeMs: Date.now() - startTime,
+    relays: {
+      live: [...clawRelays.values()].filter(
+        (r) => Date.now() - r.lastSeen < 20000,
+      ).length,
+      total: clawRelays.size,
+    },
+    iotDevices: {
+      live: [...iotDevices.values()].filter(
+        (d) => Date.now() - d.lastSeen < 20000,
+      ).length,
+      total: iotDevices.size,
+    },
+    memory: {
+      facts: ariaMemory.facts?.length || 0,
+      sessions: ariaMemory.sessions?.length || 0,
+    },
+    chats: Object.keys(userChats).length,
+    pendingScreenshots: pendingScreenshotResolvers?.size || 0,
+    node: process.version,
+  });
+});
+
 /* ── Fallback ── */
 app.get("*", (req, res) =>
   res.sendFile(path.join(__dirname, "public", "index.html")),
 );
 
+/* ── Global error handler ── */
+// Catches any uncaught error thrown inside a route handler so the process doesn't die
+app.use((err, req, res, next) => {
+  console.error(`[ERR] ${req.method} ${req.path}:`, err.stack || err.message);
+  if (res.headersSent) return next(err);
+  res.status(500).json({
+    error: "Internal server error",
+    message: err.message,
+    path: req.path,
+  });
+});
+
+// Don't crash on unhandled promise rejections — log and keep running
+process.on("unhandledRejection", (reason) => {
+  console.error("[UNHANDLED REJECTION]", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[UNCAUGHT EXCEPTION]", err);
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`ARIA v3 on port ${PORT}`));
+app.listen(PORT, () => {
+  const banner = `
+╔══════════════════════════════════════════════════════╗
+║  ARIA v3 — Adaptive Reasoning Intelligence           ║
+║  Port: ${String(PORT).padEnd(46)}║
+║  Node: ${process.version.padEnd(46)}║
+║  Env:  ${(process.env.NODE_ENV || "development").padEnd(46)}║
+╚══════════════════════════════════════════════════════╝`;
+  console.log(banner);
+});

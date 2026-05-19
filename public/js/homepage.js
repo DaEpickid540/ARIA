@@ -16,6 +16,16 @@ import {
   initBgTasksPreview,
   initMemoryFacts,
   initBluetooth,
+  initPomodoro,
+  initScratchpad,
+  initLatencyMonitor,
+  initCryptoPrices,
+  initWorldClocks,
+  initDictionary,
+  initClipboardHistory,
+  initColorPicker,
+  initTextStats,
+  initPasswordGen,
 } from "./homeTools.js";
 
 export function initHomepage() {
@@ -37,6 +47,15 @@ export function initHomepage() {
     initNetworkInfo();
     initQuickTools();
     initBluetooth();
+    // New tools (Mark 1.2)
+    initPomodoro();
+    initScratchpad();
+    initWorldClocks();
+    initDictionary();
+    initClipboardHistory();
+    initColorPicker();
+    initTextStats();
+    initPasswordGen();
   }
 
   // Async / live-data tools — always refresh on every visit
@@ -47,4 +66,7 @@ export function initHomepage() {
   initUSBDevices();
   initBgTasksPreview();
   initMemoryFacts();
+  // New live tools
+  initLatencyMonitor();
+  initCryptoPrices();
 }

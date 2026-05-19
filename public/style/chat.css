@@ -243,3 +243,105 @@
     opacity: 1;
   }
 }
+
+/* ============================================================
+   EMPTY / NEW CHAT STATE
+   Shows when a fresh chat has zero messages — welcome + suggestions
+   ============================================================ */
+.emptyChatState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 40px 20px;
+  gap: 18px;
+  text-align: center;
+  animation: emptyFadeIn 0.5s ease-out;
+}
+@keyframes emptyFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.emptyChatLogo {
+  font-family: "Audiowide", "Orbitron", monospace;
+  font-size: 4rem;
+  letter-spacing: 0.15em;
+  filter: drop-shadow(0 0 18px rgba(255, 0, 0, 0.45));
+  margin-bottom: 4px;
+}
+.emptyChatLogo .bootLogoA,
+.emptyChatLogo .bootLogoR,
+.emptyChatLogo .bootLogoI,
+.emptyChatLogo .bootLogoA2 {
+  color: #ff2040;
+  text-shadow: 0 0 12px rgba(255, 32, 64, 0.6);
+}
+.emptyChatGreeting {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.emptyChatPrompt {
+  font-size: 1.6rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  margin-bottom: 12px;
+}
+.emptyChatSuggestions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 640px;
+  margin-top: 18px;
+}
+.emptyChatSuggestion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 32, 64, 0.15);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  font-family: inherit;
+}
+.emptyChatSuggestion:hover {
+  background: rgba(255, 32, 64, 0.08);
+  border-color: rgba(255, 32, 64, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(255, 32, 64, 0.15);
+}
+.emptyChatSuggestion:active {
+  transform: translateY(0);
+}
+.emptyChatIcon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+.emptyChatLabel {
+  flex: 1;
+}
+.emptyChatHint {
+  margin-top: 28px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.02em;
+}
+.emptyChatHint kbd {
+  display: inline-block;
+  padding: 2px 7px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.7);
+}

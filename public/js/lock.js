@@ -1,6 +1,27 @@
 // lock.js  — ARIA unlock flow: lock → homepage → chat
 // Flow: unlock() shows homepageScreen, wires all nav buttons, lazy-loads chat on demand.
 
+// ── Global error capture ─────────────────────────────────────
+// Catch uncaught errors and unhandled promise rejections so they show up
+// in the console with context instead of disappearing silently.
+window.addEventListener("error", (e) => {
+  console.error(
+    `[ARIA] Uncaught error in ${e.filename}:${e.lineno}:${e.colno}`,
+    e.error || e.message,
+  );
+});
+window.addEventListener("unhandledrejection", (e) => {
+  console.error("[ARIA] Unhandled promise rejection:", e.reason);
+});
+
+// ── Online/offline indicator ─────────────────────────────────
+window.addEventListener("offline", () => {
+  console.warn("[ARIA] Network offline — ARIA will use cached assets only.");
+});
+window.addEventListener("online", () => {
+  console.log("[ARIA] Network back online.");
+});
+
 const USERS = [{ id: "sarvin", password: "727846" }];
 
 let _buttonsWired = false;
@@ -208,6 +229,10 @@ async function loadChatModules() {
     try {
       const { initClaw } = await import("./claw.js");
       initClaw();
+    } catch {}
+    try {
+      const { initTaskPanel } = await import("./taskPanel.js");
+      initTaskPanel();
     } catch {}
 
     // ── Apply version stamp ──

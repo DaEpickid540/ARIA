@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Environment variables — NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# Runtime data — persisted on server, not tracked in git
+data/
+memory.json
+behavior.json
+aria-relay-config.json
+
+# Uploads
+public/uploads/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/settings.json
+.DS_Store
+
+# Legacy / dead code (kept locally for reference)
+# brain.js — superseded by server.js, contains hardcoded keys

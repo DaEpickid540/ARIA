@@ -1,0 +1,186 @@
+<!--
+═══════════════════════════════════════════════════════════════════
+  ARIA Mark 1.3 — Settings UI additions
+  Drop into the appropriate <div class="settingsTabPane"> inside
+  the settings overlay in index.html.
+
+  Tabs to update:
+    • #tabAppearance   → replace contents with the Appearance block
+    • #tabDevices      → NEW tab (add to #settingsTabs)
+═══════════════════════════════════════════════════════════════════
+-->
+
+<!-- ────────────────────────────────────────────────────────────
+  TAB: APPEARANCE  (replace existing contents)
+──────────────────────────────────────────────────────────────── -->
+<div class="settingsSection">
+  <h3 class="settingsSectionTitle">Theme Mode</h3>
+  <p class="settingsSectionHint">
+    Each mode changes the entire visual style — typography, borders, glow, cursors.
+  </p>
+  <div class="themeModeGrid" id="themeModeGrid"></div>
+</div>
+
+<div class="settingsSection">
+  <h3 class="settingsSectionTitle">Accent Color</h3>
+  <p class="settingsSectionHint">Quick presets</p>
+  <div class="accentColorGrid" id="accentColorGrid"></div>
+
+  <p class="settingsSectionHint" style="margin-top:20px">Color Wheel — pick anything</p>
+  <div id="colorWheelHost"></div>
+
+  <p class="settingsSectionHint" style="margin-top:14px">Custom Saved Colors</p>
+  <div class="customColorsRow" id="customColorsRow"></div>
+</div>
+
+<div class="settingsSection">
+  <h3 class="settingsSectionTitle">Display</h3>
+
+  <div class="settingsRow">
+    <label for="fontSizeSelect">Font Size</label>
+    <select id="fontSizeSelect">
+      <option value="small">Small</option>
+      <option value="medium" selected>Medium</option>
+      <option value="large">Large</option>
+      <option value="xlarge">Extra Large</option>
+    </select>
+  </div>
+
+  <div class="settingsRow">
+    <label for="densitySelect">Message Density</label>
+    <select id="densitySelect">
+      <option value="compact">Compact</option>
+      <option value="normal" selected>Normal</option>
+      <option value="spacious">Spacious</option>
+    </select>
+  </div>
+
+  <div class="settingsRow">
+    <label for="animSelect">Animations</label>
+    <select id="animSelect">
+      <option value="normal" selected>Normal</option>
+      <option value="reduced">Reduced</option>
+      <option value="off">Off (accessibility)</option>
+    </select>
+  </div>
+
+  <div class="settingsRow">
+    <label for="brightnessSlider">Brightness</label>
+    <input id="brightnessSlider" type="range" min="0.3" max="1.5" step="0.05" value="1" />
+    <span id="brightnessDisplay">1.00</span>
+  </div>
+</div>
+
+<div class="settingsSection">
+  <h3 class="settingsSectionTitle">Effects</h3>
+  <div class="settingsRow">
+    <label>Glitch Effects</label>
+    <button id="glitchEffectsToggle" class="settingsToggle">ON</button>
+  </div>
+  <div class="settingsRow">
+    <label>Scanlines</label>
+    <button id="scanlinesToggle" class="settingsToggle">ON</button>
+  </div>
+  <div class="settingsRow">
+    <label>Halo Effects</label>
+    <button id="haloEffectsToggle" class="settingsToggle">ON</button>
+  </div>
+  <div class="settingsRow">
+    <label for="haloIntensitySlider">Halo Intensity</label>
+    <input id="haloIntensitySlider" type="range" min="0" max="1" step="0.05" value="0.5" />
+  </div>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────
+  TAB: DEVICES (new tab — add to #settingsTabs as well)
+
+  Add to your existing settings tab list:
+    <button class="settingsTab" data-target="tabDevices">DEVICES</button>
+──────────────────────────────────────────────────────────────── -->
+<div class="settingsTabPane" id="tabDevices">
+  <div class="settingsSection">
+    <h3 class="settingsSectionTitle">ESP32 Network</h3>
+    <p class="settingsSectionHint">
+      Any ESP32 device using the ARIA IoT template will register here automatically.
+    </p>
+    <div id="esp32DeviceList" class="esp32DeviceList"></div>
+  </div>
+
+  <div class="settingsSection">
+    <h3 class="settingsSectionTitle">Claw Relays</h3>
+    <p class="settingsSectionHint">
+      Devices that can control keyboard/mouse for ARIA's Claw feature.
+    </p>
+    <div id="clawRelayList" class="esp32DeviceList">
+      <div class="esp32AddDeviceHint">
+        Run <code>node claw-relay.js https://your-aria-url</code> on a device,
+        or flash the ESP32 BLE HID sketch.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Common settings row styling — drop into settings.css if missing -->
+<style>
+  .settingsSection {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-cut);
+  }
+  .settingsSectionTitle {
+    font-family: var(--font-head);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--red-core);
+    margin: 0 0 6px;
+    text-transform: uppercase;
+  }
+  .settingsSectionHint {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin: 0 0 12px;
+    line-height: 1.5;
+  }
+  .settingsRow {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    font-size: 12px;
+  }
+  .settingsRow > label {
+    color: var(--text-blaze);
+  }
+  .settingsRow > select,
+  .settingsRow > input[type="text"],
+  .settingsRow > input[type="number"] {
+    background: var(--bg-abyss);
+    border: 1px solid var(--border-cut);
+    border-radius: var(--radius-sm);
+    color: var(--text-blaze);
+    padding: 4px 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .settingsRow > input[type="range"] {
+    width: 140px;
+    accent-color: var(--red-core);
+  }
+  .settingsToggle {
+    background: transparent;
+    border: 1px solid var(--border-cut);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    padding: 4px 12px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .settingsToggle[data-state="on"],
+  .settingsToggle.on {
+    border-color: var(--red-core);
+    color: var(--red-core);
+    text-shadow: var(--glow-sm);
+  }
+</style>

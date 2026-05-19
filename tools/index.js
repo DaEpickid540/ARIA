@@ -8,11 +8,36 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /* ============================================================
-   CALC — safe math evaluator
+   PERSISTENCE HELPERS — notes + todos survive restarts
+   ============================================================ */
+const DATA_DIR = path.join(__dirname, "..", "data");
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+const NOTES_FILE = path.join(DATA_DIR, "notes.json");
+const TODOS_FILE = path.join(DATA_DIR, "todos.json");
+
+function loadJSON(file, fallback) {
+  try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return fallback; }
+}
+function saveJSON(file, data) {
+  try { fs.writeFileSync(file, JSON.stringify(data, null, 2)); } catch {}
+}
+
+/* ============================================================
+   CALC — safe math evaluator with strict input validation
    ============================================================ */
 async function runCalc(input) {
   if (!input?.trim()) return "Usage: /calc <expression>";
   const expr = input.trim();
+
+  // Strict allowlist: only allow numbers, operators, parens, dots, commas, spaces,
+  // and these specific function/constant names.
+  const ALLOWED_KEYWORDS = /\b(sqrt|abs|floor|ceil|round|log|ln|sin|cos|tan|asin|acos|atan|exp|min|max|pow|pi|e)\b/g;
+  const stripped = expr.replace(ALLOWED_KEYWORDS, "");
+  if (!/^[0-9+\-*/().,\s^%]*$/.test(stripped)) {
+    return "Could not evaluate: expression contains disallowed characters.";
+  }
+
   try {
     const safe = expr
       .replace(/\^/g, "**")
@@ -21,10 +46,18 @@ async function runCalc(input) {
       .replace(/\bfloor\b/g, "Math.floor")
       .replace(/\bceil\b/g, "Math.ceil")
       .replace(/\bround\b/g, "Math.round")
-      .replace(/\blog\b/g, "Math.log")
+      .replace(/\bln\b/g, "Math.log")
+      .replace(/\blog\b/g, "Math.log10")
       .replace(/\bsin\b/g, "Math.sin")
       .replace(/\bcos\b/g, "Math.cos")
       .replace(/\btan\b/g, "Math.tan")
+      .replace(/\basin\b/g, "Math.asin")
+      .replace(/\bacos\b/g, "Math.acos")
+      .replace(/\batan\b/g, "Math.atan")
+      .replace(/\bexp\b/g, "Math.exp")
+      .replace(/\bmin\b/g, "Math.min")
+      .replace(/\bmax\b/g, "Math.max")
+      .replace(/\bpow\b/g, "Math.pow")
       .replace(/\bpi\b/gi, "Math.PI")
       .replace(/\be\b/g, "Math.E");
     const result = Function(`"use strict";return(${safe})`)();
@@ -98,10 +131,10 @@ async function runWeather(input = "") {
 }
 
 /* ============================================================
-   NOTES — in-memory (per session)
+   NOTES — file-backed (persists across restarts)
    ============================================================ */
-let notes = [];
 async function runNotes(input = "") {
+  let notes = loadJSON(NOTES_FILE, []);
   const parts = input.trim().split(" ");
   const cmd = parts[0]?.toLowerCase();
   const text = parts.slice(1).join(" ").trim();
@@ -109,6 +142,7 @@ async function runNotes(input = "") {
     case "add":
       if (!text) return "Usage: /notes add <text>";
       notes.push({ text, created: new Date().toLocaleTimeString() });
+      saveJSON(NOTES_FILE, notes);
       return `✓ Note #${notes.length}: "${text}"`;
     case "list":
       return notes.length
@@ -117,10 +151,12 @@ async function runNotes(input = "") {
     case "delete": {
       const i = parseInt(text) - 1;
       if (isNaN(i) || !notes[i]) return "Not found.";
-      return `✓ Deleted: "${notes.splice(i, 1)[0].text}"`;
+      const [deleted] = notes.splice(i, 1);
+      saveJSON(NOTES_FILE, notes);
+      return `✓ Deleted: "${deleted.text}"`;
     }
     case "clear":
-      notes = [];
+      saveJSON(NOTES_FILE, []);
       return "✓ Notes cleared.";
     default:
       return "/notes add|list|delete <n>|clear";
@@ -128,10 +164,10 @@ async function runNotes(input = "") {
 }
 
 /* ============================================================
-   TODO
+   TODO — file-backed (persists across restarts)
    ============================================================ */
-let todos = [];
 async function runTodo(input = "") {
+  let todos = loadJSON(TODOS_FILE, []);
   const parts = input.trim().split(" ");
   const cmd = parts[0]?.toLowerCase();
   const text = parts.slice(1).join(" ").trim();
@@ -139,6 +175,7 @@ async function runTodo(input = "") {
     case "add":
       if (!text) return "Usage: /todo add <text>";
       todos.push({ text, done: false });
+      saveJSON(TODOS_FILE, todos);
       return `✓ Task #${todos.length}: "${text}"`;
     case "list":
       return todos.length
@@ -150,21 +187,25 @@ async function runTodo(input = "") {
       const i = parseInt(text) - 1;
       if (!todos[i]) return "Not found.";
       todos[i].done = true;
+      saveJSON(TODOS_FILE, todos);
       return `✓ Done: "${todos[i].text}"`;
     }
     case "undone": {
       const i = parseInt(text) - 1;
       if (!todos[i]) return "Not found.";
       todos[i].done = false;
+      saveJSON(TODOS_FILE, todos);
       return `↩ Undone: "${todos[i].text}"`;
     }
     case "delete": {
       const i = parseInt(text) - 1;
       if (!todos[i]) return "Not found.";
-      return `✓ Deleted: "${todos.splice(i, 1)[0].text}"`;
+      const [deleted] = todos.splice(i, 1);
+      saveJSON(TODOS_FILE, todos);
+      return `✓ Deleted: "${deleted.text}"`;
     }
     case "clear":
-      todos = [];
+      saveJSON(TODOS_FILE, []);
       return "✓ Tasks cleared.";
     default:
       return "/todo add|list|done <n>|undone <n>|delete <n>|clear";
@@ -437,10 +478,63 @@ async function runGoogleDocs(docId = "") {
 }
 
 /* ============================================================
+   CONVERT — common unit conversions
+   ============================================================ */
+async function runConvert(input = "") {
+  if (!input?.trim()) {
+    return "Usage: /convert 100 km to mi\nSupports: km/mi, m/ft, cm/in, kg/lb, g/oz, c/f, l/gal";
+  }
+  const m = input.match(/^([-\d.]+)\s*(\w+)\s*(?:to|in|->)\s*(\w+)$/i);
+  if (!m) return 'Usage: /convert 100 km to mi  (e.g. "5 ft to cm")';
+  const [, valStr, fromUnit, toUnit] = m;
+  const val = parseFloat(valStr);
+  const from = fromUnit.toLowerCase();
+  const to = toUnit.toLowerCase();
+
+  // All conversions go through a base unit per category
+  const CONVERSIONS = {
+    // length → meters
+    length: { km: 1000, m: 1, cm: 0.01, mm: 0.001, mi: 1609.344, yd: 0.9144, ft: 0.3048, in: 0.0254 },
+    // mass → grams
+    mass: { kg: 1000, g: 1, mg: 0.001, lb: 453.592, oz: 28.3495 },
+    // volume → liters
+    volume: { l: 1, ml: 0.001, gal: 3.78541, qt: 0.946353, pt: 0.473176, cup: 0.236588, floz: 0.0295735, "fl oz": 0.0295735 },
+    // temperature is special-cased below
+  };
+
+  // Temperature: special handling (not a linear factor)
+  const tempUnits = ["c", "f", "k", "celsius", "fahrenheit", "kelvin"];
+  const tempMap = { celsius: "c", fahrenheit: "f", kelvin: "k" };
+  const fromT = tempMap[from] || from;
+  const toT = tempMap[to] || to;
+  if (tempUnits.includes(from) && tempUnits.includes(to)) {
+    let celsius;
+    if (fromT === "c") celsius = val;
+    else if (fromT === "f") celsius = (val - 32) * (5 / 9);
+    else if (fromT === "k") celsius = val - 273.15;
+    let result;
+    if (toT === "c") result = celsius;
+    else if (toT === "f") result = celsius * (9 / 5) + 32;
+    else if (toT === "k") result = celsius + 273.15;
+    return `${val}°${fromT.toUpperCase()} = ${result.toFixed(2)}°${toT.toUpperCase()}`;
+  }
+
+  for (const [, units] of Object.entries(CONVERSIONS)) {
+    if (units[from] != null && units[to] != null) {
+      const result = (val * units[from]) / units[to];
+      const rounded = Number.isInteger(result) ? result : parseFloat(result.toFixed(6));
+      return `${val} ${from} = ${rounded} ${to}`;
+    }
+  }
+  return `Couldn't convert ${from} → ${to}. Supported categories: length, mass, volume, temperature.`;
+}
+
+/* ============================================================
    EXPORTS — single runToolServer entry point
    ============================================================ */
 export const TOOL_DEFINITIONS = {
   calc: { desc: "Calculator — /calc 2+sqrt(144)", fn: runCalc },
+  convert: { desc: "Unit conversion — /convert 100 km to mi", fn: runConvert },
   time: { desc: "Current server time — /time", fn: runTime },
   weather: { desc: "Weather — /weather [lat,lon]", fn: runWeather },
   notes: { desc: "Notes — /notes add|list|delete|clear", fn: runNotes },

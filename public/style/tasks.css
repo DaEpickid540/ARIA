@@ -1,0 +1,506 @@
+/* ============================================================
+   tasks.css — Background Tasks Panel (Mark 1.4)
+   Cowork/Copilot-style task dashboard.
+   ============================================================ */
+
+#bgTasksModal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+  backdrop-filter: blur(4px);
+}
+
+#bgTasksPanel {
+  width: 90vw;
+  max-width: 880px;
+  max-height: 86vh;
+  background: var(--bg-panel, #080808);
+  border: 1px solid var(--border-cut, #330000);
+  border-radius: var(--radius-md, 6px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), var(--glow-md, 0 0 32px rgba(255, 0, 0, 0.3));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#bgTasksHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-cut);
+  background: var(--bg-abyss, #030303);
+  flex-shrink: 0;
+}
+#bgTasksHeader h2 {
+  font-family: var(--font-head, "Orbitron", sans-serif);
+  font-size: 12px;
+  letter-spacing: 0.25em;
+  color: var(--red-core, #ff2040);
+  text-shadow: var(--glow-sm);
+  margin: 0;
+}
+#bgTasksCloseBtn {
+  background: transparent;
+  border: 1px solid var(--border-cut);
+  color: var(--text-hot, #ff9999);
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm, 2px);
+  cursor: pointer;
+  font-size: 14px;
+}
+#bgTasksCloseBtn:hover {
+  border-color: var(--red-core);
+  color: var(--red-core);
+}
+
+.tpBody {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+}
+.tpList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+/* ── Empty state ── */
+.tpEmpty {
+  padding: 40px 20px;
+  text-align: center;
+}
+.tpEmptyIcon {
+  font-size: 36px;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 0 10px var(--red-core));
+}
+.tpEmptyTitle {
+  color: var(--text-blaze, #fff);
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.tpEmptyHint {
+  color: var(--text-muted, #553333);
+  font-size: 11px;
+}
+
+/* ── Task cards ── */
+.tpTaskCard {
+  background: var(--bg-abyss);
+  border: 1px solid var(--border-cut);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.tpTaskCard:hover {
+  border-color: var(--border-glow, #880000);
+}
+.tpTaskCard.expanded {
+  border-color: var(--red-core);
+  box-shadow: 0 0 0 1px var(--red-core), var(--glow-sm);
+}
+.tpTaskRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+.tpStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.tpTaskMain {
+  min-width: 0;
+}
+.tpTaskTitle {
+  color: var(--text-blaze);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tpTaskMeta {
+  color: var(--text-muted);
+  font-size: 10px;
+  margin-top: 2px;
+  font-family: var(--font-mono, monospace);
+}
+.tpTaskActions {
+  display: flex;
+  gap: 4px;
+}
+.tpBtn {
+  background: transparent;
+  border: 1px solid var(--border-cut);
+  color: var(--text-hot);
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.tpBtn:hover {
+  border-color: var(--red-core);
+  color: var(--red-core);
+}
+.tpBtnPrimary {
+  background: var(--red-core);
+  color: var(--bg-void);
+  border-color: var(--red-core);
+}
+.tpBtnPrimary:hover {
+  background: var(--red-hot);
+  color: var(--bg-void);
+}
+.tpBtnDel:hover {
+  border-color: #ff4444;
+  color: #ff4444;
+}
+
+/* ── Expanded detail ── */
+.tpTaskDetail {
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--border-cut);
+  background: rgba(0, 0, 0, 0.3);
+  font-size: 12px;
+}
+.tpDetailDesc {
+  color: var(--text-blaze);
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+.tpDetailDesc em {
+  color: var(--text-muted);
+  font-style: normal;
+  margin-right: 4px;
+}
+.tpDetailError {
+  background: rgba(255, 68, 68, 0.1);
+  border: 1px solid rgba(255, 68, 68, 0.4);
+  color: #ff8080;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+.tpDetailNote {
+  background: rgba(255, 200, 0, 0.08);
+  border: 1px solid rgba(255, 200, 0, 0.3);
+  color: #ffd060;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+.tpHint {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 11px;
+  padding: 4px 0;
+}
+
+/* ── Steps ── */
+.tpStepsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.tpStep {
+  border-left: 2px solid var(--border-cut);
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.tpStep-running {
+  border-left-color: #4cff4c;
+  background: rgba(76, 255, 76, 0.05);
+  animation: tpRunningPulse 2s ease-in-out infinite;
+}
+@keyframes tpRunningPulse {
+  0%, 100% { background: rgba(76, 255, 76, 0.05); }
+  50% { background: rgba(76, 255, 76, 0.15); }
+}
+.tpStep-done {
+  border-left-color: var(--red-core);
+}
+.tpStep-error {
+  border-left-color: #ff4444;
+}
+.tpStepHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.tpStepIcon {
+  font-weight: 600;
+}
+.tpStepNum {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.tpStepTitle {
+  flex: 1;
+  color: var(--text-blaze);
+}
+.tpStepDur {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+.tpStepDesc {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-top: 3px;
+  margin-left: 22px;
+  line-height: 1.4;
+}
+.tpStepOutput {
+  margin-top: 6px;
+  margin-left: 22px;
+}
+.tpStepOutput summary {
+  font-size: 10px;
+  color: var(--red-core);
+  cursor: pointer;
+  user-select: none;
+}
+.tpStepOutput summary:hover {
+  text-decoration: underline;
+}
+.tpStepOutput pre {
+  margin: 6px 0 0;
+  padding: 8px;
+  background: var(--bg-void);
+  border: 1px solid var(--border-cut);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-blaze);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+/* ── Final result ── */
+.tpFinalResult {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-cut);
+}
+.tpFinalResult summary {
+  font-size: 11px;
+  color: var(--red-core);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.tpFinalResult pre {
+  margin: 8px 0 0;
+  padding: 10px;
+  background: var(--bg-void);
+  border: 1px solid var(--red-core);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-blaze);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* ── Activity log ── */
+.tpLog {
+  margin-top: 10px;
+}
+.tpLog summary {
+  font-size: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.tpLogLine {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 2px 0;
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.05);
+}
+.tpLogTime {
+  color: var(--red-deep, #cc0000);
+  margin-right: 6px;
+}
+
+/* ── Create form ── */
+.tpCreateForm {
+  border-top: 1px solid var(--border-cut);
+  padding: 14px;
+  background: var(--bg-abyss);
+  flex-shrink: 0;
+}
+.tpCreateHeader {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--red-core);
+  margin-bottom: 8px;
+}
+.tpCreateForm textarea {
+  width: 100%;
+  min-height: 70px;
+  background: var(--bg-void);
+  border: 1px solid var(--border-cut);
+  border-radius: var(--radius-sm);
+  color: var(--text-blaze);
+  padding: 8px 10px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  resize: vertical;
+  outline: none;
+}
+.tpCreateForm textarea:focus {
+  border-color: var(--red-core);
+}
+.tpCreateRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.tpFieldLabel {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.tpCheck {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-blaze);
+  cursor: pointer;
+}
+.tpCheck input {
+  accent-color: var(--red-core);
+}
+.tpCreateForm select,
+.tpCreateForm input[type="text"],
+.tpCreateForm input[type="datetime-local"] {
+  background: var(--bg-void);
+  border: 1px solid var(--border-cut);
+  border-radius: var(--radius-sm);
+  color: var(--text-blaze);
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.tpCreateForm input[type="text"] {
+  flex: 1;
+  min-width: 200px;
+}
+.tpSubmitBtn {
+  margin-top: 10px;
+  padding: 8px 20px;
+  background: var(--red-core);
+  color: var(--bg-void);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: all 0.15s;
+}
+.tpSubmitBtn:hover:not(:disabled) {
+  background: var(--red-hot);
+  box-shadow: var(--glow-sm);
+}
+.tpSubmitBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Toast notifications ── */
+#taskToastHost {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.taskToast {
+  background: var(--bg-panel);
+  border: 1px solid var(--red-core);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  color: var(--text-blaze);
+  font-size: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), var(--glow-sm);
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: auto;
+  cursor: pointer;
+  max-width: 320px;
+}
+.taskToast.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+.taskToast:hover {
+  background: var(--bg-elevated);
+}
+.taskToast-ok {
+  border-color: #4cff4c;
+}
+.taskToast-err {
+  border-color: #ff4444;
+}
+.taskToast-info {
+  border-color: #80c0ff;
+}
+
+/* ── Mobile ── */
+@media (max-width: 700px) {
+  #bgTasksPanel {
+    width: 95vw;
+    max-height: 92vh;
+  }
+  .tpTaskRow {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .tpTaskActions {
+    justify-content: flex-end;
+  }
+}

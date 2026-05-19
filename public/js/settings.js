@@ -795,6 +795,49 @@ function wireAllControls() {
     syncToggle("darkModeToggle", currentSettings.darkMode);
   });
 
+  // ── NEW THEME SYSTEM (Mark 1.3) ──
+  // If theme mode + accent elements exist in the DOM, wire them up
+  initThemeSystemV2(currentSettings);
+
+  // ── Font size ──
+  const fontSizeSel = document.getElementById("fontSizeSelect");
+  if (fontSizeSel) {
+    fontSizeSel.value = currentSettings.fontSize || "medium";
+    document.documentElement.dataset.fontSize = fontSizeSel.value;
+    fontSizeSel.addEventListener("change", () => {
+      currentSettings.fontSize = fontSizeSel.value;
+      document.documentElement.dataset.fontSize = fontSizeSel.value;
+    });
+  } else {
+    document.documentElement.dataset.fontSize = currentSettings.fontSize || "medium";
+  }
+
+  // ── Density ──
+  const densitySel = document.getElementById("densitySelect");
+  if (densitySel) {
+    densitySel.value = currentSettings.density || "normal";
+    document.body.dataset.density = densitySel.value;
+    densitySel.addEventListener("change", () => {
+      currentSettings.density = densitySel.value;
+      document.body.dataset.density = densitySel.value;
+    });
+  } else {
+    document.body.dataset.density = currentSettings.density || "normal";
+  }
+
+  // ── Animations ──
+  const animSel = document.getElementById("animSelect");
+  if (animSel) {
+    animSel.value = currentSettings.anim || "normal";
+    document.body.dataset.anim = animSel.value;
+    animSel.addEventListener("change", () => {
+      currentSettings.anim = animSel.value;
+      document.body.dataset.anim = animSel.value;
+    });
+  } else {
+    document.body.dataset.anim = currentSettings.anim || "normal";
+  }
+
   // ── Brightness slider ──
   document
     .getElementById("brightnessSlider")
@@ -1038,3 +1081,206 @@ export function initSettings() {
     }
   });
 }
+
+/* ════════════════════════════════════════════════════════════
+   THEME SYSTEM V2 — modes + color wheel + ESP32 device list
+   Wires the new theme UI if present in the DOM. Falls back
+   silently if you haven't added the markup yet.
+   ════════════════════════════════════════════════════════════ */
+async function initThemeSystemV2(settings) {
+  try {
+    const { THEME_MODES, ACCENT_PRESETS, applyThemeFull, loadSavedTheme, getCustomColors, saveCustomColor, deleteCustomColor } =
+      await import("./themes.js");
+
+    // ── Render mode cards ──
+    const modeGrid = document.getElementById("themeModeGrid");
+    if (modeGrid) {
+      modeGrid.innerHTML = Object.entries(THEME_MODES)
+        .map(
+          ([key, m]) => `
+        <button class="themeModeCard" data-mode="${key}">
+          <div class="themeModeLabel">${m.label}</div>
+          <div class="themeModeDesc">${m.description}</div>
+        </button>
+      `,
+        )
+        .join("");
+      modeGrid.querySelectorAll(".themeModeCard").forEach((card) =>
+        card.addEventListener("click", () => {
+          const cur = loadSavedTheme();
+          applyThemeFull(card.dataset.mode, cur.accent);
+        }),
+      );
+    }
+
+    // ── Render preset accent swatches ──
+    const swatchGrid = document.getElementById("accentColorGrid");
+    if (swatchGrid) {
+      swatchGrid.innerHTML = Object.entries(ACCENT_PRESETS)
+        .map(
+          ([key, p]) => `
+          <div
+            class="themeSwatchV2"
+            data-accent="${p.core}"
+            style="--swatch-color:${p.core};background:${p.core}"
+            title="${p.label}"
+          >
+            <span class="swatchLabel">${p.label}</span>
+          </div>
+        `,
+        )
+        .join("");
+      swatchGrid.querySelectorAll(".themeSwatchV2").forEach((s) =>
+        s.addEventListener("click", () => {
+          const cur = loadSavedTheme();
+          applyThemeFull(cur.mode, s.dataset.accent);
+        }),
+      );
+    }
+
+    // ── Render custom colors ──
+    function renderCustomColors() {
+      const row = document.getElementById("customColorsRow");
+      if (!row) return;
+      const custom = getCustomColors();
+      if (!custom.length) {
+        row.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">No custom colors saved yet — pick one from the wheel.</span>';
+        return;
+      }
+      row.innerHTML = custom
+        .map(
+          (c) => `
+        <div class="customColorChip" style="background:${c.hex}" data-hex="${c.hex}" title="${c.name}">
+          <span class="delBtn" data-hex="${c.hex}">×</span>
+        </div>
+      `,
+        )
+        .join("");
+      row.querySelectorAll(".customColorChip").forEach((chip) => {
+        chip.addEventListener("click", (e) => {
+          if (e.target.classList.contains("delBtn")) return;
+          const cur = loadSavedTheme();
+          applyThemeFull(cur.mode, chip.dataset.hex);
+        });
+      });
+      row.querySelectorAll(".delBtn").forEach((b) =>
+        b.addEventListener("click", (e) => {
+          e.stopPropagation();
+          deleteCustomColor(b.dataset.hex);
+          renderCustomColors();
+        }),
+      );
+    }
+    renderCustomColors();
+
+    // ── Color wheel ──
+    const wheelHost = document.getElementById("colorWheelHost");
+    if (wheelHost && !wheelHost.dataset.mounted) {
+      wheelHost.dataset.mounted = "1";
+      const { mountColorWheel } = await import("./colorWheel.js");
+      const cur = loadSavedTheme();
+      mountColorWheel(wheelHost, {
+        initial: cur.accent,
+        onPick: (hex) => {
+          const c = loadSavedTheme();
+          applyThemeFull(c.mode, hex);
+        },
+      });
+      // Save-custom event from wheel
+      window.addEventListener("aria-save-custom-color", (e) => {
+        saveCustomColor(e.detail.hex);
+        renderCustomColors();
+      });
+    }
+  } catch (e) {
+    console.warn("[ARIA] Theme V2 init failed (UI may be missing):", e.message);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   ESP32 DEVICE LIST — Settings → Devices
+   ════════════════════════════════════════════════════════════ */
+async function initEsp32DeviceList() {
+  const listEl = document.getElementById("esp32DeviceList");
+  if (!listEl) return;
+  async function refresh() {
+    try {
+      const res = await fetch("/api/devices/list");
+      const data = await res.json();
+      if (!data.devices?.length) {
+        listEl.innerHTML = `
+          <div class="esp32AddDeviceHint">
+            No ESP32 devices registered yet.<br>
+            To add one, use the template at <code>templates/ARIA_IoT_Template.ino</code>
+            and flash it to your device. It will appear here automatically.
+          </div>`;
+        return;
+      }
+      listEl.innerHTML = data.devices
+        .map(
+          (d) => `
+        <div class="esp32DeviceCard">
+          <span class="esp32StatusDot ${d.online ? "online" : ""}"></span>
+          <div>
+            <div class="esp32DeviceName">${d.name}</div>
+            <div class="esp32DeviceMeta">
+              ${d.type}${d.project ? " · " + d.project : ""} ·
+              ${d.online ? "online" : "offline " + relTime(d.lastSeen)} ·
+              ${d.capabilities.length} capabilities
+              ${d.telemetry?.rssi ? " · " + d.telemetry.rssi + "dBm" : ""}
+              ${d.telemetry?.freeHeap ? " · " + Math.round(d.telemetry.freeHeap / 1024) + "KB free" : ""}
+            </div>
+          </div>
+          <button class="esp32SendCmdBtn" data-device="${d.deviceId}">Send Cmd</button>
+        </div>
+      `,
+        )
+        .join("");
+      listEl.querySelectorAll(".esp32SendCmdBtn").forEach((b) =>
+        b.addEventListener("click", async () => {
+          const cmd = prompt(
+            `Command JSON for ${b.dataset.device}:\nExample: {"type":"ping"}`,
+            '{"type":"ping"}',
+          );
+          if (!cmd) return;
+          try {
+            const parsed = JSON.parse(cmd);
+            await fetch("/api/devices/command", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ deviceId: b.dataset.device, command: parsed }),
+            });
+            b.textContent = "✓ Sent";
+            setTimeout(() => (b.textContent = "Send Cmd"), 1500);
+          } catch (e) {
+            alert("Invalid JSON: " + e.message);
+          }
+        }),
+      );
+    } catch {
+      listEl.innerHTML = '<div class="esp32AddDeviceHint">Could not fetch devices.</div>';
+    }
+  }
+  function relTime(ts) {
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return s + "s ago";
+    if (s < 3600) return Math.floor(s / 60) + "m ago";
+    return Math.floor(s / 3600) + "h ago";
+  }
+  refresh();
+  setInterval(refresh, 5000);
+}
+
+// Auto-init device list when settings panel opens
+window.addEventListener("DOMContentLoaded", () => {
+  // Try once after a short delay (settings tab may be rendered later)
+  setTimeout(initEsp32DeviceList, 1500);
+});
+
+// Apply persisted theme on every load
+window.addEventListener("DOMContentLoaded", async () => {
+  try {
+    const { applySavedTheme } = await import("./themes.js");
+    applySavedTheme();
+  } catch {}
+});
