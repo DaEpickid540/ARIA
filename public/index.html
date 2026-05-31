@@ -60,6 +60,8 @@
     <link rel="stylesheet" href="style/streaming.css" />
     <link rel="stylesheet" href="style/theme-modes.css" />
     <link rel="stylesheet" href="style/tasks.css" />
+    <link rel="stylesheet" href="style/features-v2.css" />
+    <link rel="stylesheet" href="style/aria-loader.css" />
 
     <link
       rel="stylesheet"
@@ -290,6 +292,21 @@
           <button id="bgTasksListBtn" class="secondaryBtn glitch">
             ⚙ BG Tasks
           </button>
+          <button class="secondaryBtn" onclick="window.ARIA_showMemoryUI()" title="Memory & Knowledge Base">
+            🧠 Memory
+          </button>
+          <button class="secondaryBtn" onclick="window.ARIA_showSkillsUI()" title="Skills">
+            ⚡ Skills
+          </button>
+          <button class="secondaryBtn" onclick="window.ARIA_showStarred()" title="Starred & Pinned messages">
+            ⭐ Starred
+          </button>
+          <button class="secondaryBtn" onclick="window.ARIA_toggleSplitPane()" title="Split pane mode" id="splitPaneBtn">
+            ◫ Split
+          </button>
+          <button class="secondaryBtn" onclick="window.ARIA_showMacros()" title="Claw macros">
+            ⏺ Macros
+          </button>
           <button id="settingsBtn" class="secondaryBtn glitch">
             ⚙ Settings
           </button>
@@ -420,6 +437,8 @@
           <button class="settingsTab" data-tab="memory">💾 Memory</button>
           <button class="settingsTab" data-tab="emotion">❤ Emotion</button>
           <button class="settingsTab" data-tab="system">⚙ System</button>
+          <button class="settingsTab" data-tab="skills">⚡ Skills</button>
+          <button class="settingsTab" data-tab="briefing">🌅 Briefing</button>
         </div>
 
         <div id="settingsContent">
@@ -624,6 +643,19 @@
                 <option value="small">Small (11px)</option>
                 <option value="medium" selected>Medium (13px)</option>
                 <option value="large">Large (15px)</option>
+                <option value="xlarge">Extra Large (17px)</option>
+              </select>
+              <label style="margin-top:10px;display:block">Message Density</label>
+              <select id="densitySelect">
+                <option value="compact">Compact</option>
+                <option value="normal" selected>Normal</option>
+                <option value="spacious">Spacious</option>
+              </select>
+              <label style="margin-top:10px;display:block">Animations</label>
+              <select id="animSelect">
+                <option value="normal" selected>Normal</option>
+                <option value="reduced">Reduced</option>
+                <option value="off">Off (accessibility)</option>
               </select>
               <div class="toggleRow" style="margin-top: 10px">
                 <div>
@@ -1279,8 +1311,64 @@
                   <span><b>I</b>ntelligence</span>
                   <span><b>A</b>rchitecture</span>
                 </div>
-                <div class="aboutVersion">v2.0 // Personal AI OS</div>
+                <div class="aboutVersion">v3.0 // Personal AI OS // Mark 1.5</div>
               </div>
+            </section>
+          </div>
+
+          <!-- ════════════════════════════════════════
+               TAB: SKILLS
+               ════════════════════════════════════════ -->
+          <div class="settingsTabPane" data-pane="skills">
+            <section class="settingsSection">
+              <h3>⚡ Skills</h3>
+              <p class="settingsHint">
+                Skills inject custom instructions into ARIA's system prompt.
+                Same format as Claude SKILL.md files — drop a folder with a SKILL.md
+                into <code>skills/user/</code> to add one permanently.
+              </p>
+              <div id="settingsSkillsList">Loading skills…</div>
+              <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+                <button class="secondaryBtn" onclick="window.ARIA_createSkill()">+ New Skill</button>
+                <button class="secondaryBtn" onclick="window.ARIA_showSkillsUI()">Open Skills Panel</button>
+              </div>
+            </section>
+            <section class="settingsSection">
+              <h3>How to create a skill</h3>
+              <p class="settingsHint">
+                Create a file at <code>skills/user/my-skill/SKILL.md</code> with this format:<br><br>
+                <code style="display:block;white-space:pre;background:var(--bg-void);padding:8px;border-radius:2px;margin-top:4px;font-size:10px">---
+name: my-skill
+description: What it does
+version: 1.0
+triggers: ["keyword1"]
+---
+
+Instructions ARIA follows when this skill is active.</code>
+              </p>
+            </section>
+          </div>
+
+          <!-- ════════════════════════════════════════
+               TAB: BRIEFING
+               ════════════════════════════════════════ -->
+          <div class="settingsTabPane" data-pane="briefing">
+            <section class="settingsSection">
+              <h3>🌅 Daily Briefing</h3>
+              <p class="settingsHint">
+                ARIA assembles a morning briefing with weather, news, todos, and active tasks.
+                Enable in your <code>.env</code> with <code>BRIEFING_ENABLED=true</code>
+                and <code>BRIEFING_HOUR=8</code>.
+              </p>
+              <div class="twoColBtns">
+                <button class="secondaryBtn" onclick="fetch('/api/briefing/trigger',{method:'POST'}).then(()=>window.ARIA_showToast('Briefing generating…','🌅'))">
+                  🌅 Trigger Now
+                </button>
+                <button class="secondaryBtn" id="showLastBriefingBtn">
+                  📄 Show Last Briefing
+                </button>
+              </div>
+              <div id="lastBriefingPreview" style="margin-top:12px;font-size:12px;color:var(--text-muted);display:none"></div>
             </section>
           </div>
         </div>

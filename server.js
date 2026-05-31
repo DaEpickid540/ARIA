@@ -2,6 +2,7 @@
 import { runToolServer, TOOL_DEFINITIONS } from "./tools/index.js";
 import * as rag from "./lib/rag.js";
 import * as taskEngine from "./lib/tasks.js";
+import * as skills from "./lib/skills.js";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -56,54 +57,31 @@ try {
 /* ── dirs + persistence ── */
 const DATA_DIR = path.join(__dirname, "data");
 const CHATS_FILE = path.join(DATA_DIR, "chats.json");
-const MEM_FILE = path.join(DATA_DIR, "memory.json");
+const MEM_FILE   = path.join(DATA_DIR, "memory.json");
 [DATA_DIR, path.join(__dirname, "public", "uploads")].forEach((d) => {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 });
 
-function readJSON(f, fb) {
-  try {
-    return JSON.parse(fs.readFileSync(f, "utf8"));
-  } catch {
-    return fb;
-  }
+function readJSON(f, fallback) {
+  try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return fallback; }
 }
-
-// Atomic JSON write — writes to temp file then renames, so we never end up
-// with a half-written corrupted file if the process crashes mid-write.
 function writeJSON(f, d) {
   try {
     const tmp = f + ".tmp";
     fs.writeFileSync(tmp, JSON.stringify(d, null, 2));
     fs.renameSync(tmp, f);
-  } catch (e) {
-    console.warn(`[FS] Failed to write ${path.basename(f)}:`, e.message);
-  }
+  } catch (e) { console.warn(`[FS] write ${path.basename(f)} failed:`, e.message); }
 }
-
-// Debounced writer — coalesce rapid successive writes (e.g. memory fact updates
-// during streaming) into one disk hit. Each file gets its own debounce timer.
 const _writeTimers = new Map();
 function writeJSONDebounced(f, d) {
   if (_writeTimers.has(f)) clearTimeout(_writeTimers.get(f));
-  _writeTimers.set(
-    f,
-    setTimeout(() => {
-      writeJSON(f, d);
-      _writeTimers.delete(f);
-    }, DEBOUNCE_WRITE_MS),
-  );
+  _writeTimers.set(f, setTimeout(() => { writeJSON(f, d); _writeTimers.delete(f); }, DEBOUNCE_WRITE_MS));
 }
 
-// Flush all pending writes on shutdown so we don't lose recent changes
 process.on("SIGTERM", flushPendingWrites);
-process.on("SIGINT", () => {
-  flushPendingWrites();
-  process.exit(0);
-});
+process.on("SIGINT", () => { flushPendingWrites(); process.exit(0); });
 function flushPendingWrites() {
-  for (const [, timer] of _writeTimers) clearTimeout(timer);
-  // Force-write current in-memory state
+  for (const [, t] of _writeTimers) clearTimeout(t);
   try { writeJSON(CHATS_FILE, userChats); } catch {}
   try { writeJSON(MEM_FILE, ariaMemory); } catch {}
   try { rag.flushSync(); } catch {}
@@ -393,22 +371,11 @@ function buildMemoryContext() {
 const BEHAVIOUR_FILE = path.join(DATA_DIR, "behaviour.json");
 
 function loadBehaviour() {
-  try {
-    return JSON.parse(fs.readFileSync(BEHAVIOUR_FILE, "utf8"));
-  } catch {
-    return {
-      version: 1,
-      positives: [],
-      negatives: [],
-      rules: [],
-      trainingData: [],
-    };
-  }
+  try { return JSON.parse(fs.readFileSync(BEHAVIOUR_FILE, "utf8")); }
+  catch { return { version: 1, positives: [], negatives: [], rules: [], trainingData: [] }; }
 }
 function saveBehaviour(b) {
-  try {
-    fs.writeFileSync(BEHAVIOUR_FILE, JSON.stringify(b, null, 2));
-  } catch {}
+  try { fs.writeFileSync(BEHAVIOUR_FILE, JSON.stringify(b, null, 2)); } catch {}
 }
 
 let ariaBehaviour = loadBehaviour();
@@ -713,6 +680,8 @@ async function runAgenticPipeline(
 
           if (!clawQueue.has(tid)) clawQueue.set(tid, []);
           clawQueue.get(tid).push(cmd);
+          // If macro recording is active, capture this command
+          if (_macroRecording && cmd.type !== "wait") _macroBuffer.push({ ...cmd });
           const desc = cmd.cmd || cmd.text || cmd.app || cmd.url || cmd.type;
           clawResult =
             "✓ Queued [" + cmd.type + "]: " + String(desc).slice(0, 60);
@@ -1435,6 +1404,7 @@ app.post("/api/chat", async (req, res) => {
   sysPrompt += TOOL_SYSTEM;
   sysPrompt += buildMemoryContext();
   sysPrompt += buildBehaviourContext();
+  sysPrompt += skills.buildSkillsContext(message);
 
   // ── RAG: pull relevant context from past chats + training data ──
   // Run search against the user's message. Cross-chat recall + training data
@@ -1465,7 +1435,10 @@ app.post("/api/chat", async (req, res) => {
     )}\n]`;
 
   // Auto-decide thinking: explicit toggle OR auto-detected complex message
-  const shouldThink = true; // always think
+  // Skip thinking for very short/simple conversational turns — no need to reason through "hi"
+  const trivialMsg = message.trim().split(/\s+/).length <= 5 &&
+    !/code|write|explain|fix|debug|build|create|how|why|what|help|calc|solve|analyze|review|compare|list|plan|summarize|translate|generate/i.test(message);
+  const shouldThink = !trivialMsg;
 
   if (shouldThink) {
     sysPrompt += `
@@ -1560,8 +1533,58 @@ Active GitHub repo: ${workspaceRepo}
       } | Type: ${relayType}${browserLabel}\nFull PC control is available. All claw commands work including shell, screenshot, launch_app, browser, mouse, keyboard.`;
     }
   }
-  // Build message array
-  const cappedHistory = history.slice(-MAX_HISTORY);
+  // Build message array — with persistent summary for long chats
+  // If history exceeds MAX_HISTORY, summarize the older messages into a single
+  // context block so nothing important is lost when the window slides.
+  let cappedHistory = history.slice(-MAX_HISTORY);
+  let summaryBlock = "";
+
+  if (history.length > MAX_HISTORY) {
+    const olderMessages = history.slice(0, history.length - MAX_HISTORY);
+    const chatId = req.body.chatId;
+
+    // Check if we already have a cached summary for this chat
+    if (!global._chatSummaries) global._chatSummaries = new Map();
+    const existing = global._chatSummaries.get(chatId);
+
+    // Re-summarize if we have more than 8 new unsummarized messages since last summary
+    const lastSummarizedIdx = existing?.lastMsgIdx || 0;
+    const newUnsummarized = olderMessages.length - lastSummarizedIdx;
+
+    if (!existing || newUnsummarized >= 8) {
+      // Async — don't block the response. Next message will have the updated summary.
+      const prevSummary = existing?.summary || "";
+      const toSummarize = olderMessages.slice(lastSummarizedIdx);
+      if (toSummarize.length > 0) {
+        (async () => {
+          try {
+            const summaryMsgs = [
+              {
+                role: "system",
+                content: `Summarize the following conversation segment concisely (max 300 words). Capture key facts, decisions, code written, and anything the user would want ARIA to remember.${prevSummary ? `\n\nExisting summary to extend:\n${prevSummary}` : ""}`,
+              },
+              ...toSummarize.slice(-30), // cap at 30 msgs to summarize at once
+              { role: "user", content: "Provide the summary now." },
+            ];
+            const sumResult = await callAI(summaryMsgs, provider, null, {});
+            if (sumResult) {
+              global._chatSummaries.set(chatId, {
+                summary: sumResult,
+                lastMsgIdx: olderMessages.length,
+                updatedAt: Date.now(),
+              });
+            }
+          } catch {}
+        })();
+      }
+    }
+
+    if (existing?.summary) {
+      summaryBlock = `\n\n[EARLIER CONVERSATION SUMMARY — this is a condensed version of older messages; use it as context]\n${existing.summary}\n[END SUMMARY]`;
+      sysPrompt += summaryBlock;
+    }
+  }
+
   const _lastMsg = cappedHistory[cappedHistory.length - 1];
   const messages = [
     { role: "system", content: sysPrompt },
@@ -1576,8 +1599,13 @@ Active GitHub repo: ${workspaceRepo}
     const key = process.env.OPENROUTER_API_KEY;
     if (key) {
       res.setHeader("Content-Type", "text/event-stream");
-      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
       res.setHeader("X-Accel-Buffering", "no");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      // Flush headers immediately so the browser opens the SSE connection
+      // before the upstream request even starts — eliminates the "white screen" delay
+      if (typeof res.flushHeaders === "function") res.flushHeaders();
       try {
         const chosenModel =
           requestedModel && OR_FREE_MODELS.includes(requestedModel)
@@ -1602,6 +1630,8 @@ Active GitHub repo: ${workspaceRepo}
           },
         );
         if (!upstreamRes.ok) throw new Error(`OR HTTP ${upstreamRes.status}`);
+        // Send a stream-start event immediately — client can show "receiving..." state
+        res.write(`data: ${JSON.stringify({ stream_start: true })}\n\n`);
         const reader = upstreamRes.body.getReader();
         const dec = new TextDecoder();
         let buf = "";
@@ -2032,6 +2062,81 @@ app.post("/api/rag/index-chat", async (req, res) => {
 });
 
 /* ============================================================
+   SKILLS SYSTEM (Mark 1.5)
+   Works exactly like Claude's skills — SKILL.md files injected
+   into the system prompt. Store in skills/user/ or skills/public/.
+   ============================================================ */
+app.get("/api/skills", (_, res) => res.json(skills.getStats()));
+
+app.get("/api/skills/:id", (req, res) => {
+  const s = skills.getSkill(req.params.id);
+  if (!s) return res.status(404).json({ error: "Skill not found" });
+  res.json(s);
+});
+
+app.post("/api/skills/:id/toggle", (req, res) => {
+  const id = req.params.id;
+  const s = skills.getSkill(id);
+  if (!s) return res.status(404).json({ error: "Skill not found" });
+  const active = skills.toggleSkill(id);
+  res.json({ ok: true, id, active });
+});
+
+app.post("/api/skills/:id/activate", (req, res) => {
+  skills.setSkillActive(req.params.id, true);
+  res.json({ ok: true });
+});
+app.post("/api/skills/:id/deactivate", (req, res) => {
+  skills.setSkillActive(req.params.id, false);
+  res.json({ ok: true });
+});
+
+// Create or update a skill (user-space only)
+app.post("/api/skills", (req, res) => {
+  const { id, content } = req.body;
+  if (!id || !content)
+    return res.status(400).json({ error: "id + content required" });
+  try {
+    const safeId = skills.createSkill(id, content);
+    res.json({ ok: true, id: safeId });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.put("/api/skills/:id", (req, res) => {
+  const { content } = req.body;
+  if (!content) return res.status(400).json({ error: "content required" });
+  try {
+    skills.updateSkill(req.params.id, content);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.delete("/api/skills/:id", (req, res) => {
+  try {
+    const ok = skills.deleteSkill(req.params.id);
+    res.json({ ok });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Serve raw skill content (for editing)
+app.get("/api/skills/:id/content", (req, res) => {
+  const s = skills.getSkill(req.params.id);
+  if (!s) return res.status(404).json({ error: "Not found" });
+  try {
+    const raw = fs.readFileSync(s.path, "utf8");
+    res.json({ content: raw });
+  } catch {
+    res.status(500).json({ error: "Could not read skill file" });
+  }
+});
+
+/* ============================================================
    MEMORY
    ============================================================ */
 app.get("/api/memory", (_, res) => res.json(ariaMemory));
@@ -2064,7 +2169,6 @@ app.post("/api/saveChats", (req, res) => {
   if (userId) {
     userChats[userId] = chats;
     writeJSONDebounced(CHATS_FILE, userChats);
-    // Broadcast to other devices subscribed to this user's chat sync
     broadcastChatSync(userId, sourceDeviceId);
   }
   res.json({ success: true });
@@ -2390,6 +2494,78 @@ app.get("/api/agent/list", (_, res) => {
 /* ============================================================
    CLAW RELAY ENDPOINTS
    ============================================================ */
+/* ============================================================
+   MULTI-AGENT ORCHESTRATION (Mark 1.5)
+   Server-side coordinator — ARIA breaks a task into sub-tasks
+   and runs them in parallel using separate pipeline invocations,
+   then synthesizes the results into a final answer.
+   ============================================================ */
+app.post("/api/multi-agent", async (req, res) => {
+  const { task } = req.body;
+  if (!task) return res.status(400).json({ error: "task required" });
+
+  // Create a background task with multi-agent framing
+  try {
+    const t = await taskEngine.createTask(task, {
+      title: `[Multi-agent] ${task.slice(0, 60)}`,
+      personality: "hacker",
+      provider: "openrouter",
+      autoExecute: true,
+    });
+    res.json({ ok: true, taskId: t.id });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ============================================================
+   CLAW MACROS (Mark 1.5)
+   Record sequences of claw commands and replay them.
+   ============================================================ */
+let _macroRecording = false;
+let _macroBuffer = [];
+
+app.post("/api/claw/macro/record", (_, res) => {
+  _macroRecording = true;
+  _macroBuffer = [];
+  console.log("[MACRO] Recording started");
+  res.json({ ok: true });
+});
+
+app.post("/api/claw/macro/stop", (_, res) => {
+  _macroRecording = false;
+  const steps = [..._macroBuffer];
+  _macroBuffer = [];
+  console.log(`[MACRO] Recording stopped (${steps.length} steps)`);
+  res.json({ ok: true, steps });
+});
+
+app.post("/api/claw/macro/run", (req, res) => {
+  const { steps, deviceId } = req.body;
+  if (!Array.isArray(steps) || !steps.length)
+    return res.status(400).json({ error: "steps array required" });
+
+  // Find target relay
+  const liveRelays = [...clawRelays.entries()].filter(
+    ([, v]) => Date.now() - v.lastSeen < 20000,
+  );
+  const tid = deviceId || liveRelays[0]?.[0];
+  if (!tid) return res.status(503).json({ error: "No relay connected" });
+
+  if (!clawQueue.has(tid)) clawQueue.set(tid, []);
+  // Queue all steps with small delays between them
+  steps.forEach((step, i) => {
+    const cmd = { ...step, id: `macro_${Date.now()}_${i}` };
+    clawQueue.get(tid).push(cmd);
+    // Insert a short wait between steps so they don't pile up
+    if (i < steps.length - 1) {
+      clawQueue.get(tid).push({ type: "wait", ms: 150, id: `macro_wait_${i}` });
+    }
+  });
+  console.log(`[MACRO] Queued ${steps.length} steps to relay ${tid}`);
+  res.json({ ok: true, queued: steps.length });
+});
+
 /* ============================================================
    GENERIC ESP32 / IOT DEVICE REGISTRY (Mark 1.3)
    Any ESP32 project can register here — smartwatch, sensor node,
@@ -2816,6 +2992,7 @@ app.get("/api/lmstudio/models", async (req, res) => {
 
 /* ── Health check ── */
 const startTime = Date.now();
+
 app.get("/api/health", (_, res) => {
   res.json({
     ok: true,
@@ -2867,6 +3044,114 @@ process.on("unhandledRejection", (reason) => {
 process.on("uncaughtException", (err) => {
   console.error("[UNCAUGHT EXCEPTION]", err);
 });
+
+/* ============================================================
+   PROACTIVE DAILY BRIEFING (Mark 1.5)
+   Automatically assembles a morning briefing and delivers it
+   as a chat message. Configure in .env:
+     BRIEFING_HOUR=8        (default 8am server time)
+     BRIEFING_ENABLED=true  (default false — opt-in)
+   ============================================================ */
+const BRIEFING_HOUR = parseInt(process.env.BRIEFING_HOUR || "8");
+const BRIEFING_ENABLED = process.env.BRIEFING_ENABLED === "true";
+const BRIEFING_KEY = "daily_briefing_user";
+
+// In-memory SSE stream for delivering briefing to front-end
+const briefingSubscribers = new Set();
+
+app.get("/api/briefing/subscribe", (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
+  briefingSubscribers.add(res);
+  const ping = setInterval(() => { try { res.write(": ping\n\n"); } catch {} }, 25000);
+  req.on("close", () => { clearInterval(ping); briefingSubscribers.delete(res); });
+});
+
+// Manual trigger — also callable by front-end button
+app.post("/api/briefing/trigger", async (req, res) => {
+  res.json({ ok: true, message: "Briefing generating…" });
+  generateBriefing().catch(() => {});
+});
+
+app.get("/api/briefing/last", (_, res) => {
+  if (!global._lastBriefing) return res.json({ briefing: null });
+  res.json({ briefing: global._lastBriefing });
+});
+
+async function generateBriefing() {
+  console.log("[BRIEFING] Generating daily briefing…");
+  try {
+    // Gather context from available tools
+    const weatherResult = await runToolServer("weather", "").catch(() => "Weather unavailable.");
+    const newsResult = await runToolServer("news", "").catch(() => "News unavailable.");
+    const todoResult = await runToolServer("todo", "list").catch(() => "No tasks.");
+    const memFacts = ariaMemory.facts?.slice(-10).join("; ") || "No recent memories.";
+    const tasksResult = taskEngine.listTasks({ status: "running" });
+    const runningTasks = tasksResult.length
+      ? tasksResult.map(t => `• ${t.title} (${t.status})`).join("\n")
+      : "No active background tasks.";
+
+    const prompt = `You are delivering a morning briefing to Sarvin. Be concise and useful. No fluff.
+
+Here is the gathered data:
+
+WEATHER:
+${weatherResult}
+
+NEWS:
+${newsResult}
+
+TODOS:
+${todoResult}
+
+MEMORY (recent facts):
+${memFacts}
+
+BACKGROUND TASKS:
+${runningTasks}
+
+Today is ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}.
+
+Deliver a sharp morning briefing. Cover: weather in one sentence, key news items briefly, any open todos for today, any running ARIA tasks. End with one actionable suggestion or motivational note. Max 250 words. Speak directly to Sarvin.`;
+
+    const sysPrompt = BASE_PROMPTS.hacker + buildMemoryContext();
+    const result = await callAI(
+      [{ role: "system", content: sysPrompt }, { role: "user", content: prompt }],
+      "openrouter",
+      null,
+      {},
+    );
+    if (!result) throw new Error("AI returned empty briefing");
+
+    global._lastBriefing = { text: result, generatedAt: Date.now() };
+    const payload = JSON.stringify({ type: "briefing", text: result, generatedAt: Date.now() });
+    for (const sub of briefingSubscribers) {
+      try { sub.write(`data: ${payload}\n\n`); } catch {}
+    }
+    console.log("[BRIEFING] Delivered to", briefingSubscribers.size, "subscribers");
+  } catch (e) {
+    console.warn("[BRIEFING] Failed:", e.message);
+  }
+}
+
+// Check every minute if it's time to deliver the briefing
+let _briefingDeliveredToday = "";
+if (BRIEFING_ENABLED) {
+  setInterval(() => {
+    const now = new Date();
+    const todayKey = now.toDateString();
+    if (now.getHours() === BRIEFING_HOUR && now.getMinutes() === 0 && _briefingDeliveredToday !== todayKey) {
+      _briefingDeliveredToday = todayKey;
+      generateBriefing().catch(() => {});
+    }
+  }, 60_000);
+  console.log(`[BRIEFING] Scheduled for ${BRIEFING_HOUR}:00 daily`);
+}
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

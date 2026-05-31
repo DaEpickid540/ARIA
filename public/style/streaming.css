@@ -237,3 +237,51 @@
 .thinkContent::-webkit-scrollbar-thumb {
   background: #220000;
 }
+
+/* ── Mark 1.5 streaming upgrades ───────────────────────────── */
+
+/* Inline stream cursor span (used during token streaming) */
+.streamCursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--red-core, #ff2040);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: streamCursorBlink 0.6s step-end infinite;
+}
+@keyframes streamCursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Thin indeterminate progress bar across top of think panel while reasoning */
+.thinkLivePanel:not(.thinkLiveDone)::before {
+  content: "";
+  display: block;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--red-core, #ff2040) 40%,
+    var(--red-neon, #ff6060) 60%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: thinkProgressBar 1.4s linear infinite;
+}
+@keyframes thinkProgressBar {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* thinkLiveLabel class to target the text separately from the dot */
+.thinkLiveLabel {
+  color: #550000;
+  font-family: "Orbitron", sans-serif;
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+}
+.thinkLiveDone .thinkLiveLabel {
+  color: #446644;
+}

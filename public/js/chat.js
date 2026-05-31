@@ -495,7 +495,7 @@ async function doWebSearch(q, engineOverride = null) {
   });
   saveChats();
   renderMessages();
-  const tid = showTypingIndicator();
+  const tid = showTypingIndicator("search");
   try {
     const res = await fetch("/api/search", {
       method: "POST",
@@ -549,7 +549,7 @@ async function doScrapeWithChoice(url) {
   });
   saveChats();
   renderMessages();
-  const tid = showTypingIndicator();
+  const tid = showTypingIndicator("search");
   try {
     let result = "";
     if (engine === "serpapi") {
@@ -679,7 +679,7 @@ async function doImagine(prompt) {
   });
   saveChats();
   renderMessages();
-  const tid = showTypingIndicator();
+  const tid = showTypingIndicator("image");
   try {
     const res = await fetch("/api/imagine", {
       method: "POST",
@@ -720,7 +720,7 @@ document
 async function fetchAndShowCalendar() {
   const chat = getCurrentChat();
   if (!chat) return;
-  const tid = showTypingIndicator();
+  const tid = showTypingIndicator("files", "calendar events");
   try {
     const res = await fetch("/api/calendar/events");
     const data = await res.json();
@@ -1292,12 +1292,14 @@ function renderMessages() {
     const isAria = msg.role === "aria";
     div.innerHTML = `
       <div class="msgHeader">
-        <div class="msgSender">${msg.role === "user" ? "YOU" : "ARIA"}</div>
+        <div class="msgSender">${msg.role === "user" ? "YOU" : "ARIA"}${msg.pinned ? ' <span class="msgPinBadge" title="Pinned">📌</span>' : ""}${msg.starred ? ' <span class="msgStarBadge" title="Starred">⭐</span>' : ""}</div>
         <div class="msgMeta">
           <span class="msgTimestamp">${time}</span>
           <button class="msgActionBtn msgCopyBtn" title="Copy" onclick="window.ARIA_copyMessage(${JSON.stringify(
             msg.content,
           )})">⎘</button>
+          <button class="msgActionBtn msgStarBtn ${msg.starred ? "active" : ""}" title="${msg.starred ? "Unstar" : "Star"}" onclick="window.ARIA_starMessage('${chat.id}',${idx})">${msg.starred ? "⭐" : "☆"}</button>
+          <button class="msgActionBtn msgPinBtn ${msg.pinned ? "active" : ""}" title="${msg.pinned ? "Unpin" : "Pin"}" onclick="window.ARIA_pinMessage('${chat.id}',${idx})">📌</button>
           ${
             isAria
               ? `<button class="msgActionBtn msgRegenBtn" title="Regenerate" onclick="window.ARIA_regenerateMsg('${chat.id}',${idx})">↺</button>`
@@ -1373,16 +1375,8 @@ function showMathPanel() {
     p.id = "mathPanel";
     p.innerHTML = buildMathPanelHTML();
     document.body.appendChild(p);
-    // Load Desmos API if not already loaded
-    if (!window.Desmos) {
-      const s = document.createElement("script");
-      s.src =
-        "https://www.desmos.com/api/v1.9/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6";
-      s.onload = () => _initDesmos();
-      document.head.appendChild(s);
-    } else {
-      setTimeout(_initDesmos, 50);
-    }
+    // Init native MathGrapher (no external script needed)
+    setTimeout(_initDesmos, 80);
   }
   requestAnimationFrame(() => {
     p.classList.add("open");
@@ -1433,7 +1427,9 @@ window._switchMathTab = function (tab) {
   if (tab === "calc") {
     if (calc) calc.style.display = "";
     btnCalc?.classList.add("active");
-    if (!window._desmosCalc) _initDesmos();
+    if (!window._mathGrapher) _initDesmos();
+    // Trigger resize so canvas fills its container after being shown
+    else setTimeout(() => window._mathGrapher?.resize() && window._mathGrapher?.draw(), 50);
   } else if (tab === "viz") {
     if (viz) {
       viz.style.display = "flex";
@@ -2362,7 +2358,9 @@ async function sendMessageContent(text, chat, attachments = []) {
   isGenerating = true;
   setSendState(true);
   triggerHalo("thinking");
-  const tid = showTypingIndicator();
+  // Detect task type from the message for the right loader animation
+  const _detectedTask = window._ARIALoader?.detectTaskFromMessage(text) || "thinking";
+  const tid = showTypingIndicator(_detectedTask, text.slice(0, 60));
   let abort = new AbortController();
   window.ARIA_stopGeneration = () => {
     abort.abort();
@@ -2444,63 +2442,90 @@ async function sendMessageContent(text, chat, attachments = []) {
 
         const streamId = "stream_" + Date.now();
 
-        // ── Live thinking panel (shown while inside <think>)
-        const thinkLiveId = streamId + "_think";
+        // ── Live thinking panel ──────────────────────────────────────
         const thinkLiveDiv = document.createElement("div");
-        thinkLiveDiv.id = thinkLiveId;
+        thinkLiveDiv.id = streamId + "_think";
         thinkLiveDiv.className = "thinkLivePanel";
-        thinkLiveDiv.innerHTML = `<div class="thinkLiveHeader"><span class="thinkLiveDot pulse"></span> ARIA is reasoning…</div><div class="thinkLiveSteps" id="${thinkLiveId}_steps"></div>`;
+        thinkLiveDiv.innerHTML = `
+          <div class="thinkLiveHeader">
+            <span class="thinkLiveDot pulse"></span>
+            <span class="thinkLiveLabel">ARIA is reasoning\u2026</span>
+          </div>
+          <div class="thinkLiveSteps" id="${streamId}_steps"></div>`;
         messages.appendChild(thinkLiveDiv);
-        messages.scrollTop = messages.scrollHeight;
 
-        // ── Answer bubble (hidden until </think> closes or no think block)
+        // ── Answer bubble \u2014 shown from the FIRST answer token ────────
         const streamDiv = document.createElement("div");
         streamDiv.classList.add("msg", "aria");
         streamDiv.id = streamId;
         streamDiv.style.display = "none";
-        streamDiv.innerHTML = `<div class="msgSender">ARIA</div><div class="msgBody streamBody" id="${streamId}_body"></div>`;
+        streamDiv.innerHTML = `
+          <div class="msgSender">ARIA</div>
+          <div class="msgBody streamBody" id="${streamId}_body">
+            <span class="streamCursor"></span>
+          </div>`;
         messages.appendChild(streamDiv);
 
         const reader = res.body.getReader();
         const dec = new TextDecoder();
         let buf = "";
-        let accumulated = "";
+        let accumulated = "";   // raw full text (think + answer)
+        let answerText = "";    // only post-think answer tokens
         let inThink = false;
-        let answerBuf = "";
+        let thinkDone = false;
         let stepsShown = new Set();
 
-        function showLiveStep(stepText) {
-          const m = stepText.match(
-            /\[STEP \d+\s*[—–-]\s*([A-Z &]+)\]:\s*(.+)/i,
-          );
-          if (!m) return;
-          const label = m[1].trim();
-          const detail = m[2].trim();
-          if (stepsShown.has(label)) return;
-          stepsShown.add(label);
-          const stepsEl = document.getElementById(thinkLiveId + "_steps");
-          if (!stepsEl) return;
-          const pill = document.createElement("div");
-          pill.className = "thinkLiveStep thinkLiveStepIn";
-          pill.innerHTML =
-            `<span class="thinkStepLabel">${escapeHtml(label)}</span>` +
-            `<span class="thinkStepText">${escapeHtml(detail)}</span>`;
-          stepsEl.appendChild(pill);
-          messages.scrollTop = messages.scrollHeight;
+        // 60fps throttled DOM update during streaming
+        let _renderPending = false;
+        function scheduleRender() {
+          if (_renderPending) return;
+          _renderPending = true;
+          requestAnimationFrame(() => {
+            _renderPending = false;
+            const bodyEl = document.getElementById(streamId + "_body");
+            if (!bodyEl || !answerText) return;
+            // Lightweight inline render while streaming — avoids full markdown parse each token
+            const safe = answerText
+              .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+              .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+              .replace(/\*(.+?)\*/g, "<em>$1</em>")
+              .replace(/`([^`]+)`/g, "<code>$1</code>")
+              .replace(/\n/g, "<br>");
+            bodyEl.innerHTML = safe + '<span class="streamCursor"></span>';
+            messages.scrollTop = messages.scrollHeight;
+          });
         }
 
-        // ── Step bar for tool/agent events (injected right before final msg)
+        // Tool / step bar (inserted above answer)
         let stepBar = null;
         function getStepBar() {
           if (!stepBar) {
             stepBar = document.createElement("div");
             stepBar.className = "clawLiveStepBar";
-            // Insert before streamDiv so pills end up above the answer
             messages.insertBefore(stepBar, streamDiv);
           }
           return stepBar;
         }
 
+        // Show a reasoning step as a pill in the think panel
+        function showLiveStep(line) {
+          const m = line.match(/\[STEP \d+\s*[\u2014\u2013-]\s*([A-Z &]+)\]:\s*(.+)/i);
+          if (!m) return;
+          const label = m[1].trim();
+          if (stepsShown.has(label)) return;
+          stepsShown.add(label);
+          const stepsEl = document.getElementById(streamId + "_steps");
+          if (!stepsEl) return;
+          const pill = document.createElement("div");
+          pill.className = "thinkLiveStep thinkLiveStepIn";
+          pill.innerHTML =
+            `<span class="thinkStepLabel">${escapeHtml(label)}</span>` +
+            `<span class="thinkStepText">${escapeHtml(m[2].trim().slice(0, 80))}</span>`;
+          stepsEl.appendChild(pill);
+          messages.scrollTop = messages.scrollHeight;
+        }
+
+        // ── Main read loop ──────────────────────────────────────────
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -2514,107 +2539,106 @@ async function sendMessageContent(text, chat, attachments = []) {
             try {
               const evt = JSON.parse(raw);
 
-              // Sub-agent / tool step events
-              if (evt.step) {
-                const bar = getStepBar();
-                let icon = "⚙";
-                const label = (evt.msg || evt.tool || evt.agent || "").slice(
-                  0,
-                  120,
-                );
-                if (evt.type === "tool_start") icon = "🔧";
-                if (evt.type === "tool_done") icon = "✓";
-                if (evt.type === "agent") icon = "🤖";
-                if (evt.type === "source") icon = "🌐";
-                if (evt.type === "thinking") icon = "💭";
-                if (evt.type === "claw") icon = "🦾";
-                const pill = document.createElement("div");
-                pill.className =
-                  "clawStepPill clawStepIn" +
-                  (evt.type === "tool_done" ? " clawStepDone" : "");
-                if (evt.type === "source" && evt.url) {
-                  pill.innerHTML =
-                    `<span class="clawStepIcon">🌐</span>` +
-                    `<a href="${escapeHtml(
-                      evt.url,
-                    )}" target="_blank" class="clawStepLink">` +
-                    `${escapeHtml((evt.title || evt.url).slice(0, 100))}</a>`;
-                } else {
-                  pill.innerHTML =
-                    `<span class="clawStepIcon">${icon}</span>` +
-                    `<span class="clawStepText">${escapeHtml(label)}</span>`;
-                }
-                bar.appendChild(pill);
+              // ── Stream start heartbeat (server connected, first token incoming) ──
+              if (evt.stream_start) {
+                // Loader was already removed when streaming headers were received —
+                // this just ensures we scroll to the think panel
                 messages.scrollTop = messages.scrollHeight;
+                continue;
               }
 
+              // ── Tool / agent step event ──
+              if (evt.step) {
+                // Update think panel label to reflect current tool
+                const hdr = thinkLiveDiv.querySelector(".thinkLiveLabel");
+                if (hdr && evt.type === "claw")   hdr.textContent = "CLAW — EXECUTING";
+                if (hdr && evt.type === "source")  hdr.textContent = "QUERYING NETWORK";
+                if (hdr && (evt.type === "tool_start" || evt.type === "tool_done"))
+                  hdr.textContent = evt.type === "tool_done" ? "TOOL COMPLETE" : "RUNNING TOOL";
+                const icons = { tool_start:"\uD83D\uDD27", tool_done:"\u2713", agent:"\uD83E\uDD16", source:"\uD83C\uDF10", thinking:"\uD83D\uDCAD", claw:"\uD83E\uDDBE" };
+                const icon = icons[evt.type] || "\u2699";
+                const label = (evt.msg || evt.tool || evt.agent || "").slice(0, 120);
+                const pill = document.createElement("div");
+                pill.className = "clawStepPill clawStepIn" + (evt.type === "tool_done" ? " clawStepDone" : "");
+                if (evt.type === "source" && evt.url) {
+                  pill.innerHTML = `<span class="clawStepIcon">\uD83C\uDF10</span><a href="${escapeHtml(evt.url)}" target="_blank" class="clawStepLink">${escapeHtml((evt.title || evt.url).slice(0, 100))}</a>`;
+                } else {
+                  pill.innerHTML = `<span class="clawStepIcon">${icon}</span><span class="clawStepText">${escapeHtml(label)}</span>`;
+                }
+                getStepBar().appendChild(pill);
+                messages.scrollTop = messages.scrollHeight;
+                continue;
+              }
+
+              // ── Token delta ──
               if (evt.delta) {
                 accumulated += evt.delta;
-                const thinkOpen = accumulated.indexOf("<think>");
-                const thinkClose = accumulated.indexOf("</think>");
 
-                if (thinkOpen !== -1 && thinkClose === -1) {
-                  inThink = true;
-                  const newThink = accumulated.slice(thinkOpen + 7);
-                  for (const tl of newThink.split("\n")) {
-                    if (/\[STEP \d+/i.test(tl)) showLiveStep(tl.trim());
-                  }
-                } else if (thinkClose !== -1) {
-                  if (inThink) {
-                    inThink = false;
-                    const thinkFull = accumulated.slice(
-                      (accumulated.indexOf("<think>") || 0) + 7,
-                      thinkClose,
-                    );
-                    for (const tl of thinkFull.split("\n")) {
+                if (!thinkDone) {
+                  const tOpen = accumulated.indexOf("<think>");
+                  const tClose = accumulated.indexOf("</think>");
+
+                  if (tClose !== -1) {
+                    // Think block finished — switch to answer mode
+                    thinkDone = true; inThink = false;
+                    const thinkContent = accumulated.slice(tOpen !== -1 ? tOpen + 7 : 0, tClose);
+                    for (const tl of thinkContent.split("\n")) {
                       if (/\[STEP \d+/i.test(tl)) showLiveStep(tl.trim());
                     }
-                    thinkLiveDiv.classList.add("thinkLiveDone");
+                    // Seal the think panel
                     const hdr = thinkLiveDiv.querySelector(".thinkLiveHeader");
-                    if (hdr) {
-                      const dot = hdr.querySelector(".thinkLiveDot");
-                      if (dot) {
-                        dot.classList.remove("pulse");
-                        dot.classList.add("done");
-                      }
-                      hdr.innerHTML =
-                        `<span class="thinkLiveDot done"></span> ` +
-                        `Reasoned · ${stepsShown.size} step${
-                          stepsShown.size !== 1 ? "s" : ""
-                        }`;
-                    }
-                  }
-                  answerBuf = accumulated.slice(thinkClose + 8).trimStart();
-                  if (answerBuf) {
+                    if (hdr) hdr.innerHTML = `<span class="thinkLiveDot done"></span><span class="thinkLiveLabel">Reasoned \u00b7 ${stepsShown.size} step${stepsShown.size !== 1 ? "s" : ""}</span>`;
+                    thinkLiveDiv.classList.add("thinkLiveDone");
+                    // First answer tokens
+                    answerText = accumulated.slice(tClose + 8).trimStart();
+                    if (answerText) { streamDiv.style.display = ""; scheduleRender(); }
+
+                  } else if (tOpen !== -1) {
+                    // Inside think — surface steps as they stream in
+                    inThink = true;
+                    const soFar = accumulated.slice(tOpen + 7).split("\n");
+                    const prev = soFar[soFar.length - 2] || "";
+                    if (/\[STEP \d+/i.test(prev)) showLiveStep(prev.trim());
+
+                  } else {
+                    // No think block — stream straight to answer bubble
+                    thinkDone = true;
+                    thinkLiveDiv.remove();
+                    answerText = accumulated;
                     streamDiv.style.display = "";
-                    const bodyEl = document.getElementById(streamId + "_body");
-                    if (bodyEl) bodyEl.innerHTML = renderMarkdown(answerBuf);
-                    messages.scrollTop = messages.scrollHeight;
+                    scheduleRender();
                   }
-                } else if (!inThink && accumulated.length > 0) {
-                  streamDiv.style.display = "";
-                  const bodyEl = document.getElementById(streamId + "_body");
-                  if (bodyEl) bodyEl.innerHTML = renderMarkdown(accumulated);
-                  messages.scrollTop = messages.scrollHeight;
+                } else {
+                  // Already past think — every delta goes to answer
+                  answerText += evt.delta;
+                  scheduleRender();
                 }
               }
-              if (evt.done && evt.full) accumulated = evt.full;
-            } catch {}
+
+              // ── Done event (server sends authoritative final content) ──
+              if (evt.done && evt.full) {
+                const tc = evt.full.indexOf("</think>");
+                answerText = tc !== -1 ? evt.full.slice(tc + 8).trimStart() : evt.full;
+                accumulated = evt.full;
+              }
+
+            } catch {} // malformed SSE line
           }
         }
 
-        // Collapse think panel (keep it — don't remove)
-        // if the model produced no steps, hide it entirely
-        if (stepsShown.size === 0) {
+        // ── Stream ended ────────────────────────────────────────────
+        // Fallback: if </think> never arrived, show whatever we accumulated
+        if (!thinkDone && accumulated.length > 0) {
           thinkLiveDiv.remove();
-        } else {
-          thinkLiveDiv.classList.add("thinkLiveDone");
+          const tc = accumulated.indexOf("</think>");
+          answerText = tc !== -1 ? accumulated.slice(tc + 8).trimStart() : accumulated;
         }
+        if (stepsShown.size === 0 && !inThink) thinkLiveDiv.remove();
 
-        // Remove the live stream preview — addAIMessage renders the final version
-        // with the proper <details class="thinkBlock"> dropdown from renderMarkdown
+        // Tear down the live preview and render a permanent message
+        // renderMarkdown handles code blocks, tables, think dropdowns etc.
         streamDiv.remove();
-        addAIMessage(accumulated.trim() || "[No reply]");
+        addAIMessage(answerText.trim() || accumulated.trim() || "[No reply]");
         return;
       }
 
@@ -2690,18 +2714,64 @@ function setSendState(on) {
   document.getElementById("ariaStopBar")?.classList.toggle("active", on);
   if (userInput) userInput.disabled = on && !window._ariaPaused;
 }
-function showTypingIndicator() {
+/* ── ARIA LOADER (replaces old typing dots) ── */
+let _ariaLoaderModule = null;
+async function _getLoaderMod() {
+  if (!_ariaLoaderModule) {
+    _ariaLoaderModule = await import("./ariaLoader.js");
+  }
+  return _ariaLoaderModule;
+}
+
+function showTypingIndicator(task = "thinking", detail = "") {
   const id = "typing_" + Date.now();
-  const div = document.createElement("div");
-  div.classList.add("msg", "aria", "typingIndicator");
-  div.id = id;
-  div.innerHTML = `<div class="msgSender">ARIA</div><div class="typingDots"><span></span><span></span><span></span></div>`;
-  messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
+  // Lazy-load the loader module and create the loader
+  _getLoaderMod().then(mod => {
+    // Only create if the id slot is still needed (not already removed)
+    if (!document.getElementById(id) && messages) {
+      const realId = mod.showARIALoader(messages, { task, detail });
+      // Remap: if caller already called removeTypingIndicator(id) before promise resolved,
+      // clean up immediately
+      if (window._pendingLoaderRemove?.has(id)) {
+        window._pendingLoaderRemove.delete(id);
+        mod.removeARIALoader(realId);
+      } else {
+        // Store the mapping from the placeholder id to the real loader id
+        if (!window._loaderIdMap) window._loaderIdMap = new Map();
+        window._loaderIdMap.set(id, realId);
+      }
+    }
+  });
   return id;
 }
+
 function removeTypingIndicator(id) {
-  document.getElementById(id)?.remove();
+  if (!id) return;
+  _getLoaderMod().then(mod => {
+    const realId = window._loaderIdMap?.get(id);
+    if (realId) {
+      mod.removeARIALoader(realId);
+      window._loaderIdMap.delete(id);
+    } else {
+      // Promise not resolved yet — mark for removal when it does
+      if (!window._pendingLoaderRemove) window._pendingLoaderRemove = new Set();
+      window._pendingLoaderRemove.add(id);
+      // Also try direct removal after a short delay as fallback
+      setTimeout(() => {
+        const rid = window._loaderIdMap?.get(id);
+        if (rid) { mod.removeARIALoader(rid); window._loaderIdMap.delete(id); }
+      }, 500);
+    }
+  });
+  // Fallback: also remove any direct-id elements (for old callers)
+  setTimeout(() => document.getElementById(id)?.remove(), 600);
+}
+
+function updateTypingIndicatorTask(id, task, detail = "") {
+  _getLoaderMod().then(mod => {
+    const realId = window._loaderIdMap?.get(id);
+    if (realId) mod.updateLoaderTask(realId, task, detail);
+  });
 }
 
 /* ============================================================
@@ -3068,3 +3138,476 @@ async function loadFromServer() {
     }
   } catch {}
 }
+
+/* ════════════════════════════════════════════════════════════════
+   MARK 1.5 FEATURES
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── PIN / STAR MESSAGES ──────────────────────────────────────── */
+window.ARIA_pinMessage = function(chatId, idx) {
+  const chat = chats.find(c => c.id === chatId);
+  if (!chat?.messages[idx]) return;
+  chat.messages[idx].pinned = !chat.messages[idx].pinned;
+  syncToServer();
+  renderMessages();
+  showToast(chat.messages[idx].pinned ? "Message pinned" : "Message unpinned", "📌");
+};
+window.ARIA_starMessage = function(chatId, idx) {
+  const chat = chats.find(c => c.id === chatId);
+  if (!chat?.messages[idx]) return;
+  chat.messages[idx].starred = !chat.messages[idx].starred;
+  syncToServer();
+  renderMessages();
+  showToast(chat.messages[idx].starred ? "Message starred" : "Unstarred", "⭐");
+};
+
+// Show all starred/pinned messages in current chat
+window.ARIA_showStarred = function() {
+  const chat = getCurrentChat();
+  if (!chat) return;
+  const starred = chat.messages.filter(m => m.starred || m.pinned);
+  if (!starred.length) { showToast("No starred or pinned messages", "☆"); return; }
+  let html = starred.map((m, i) =>
+    `<div style="padding:8px 0;border-bottom:1px solid var(--border-cut)">
+      <div style="font-size:10px;color:var(--text-muted)">${m.role.toUpperCase()} ${m.starred ? "⭐" : ""} ${m.pinned ? "📌" : ""}</div>
+      <div style="font-size:12px;margin-top:4px;color:var(--text-blaze)">${String(m.content).slice(0, 200)}${m.content.length > 200 ? "…" : ""}</div>
+    </div>`
+  ).join("");
+  _showQuickModal("Starred & Pinned", html);
+};
+
+/* ── CHAT SEARCH (Ctrl+F / Cmd+F) ────────────────────────────── */
+let _searchActive = false;
+let _searchMatches = [];
+let _searchIdx = 0;
+
+function _buildSearchBar() {
+  if (document.getElementById("chatSearchBar")) return;
+  const bar = document.createElement("div");
+  bar.id = "chatSearchBar";
+  bar.innerHTML = `
+    <input id="chatSearchInput" placeholder="Search messages…" autocomplete="off" />
+    <span id="chatSearchCount"></span>
+    <button id="chatSearchPrev" title="Previous">↑</button>
+    <button id="chatSearchNext" title="Next">↓</button>
+    <button id="chatSearchClose" title="Close">✕</button>
+  `;
+  document.getElementById("chatArea")?.prepend(bar);
+  document.getElementById("chatSearchClose").onclick = _closeSearch;
+  document.getElementById("chatSearchPrev").onclick = () => _navigateSearch(-1);
+  document.getElementById("chatSearchNext").onclick = () => _navigateSearch(1);
+  document.getElementById("chatSearchInput").addEventListener("input", _runSearch);
+  document.getElementById("chatSearchInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") _navigateSearch(e.shiftKey ? -1 : 1);
+    if (e.key === "Escape") _closeSearch();
+  });
+}
+
+function _openSearch() {
+  _searchActive = true;
+  _buildSearchBar();
+  const bar = document.getElementById("chatSearchBar");
+  bar.classList.add("open");
+  document.getElementById("chatSearchInput").focus();
+}
+function _closeSearch() {
+  _searchActive = false;
+  const bar = document.getElementById("chatSearchBar");
+  bar?.classList.remove("open");
+  document.querySelectorAll(".msgSearchHighlight").forEach(el => {
+    el.outerHTML = el.textContent;
+  });
+  document.querySelectorAll(".msg.searchMatch").forEach(el => el.classList.remove("searchMatch", "searchActive"));
+  _searchMatches = [];
+}
+function _runSearch() {
+  const q = document.getElementById("chatSearchInput")?.value.trim().toLowerCase();
+  document.querySelectorAll(".msgSearchHighlight").forEach(el => { el.outerHTML = el.textContent; });
+  document.querySelectorAll(".msg.searchMatch").forEach(el => el.classList.remove("searchMatch", "searchActive"));
+  _searchMatches = [];
+  _searchIdx = 0;
+  if (!q || q.length < 2) { document.getElementById("chatSearchCount").textContent = ""; return; }
+
+  const msgs = document.querySelectorAll(".msg .msgBody");
+  msgs.forEach((body, i) => {
+    const text = body.textContent || "";
+    if (text.toLowerCase().includes(q)) {
+      const msgEl = body.closest(".msg");
+      msgEl.classList.add("searchMatch");
+      _searchMatches.push(msgEl);
+      // Highlight
+      body.innerHTML = body.innerHTML.replace(
+        new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"),
+        m => `<mark class="msgSearchHighlight">${m}</mark>`
+      );
+    }
+  });
+  const count = document.getElementById("chatSearchCount");
+  count.textContent = _searchMatches.length ? `1 / ${_searchMatches.length}` : "No results";
+  if (_searchMatches.length) _highlightMatch(0);
+}
+function _navigateSearch(dir) {
+  if (!_searchMatches.length) return;
+  _searchIdx = (_searchIdx + dir + _searchMatches.length) % _searchMatches.length;
+  _highlightMatch(_searchIdx);
+  document.getElementById("chatSearchCount").textContent = `${_searchIdx + 1} / ${_searchMatches.length}`;
+}
+function _highlightMatch(idx) {
+  document.querySelectorAll(".msg.searchActive").forEach(el => el.classList.remove("searchActive"));
+  const el = _searchMatches[idx];
+  if (!el) return;
+  el.classList.add("searchActive");
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+// Wire Ctrl+F / Cmd+F
+document.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+    const chatArea = document.getElementById("chatArea");
+    if (!chatArea || chatArea.style.display === "none") return;
+    e.preventDefault();
+    _openSearch();
+  }
+});
+export { _openSearch as openChatSearch };
+
+/* ── @ARIA PREFIX ─────────────────────────────────────────────── */
+// Typing @aria at the start of the input auto-focuses and cleans up
+const _userInput = document.getElementById("userInput");
+if (_userInput) {
+  _userInput.addEventListener("input", () => {
+    const val = _userInput.value;
+    if (/^@aria\s/i.test(val)) {
+      _userInput.value = val.replace(/^@aria\s+/i, "");
+      // Flash the ARIA logo or input to indicate it's addressed
+      document.getElementById("chatHeader")?.classList.add("ariaAddressed");
+      setTimeout(() => document.getElementById("chatHeader")?.classList.remove("ariaAddressed"), 800);
+    }
+  });
+}
+
+/* ── SPLIT PANE MODE ──────────────────────────────────────────── */
+let _splitPaneActive = false;
+let _splitChat2Id = null;
+
+window.ARIA_toggleSplitPane = function() {
+  _splitPaneActive = !_splitPaneActive;
+  const appLayout = document.getElementById("appLayout") || document.getElementById("chatLayout") || document.querySelector(".appLayout");
+  if (!appLayout) { showToast("Split pane layout not available", "✗"); _splitPaneActive = false; return; }
+
+  if (_splitPaneActive) {
+    appLayout.classList.add("splitPaneActive");
+    // Create second pane if not exists
+    let pane2 = document.getElementById("chatPane2");
+    if (!pane2) {
+      pane2 = document.createElement("div");
+      pane2.id = "chatPane2";
+      pane2.className = "chatPaneSecondary";
+      pane2.innerHTML = `
+        <div class="pane2Header">
+          <select id="pane2ChatSelect" class="pane2Select"></select>
+          <button class="pane2CloseBtn" onclick="window.ARIA_toggleSplitPane()">✕</button>
+        </div>
+        <div id="pane2Messages" class="messages"></div>
+      `;
+      appLayout.appendChild(pane2);
+      _renderPane2ChatList();
+    }
+    showToast("Split pane on", "◫");
+  } else {
+    appLayout.classList.remove("splitPaneActive");
+    document.getElementById("chatPane2")?.remove();
+    showToast("Split pane off", "▭");
+  }
+};
+
+function _renderPane2ChatList() {
+  const sel = document.getElementById("pane2ChatSelect");
+  if (!sel) return;
+  sel.innerHTML = chats.map(c => `<option value="${c.id}">${c.title || "Chat"}</option>`).join("");
+  sel.value = chats[1]?.id || chats[0]?.id || "";
+  _splitChat2Id = sel.value;
+  sel.addEventListener("change", () => { _splitChat2Id = sel.value; _renderPane2(); });
+  _renderPane2();
+}
+function _renderPane2() {
+  const pane = document.getElementById("pane2Messages");
+  if (!pane || !_splitChat2Id) return;
+  const chat = chats.find(c => c.id === _splitChat2Id);
+  if (!chat) return;
+  pane.innerHTML = chat.messages.map(m =>
+    `<div class="msg ${m.role}"><div class="msgSender">${m.role === "user" ? "YOU" : "ARIA"}</div><div class="msgBody"><p class="userPara">${String(m.content).replace(/</g, "&lt;")}</p></div></div>`
+  ).join("");
+  pane.scrollTop = pane.scrollHeight;
+}
+
+/* ── QUICK MODAL HELPER ───────────────────────────────────────── */
+function _showQuickModal(title, html) {
+  let modal = document.getElementById("ariaQuickModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "ariaQuickModal";
+    modal.innerHTML = `
+      <div id="ariaQuickModalInner">
+        <div id="ariaQuickModalHeader">
+          <span id="ariaQuickModalTitle"></span>
+          <button id="ariaQuickModalClose">✕</button>
+        </div>
+        <div id="ariaQuickModalBody"></div>
+      </div>`;
+    document.body.appendChild(modal);
+    document.getElementById("ariaQuickModalClose").onclick = () => { modal.style.display = "none"; };
+    modal.addEventListener("click", e => { if (e.target === modal) modal.style.display = "none"; });
+  }
+  document.getElementById("ariaQuickModalTitle").textContent = title;
+  document.getElementById("ariaQuickModalBody").innerHTML = html;
+  modal.style.display = "flex";
+}
+
+/* ── MEMORY UI ────────────────────────────────────────────────── */
+window.ARIA_showMemoryUI = async function() {
+  try {
+    const [memRes, ragRes] = await Promise.all([
+      fetch("/api/memory").then(r => r.json()),
+      fetch("/api/rag/stats").then(r => r.json()),
+    ]);
+    const facts = memRes.facts || [];
+    const factsHtml = facts.length
+      ? facts.map((f, i) => `<div class="memFactRow">
+          <span class="memFactText">${String(f).replace(/</g, "&lt;")}</span>
+          <button class="memFactDel" onclick="window.ARIA_deleteFact(${i})">✕</button>
+        </div>`).join("")
+      : "<div style='color:var(--text-muted);font-size:11px'>No facts yet.</div>";
+
+    const ragHtml = `
+      <div style="margin-top:14px;font-size:11px;color:var(--red-core);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">RAG KNOWLEDGE BASE</div>
+      <div style="font-size:11px;color:var(--text-muted)">
+        ${ragRes.totalEntries || 0} vectors indexed · 
+        Chat: ${ragRes.byNamespace?.chat || 0} · 
+        Training: ${ragRes.byNamespace?.training || 0} · 
+        ~${ragRes.estimatedSizeMB || 0}MB
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="memBtn" onclick="window.ARIA_searchRAG()">🔍 Search</button>
+        <button class="memBtn" onclick="window.ARIA_clearRAGNamespace('chat')">Clear chat index</button>
+        <button class="memBtn" onclick="window.ARIA_ingestDoc()">+ Ingest document</button>
+      </div>`;
+
+    const searchHtml = `
+      <div style="margin-top:14px;font-size:11px;color:var(--red-core);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">SEARCH MEMORY</div>
+      <div style="display:flex;gap:8px">
+        <input id="memSearchInput" placeholder="Search across all memories…" style="flex:1;padding:6px 8px;background:var(--bg-void);border:1px solid var(--border-cut);border-radius:2px;color:var(--text-blaze);font-size:12px">
+        <button class="memBtn" onclick="window.ARIA_doMemSearch()">Search</button>
+      </div>
+      <div id="memSearchResults" style="margin-top:8px;font-size:11px;max-height:160px;overflow-y:auto"></div>`;
+
+    _showQuickModal("Memory & Knowledge", `
+      <div style="font-size:11px;color:var(--red-core);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">FACTS (${facts.length})</div>
+      <div id="memFactsList">${factsHtml}</div>
+      <button class="memBtn" style="margin-top:8px" onclick="window.ARIA_addFact()">+ Add fact</button>
+      ${ragHtml}
+      ${searchHtml}
+    `);
+  } catch (e) {
+    showToast("Failed to load memory: " + e.message, "✗");
+  }
+};
+
+window.ARIA_deleteFact = async function(idx) {
+  await fetch("/api/memory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete", index: idx }) });
+  window.ARIA_showMemoryUI();
+};
+window.ARIA_addFact = async function() {
+  const fact = prompt("Add fact to ARIA's memory:");
+  if (!fact?.trim()) return;
+  await fetch("/api/memory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "add", fact: fact.trim() }) });
+  window.ARIA_showMemoryUI();
+};
+window.ARIA_searchRAG = function() { document.getElementById("memSearchInput")?.focus(); };
+window.ARIA_clearRAGNamespace = async function(ns) {
+  if (!confirm(`Clear all ${ns} vectors from RAG index?`)) return;
+  await fetch("/api/rag/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ namespace: ns }) });
+  showToast("Cleared " + ns + " index", "✓");
+  window.ARIA_showMemoryUI();
+};
+window.ARIA_ingestDoc = function() {
+  const source = prompt("Source name (e.g. my-notes.md):");
+  if (!source) return;
+  const text = prompt("Paste document text to ingest:");
+  if (!text?.trim()) return;
+  fetch("/api/rag/ingest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source, text, namespace: "training" }) })
+    .then(r => r.json())
+    .then(d => showToast(d.chunks ? `Ingested ${d.chunks} chunks from "${source}"` : d.message || "Ingested", "✓"))
+    .catch(() => showToast("Ingest failed", "✗"));
+};
+window.ARIA_doMemSearch = async function() {
+  const q = document.getElementById("memSearchInput")?.value.trim();
+  if (!q) return;
+  const el = document.getElementById("memSearchResults");
+  el.innerHTML = "<span style='color:var(--text-muted)'>Searching…</span>";
+  try {
+    const r = await fetch("/api/rag/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: q, topK: 5 }) });
+    const data = await r.json();
+    el.innerHTML = data.results?.length
+      ? data.results.map(r => `<div style="padding:6px 0;border-bottom:1px solid var(--border-cut)">
+          <div style="font-size:10px;color:var(--red-core)">${r.namespace} · score:${r.score.toFixed(2)}</div>
+          <div style="color:var(--text-blaze)">${String(r.text).slice(0, 150).replace(/</g, "&lt;")}…</div>
+        </div>`).join("")
+      : "<span style='color:var(--text-muted)'>No results.</span>";
+  } catch { el.innerHTML = "<span style='color:#ff4444'>Search failed.</span>"; }
+};
+
+/* ── SKILLS UI ────────────────────────────────────────────────── */
+window.ARIA_showSkillsUI = async function() {
+  try {
+    const data = await fetch("/api/skills").then(r => r.json());
+    const skillsHtml = data.skills?.length
+      ? data.skills.map(s => `
+        <div class="skillRow ${s.active ? "active" : ""}">
+          <div class="skillMeta">
+            <div class="skillName">${s.name}${s.version !== "1.0" ? ` <span style="font-size:9px;color:var(--text-muted)">v${s.version}</span>` : ""}</div>
+            <div class="skillDesc">${String(s.description).slice(0, 120)}</div>
+            ${s.hasTriggers ? '<div class="skillTriggerBadge">auto-triggers</div>' : ""}
+          </div>
+          <div class="skillActions">
+            <button class="skillToggleBtn ${s.active ? "on" : "off"}" onclick="window.ARIA_toggleSkill('${s.id}')">${s.active ? "ON" : "OFF"}</button>
+            ${s.location === "user" ? `<button class="skillEditBtn" onclick="window.ARIA_editSkill('${s.id}')">Edit</button>` : ""}
+          </div>
+        </div>`).join("")
+      : "<div style='color:var(--text-muted);font-size:11px;padding:8px'>No skills installed. Create one below or drop a SKILL.md into skills/user/.</div>";
+
+    _showQuickModal("Skills", `
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">
+        ${data.active} active · ${data.total} installed · 
+        <a href="#" onclick="window.ARIA_createSkill();return false" style="color:var(--red-core)">+ New skill</a>
+      </div>
+      <div id="skillsList">${skillsHtml}</div>
+    `);
+  } catch { showToast("Failed to load skills", "✗"); }
+};
+window.ARIA_toggleSkill = async function(id) {
+  await fetch(`/api/skills/${id}/toggle`, { method: "POST" });
+  window.ARIA_showSkillsUI();
+};
+window.ARIA_editSkill = async function(id) {
+  try {
+    const data = await fetch(`/api/skills/${id}/content`).then(r => r.json());
+    const newContent = prompt(`Edit skill "${id}" (SKILL.md content):`, data.content);
+    if (newContent === null) return;
+    await fetch(`/api/skills/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: newContent }) });
+    showToast("Skill updated", "✓");
+    window.ARIA_showSkillsUI();
+  } catch { showToast("Edit failed", "✗"); }
+};
+window.ARIA_createSkill = async function() {
+  const id = prompt("Skill ID (e.g. my-skill):");
+  if (!id?.trim()) return;
+  const template = `---\nname: ${id}\ndescription: What this skill does\nversion: 1.0\ntriggers: []\n---\n\n# ${id}\n\nWrite your skill instructions here.\n`;
+  const content = prompt("SKILL.md content:", template);
+  if (content === null) return;
+  await fetch("/api/skills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id.trim(), content }) });
+  showToast("Skill created", "✓");
+  window.ARIA_showSkillsUI();
+};
+
+/* ── CLAW MACRO RECORDER ──────────────────────────────────────── */
+let _macroRecording = false;
+let _macroSteps = [];
+let _macros = JSON.parse(localStorage.getItem("aria_macros") || "{}");
+
+window.ARIA_startMacroRecord = function() {
+  _macroRecording = true;
+  _macroSteps = [];
+  showToast("Macro recording started", "⏺");
+  // Notify server to tag claw commands as macro steps
+  fetch("/api/claw/macro/record", { method: "POST" }).catch(() => {});
+};
+
+window.ARIA_stopMacroRecord = function() {
+  _macroRecording = false;
+  const name = prompt(`Save macro as (${_macroSteps.length} steps recorded):`);
+  if (name?.trim()) {
+    _macros[name.trim()] = { steps: _macroSteps, createdAt: Date.now() };
+    localStorage.setItem("aria_macros", JSON.stringify(_macros));
+    showToast(`Macro "${name}" saved`, "✓");
+  }
+  fetch("/api/claw/macro/stop", { method: "POST" }).catch(() => {});
+};
+
+window.ARIA_runMacro = function(name) {
+  const macro = _macros[name];
+  if (!macro) { showToast("Macro not found", "✗"); return; }
+  fetch("/api/claw/macro/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ steps: macro.steps }) })
+    .then(() => showToast(`Macro "${name}" running`, "▶"))
+    .catch(() => showToast("Macro run failed", "✗"));
+};
+
+window.ARIA_showMacros = function() {
+  const names = Object.keys(_macros);
+  if (!names.length) { showToast("No macros saved yet", "⏺"); return; }
+  const html = names.map(n => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border-cut)">
+      <span style="flex:1;font-size:12px">${n} <span style="color:var(--text-muted);font-size:10px">(${_macros[n].steps.length} steps)</span></span>
+      <button class="memBtn" onclick="window.ARIA_runMacro('${n}')">▶ Run</button>
+      <button class="memBtn" onclick="delete _macros['${n}'];localStorage.setItem('aria_macros',JSON.stringify(_macros));window.ARIA_showMacros()">✕</button>
+    </div>`).join("");
+  _showQuickModal("Claw Macros", `
+    <div style="margin-bottom:8px;display:flex;gap:8px">
+      <button class="memBtn" onclick="window.ARIA_startMacroRecord()">⏺ Record</button>
+      <button class="memBtn" onclick="window.ARIA_stopMacroRecord()">⏹ Stop & Save</button>
+    </div>
+    ${html}
+  `);
+};
+
+/* ── DAILY BRIEFING RECEIVER ──────────────────────────────────── */
+(function initBriefingSubscription() {
+  const es = new EventSource("/api/briefing/subscribe");
+  es.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.type === "briefing" && data.text) {
+        // Add the briefing as an ARIA message in the current chat
+        const chat = getCurrentChat();
+        if (chat) {
+          const briefMsg = {
+            role: "aria",
+            content: "🌅 **Good morning! Here's your daily briefing:**\n\n" + data.text,
+            timestamp: Date.now(),
+          };
+          chat.messages.push(briefMsg);
+          syncToServer();
+          renderMessages();
+          showToast("Morning briefing ready", "🌅");
+        }
+      }
+    } catch {}
+  };
+})();
+
+/* ── MULTI-AGENT ORCHESTRATION (server-side) ──────────────────── */
+window.ARIA_multiAgent = async function(task) {
+  const taskText = task || prompt("Multi-agent task (ARIA will coordinate sub-agents):");
+  if (!taskText?.trim()) return;
+  showToast("Spawning multi-agent task…", "🤖");
+  try {
+    const res = await fetch("/api/multi-agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ task: taskText }),
+    });
+    const data = await res.json();
+    if (data.taskId) {
+      const chat = getCurrentChat();
+      if (chat) {
+        chat.messages.push({
+          role: "aria",
+          content: `🤖 Multi-agent task started (ID: \`${data.taskId}\`). Results will appear as each sub-agent completes.`,
+          timestamp: Date.now(),
+        });
+        renderMessages();
+        syncToServer();
+      }
+    }
+  } catch { showToast("Multi-agent failed", "✗"); }
+};

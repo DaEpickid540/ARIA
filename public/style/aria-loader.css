@@ -1,0 +1,258 @@
+/* ================================================================
+   aria-loader.css — ARIA animated loader (Mark 1.5)
+   3D rotating cube that evolves through phases.
+   Task-aware labels, click interaction, AI status text.
+   ================================================================ */
+
+/* ── Container ── */
+.ariaLoader {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 6px 2px;
+  cursor: pointer;
+  user-select: none;
+  width: fit-content;
+  position: relative;
+}
+.ariaLoader:active { transform: scale(0.97); }
+
+/* ── 3D scene ── */
+.alScene {
+  width: 40px;
+  height: 40px;
+  perspective: 120px;
+  flex-shrink: 0;
+  position: relative;
+}
+.alCube {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  animation: alSpin 3s linear infinite;
+  transition: animation-duration 0.4s;
+}
+.ariaLoader.fast .alCube  { animation-duration: 1s; }
+.ariaLoader.slow .alCube  { animation-duration: 6s; }
+.ariaLoader.claw .alCube  { animation: alSpinClaw 1.4s linear infinite; }
+.ariaLoader.image .alCube { animation: alSpinWobble 2s ease-in-out infinite; }
+.ariaLoader.search .alCube { animation: alSpinSearch 2.2s linear infinite; }
+.ariaLoader.done .alCube  { animation: alSpinDown 0.8s ease-out forwards; }
+
+/* Six faces */
+.alFace {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border: 1.5px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  backface-visibility: visible;
+  transition: border-color 0.5s, background 0.5s, opacity 0.5s;
+}
+/* Default: red cyberpunk cube */
+.alFace         { border-color: rgba(255,32,64,0.6); background: rgba(255,32,64,0.04); }
+.alFace:nth-child(1) { transform: translateZ(20px); }
+.alFace:nth-child(2) { transform: rotateY(180deg) translateZ(20px); }
+.alFace:nth-child(3) { transform: rotateY(90deg)  translateZ(20px); }
+.alFace:nth-child(4) { transform: rotateY(-90deg) translateZ(20px); }
+.alFace:nth-child(5) { transform: rotateX(90deg)  translateZ(20px); }
+.alFace:nth-child(6) { transform: rotateX(-90deg) translateZ(20px); }
+
+/* Glow on the front face */
+.alFace:nth-child(1) {
+  border-color: rgba(255,32,64,0.9);
+  background: rgba(255,32,64,0.08);
+  box-shadow: 0 0 8px rgba(255,32,64,0.3), inset 0 0 8px rgba(255,32,64,0.08);
+}
+
+/* ── Task-specific colors ── */
+.ariaLoader.search .alFace      { border-color: rgba(0, 200, 255, 0.5); background: rgba(0, 200, 255, 0.03); }
+.ariaLoader.search .alFace:nth-child(1) { border-color: rgba(0,200,255,0.9); box-shadow: 0 0 8px rgba(0,200,255,0.3); }
+.ariaLoader.claw .alFace        { border-color: rgba(255,150,0,0.5); background: rgba(255,150,0,0.03); }
+.ariaLoader.claw .alFace:nth-child(1) { border-color: rgba(255,150,0,0.9); box-shadow: 0 0 8px rgba(255,150,0,0.3); }
+.ariaLoader.image .alFace       { border-color: rgba(180,0,255,0.5); background: rgba(180,0,255,0.03); }
+.ariaLoader.image .alFace:nth-child(1) { border-color: rgba(180,0,255,0.9); box-shadow: 0 0 8px rgba(180,0,255,0.3); }
+.ariaLoader.files .alFace       { border-color: rgba(0,255,100,0.5); background: rgba(0,255,100,0.03); }
+.ariaLoader.files .alFace:nth-child(1) { border-color: rgba(0,255,100,0.9); box-shadow: 0 0 8px rgba(0,255,100,0.3); }
+.ariaLoader.math .alFace        { border-color: rgba(255,220,0,0.5); background: rgba(255,220,0,0.03); }
+.ariaLoader.math .alFace:nth-child(1) { border-color: rgba(255,220,0,0.9); box-shadow: 0 0 8px rgba(255,220,0,0.3); }
+.ariaLoader.code .alFace        { border-color: rgba(100,255,180,0.5); background: rgba(100,255,180,0.03); }
+.ariaLoader.code .alFace:nth-child(1) { border-color: rgba(100,255,180,0.9); box-shadow: 0 0 8px rgba(100,255,180,0.3); }
+.ariaLoader.rag .alFace         { border-color: rgba(255,100,180,0.5); }
+.ariaLoader.rag .alFace:nth-child(1) { border-color: rgba(255,100,180,0.9); box-shadow: 0 0 8px rgba(255,100,180,0.3); }
+
+/* Face icons */
+.alFace .alFaceIcon {
+  opacity: 0.4;
+  font-size: 11px;
+  pointer-events: none;
+}
+
+/* ── Spin animations ── */
+@keyframes alSpin {
+  0%   { transform: rotateX(0deg)   rotateY(0deg);   }
+  100% { transform: rotateX(360deg) rotateY(360deg); }
+}
+@keyframes alSpinClaw {
+  0%   { transform: rotateX(20deg) rotateY(0deg); }
+  100% { transform: rotateX(20deg) rotateY(360deg); }
+}
+@keyframes alSpinWobble {
+  0%   { transform: rotateX(0deg)   rotateY(0deg)   rotateZ(0deg); }
+  25%  { transform: rotateX(20deg)  rotateY(90deg)  rotateZ(5deg); }
+  50%  { transform: rotateX(0deg)   rotateY(180deg) rotateZ(0deg); }
+  75%  { transform: rotateX(-20deg) rotateY(270deg) rotateZ(-5deg); }
+  100% { transform: rotateX(0deg)   rotateY(360deg) rotateZ(0deg); }
+}
+@keyframes alSpinSearch {
+  0%   { transform: rotateY(0deg) rotateX(15deg); }
+  100% { transform: rotateY(360deg) rotateX(15deg); }
+}
+@keyframes alSpinDown {
+  0%   { transform: rotateX(var(--last-rx, 0deg)) rotateY(var(--last-ry, 0deg)) scale(1); opacity: 1; }
+  100% { transform: rotateX(var(--last-rx, 0deg)) rotateY(var(--last-ry, 0deg)) scale(0); opacity: 0; }
+}
+
+/* ── Text panel ── */
+.alText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 160px;
+}
+.alTaskLabel {
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 8px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--red-core, #ff2040);
+  text-shadow: 0 0 8px rgba(255,32,64,0.5);
+  transition: color 0.4s;
+  white-space: nowrap;
+}
+.ariaLoader.search .alTaskLabel  { color: #00c8ff; text-shadow: 0 0 8px rgba(0,200,255,0.5); }
+.ariaLoader.claw   .alTaskLabel  { color: #ff9600; text-shadow: 0 0 8px rgba(255,150,0,0.5); }
+.ariaLoader.image  .alTaskLabel  { color: #b400ff; text-shadow: 0 0 8px rgba(180,0,255,0.5); }
+.ariaLoader.files  .alTaskLabel  { color: #00ff64; text-shadow: 0 0 8px rgba(0,255,100,0.5); }
+.ariaLoader.math   .alTaskLabel  { color: #ffdc00; text-shadow: 0 0 8px rgba(255,220,0,0.5); }
+.ariaLoader.code   .alTaskLabel  { color: #64ffb4; text-shadow: 0 0 8px rgba(100,255,180,0.5); }
+.ariaLoader.rag    .alTaskLabel  { color: #ff64b4; text-shadow: 0 0 8px rgba(255,100,180,0.5); }
+
+.alStatus {
+  font-family: "Share Tech Mono", "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: var(--text-blaze, #fff);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+.alSubtext {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  color: var(--text-muted, #553333);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+/* Typewriter effect on status text */
+.alStatus.typing {
+  animation: alTypeIn 0.3s steps(16) forwards;
+  overflow: hidden;
+  white-space: nowrap;
+}
+@keyframes alTypeIn {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0% 0 0); }
+}
+
+/* ── Progress dots (replaces old bouncing dots) ── */
+.alDots {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+.alDot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.3;
+  animation: alDotPulse 1.6s ease-in-out infinite;
+}
+.alDot:nth-child(2) { animation-delay: 0.2s; }
+.alDot:nth-child(3) { animation-delay: 0.4s; }
+.alDot:nth-child(4) { animation-delay: 0.6s; }
+.alDot:nth-child(5) { animation-delay: 0.8s; }
+@keyframes alDotPulse {
+  0%, 80%, 100% { opacity: 0.15; transform: scale(0.8); }
+  40%           { opacity: 1;    transform: scale(1.2); }
+}
+.ariaLoader.claw   .alDot { color: #ff9600; }
+.ariaLoader.search .alDot { color: #00c8ff; }
+.ariaLoader.image  .alDot { color: #b400ff; }
+.ariaLoader.files  .alDot { color: #00ff64; }
+.ariaLoader.math   .alDot { color: #ffdc00; }
+.ariaLoader.code   .alDot { color: #64ffb4; }
+.ariaLoader.rag    .alDot { color: #ff64b4; }
+
+/* ── Click interaction ripple ── */
+.alRipple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255,32,64,0.3);
+  transform: scale(0);
+  animation: alRippleOut 0.5s ease-out forwards;
+  pointer-events: none;
+  width: 60px;
+  height: 60px;
+  top: 50%;
+  left: 20px;
+  margin-top: -30px;
+  margin-left: -30px;
+}
+@keyframes alRippleOut {
+  to { transform: scale(3); opacity: 0; }
+}
+
+/* ── Interaction popup ── */
+.alPopup {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  background: var(--bg-panel, #080808);
+  border: 1px solid var(--red-core, #ff2040);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  color: var(--text-blaze, #fff);
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.6), 0 0 12px rgba(255,32,64,0.2);
+  animation: alPopupIn 0.15s ease-out;
+  z-index: 100;
+  max-width: 300px;
+  white-space: normal;
+  line-height: 1.5;
+}
+.alPopup::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 24px;
+  border: 5px solid transparent;
+  border-top-color: var(--red-core, #ff2040);
+}
+@keyframes alPopupIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Wrapper: hide old typing indicator children we replace ── */
+.ariaLoader + .typingDots { display: none; }

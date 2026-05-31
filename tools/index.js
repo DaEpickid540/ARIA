@@ -23,6 +23,7 @@ function saveJSON(file, data) {
   try { fs.writeFileSync(file, JSON.stringify(data, null, 2)); } catch {}
 }
 
+
 /* ============================================================
    CALC — safe math evaluator with strict input validation
    ============================================================ */

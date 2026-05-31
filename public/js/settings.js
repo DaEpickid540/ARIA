@@ -1284,3 +1284,57 @@ window.addEventListener("DOMContentLoaded", async () => {
     applySavedTheme();
   } catch {}
 });
+
+/* ── Skills settings tab ── */
+async function initSettingsSkillsList() {
+  const el = document.getElementById("settingsSkillsList");
+  if (!el) return;
+  try {
+    const data = await fetch("/api/skills").then(r => r.json());
+    if (!data.skills?.length) {
+      el.innerHTML = '<p style="color:var(--text-muted);font-size:11px">No skills installed yet.</p>';
+      return;
+    }
+    el.innerHTML = data.skills.map(s => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-cut)">
+        <div style="flex:1">
+          <div style="font-size:13px;color:${s.active ? "var(--red-core)" : "var(--text-blaze)"}">
+            ${s.name} <span style="font-size:9px;color:var(--text-muted)">${s.location}</span>
+          </div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${String(s.description).slice(0,90)}</div>
+        </div>
+        <button
+          onclick="fetch('/api/skills/${s.id}/toggle',{method:'POST'}).then(()=>initSettingsSkillsList())"
+          style="padding:4px 10px;background:${s.active ? "var(--red-core)" : "transparent"};border:1px solid ${s.active ? "var(--red-core)" : "var(--border-cut)"};border-radius:var(--radius-sm);color:${s.active ? "var(--bg-void)" : "var(--text-muted)"};font-size:10px;cursor:pointer;font-family:var(--font-mono)">
+          ${s.active ? "ON" : "OFF"}
+        </button>
+      </div>`).join("");
+  } catch {
+    el.innerHTML = '<p style="color:#ff4444;font-size:11px">Failed to load skills.</p>';
+  }
+}
+
+/* ── Last briefing preview ── */
+document.getElementById("showLastBriefingBtn")?.addEventListener("click", async () => {
+  const preview = document.getElementById("lastBriefingPreview");
+  if (!preview) return;
+  try {
+    const data = await fetch("/api/briefing/last").then(r => r.json());
+    if (data.briefing) {
+      preview.style.display = "block";
+      preview.innerHTML = `<div style="background:var(--bg-abyss);border:1px solid var(--border-cut);border-radius:var(--radius-sm);padding:12px;max-height:200px;overflow-y:auto;white-space:pre-wrap">${String(data.briefing.text).replace(/</g, "&lt;")}</div><div style="font-size:10px;color:var(--text-dim);margin-top:4px">Generated ${new Date(data.briefing.generatedAt).toLocaleString()}</div>`;
+    } else {
+      preview.style.display = "block";
+      preview.textContent = "No briefing generated yet. Click 'Trigger Now'.";
+    }
+  } catch { preview.style.display = "block"; preview.textContent = "Failed to load."; }
+});
+
+// Auto-init skills list when settings opens
+window.addEventListener("DOMContentLoaded", () => {
+  setTimeout(initSettingsSkillsList, 2000);
+});
+// Refresh when skills tab is clicked
+document.addEventListener("click", e => {
+  if (e.target.matches("[data-tab='skills']")) setTimeout(initSettingsSkillsList, 100);
+});

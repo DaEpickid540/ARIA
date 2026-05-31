@@ -547,20 +547,27 @@ export function initNetworkInfo() {
 export async function initBgTasksPreview() {
   const el = document.getElementById("homeBgTasks");
   if (!el) return;
+  const STATUS_DOT = {
+    running: "#4cff4c", planning: "#888ee0", paused: "#ffaa44",
+    scheduled: "#80c0ff", done: "#4cff4c", error: "#ff4444",
+    cancelled: "#888888", awaiting_approval: "#ffc107",
+  };
   const refresh = async () => {
     try {
-      const tasks = await (await fetch("/api/background")).json();
-      el.innerHTML = tasks.length
-        ? tasks
-            .slice(0, 4)
-            .map(
-              (t) => `
+      const res = await fetch("/api/tasks");
+      const data = await res.json();
+      const tasks = data.tasks || [];
+      const active = tasks.filter(t => !["done","cancelled"].includes(t.status));
+      const recent = tasks.filter(t => t.status === "done").slice(0, 2);
+      const display = [...active, ...recent].slice(0, 4);
+      el.innerHTML = display.length
+        ? display.map(t => `
           <div class="hwListItem">
-            <span style="color:${t.status === "done" ? "#00ff88" : t.status === "error" ? "#ff4444" : "var(--red-neon)"}">●</span>
-            ${t.task.length > 35 ? t.task.slice(0, 35) + "…" : t.task} <span style="color:var(--text-muted);font-size:9px">${t.status}</span>
-          </div>`,
-            )
-            .join("")
+            <span style="color:${STATUS_DOT[t.status] || "#888"}">●</span>
+            ${(t.title || t.description || "").slice(0, 36)}${(t.title || "").length > 36 ? "…" : ""}
+            <span style="color:var(--text-muted);font-size:9px">${t.status}</span>
+            ${t.steps?.length ? `<span style="color:var(--text-dim);font-size:9px">${t.steps.filter(s=>s.status==="done").length}/${t.steps.length}</span>` : ""}
+          </div>`).join("")
         : `<span class="hwEmpty">No active tasks.</span>`;
     } catch {
       el.innerHTML = `<span class="hwEmpty">Server unavailable.</span>`;
