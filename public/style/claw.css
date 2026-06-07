@@ -172,10 +172,14 @@
 /* ── Tab content wrapper ── */
 .clawTabContent {
   flex: 1;
-  display: flex;
+  display: none;
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+}
+.clawTabContent[style*="display: flex"],
+#clawTab-control {
+  display: flex;
 }
 
 /* ══════════════════════════════════════

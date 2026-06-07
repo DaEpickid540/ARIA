@@ -31,7 +31,7 @@
 // The ESP32 will scan and connect to whichever is in range.
 struct WifiNet { const char* ssid; const char* pass; };
 static const WifiNet WIFI_NETWORKS[] = {
-  { "home-wifi",          "" },   // home
+  { "Sarvin",          "tabletdomain540" },   // home
   { "school-wifi",      ""               },   // school (open network — leave pass blank)
   // add more here:
   // { "YourSSID",     "YourPassword"   },
@@ -298,6 +298,27 @@ void ariaHeartbeat() {
   h.end();
 }
 
+// ── Mouse position tracking (absolute coords, estimated) ────────
+// HID only supports relative motion so we track where we think the
+// cursor is and compute deltas. Starts at screen center.
+static int curX = SCREEN_W / 2;
+static int curY  = SCREEN_H / 2;
+
+void mouseMoveTo(int targetX, int targetY) {
+  int dx = targetX - curX;
+  int dy = targetY - curY;
+  while (dx || dy) {
+    int sx = constrain(dx, -127, 127);
+    int sy = constrain(dy, -127, 127);
+    msR[0] = 0; msR[1] = (int8_t)sx; msR[2] = (int8_t)sy; msR[3] = 0;
+    msSend();
+    dx -= sx; dy -= sy;
+    delay(4);
+  }
+  curX = targetX;
+  curY = targetY;
+}
+
 // ── Execute command ────────────────────────────────────────────
 String execCmd(JsonObject cmd) {
   String t = cmd["type"] | "?";
@@ -360,27 +381,6 @@ String execCmd(JsonObject cmd) {
     kbClear(); memset(msR,0,4); if(bleOK) msSend();
     return F("released");
   }
-
-// Move mouse to an absolute screen position by sending relative steps.
-// HID mouse only supports relative motion, so we nudge in chunks.
-// curX/curY track our estimated position (starts at screen center).
-static int curX = SCREEN_W / 2;
-static int curY = SCREEN_H / 2;
-
-void mouseMoveTo(int targetX, int targetY) {
-  int dx = targetX - curX;
-  int dy = targetY - curY;
-  while (dx || dy) {
-    int sx = constrain(dx, -127, 127);
-    int sy = constrain(dy, -127, 127);
-    msR[0] = 0; msR[1] = (int8_t)sx; msR[2] = (int8_t)sy; msR[3] = 0;
-    msSend();
-    dx -= sx; dy -= sy;
-    delay(4); // small yield between chunks
-  }
-  curX = targetX;
-  curY = targetY;
-}
 
   if(t=="mouse_move"||t=="move") {
     if(!bleOK) return F("ble_nc");
@@ -486,19 +486,28 @@ void mouseMoveTo(int targetX, int targetY) {
   }
 
   // ── Screenshot ────────────────────────────────────────────────
-  // On ChromeOS:  Ctrl+Show Windows (F5)  →  saves PNG to ~/Downloads + clipboard
-  // On Windows/Linux the companion watcher handles upload; we just fire the shortcut.
+  // Sends the correct shortcut for the target OS.
+  //   Windows:   Win + PrtSc  (saves to ~/Pictures/Screenshots)
+  //   Mac:       Cmd + Shift + 3
+  //   ChromeOS:  Ctrl + Show-Windows (F5)
+  // The ARIA Screenshot Watcher companion picks up the saved file and uploads it.
   if(t=="screenshot") {
     if(!bleOK) return F("ble_nc");
-    // ChromeOS: Ctrl + Show Windows key (HID keycode 0x3E = F5, which is Show Windows on Chromebooks)
-    // This saves a screenshot to Downloads AND copies to clipboard.
-    // The ARIA Screenshot Watcher companion will pick it up and POST it to the server.
-    kbR[0]=M_LCTRL; memset(kbR+2,0,6);
-    kbR[2]=0x3E; // F5 / Show Windows on ChromeOS
-    kbSend();
-    delay(80);
-    kbClear();
-    // Notify ARIA server that a screenshot was triggered (companion watcher will upload the actual image)
+    String os = cmd["os"] | "windows"; // server tells us OS from relay registration
+    os.toLowerCase();
+    if(os=="chromeos"||os=="chrome") {
+      // Ctrl + Show Windows (0x3E)
+      kbR[0]=M_LCTRL; memset(kbR+2,0,6); kbR[2]=0x3E;
+      kbSend(); delay(80); kbClear();
+    } else if(os=="darwin"||os=="mac") {
+      // Cmd + Shift + 3
+      kbR[0]=M_LGUI|M_LSHIFT; memset(kbR+2,0,6); kbR[2]=0x20; // 3 = 0x20
+      kbSend(); delay(80); kbClear();
+    } else {
+      // Windows: Win + PrtSc (saves file without dialog)
+      kbR[0]=M_LGUI; memset(kbR+2,0,6); kbR[2]=K_PRTSC;
+      kbSend(); delay(80); kbClear();
+    }
     ariaResult(String(cmd["id"]|"0").c_str(), "screenshot_triggered");
     return F("screenshot_triggered");
   }
@@ -550,7 +559,7 @@ bool ledSt=false;
 void setup() {
   Serial.begin(115200);
   pinMode(LED_BUILTIN,OUTPUT);
-  Serial.println(F("[ARIA] CLAW v2.1 starting"));
+  Serial.println(F("[ARIA] CLAW v2.2 starting"));
   bleInit();
   wifiConnect();
   for(int i=0;!registered&&i<5;i++){ registered=ariaRegister(); if(!registered)delay(2000); }

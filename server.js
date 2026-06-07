@@ -13,9 +13,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ── Tunables ──────────────────────────────────────────────────
-const MAX_HISTORY = 20;          // chat turns kept in context
+const MAX_HISTORY = 20; // chat turns kept in context
 const REQUEST_LOG_ENABLED = true;
-const DEBOUNCE_WRITE_MS = 500;   // batch JSON writes
+const DEBOUNCE_WRITE_MS = 500; // batch JSON writes
 const CHATS_MAX_SIZE = 5 * 1024 * 1024; // soft cap before truncating oldest chats
 
 app.use(express.json({ limit: "50mb" }));
@@ -35,7 +35,11 @@ if (REQUEST_LOG_ENABLED) {
         req.path === "/api/link/heartbeat";
       if (noisy && res.statusCode < 400) return;
       const color =
-        res.statusCode >= 500 ? "\x1b[31m" : res.statusCode >= 400 ? "\x1b[33m" : "\x1b[36m";
+        res.statusCode >= 500
+          ? "\x1b[31m"
+          : res.statusCode >= 400
+          ? "\x1b[33m"
+          : "\x1b[36m";
       console.log(
         `${color}${req.method}\x1b[0m ${req.path} ${color}${res.statusCode}\x1b[0m ${ms}ms`,
       );
@@ -57,35 +61,58 @@ try {
 /* ── dirs + persistence ── */
 const DATA_DIR = path.join(__dirname, "data");
 const CHATS_FILE = path.join(DATA_DIR, "chats.json");
-const MEM_FILE   = path.join(DATA_DIR, "memory.json");
+const MEM_FILE = path.join(DATA_DIR, "memory.json");
 [DATA_DIR, path.join(__dirname, "public", "uploads")].forEach((d) => {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 });
 
 function readJSON(f, fallback) {
-  try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return fallback; }
+  try {
+    return JSON.parse(fs.readFileSync(f, "utf8"));
+  } catch {
+    return fallback;
+  }
 }
 function writeJSON(f, d) {
   try {
     const tmp = f + ".tmp";
     fs.writeFileSync(tmp, JSON.stringify(d, null, 2));
     fs.renameSync(tmp, f);
-  } catch (e) { console.warn(`[FS] write ${path.basename(f)} failed:`, e.message); }
+  } catch (e) {
+    console.warn(`[FS] write ${path.basename(f)} failed:`, e.message);
+  }
 }
 const _writeTimers = new Map();
 function writeJSONDebounced(f, d) {
   if (_writeTimers.has(f)) clearTimeout(_writeTimers.get(f));
-  _writeTimers.set(f, setTimeout(() => { writeJSON(f, d); _writeTimers.delete(f); }, DEBOUNCE_WRITE_MS));
+  _writeTimers.set(
+    f,
+    setTimeout(() => {
+      writeJSON(f, d);
+      _writeTimers.delete(f);
+    }, DEBOUNCE_WRITE_MS),
+  );
 }
 
 process.on("SIGTERM", flushPendingWrites);
-process.on("SIGINT", () => { flushPendingWrites(); process.exit(0); });
+process.on("SIGINT", () => {
+  flushPendingWrites();
+  process.exit(0);
+});
 function flushPendingWrites() {
   for (const [, t] of _writeTimers) clearTimeout(t);
-  try { writeJSON(CHATS_FILE, userChats); } catch {}
-  try { writeJSON(MEM_FILE, ariaMemory); } catch {}
-  try { rag.flushSync(); } catch {}
-  try { taskEngine.flushSync(); } catch {}
+  try {
+    writeJSON(CHATS_FILE, userChats);
+  } catch {}
+  try {
+    writeJSON(MEM_FILE, ariaMemory);
+  } catch {}
+  try {
+    rag.flushSync();
+  } catch {}
+  try {
+    taskEngine.flushSync();
+  } catch {}
 }
 
 let userChats = readJSON(CHATS_FILE, {});
@@ -371,11 +398,22 @@ function buildMemoryContext() {
 const BEHAVIOUR_FILE = path.join(DATA_DIR, "behaviour.json");
 
 function loadBehaviour() {
-  try { return JSON.parse(fs.readFileSync(BEHAVIOUR_FILE, "utf8")); }
-  catch { return { version: 1, positives: [], negatives: [], rules: [], trainingData: [] }; }
+  try {
+    return JSON.parse(fs.readFileSync(BEHAVIOUR_FILE, "utf8"));
+  } catch {
+    return {
+      version: 1,
+      positives: [],
+      negatives: [],
+      rules: [],
+      trainingData: [],
+    };
+  }
 }
 function saveBehaviour(b) {
-  try { fs.writeFileSync(BEHAVIOUR_FILE, JSON.stringify(b, null, 2)); } catch {}
+  try {
+    fs.writeFileSync(BEHAVIOUR_FILE, JSON.stringify(b, null, 2));
+  } catch {}
 }
 
 let ariaBehaviour = loadBehaviour();
@@ -644,8 +682,16 @@ async function runAgenticPipeline(
 
             if (screenshotB64) {
               // Inject screenshot as a vision message so the AI can see the screen
-              const b64Data = screenshotB64.replace(/^data:image\/\w+;base64,/, "");
-              steps.push({ tool: "claw", input: "screenshot", preText, result: "[screenshot captured]" });
+              const b64Data = screenshotB64.replace(
+                /^data:image\/\w+;base64,/,
+                "",
+              );
+              steps.push({
+                tool: "claw",
+                input: "screenshot",
+                preText,
+                result: "[screenshot captured]",
+              });
               currentMessages = [
                 ...currentMessages,
                 { role: "assistant", content: rawReply },
@@ -654,24 +700,35 @@ async function runAgenticPipeline(
                   content: [
                     {
                       type: "image",
-                      source: { type: "base64", media_type: "image/png", data: b64Data },
+                      source: {
+                        type: "base64",
+                        media_type: "image/png",
+                        data: b64Data,
+                      },
                     },
                     {
                       type: "text",
-                      text: "[CLAW RESULT]: Screenshot captured. Analyze this screen and continue your task.",
+                      text:
+                        "[CLAW RESULT]: Screenshot captured. Analyze this screen and continue your task.",
                     },
                   ],
                 },
               ];
             } else {
               // Timed out — tell AI no image arrived
-              steps.push({ tool: "claw", input: "screenshot", preText, result: "screenshot_timeout" });
+              steps.push({
+                tool: "claw",
+                input: "screenshot",
+                preText,
+                result: "screenshot_timeout",
+              });
               currentMessages = [
                 ...currentMessages,
                 { role: "assistant", content: rawReply },
                 {
                   role: "user",
-                  content: "[CLAW RESULT]: Screenshot was triggered but no image arrived (is the ARIA Screenshot Watcher running on the target machine?). Continue without visual context.",
+                  content:
+                    "[CLAW RESULT]: Screenshot was triggered but no image arrived (is the ARIA Screenshot Watcher running on the target machine?). Continue without visual context.",
                 },
               ];
             }
@@ -681,7 +738,8 @@ async function runAgenticPipeline(
           if (!clawQueue.has(tid)) clawQueue.set(tid, []);
           clawQueue.get(tid).push(cmd);
           // If macro recording is active, capture this command
-          if (_macroRecording && cmd.type !== "wait") _macroBuffer.push({ ...cmd });
+          if (_macroRecording && cmd.type !== "wait")
+            _macroBuffer.push({ ...cmd });
           const desc = cmd.cmd || cmd.text || cmd.app || cmd.url || cmd.type;
           clawResult =
             "✓ Queued [" + cmd.type + "]: " + String(desc).slice(0, 60);
@@ -1184,7 +1242,10 @@ User's request:
 ${description}`;
   const result = await runAgenticPipeline(
     [
-      { role: "system", content: "You are a precise task planner. Output only valid JSON." },
+      {
+        role: "system",
+        content: "You are a precise task planner. Output only valid JSON.",
+      },
       { role: "user", content: planningPrompt },
     ],
     opts.provider || "openrouter",
@@ -1209,7 +1270,10 @@ async function runTaskStep(task, step, prevOutputs) {
     contextSection =
       "\n\n[PREVIOUS STEP OUTPUTS in this task — use as context]\n" +
       prevOutputs
-        .map((p, i) => `Step ${i + 1} (${p.title}):\n${String(p.output).slice(0, 2000)}`)
+        .map(
+          (p, i) =>
+            `Step ${i + 1} (${p.title}):\n${String(p.output).slice(0, 2000)}`,
+        )
         .join("\n\n---\n\n");
   }
 
@@ -1217,7 +1281,11 @@ async function runTaskStep(task, step, prevOutputs) {
     (BASE_PROMPTS[task.personality] || BASE_PROMPTS.hacker) +
     TOOL_SYSTEM +
     buildMemoryContext() +
-    `\n\n[BACKGROUND TASK MODE]\nYou are executing step ${task.currentStep + 1} of ${task.steps.length} in a larger task.\nOverall task: "${task.description}"\nThis step: "${step.title}" — ${step.description}` +
+    `\n\n[BACKGROUND TASK MODE]\nYou are executing step ${
+      task.currentStep + 1
+    } of ${task.steps.length} in a larger task.\nOverall task: "${
+      task.description
+    }"\nThis step: "${step.title}" — ${step.description}` +
     contextSection +
     `\n\nFocus only on this step. Produce a complete, self-contained result for it.`;
 
@@ -1239,8 +1307,15 @@ taskEngine.configure({ planner: planTask, stepRunner: runTaskStep });
 // ── REST endpoints ─────────────────────────────────────────────
 app.post("/api/tasks/create", async (req, res) => {
   try {
-    const { description, title, personality, provider, schedule, autoExecute, contextChatId } =
-      req.body;
+    const {
+      description,
+      title,
+      personality,
+      provider,
+      schedule,
+      autoExecute,
+      contextChatId,
+    } = req.body;
     const task = await taskEngine.createTask(description, {
       title,
       personality,
@@ -1299,7 +1374,9 @@ app.get("/api/tasks/subscribe", (req, res) => {
   res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
   taskEngine.addSubscriber(res);
   const ping = setInterval(() => {
-    try { res.write(": ping\n\n"); } catch {}
+    try {
+      res.write(": ping\n\n");
+    } catch {}
   }, 25000);
   req.on("close", () => {
     clearInterval(ping);
@@ -1313,7 +1390,10 @@ app.post("/api/background", async (req, res) => {
   const { task: description, provider, personality } = req.body;
   if (!description) return res.json({ error: "No task provided" });
   try {
-    const t = await taskEngine.createTask(description, { provider, personality });
+    const t = await taskEngine.createTask(description, {
+      provider,
+      personality,
+    });
     res.json({ id: t.id, status: "started" });
   } catch (e) {
     res.json({ error: e.message });
@@ -1326,7 +1406,8 @@ app.get("/api/background/:id", (req, res) => {
   res.json({
     id: t.id,
     task: t.description,
-    status: t.status === "done" ? "done" : t.status === "error" ? "error" : "running",
+    status:
+      t.status === "done" ? "done" : t.status === "error" ? "error" : "running",
     started: t.created,
     result: t.result,
     steps: t.steps,
@@ -1342,7 +1423,6 @@ app.get("/api/background", (_, res) => {
     })),
   );
 });
-
 
 /* ============================================================
    SMART THINKING AUTO-DETECTION
@@ -1436,33 +1516,40 @@ app.post("/api/chat", async (req, res) => {
 
   // Auto-decide thinking: explicit toggle OR auto-detected complex message
   // Skip thinking for very short/simple conversational turns — no need to reason through "hi"
-  const trivialMsg = message.trim().split(/\s+/).length <= 5 &&
-    !/code|write|explain|fix|debug|build|create|how|why|what|help|calc|solve|analyze|review|compare|list|plan|summarize|translate|generate/i.test(message);
+  const trivialMsg =
+    message.trim().split(/\s+/).length <= 5 &&
+    !/code|write|explain|fix|debug|build|create|how|why|what|help|calc|solve|analyze|review|compare|list|plan|summarize|translate|generate/i.test(
+      message,
+    );
   const shouldThink = !trivialMsg;
 
   if (shouldThink) {
     sysPrompt += `
 
-[CHAIN-OF-THOUGHT — STRUCTURED]
-Think through this step by step inside <think> tags. Use this exact format:
+[REASONING]
+Before answering, think inside <think>...</think> tags. Reason freely — no rigid structure.
 
-<think>
-[STEP 1 — UNDERSTAND]: What is the user actually asking? Restate it precisely.
-[STEP 2 — CONTEXT]: What do I know that's relevant? What assumptions am I making?
-[STEP 3 — APPROACH]: What's my strategy? Why is it better than alternatives?
-[STEP 4 — WORK]: Reason through the problem. Show your work. Be explicit.
-[STEP 5 — CHECK]: Does my answer hold up? Edge cases? Could I be wrong?
-</think>
+Use → to mark each distinct thought as you work through the problem:
+→ like this for each insight, question, or decision point
 
-Then write your final response after </think>.
+Think like a smart person reasoning out loud. A good reasoning chain:
+- Questions what's actually being asked (not just the surface request)
+- Pulls in relevant context, memory, prior knowledge
+- Tries an approach, notices flaws, adjusts
+- Considers edge cases and failure modes
+- Asks "what am I missing?" and "where could I be wrong?"
+- Revises until genuinely confident
+
+Target 15-20 distinct → thoughts. More is fine. The depth of your reasoning directly determines the quality of your answer.
+
 Rules:
-- ZERO text before <think>. Not even a space.
-- The steps are thinking tokens — don't repeat them verbatim in your answer.
-- Your answer should be richer and more accurate BECAUSE you thought. Not longer for its own sake.
-- If you verify code/math in [STEP 5], explicitly say what you checked.`;
+- Zero text before <think>. Not even whitespace.
+- Think in first person, conversationally, honestly
+- The → markers are your thinking — don't repeat them in your answer
+- Your answer after </think> should be richer because you thought, not just longer
+- Short answers are fine when that's genuinely correct`;
   }
 
-  // Extended reasoning for very complex requests (long messages or explicit ask)
   if (
     message.split(/\s+/).length > 30 ||
     /\b(deeply|thoroughly|comprehensive|in depth|step by step|think through|explain everything)\b/i.test(
@@ -1471,15 +1558,15 @@ Rules:
   ) {
     sysPrompt += `
 
-[THINK DEEPER — EXTENDED]
-You have maximum reasoning budget. Add these inside your <think> block after STEP 5:
+[EXTENDED REASONING]
+This is a complex request. Push further inside your <think> block:
+→ explore alternative approaches and why you're not taking them
+→ steelman the opposing view or a competing solution
+→ find the weakest point in your own answer and address it
+→ what would an expert in this specific domain add?
+→ what's the simplest possible correct answer, and is your answer unnecessarily complex?
 
-[STEP 6 — ALTERNATIVES]: 2-3 other valid approaches I didn't take, and why I didn't.
-[STEP 7 — CRITIQUE]: What's wrong with my answer? Devil's advocate.
-[STEP 8 — REVISED]: Revise based on critique. Is my answer still right?
-[STEP 9 — CONFIDENCE]: How sure am I? What would change my answer?
-
-Your final response: comprehensive, structured with headers, code examples, min 3x length.`;
+Aim for 25-30 → thoughts total. Your final response: comprehensive, well-structured, thorough.`;
   }
 
   if (musicTutorMode) {
@@ -1561,7 +1648,11 @@ Active GitHub repo: ${workspaceRepo}
             const summaryMsgs = [
               {
                 role: "system",
-                content: `Summarize the following conversation segment concisely (max 300 words). Capture key facts, decisions, code written, and anything the user would want ARIA to remember.${prevSummary ? `\n\nExisting summary to extend:\n${prevSummary}` : ""}`,
+                content: `Summarize the following conversation segment concisely (max 300 words). Capture key facts, decisions, code written, and anything the user would want ARIA to remember.${
+                  prevSummary
+                    ? `\n\nExisting summary to extend:\n${prevSummary}`
+                    : ""
+                }`,
               },
               ...toSummarize.slice(-30), // cap at 30 msgs to summarize at once
               { role: "user", content: "Provide the summary now." },
@@ -1668,10 +1759,24 @@ Active GitHub repo: ${workspaceRepo}
         // RAG indexing — fire and forget
         const _chatId = req.body.chatId || "default";
         if (message.length >= 30) {
-          rag.addEntry("chat", message, { chatId: _chatId, role: "user", timestamp: Date.now() }, generateEmbedding).catch(() => {});
+          rag
+            .addEntry(
+              "chat",
+              message,
+              { chatId: _chatId, role: "user", timestamp: Date.now() },
+              generateEmbedding,
+            )
+            .catch(() => {});
         }
         if (full.length >= 30) {
-          rag.addEntry("chat", full, { chatId: _chatId, role: "assistant", timestamp: Date.now() }, generateEmbedding).catch(() => {});
+          rag
+            .addEntry(
+              "chat",
+              full,
+              { chatId: _chatId, role: "assistant", timestamp: Date.now() },
+              generateEmbedding,
+            )
+            .catch(() => {});
         }
         // If the streamed reply contains an ACTION, run the agentic pipeline
         // to resolve tool calls and stream the final result
@@ -1680,7 +1785,10 @@ Active GitHub repo: ${workspaceRepo}
         );
         if (actionCheck) {
           res.write(
-            `data: ${JSON.stringify({ step: true, msg: "Running tools…" })}\n\n`,
+            `data: ${JSON.stringify({
+              step: true,
+              msg: "Running tools…",
+            })}\n\n`,
           );
           try {
             const agentMessages2 = [
@@ -1696,7 +1804,10 @@ Active GitHub repo: ${workspaceRepo}
               { mathMode, programmingMode, thinkDeeper: false, musicTutorMode },
             );
             res.write(
-              `data: ${JSON.stringify({ done: true, full: pipeResult.reply })}\n\n`,
+              `data: ${JSON.stringify({
+                done: true,
+                full: pipeResult.reply,
+              })}\n\n`,
             );
           } catch {
             res.write(`data: ${JSON.stringify({ done: true, full })}\n\n`);
@@ -1744,10 +1855,24 @@ Active GitHub repo: ${workspaceRepo}
     // Fire and forget — failures don't affect the user.
     const chatId = req.body.chatId || "default";
     if (message.length >= 30) {
-      rag.addEntry("chat", message, { chatId, role: "user", timestamp: Date.now() }, generateEmbedding).catch(() => {});
+      rag
+        .addEntry(
+          "chat",
+          message,
+          { chatId, role: "user", timestamp: Date.now() },
+          generateEmbedding,
+        )
+        .catch(() => {});
     }
     if (result.reply && result.reply.length >= 30) {
-      rag.addEntry("chat", result.reply, { chatId, role: "assistant", timestamp: Date.now() }, generateEmbedding).catch(() => {});
+      rag
+        .addEntry(
+          "chat",
+          result.reply,
+          { chatId, role: "assistant", timestamp: Date.now() },
+          generateEmbedding,
+        )
+        .catch(() => {});
     }
   } catch (err) {
     console.error("[AI]", err.message);
@@ -1979,7 +2104,8 @@ app.post("/api/rag/add", async (req, res) => {
     );
     if (!id)
       return res.status(503).json({
-        error: "Embeddings unavailable (Cloudflare keys missing or empty input).",
+        error:
+          "Embeddings unavailable (Cloudflare keys missing or empty input).",
       });
     res.json({ ok: true, id });
   } catch (e) {
@@ -1992,7 +2118,9 @@ app.post("/api/rag/ingest", async (req, res) => {
   const { text, source, namespace = "training", meta = {}, replace } = req.body;
   if (!text) return res.status(400).json({ error: "No text provided." });
   if (!source)
-    return res.status(400).json({ error: "Source name required (for dedupe)." });
+    return res
+      .status(400)
+      .json({ error: "Source name required (for dedupe)." });
   try {
     if (replace) rag.deleteEntries({ source });
     else if (rag.isSourceIngested(source)) {
@@ -2186,10 +2314,17 @@ const _syncSubscribers = new Map(); // userId → Set<{res, deviceId}>
 function broadcastChatSync(userId, sourceDeviceId) {
   const subs = _syncSubscribers.get(userId);
   if (!subs) return;
-  const payload = `data: ${JSON.stringify({ type: "chats_updated", userId, sourceDeviceId, at: Date.now() })}\n\n`;
+  const payload = `data: ${JSON.stringify({
+    type: "chats_updated",
+    userId,
+    sourceDeviceId,
+    at: Date.now(),
+  })}\n\n`;
   for (const sub of subs) {
     if (sub.deviceId === sourceDeviceId) continue; // don't echo to sender
-    try { sub.res.write(payload); } catch {}
+    try {
+      sub.res.write(payload);
+    } catch {}
   }
 }
 
@@ -2201,7 +2336,9 @@ app.get("/api/sync/subscribe", (req, res) => {
     Connection: "keep-alive",
     "X-Accel-Buffering": "no",
   });
-  res.write(`data: ${JSON.stringify({ type: "connected", userId, deviceId })}\n\n`);
+  res.write(
+    `data: ${JSON.stringify({ type: "connected", userId, deviceId })}\n\n`,
+  );
 
   if (!_syncSubscribers.has(userId)) _syncSubscribers.set(userId, new Set());
   const sub = { res, deviceId };
@@ -2209,13 +2346,16 @@ app.get("/api/sync/subscribe", (req, res) => {
 
   // Keep-alive ping every 25s so proxies don't kill the connection
   const ping = setInterval(() => {
-    try { res.write(": ping\n\n"); } catch {}
+    try {
+      res.write(": ping\n\n");
+    } catch {}
   }, 25000);
 
   req.on("close", () => {
     clearInterval(ping);
     _syncSubscribers.get(userId)?.delete(sub);
-    if (_syncSubscribers.get(userId)?.size === 0) _syncSubscribers.delete(userId);
+    if (_syncSubscribers.get(userId)?.size === 0)
+      _syncSubscribers.delete(userId);
   });
 });
 
@@ -2589,10 +2729,15 @@ function nextIotCmdId() {
 }
 
 app.post("/api/devices/register", (req, res) => {
-  const { deviceId, name, type, capabilities = [], firmware, project } =
-    req.body;
-  if (!deviceId)
-    return res.status(400).json({ error: "deviceId required" });
+  const {
+    deviceId,
+    name,
+    type,
+    capabilities = [],
+    firmware,
+    project,
+  } = req.body;
+  if (!deviceId) return res.status(400).json({ error: "deviceId required" });
   const existing = iotDevices.get(deviceId);
   iotDevices.set(deviceId, {
     deviceId,
@@ -2608,7 +2753,9 @@ app.post("/api/devices/register", (req, res) => {
   });
   if (!iotQueue.has(deviceId)) iotQueue.set(deviceId, []);
   console.log(
-    `[IOT] Device registered: ${deviceId} (${type}/${name}) caps:[${capabilities.join(",")}]`,
+    `[IOT] Device registered: ${deviceId} (${type}/${name}) caps:[${capabilities.join(
+      ",",
+    )}]`,
   );
   res.json({ ok: true, deviceId });
 });
@@ -2638,8 +2785,7 @@ app.post("/api/devices/state", (req, res) => {
 app.get("/api/devices/queue", (req, res) => {
   const deviceId = req.query.deviceId;
   if (!deviceId) return res.status(400).json({ error: "deviceId required" });
-  if (iotDevices.has(deviceId))
-    iotDevices.get(deviceId).lastSeen = Date.now();
+  if (iotDevices.has(deviceId)) iotDevices.get(deviceId).lastSeen = Date.now();
   const q = iotQueue.get(deviceId) || [];
   iotQueue.set(deviceId, []);
   res.json({ commands: q });
@@ -2704,7 +2850,11 @@ app.post("/api/claw/relay/heartbeat", (req, res) => {
   if (!deviceId) return res.json({ error: "no_device_id" });
   if (!clawRelays.has(deviceId)) {
     // Tell the client to re-register; server might have restarted
-    return res.json({ ok: false, needsRegister: true, error: "unknown_device" });
+    return res.json({
+      ok: false,
+      needsRegister: true,
+      error: "unknown_device",
+    });
   }
   const relay = clawRelays.get(deviceId);
   relay.lastSeen = Date.now();
@@ -2824,7 +2974,9 @@ app.post("/api/claw", async (req, res) => {
   const liveRelays = [...clawRelays.entries()].filter(
     ([, v]) => Date.now() - v.lastSeen < 20000,
   );
-  const tid = liveRelays[0]?.[0];
+  // Prefer ESP32 if available, otherwise use first relay
+  const esp32Relay = liveRelays.find(([id]) => id.startsWith("esp32"));
+  const tid = esp32Relay?.[0] || liveRelays[0]?.[0];
 
   if (mode === "ai") {
     // AI plans steps then queues them
@@ -2916,7 +3068,9 @@ app.post("/api/claw/confirm", (req, res) => {
   const liveRelays = [...clawRelays.entries()].filter(
     ([, v]) => Date.now() - v.lastSeen < 20000,
   );
-  const tid = liveRelays[0]?.[0];
+  // Prefer ESP32 if available, otherwise use first relay
+  const esp32Relay = liveRelays.find(([id]) => id.startsWith("esp32"));
+  const tid = esp32Relay?.[0] || liveRelays[0]?.[0];
   if (!tid) return res.json({ error: "No relay connected." });
   const cmd = _parseChatClawInput(action);
   if (!clawQueue.has(tid)) clawQueue.set(tid, []);
@@ -3068,8 +3222,15 @@ app.get("/api/briefing/subscribe", (req, res) => {
   });
   res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
   briefingSubscribers.add(res);
-  const ping = setInterval(() => { try { res.write(": ping\n\n"); } catch {} }, 25000);
-  req.on("close", () => { clearInterval(ping); briefingSubscribers.delete(res); });
+  const ping = setInterval(() => {
+    try {
+      res.write(": ping\n\n");
+    } catch {}
+  }, 25000);
+  req.on("close", () => {
+    clearInterval(ping);
+    briefingSubscribers.delete(res);
+  });
 });
 
 // Manual trigger — also callable by front-end button
@@ -3087,13 +3248,20 @@ async function generateBriefing() {
   console.log("[BRIEFING] Generating daily briefing…");
   try {
     // Gather context from available tools
-    const weatherResult = await runToolServer("weather", "").catch(() => "Weather unavailable.");
-    const newsResult = await runToolServer("news", "").catch(() => "News unavailable.");
-    const todoResult = await runToolServer("todo", "list").catch(() => "No tasks.");
-    const memFacts = ariaMemory.facts?.slice(-10).join("; ") || "No recent memories.";
+    const weatherResult = await runToolServer("weather", "").catch(
+      () => "Weather unavailable.",
+    );
+    const newsResult = await runToolServer("news", "").catch(
+      () => "News unavailable.",
+    );
+    const todoResult = await runToolServer("todo", "list").catch(
+      () => "No tasks.",
+    );
+    const memFacts =
+      ariaMemory.facts?.slice(-10).join("; ") || "No recent memories.";
     const tasksResult = taskEngine.listTasks({ status: "running" });
     const runningTasks = tasksResult.length
-      ? tasksResult.map(t => `• ${t.title} (${t.status})`).join("\n")
+      ? tasksResult.map((t) => `• ${t.title} (${t.status})`).join("\n")
       : "No active background tasks.";
 
     const prompt = `You are delivering a morning briefing to Sarvin. Be concise and useful. No fluff.
@@ -3115,13 +3283,20 @@ ${memFacts}
 BACKGROUND TASKS:
 ${runningTasks}
 
-Today is ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}.
+Today is ${new Date().toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    })}.
 
 Deliver a sharp morning briefing. Cover: weather in one sentence, key news items briefly, any open todos for today, any running ARIA tasks. End with one actionable suggestion or motivational note. Max 250 words. Speak directly to Sarvin.`;
 
     const sysPrompt = BASE_PROMPTS.hacker + buildMemoryContext();
     const result = await callAI(
-      [{ role: "system", content: sysPrompt }, { role: "user", content: prompt }],
+      [
+        { role: "system", content: sysPrompt },
+        { role: "user", content: prompt },
+      ],
       "openrouter",
       null,
       {},
@@ -3129,11 +3304,21 @@ Deliver a sharp morning briefing. Cover: weather in one sentence, key news items
     if (!result) throw new Error("AI returned empty briefing");
 
     global._lastBriefing = { text: result, generatedAt: Date.now() };
-    const payload = JSON.stringify({ type: "briefing", text: result, generatedAt: Date.now() });
+    const payload = JSON.stringify({
+      type: "briefing",
+      text: result,
+      generatedAt: Date.now(),
+    });
     for (const sub of briefingSubscribers) {
-      try { sub.write(`data: ${payload}\n\n`); } catch {}
+      try {
+        sub.write(`data: ${payload}\n\n`);
+      } catch {}
     }
-    console.log("[BRIEFING] Delivered to", briefingSubscribers.size, "subscribers");
+    console.log(
+      "[BRIEFING] Delivered to",
+      briefingSubscribers.size,
+      "subscribers",
+    );
   } catch (e) {
     console.warn("[BRIEFING] Failed:", e.message);
   }
@@ -3145,7 +3330,11 @@ if (BRIEFING_ENABLED) {
   setInterval(() => {
     const now = new Date();
     const todayKey = now.toDateString();
-    if (now.getHours() === BRIEFING_HOUR && now.getMinutes() === 0 && _briefingDeliveredToday !== todayKey) {
+    if (
+      now.getHours() === BRIEFING_HOUR &&
+      now.getMinutes() === 0 &&
+      _briefingDeliveredToday !== todayKey
+    ) {
       _briefingDeliveredToday = todayKey;
       generateBriefing().catch(() => {});
     }

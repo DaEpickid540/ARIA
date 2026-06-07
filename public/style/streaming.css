@@ -251,8 +251,13 @@
   animation: streamCursorBlink 0.6s step-end infinite;
 }
 @keyframes streamCursorBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 /* Thin indeterminate progress bar across top of think panel while reasoning */
@@ -271,8 +276,12 @@
   animation: thinkProgressBar 1.4s linear infinite;
 }
 @keyframes thinkProgressBar {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* thinkLiveLabel class to target the text separately from the dot */
@@ -284,4 +293,79 @@
 }
 .thinkLiveDone .thinkLiveLabel {
   color: #446644;
+}
+
+/* ── Mark 1.6 — live think text stream ─────────────────────── */
+
+/* Scrollable raw thinking text — shows tokens arriving in real-time */
+.thinkRawScroll {
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 6px 10px;
+  margin: 4px 0;
+  font-family: var(--font-mono, "Share Tech Mono", monospace);
+  font-size: 10px;
+  color: rgba(255, 32, 64, 0.5);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-left: 1px solid rgba(255, 32, 64, 0.15);
+  background: rgba(0, 0, 0, 0.2);
+  transition: max-height 0.3s ease, opacity 0.3s;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 32, 64, 0.2) transparent;
+}
+.thinkRawScroll::-webkit-scrollbar {
+  width: 3px;
+}
+.thinkRawScroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 32, 64, 0.2);
+}
+
+/* Thought count badge in the header */
+.thinkLiveCount {
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  color: rgba(255, 32, 64, 0.6);
+  margin-left: auto;
+  padding-left: 8px;
+}
+
+/* → thought pills (replaces [STEP N] pills) */
+.thinkLiveStep {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 8px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.75);
+  border-left: 1px solid rgba(255, 32, 64, 0.2);
+  margin: 2px 0;
+  line-height: 1.4;
+}
+.thinkArrow {
+  color: var(--red-core, #ff2040);
+  font-size: 11px;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+.thinkStepText {
+  flex: 1;
+  font-family: var(--font-mono, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thinkLiveStepIn {
+  animation: thinkStepSlide 0.2s ease-out;
+}
+@keyframes thinkStepSlide {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }

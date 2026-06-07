@@ -865,12 +865,10 @@ async function openCommandsModal() {
 }
 
 /* ── BG TASKS MODAL ── (rendering now handled by taskPanel.js) */
-document
-  .getElementById("bgTasksListBtn")
-  ?.addEventListener("click", () => {
-    const modal = document.getElementById("bgTasksModal");
-    if (modal) modal.style.display = "flex";
-  });
+document.getElementById("bgTasksListBtn")?.addEventListener("click", () => {
+  const modal = document.getElementById("bgTasksModal");
+  if (modal) modal.style.display = "flex";
+});
 
 /* ============================================================
    FILE UPLOAD — attach inside textarea
@@ -1125,7 +1123,11 @@ function renderEmptyState() {
   else timeOfDay = "Working late.";
 
   const suggestions = [
-    { icon: "💻", label: "Help me debug code", text: "Help me debug this code: " },
+    {
+      icon: "💻",
+      label: "Help me debug code",
+      text: "Help me debug this code: ",
+    },
     { icon: "📚", label: "Explain a concept", text: "Explain " },
     { icon: "✍️", label: "Draft something", text: "Help me write " },
     { icon: "🧮", label: "Quick math", text: "Calculate " },
@@ -1144,7 +1146,10 @@ function renderEmptyState() {
         ${suggestions
           .map(
             (s) =>
-              `<button class="emptyChatSuggestion" data-text="${s.text.replace(/"/g, "&quot;")}">
+              `<button class="emptyChatSuggestion" data-text="${s.text.replace(
+                /"/g,
+                "&quot;",
+              )}">
                 <span class="emptyChatIcon">${s.icon}</span>
                 <span class="emptyChatLabel">${s.label}</span>
               </button>`,
@@ -1292,14 +1297,28 @@ function renderMessages() {
     const isAria = msg.role === "aria";
     div.innerHTML = `
       <div class="msgHeader">
-        <div class="msgSender">${msg.role === "user" ? "YOU" : "ARIA"}${msg.pinned ? ' <span class="msgPinBadge" title="Pinned">📌</span>' : ""}${msg.starred ? ' <span class="msgStarBadge" title="Starred">⭐</span>' : ""}</div>
+        <div class="msgSender">${msg.role === "user" ? "YOU" : "ARIA"}${
+      msg.pinned ? ' <span class="msgPinBadge" title="Pinned">📌</span>' : ""
+    }${
+      msg.starred ? ' <span class="msgStarBadge" title="Starred">⭐</span>' : ""
+    }</div>
         <div class="msgMeta">
           <span class="msgTimestamp">${time}</span>
           <button class="msgActionBtn msgCopyBtn" title="Copy" onclick="window.ARIA_copyMessage(${JSON.stringify(
             msg.content,
           )})">⎘</button>
-          <button class="msgActionBtn msgStarBtn ${msg.starred ? "active" : ""}" title="${msg.starred ? "Unstar" : "Star"}" onclick="window.ARIA_starMessage('${chat.id}',${idx})">${msg.starred ? "⭐" : "☆"}</button>
-          <button class="msgActionBtn msgPinBtn ${msg.pinned ? "active" : ""}" title="${msg.pinned ? "Unpin" : "Pin"}" onclick="window.ARIA_pinMessage('${chat.id}',${idx})">📌</button>
+          <button class="msgActionBtn msgStarBtn ${
+            msg.starred ? "active" : ""
+          }" title="${
+      msg.starred ? "Unstar" : "Star"
+    }" onclick="window.ARIA_starMessage('${chat.id}',${idx})">${
+      msg.starred ? "⭐" : "☆"
+    }</button>
+          <button class="msgActionBtn msgPinBtn ${
+            msg.pinned ? "active" : ""
+          }" title="${
+      msg.pinned ? "Unpin" : "Pin"
+    }" onclick="window.ARIA_pinMessage('${chat.id}',${idx})">📌</button>
           ${
             isAria
               ? `<button class="msgActionBtn msgRegenBtn" title="Regenerate" onclick="window.ARIA_regenerateMsg('${chat.id}',${idx})">↺</button>`
@@ -1429,7 +1448,11 @@ window._switchMathTab = function (tab) {
     btnCalc?.classList.add("active");
     if (!window._mathGrapher) _initDesmos();
     // Trigger resize so canvas fills its container after being shown
-    else setTimeout(() => window._mathGrapher?.resize() && window._mathGrapher?.draw(), 50);
+    else
+      setTimeout(
+        () => window._mathGrapher?.resize() && window._mathGrapher?.draw(),
+        50,
+      );
   } else if (tab === "viz") {
     if (viz) {
       viz.style.display = "flex";
@@ -2359,7 +2382,8 @@ async function sendMessageContent(text, chat, attachments = []) {
   setSendState(true);
   triggerHalo("thinking");
   // Detect task type from the message for the right loader animation
-  const _detectedTask = window._ARIALoader?.detectTaskFromMessage(text) || "thinking";
+  const _detectedTask =
+    window._ARIALoader?.detectTaskFromMessage(text) || "thinking";
   const tid = showTypingIndicator(_detectedTask, text.slice(0, 60));
   let abort = new AbortController();
   window.ARIA_stopGeneration = () => {
@@ -2450,7 +2474,9 @@ async function sendMessageContent(text, chat, attachments = []) {
           <div class="thinkLiveHeader">
             <span class="thinkLiveDot pulse"></span>
             <span class="thinkLiveLabel">ARIA is reasoning\u2026</span>
+            <span class="thinkLiveCount" id="${streamId}_count"></span>
           </div>
+          <div class="thinkRawScroll" id="${streamId}_raw"></div>
           <div class="thinkLiveSteps" id="${streamId}_steps"></div>`;
         messages.appendChild(thinkLiveDiv);
 
@@ -2469,8 +2495,8 @@ async function sendMessageContent(text, chat, attachments = []) {
         const reader = res.body.getReader();
         const dec = new TextDecoder();
         let buf = "";
-        let accumulated = "";   // raw full text (think + answer)
-        let answerText = "";    // only post-think answer tokens
+        let accumulated = ""; // raw full text (think + answer)
+        let answerText = ""; // only post-think answer tokens
         let inThink = false;
         let thinkDone = false;
         let stepsShown = new Set();
@@ -2486,7 +2512,9 @@ async function sendMessageContent(text, chat, attachments = []) {
             if (!bodyEl || !answerText) return;
             // Lightweight inline render while streaming — avoids full markdown parse each token
             const safe = answerText
-              .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
               .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
               .replace(/\*(.+?)\*/g, "<em>$1</em>")
               .replace(/`([^`]+)`/g, "<code>$1</code>")
@@ -2507,22 +2535,42 @@ async function sendMessageContent(text, chat, attachments = []) {
           return stepBar;
         }
 
-        // Show a reasoning step as a pill in the think panel
+        // Show a reasoning thought as a pill in the think panel
+        // Detects lines starting with → (the new free-form marker)
         function showLiveStep(line) {
-          const m = line.match(/\[STEP \d+\s*[\u2014\u2013-]\s*([A-Z &]+)\]:\s*(.+)/i);
-          if (!m) return;
-          const label = m[1].trim();
-          if (stepsShown.has(label)) return;
-          stepsShown.add(label);
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("\u2192")) return; // →
+          const text = trimmed.slice(1).trim();
+          if (!text || text.length < 4) return;
+          const key = text.slice(0, 40); // dedupe by first 40 chars
+          if (stepsShown.has(key)) return;
+          stepsShown.add(key);
           const stepsEl = document.getElementById(streamId + "_steps");
           if (!stepsEl) return;
           const pill = document.createElement("div");
           pill.className = "thinkLiveStep thinkLiveStepIn";
-          pill.innerHTML =
-            `<span class="thinkStepLabel">${escapeHtml(label)}</span>` +
-            `<span class="thinkStepText">${escapeHtml(m[2].trim().slice(0, 80))}</span>`;
+          pill.innerHTML = `<span class="thinkArrow">\u2192</span><span class="thinkStepText">${escapeHtml(
+            text.slice(0, 100),
+          )}</span>`;
           stepsEl.appendChild(pill);
+          // Update count badge
+          const countEl = document.getElementById(streamId + "_count");
+          if (countEl) countEl.textContent = stepsShown.size + " thoughts";
           messages.scrollTop = messages.scrollHeight;
+        }
+
+        // Throttled raw-text update for the think panel scroll area
+        let _rawRenderPending = false;
+        function scheduleRawRender(text) {
+          if (_rawRenderPending) return;
+          _rawRenderPending = true;
+          requestAnimationFrame(() => {
+            _rawRenderPending = false;
+            const rawEl = document.getElementById(streamId + "_raw");
+            if (!rawEl) return;
+            rawEl.textContent = text;
+            rawEl.scrollTop = rawEl.scrollHeight;
+          });
         }
 
         // ── Main read loop ──────────────────────────────────────────
@@ -2551,19 +2599,43 @@ async function sendMessageContent(text, chat, attachments = []) {
               if (evt.step) {
                 // Update think panel label to reflect current tool
                 const hdr = thinkLiveDiv.querySelector(".thinkLiveLabel");
-                if (hdr && evt.type === "claw")   hdr.textContent = "CLAW — EXECUTING";
-                if (hdr && evt.type === "source")  hdr.textContent = "QUERYING NETWORK";
-                if (hdr && (evt.type === "tool_start" || evt.type === "tool_done"))
-                  hdr.textContent = evt.type === "tool_done" ? "TOOL COMPLETE" : "RUNNING TOOL";
-                const icons = { tool_start:"\uD83D\uDD27", tool_done:"\u2713", agent:"\uD83E\uDD16", source:"\uD83C\uDF10", thinking:"\uD83D\uDCAD", claw:"\uD83E\uDDBE" };
+                if (hdr && evt.type === "claw")
+                  hdr.textContent = "CLAW — EXECUTING";
+                if (hdr && evt.type === "source")
+                  hdr.textContent = "QUERYING NETWORK";
+                if (
+                  hdr &&
+                  (evt.type === "tool_start" || evt.type === "tool_done")
+                )
+                  hdr.textContent =
+                    evt.type === "tool_done" ? "TOOL COMPLETE" : "RUNNING TOOL";
+                const icons = {
+                  tool_start: "\uD83D\uDD27",
+                  tool_done: "\u2713",
+                  agent: "\uD83E\uDD16",
+                  source: "\uD83C\uDF10",
+                  thinking: "\uD83D\uDCAD",
+                  claw: "\uD83E\uDDBE",
+                };
                 const icon = icons[evt.type] || "\u2699";
-                const label = (evt.msg || evt.tool || evt.agent || "").slice(0, 120);
+                const label = (evt.msg || evt.tool || evt.agent || "").slice(
+                  0,
+                  120,
+                );
                 const pill = document.createElement("div");
-                pill.className = "clawStepPill clawStepIn" + (evt.type === "tool_done" ? " clawStepDone" : "");
+                pill.className =
+                  "clawStepPill clawStepIn" +
+                  (evt.type === "tool_done" ? " clawStepDone" : "");
                 if (evt.type === "source" && evt.url) {
-                  pill.innerHTML = `<span class="clawStepIcon">\uD83C\uDF10</span><a href="${escapeHtml(evt.url)}" target="_blank" class="clawStepLink">${escapeHtml((evt.title || evt.url).slice(0, 100))}</a>`;
+                  pill.innerHTML = `<span class="clawStepIcon">\uD83C\uDF10</span><a href="${escapeHtml(
+                    evt.url,
+                  )}" target="_blank" class="clawStepLink">${escapeHtml(
+                    (evt.title || evt.url).slice(0, 100),
+                  )}</a>`;
                 } else {
-                  pill.innerHTML = `<span class="clawStepIcon">${icon}</span><span class="clawStepText">${escapeHtml(label)}</span>`;
+                  pill.innerHTML = `<span class="clawStepIcon">${icon}</span><span class="clawStepText">${escapeHtml(
+                    label,
+                  )}</span>`;
                 }
                 getStepBar().appendChild(pill);
                 messages.scrollTop = messages.scrollHeight;
@@ -2580,28 +2652,44 @@ async function sendMessageContent(text, chat, attachments = []) {
 
                   if (tClose !== -1) {
                     // Think block finished — switch to answer mode
-                    thinkDone = true; inThink = false;
-                    const thinkContent = accumulated.slice(tOpen !== -1 ? tOpen + 7 : 0, tClose);
+                    thinkDone = true;
+                    inThink = false;
+                    const thinkContent = accumulated.slice(
+                      tOpen !== -1 ? tOpen + 7 : 0,
+                      tClose,
+                    );
+                    // Final pass: catch any → lines we missed
                     for (const tl of thinkContent.split("\n")) {
-                      if (/\[STEP \d+/i.test(tl)) showLiveStep(tl.trim());
+                      showLiveStep(tl.trim());
                     }
-                    // Seal the think panel
+                    // Seal the think panel — collapse raw text, keep pills
                     const hdr = thinkLiveDiv.querySelector(".thinkLiveHeader");
-                    if (hdr) hdr.innerHTML = `<span class="thinkLiveDot done"></span><span class="thinkLiveLabel">Reasoned \u00b7 ${stepsShown.size} step${stepsShown.size !== 1 ? "s" : ""}</span>`;
+                    if (hdr)
+                      hdr.innerHTML = `<span class="thinkLiveDot done"></span><span class="thinkLiveLabel">Reasoned</span><span class="thinkLiveCount">${
+                        stepsShown.size
+                      } thought${stepsShown.size !== 1 ? "s" : ""}</span>`;
+                    const rawEl = document.getElementById(streamId + "_raw");
+                    if (rawEl) rawEl.style.display = "none"; // collapse raw during answer
                     thinkLiveDiv.classList.add("thinkLiveDone");
                     // First answer tokens
                     answerText = accumulated.slice(tClose + 8).trimStart();
-                    if (answerText) { streamDiv.style.display = ""; scheduleRender(); }
-
+                    if (answerText) {
+                      streamDiv.style.display = "";
+                      scheduleRender();
+                    }
                   } else if (tOpen !== -1) {
-                    // Inside think — surface steps as they stream in
+                    // Inside think — stream raw text + detect → markers
                     inThink = true;
-                    const soFar = accumulated.slice(tOpen + 7).split("\n");
-                    const prev = soFar[soFar.length - 2] || "";
-                    if (/\[STEP \d+/i.test(prev)) showLiveStep(prev.trim());
-
+                    const thinkSoFar = accumulated.slice(tOpen + 7);
+                    // Update raw text display (every token, throttled to rAF)
+                    scheduleRawRender(thinkSoFar);
+                    // Detect completed → lines (look at second-to-last line since last may be partial)
+                    const lines = thinkSoFar.split("\n");
+                    if (lines.length >= 2) {
+                      showLiveStep(lines[lines.length - 2].trim());
+                    }
                   } else {
-                    // No think block — stream straight to answer bubble
+                    // No think block — stream straight to answer bubble immediately
                     thinkDone = true;
                     thinkLiveDiv.remove();
                     answerText = accumulated;
@@ -2609,7 +2697,7 @@ async function sendMessageContent(text, chat, attachments = []) {
                     scheduleRender();
                   }
                 } else {
-                  // Already past think — every delta goes to answer
+                  // Already past think — every delta goes directly to answer
                   answerText += evt.delta;
                   scheduleRender();
                 }
@@ -2618,27 +2706,65 @@ async function sendMessageContent(text, chat, attachments = []) {
               // ── Done event (server sends authoritative final content) ──
               if (evt.done && evt.full) {
                 const tc = evt.full.indexOf("</think>");
-                answerText = tc !== -1 ? evt.full.slice(tc + 8).trimStart() : evt.full;
+                answerText =
+                  tc !== -1 ? evt.full.slice(tc + 8).trimStart() : evt.full;
                 accumulated = evt.full;
               }
-
             } catch {} // malformed SSE line
           }
         }
 
         // ── Stream ended ────────────────────────────────────────────
-        // Fallback: if </think> never arrived, show whatever we accumulated
+        // Fallback: if </think> never closed (model cut off), extract whatever answer we have
         if (!thinkDone && accumulated.length > 0) {
-          thinkLiveDiv.remove();
           const tc = accumulated.indexOf("</think>");
-          answerText = tc !== -1 ? accumulated.slice(tc + 8).trimStart() : accumulated;
+          answerText =
+            tc !== -1 ? accumulated.slice(tc + 8).trimStart() : accumulated;
+          // Show the raw think content we have so far
+          const rawEl = document.getElementById(streamId + "_raw");
+          if (rawEl) rawEl.style.display = "none";
+          thinkLiveDiv.classList.add("thinkLiveDone");
         }
         if (stepsShown.size === 0 && !inThink) thinkLiveDiv.remove();
 
-        // Tear down the live preview and render a permanent message
-        // renderMarkdown handles code blocks, tables, think dropdowns etc.
-        streamDiv.remove();
-        addAIMessage(answerText.trim() || accumulated.trim() || "[No reply]");
+        const finalText =
+          answerText.trim() || accumulated.trim() || "[No reply]";
+
+        // ── Update the stream bubble IN PLACE — no flash, no teardown ──
+        // Apply full renderMarkdown to the existing bubble instead of removing + rebuilding.
+        const finalBodyEl = document.getElementById(streamId + "_body");
+        if (finalBodyEl) {
+          finalBodyEl.innerHTML = renderMarkdown(finalText);
+        }
+        streamDiv.style.display = "";
+        streamDiv.querySelector(".streamCursor")?.remove();
+
+        // Save to chat history without triggering a full re-render
+        const _chat = getCurrentChat();
+        if (_chat) {
+          _chat.messages.push({
+            role: "aria",
+            content: finalText,
+            timestamp: Date.now(),
+          });
+          saveChats();
+          syncToServer();
+          if (ttsEnabled) speak(finalText);
+        }
+        // RAG indexing (fire and forget)
+        const _chatId = req?.body?.chatId || currentChatId;
+        if (finalText.length >= 30) {
+          fetch("/api/rag/index-chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chatId: _chatId,
+              role: "assistant",
+              content: finalText,
+            }),
+          }).catch(() => {});
+        }
+        messages.scrollTop = messages.scrollHeight;
         return;
       }
 
@@ -2726,7 +2852,7 @@ async function _getLoaderMod() {
 function showTypingIndicator(task = "thinking", detail = "") {
   const id = "typing_" + Date.now();
   // Lazy-load the loader module and create the loader
-  _getLoaderMod().then(mod => {
+  _getLoaderMod().then((mod) => {
     // Only create if the id slot is still needed (not already removed)
     if (!document.getElementById(id) && messages) {
       const realId = mod.showARIALoader(messages, { task, detail });
@@ -2747,7 +2873,7 @@ function showTypingIndicator(task = "thinking", detail = "") {
 
 function removeTypingIndicator(id) {
   if (!id) return;
-  _getLoaderMod().then(mod => {
+  _getLoaderMod().then((mod) => {
     const realId = window._loaderIdMap?.get(id);
     if (realId) {
       mod.removeARIALoader(realId);
@@ -2759,7 +2885,10 @@ function removeTypingIndicator(id) {
       // Also try direct removal after a short delay as fallback
       setTimeout(() => {
         const rid = window._loaderIdMap?.get(id);
-        if (rid) { mod.removeARIALoader(rid); window._loaderIdMap.delete(id); }
+        if (rid) {
+          mod.removeARIALoader(rid);
+          window._loaderIdMap.delete(id);
+        }
       }, 500);
     }
   });
@@ -2768,7 +2897,7 @@ function removeTypingIndicator(id) {
 }
 
 function updateTypingIndicatorTask(id, task, detail = "") {
-  _getLoaderMod().then(mod => {
+  _getLoaderMod().then((mod) => {
     const realId = window._loaderIdMap?.get(id);
     if (realId) mod.updateLoaderTask(realId, task, detail);
   });
@@ -2967,7 +3096,9 @@ function startChatSyncSubscription() {
     _syncEventSource?.close();
   } catch {}
   _syncEventSource = new EventSource(
-    `/api/sync/subscribe?userId=${encodeURIComponent(uid)}&deviceId=${encodeURIComponent(did)}`,
+    `/api/sync/subscribe?userId=${encodeURIComponent(
+      uid,
+    )}&deviceId=${encodeURIComponent(did)}`,
   );
   _syncEventSource.onopen = () => {
     _syncReconnectDelay = 1000;
@@ -3144,16 +3275,19 @@ async function loadFromServer() {
    ════════════════════════════════════════════════════════════════ */
 
 /* ── PIN / STAR MESSAGES ──────────────────────────────────────── */
-window.ARIA_pinMessage = function(chatId, idx) {
-  const chat = chats.find(c => c.id === chatId);
+window.ARIA_pinMessage = function (chatId, idx) {
+  const chat = chats.find((c) => c.id === chatId);
   if (!chat?.messages[idx]) return;
   chat.messages[idx].pinned = !chat.messages[idx].pinned;
   syncToServer();
   renderMessages();
-  showToast(chat.messages[idx].pinned ? "Message pinned" : "Message unpinned", "📌");
+  showToast(
+    chat.messages[idx].pinned ? "Message pinned" : "Message unpinned",
+    "📌",
+  );
 };
-window.ARIA_starMessage = function(chatId, idx) {
-  const chat = chats.find(c => c.id === chatId);
+window.ARIA_starMessage = function (chatId, idx) {
+  const chat = chats.find((c) => c.id === chatId);
   if (!chat?.messages[idx]) return;
   chat.messages[idx].starred = !chat.messages[idx].starred;
   syncToServer();
@@ -3162,17 +3296,27 @@ window.ARIA_starMessage = function(chatId, idx) {
 };
 
 // Show all starred/pinned messages in current chat
-window.ARIA_showStarred = function() {
+window.ARIA_showStarred = function () {
   const chat = getCurrentChat();
   if (!chat) return;
-  const starred = chat.messages.filter(m => m.starred || m.pinned);
-  if (!starred.length) { showToast("No starred or pinned messages", "☆"); return; }
-  let html = starred.map((m, i) =>
-    `<div style="padding:8px 0;border-bottom:1px solid var(--border-cut)">
-      <div style="font-size:10px;color:var(--text-muted)">${m.role.toUpperCase()} ${m.starred ? "⭐" : ""} ${m.pinned ? "📌" : ""}</div>
-      <div style="font-size:12px;margin-top:4px;color:var(--text-blaze)">${String(m.content).slice(0, 200)}${m.content.length > 200 ? "…" : ""}</div>
-    </div>`
-  ).join("");
+  const starred = chat.messages.filter((m) => m.starred || m.pinned);
+  if (!starred.length) {
+    showToast("No starred or pinned messages", "☆");
+    return;
+  }
+  let html = starred
+    .map(
+      (m, i) =>
+        `<div style="padding:8px 0;border-bottom:1px solid var(--border-cut)">
+      <div style="font-size:10px;color:var(--text-muted)">${m.role.toUpperCase()} ${
+          m.starred ? "⭐" : ""
+        } ${m.pinned ? "📌" : ""}</div>
+      <div style="font-size:12px;margin-top:4px;color:var(--text-blaze)">${String(
+        m.content,
+      ).slice(0, 200)}${m.content.length > 200 ? "…" : ""}</div>
+    </div>`,
+    )
+    .join("");
   _showQuickModal("Starred & Pinned", html);
 };
 
@@ -3196,11 +3340,15 @@ function _buildSearchBar() {
   document.getElementById("chatSearchClose").onclick = _closeSearch;
   document.getElementById("chatSearchPrev").onclick = () => _navigateSearch(-1);
   document.getElementById("chatSearchNext").onclick = () => _navigateSearch(1);
-  document.getElementById("chatSearchInput").addEventListener("input", _runSearch);
-  document.getElementById("chatSearchInput").addEventListener("keydown", e => {
-    if (e.key === "Enter") _navigateSearch(e.shiftKey ? -1 : 1);
-    if (e.key === "Escape") _closeSearch();
-  });
+  document
+    .getElementById("chatSearchInput")
+    .addEventListener("input", _runSearch);
+  document
+    .getElementById("chatSearchInput")
+    .addEventListener("keydown", (e) => {
+      if (e.key === "Enter") _navigateSearch(e.shiftKey ? -1 : 1);
+      if (e.key === "Escape") _closeSearch();
+    });
 }
 
 function _openSearch() {
@@ -3214,19 +3362,31 @@ function _closeSearch() {
   _searchActive = false;
   const bar = document.getElementById("chatSearchBar");
   bar?.classList.remove("open");
-  document.querySelectorAll(".msgSearchHighlight").forEach(el => {
+  document.querySelectorAll(".msgSearchHighlight").forEach((el) => {
     el.outerHTML = el.textContent;
   });
-  document.querySelectorAll(".msg.searchMatch").forEach(el => el.classList.remove("searchMatch", "searchActive"));
+  document
+    .querySelectorAll(".msg.searchMatch")
+    .forEach((el) => el.classList.remove("searchMatch", "searchActive"));
   _searchMatches = [];
 }
 function _runSearch() {
-  const q = document.getElementById("chatSearchInput")?.value.trim().toLowerCase();
-  document.querySelectorAll(".msgSearchHighlight").forEach(el => { el.outerHTML = el.textContent; });
-  document.querySelectorAll(".msg.searchMatch").forEach(el => el.classList.remove("searchMatch", "searchActive"));
+  const q = document
+    .getElementById("chatSearchInput")
+    ?.value.trim()
+    .toLowerCase();
+  document.querySelectorAll(".msgSearchHighlight").forEach((el) => {
+    el.outerHTML = el.textContent;
+  });
+  document
+    .querySelectorAll(".msg.searchMatch")
+    .forEach((el) => el.classList.remove("searchMatch", "searchActive"));
   _searchMatches = [];
   _searchIdx = 0;
-  if (!q || q.length < 2) { document.getElementById("chatSearchCount").textContent = ""; return; }
+  if (!q || q.length < 2) {
+    document.getElementById("chatSearchCount").textContent = "";
+    return;
+  }
 
   const msgs = document.querySelectorAll(".msg .msgBody");
   msgs.forEach((body, i) => {
@@ -3238,22 +3398,29 @@ function _runSearch() {
       // Highlight
       body.innerHTML = body.innerHTML.replace(
         new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"),
-        m => `<mark class="msgSearchHighlight">${m}</mark>`
+        (m) => `<mark class="msgSearchHighlight">${m}</mark>`,
       );
     }
   });
   const count = document.getElementById("chatSearchCount");
-  count.textContent = _searchMatches.length ? `1 / ${_searchMatches.length}` : "No results";
+  count.textContent = _searchMatches.length
+    ? `1 / ${_searchMatches.length}`
+    : "No results";
   if (_searchMatches.length) _highlightMatch(0);
 }
 function _navigateSearch(dir) {
   if (!_searchMatches.length) return;
-  _searchIdx = (_searchIdx + dir + _searchMatches.length) % _searchMatches.length;
+  _searchIdx =
+    (_searchIdx + dir + _searchMatches.length) % _searchMatches.length;
   _highlightMatch(_searchIdx);
-  document.getElementById("chatSearchCount").textContent = `${_searchIdx + 1} / ${_searchMatches.length}`;
+  document.getElementById("chatSearchCount").textContent = `${
+    _searchIdx + 1
+  } / ${_searchMatches.length}`;
 }
 function _highlightMatch(idx) {
-  document.querySelectorAll(".msg.searchActive").forEach(el => el.classList.remove("searchActive"));
+  document
+    .querySelectorAll(".msg.searchActive")
+    .forEach((el) => el.classList.remove("searchActive"));
   const el = _searchMatches[idx];
   if (!el) return;
   el.classList.add("searchActive");
@@ -3261,7 +3428,7 @@ function _highlightMatch(idx) {
 }
 
 // Wire Ctrl+F / Cmd+F
-document.addEventListener("keydown", e => {
+document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === "f") {
     const chatArea = document.getElementById("chatArea");
     if (!chatArea || chatArea.style.display === "none") return;
@@ -3281,7 +3448,13 @@ if (_userInput) {
       _userInput.value = val.replace(/^@aria\s+/i, "");
       // Flash the ARIA logo or input to indicate it's addressed
       document.getElementById("chatHeader")?.classList.add("ariaAddressed");
-      setTimeout(() => document.getElementById("chatHeader")?.classList.remove("ariaAddressed"), 800);
+      setTimeout(
+        () =>
+          document
+            .getElementById("chatHeader")
+            ?.classList.remove("ariaAddressed"),
+        800,
+      );
     }
   });
 }
@@ -3290,10 +3463,17 @@ if (_userInput) {
 let _splitPaneActive = false;
 let _splitChat2Id = null;
 
-window.ARIA_toggleSplitPane = function() {
+window.ARIA_toggleSplitPane = function () {
   _splitPaneActive = !_splitPaneActive;
-  const appLayout = document.getElementById("appLayout") || document.getElementById("chatLayout") || document.querySelector(".appLayout");
-  if (!appLayout) { showToast("Split pane layout not available", "✗"); _splitPaneActive = false; return; }
+  const appLayout =
+    document.getElementById("appLayout") ||
+    document.getElementById("chatLayout") ||
+    document.querySelector(".appLayout");
+  if (!appLayout) {
+    showToast("Split pane layout not available", "✗");
+    _splitPaneActive = false;
+    return;
+  }
 
   if (_splitPaneActive) {
     appLayout.classList.add("splitPaneActive");
@@ -3324,20 +3504,32 @@ window.ARIA_toggleSplitPane = function() {
 function _renderPane2ChatList() {
   const sel = document.getElementById("pane2ChatSelect");
   if (!sel) return;
-  sel.innerHTML = chats.map(c => `<option value="${c.id}">${c.title || "Chat"}</option>`).join("");
+  sel.innerHTML = chats
+    .map((c) => `<option value="${c.id}">${c.title || "Chat"}</option>`)
+    .join("");
   sel.value = chats[1]?.id || chats[0]?.id || "";
   _splitChat2Id = sel.value;
-  sel.addEventListener("change", () => { _splitChat2Id = sel.value; _renderPane2(); });
+  sel.addEventListener("change", () => {
+    _splitChat2Id = sel.value;
+    _renderPane2();
+  });
   _renderPane2();
 }
 function _renderPane2() {
   const pane = document.getElementById("pane2Messages");
   if (!pane || !_splitChat2Id) return;
-  const chat = chats.find(c => c.id === _splitChat2Id);
+  const chat = chats.find((c) => c.id === _splitChat2Id);
   if (!chat) return;
-  pane.innerHTML = chat.messages.map(m =>
-    `<div class="msg ${m.role}"><div class="msgSender">${m.role === "user" ? "YOU" : "ARIA"}</div><div class="msgBody"><p class="userPara">${String(m.content).replace(/</g, "&lt;")}</p></div></div>`
-  ).join("");
+  pane.innerHTML = chat.messages
+    .map(
+      (m) =>
+        `<div class="msg ${m.role}"><div class="msgSender">${
+          m.role === "user" ? "YOU" : "ARIA"
+        }</div><div class="msgBody"><p class="userPara">${String(
+          m.content,
+        ).replace(/</g, "&lt;")}</p></div></div>`,
+    )
+    .join("");
   pane.scrollTop = pane.scrollHeight;
 }
 
@@ -3356,8 +3548,12 @@ function _showQuickModal(title, html) {
         <div id="ariaQuickModalBody"></div>
       </div>`;
     document.body.appendChild(modal);
-    document.getElementById("ariaQuickModalClose").onclick = () => { modal.style.display = "none"; };
-    modal.addEventListener("click", e => { if (e.target === modal) modal.style.display = "none"; });
+    document.getElementById("ariaQuickModalClose").onclick = () => {
+      modal.style.display = "none";
+    };
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) modal.style.display = "none";
+    });
   }
   document.getElementById("ariaQuickModalTitle").textContent = title;
   document.getElementById("ariaQuickModalBody").innerHTML = html;
@@ -3365,18 +3561,22 @@ function _showQuickModal(title, html) {
 }
 
 /* ── MEMORY UI ────────────────────────────────────────────────── */
-window.ARIA_showMemoryUI = async function() {
+window.ARIA_showMemoryUI = async function () {
   try {
     const [memRes, ragRes] = await Promise.all([
-      fetch("/api/memory").then(r => r.json()),
-      fetch("/api/rag/stats").then(r => r.json()),
+      fetch("/api/memory").then((r) => r.json()),
+      fetch("/api/rag/stats").then((r) => r.json()),
     ]);
     const facts = memRes.facts || [];
     const factsHtml = facts.length
-      ? facts.map((f, i) => `<div class="memFactRow">
+      ? facts
+          .map(
+            (f, i) => `<div class="memFactRow">
           <span class="memFactText">${String(f).replace(/</g, "&lt;")}</span>
           <button class="memFactDel" onclick="window.ARIA_deleteFact(${i})">✕</button>
-        </div>`).join("")
+        </div>`,
+          )
+          .join("")
       : "<div style='color:var(--text-muted);font-size:11px'>No facts yet.</div>";
 
     const ragHtml = `
@@ -3401,111 +3601,193 @@ window.ARIA_showMemoryUI = async function() {
       </div>
       <div id="memSearchResults" style="margin-top:8px;font-size:11px;max-height:160px;overflow-y:auto"></div>`;
 
-    _showQuickModal("Memory & Knowledge", `
+    _showQuickModal(
+      "Memory & Knowledge",
+      `
       <div style="font-size:11px;color:var(--red-core);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">FACTS (${facts.length})</div>
       <div id="memFactsList">${factsHtml}</div>
       <button class="memBtn" style="margin-top:8px" onclick="window.ARIA_addFact()">+ Add fact</button>
       ${ragHtml}
       ${searchHtml}
-    `);
+    `,
+    );
   } catch (e) {
     showToast("Failed to load memory: " + e.message, "✗");
   }
 };
 
-window.ARIA_deleteFact = async function(idx) {
-  await fetch("/api/memory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete", index: idx }) });
+window.ARIA_deleteFact = async function (idx) {
+  await fetch("/api/memory", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "delete", index: idx }),
+  });
   window.ARIA_showMemoryUI();
 };
-window.ARIA_addFact = async function() {
+window.ARIA_addFact = async function () {
   const fact = prompt("Add fact to ARIA's memory:");
   if (!fact?.trim()) return;
-  await fetch("/api/memory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "add", fact: fact.trim() }) });
+  await fetch("/api/memory", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "add", fact: fact.trim() }),
+  });
   window.ARIA_showMemoryUI();
 };
-window.ARIA_searchRAG = function() { document.getElementById("memSearchInput")?.focus(); };
-window.ARIA_clearRAGNamespace = async function(ns) {
+window.ARIA_searchRAG = function () {
+  document.getElementById("memSearchInput")?.focus();
+};
+window.ARIA_clearRAGNamespace = async function (ns) {
   if (!confirm(`Clear all ${ns} vectors from RAG index?`)) return;
-  await fetch("/api/rag/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ namespace: ns }) });
+  await fetch("/api/rag/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ namespace: ns }),
+  });
   showToast("Cleared " + ns + " index", "✓");
   window.ARIA_showMemoryUI();
 };
-window.ARIA_ingestDoc = function() {
+window.ARIA_ingestDoc = function () {
   const source = prompt("Source name (e.g. my-notes.md):");
   if (!source) return;
   const text = prompt("Paste document text to ingest:");
   if (!text?.trim()) return;
-  fetch("/api/rag/ingest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source, text, namespace: "training" }) })
-    .then(r => r.json())
-    .then(d => showToast(d.chunks ? `Ingested ${d.chunks} chunks from "${source}"` : d.message || "Ingested", "✓"))
+  fetch("/api/rag/ingest", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source, text, namespace: "training" }),
+  })
+    .then((r) => r.json())
+    .then((d) =>
+      showToast(
+        d.chunks
+          ? `Ingested ${d.chunks} chunks from "${source}"`
+          : d.message || "Ingested",
+        "✓",
+      ),
+    )
     .catch(() => showToast("Ingest failed", "✗"));
 };
-window.ARIA_doMemSearch = async function() {
+window.ARIA_doMemSearch = async function () {
   const q = document.getElementById("memSearchInput")?.value.trim();
   if (!q) return;
   const el = document.getElementById("memSearchResults");
   el.innerHTML = "<span style='color:var(--text-muted)'>Searching…</span>";
   try {
-    const r = await fetch("/api/rag/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: q, topK: 5 }) });
+    const r = await fetch("/api/rag/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: q, topK: 5 }),
+    });
     const data = await r.json();
     el.innerHTML = data.results?.length
-      ? data.results.map(r => `<div style="padding:6px 0;border-bottom:1px solid var(--border-cut)">
-          <div style="font-size:10px;color:var(--red-core)">${r.namespace} · score:${r.score.toFixed(2)}</div>
-          <div style="color:var(--text-blaze)">${String(r.text).slice(0, 150).replace(/</g, "&lt;")}…</div>
-        </div>`).join("")
+      ? data.results
+          .map(
+            (
+              r,
+            ) => `<div style="padding:6px 0;border-bottom:1px solid var(--border-cut)">
+          <div style="font-size:10px;color:var(--red-core)">${
+            r.namespace
+          } · score:${r.score.toFixed(2)}</div>
+          <div style="color:var(--text-blaze)">${String(r.text)
+            .slice(0, 150)
+            .replace(/</g, "&lt;")}…</div>
+        </div>`,
+          )
+          .join("")
       : "<span style='color:var(--text-muted)'>No results.</span>";
-  } catch { el.innerHTML = "<span style='color:#ff4444'>Search failed.</span>"; }
+  } catch {
+    el.innerHTML = "<span style='color:#ff4444'>Search failed.</span>";
+  }
 };
 
 /* ── SKILLS UI ────────────────────────────────────────────────── */
-window.ARIA_showSkillsUI = async function() {
+window.ARIA_showSkillsUI = async function () {
   try {
-    const data = await fetch("/api/skills").then(r => r.json());
+    const data = await fetch("/api/skills").then((r) => r.json());
     const skillsHtml = data.skills?.length
-      ? data.skills.map(s => `
+      ? data.skills
+          .map(
+            (s) => `
         <div class="skillRow ${s.active ? "active" : ""}">
           <div class="skillMeta">
-            <div class="skillName">${s.name}${s.version !== "1.0" ? ` <span style="font-size:9px;color:var(--text-muted)">v${s.version}</span>` : ""}</div>
+            <div class="skillName">${s.name}${
+              s.version !== "1.0"
+                ? ` <span style="font-size:9px;color:var(--text-muted)">v${s.version}</span>`
+                : ""
+            }</div>
             <div class="skillDesc">${String(s.description).slice(0, 120)}</div>
-            ${s.hasTriggers ? '<div class="skillTriggerBadge">auto-triggers</div>' : ""}
+            ${
+              s.hasTriggers
+                ? '<div class="skillTriggerBadge">auto-triggers</div>'
+                : ""
+            }
           </div>
           <div class="skillActions">
-            <button class="skillToggleBtn ${s.active ? "on" : "off"}" onclick="window.ARIA_toggleSkill('${s.id}')">${s.active ? "ON" : "OFF"}</button>
-            ${s.location === "user" ? `<button class="skillEditBtn" onclick="window.ARIA_editSkill('${s.id}')">Edit</button>` : ""}
+            <button class="skillToggleBtn ${
+              s.active ? "on" : "off"
+            }" onclick="window.ARIA_toggleSkill('${s.id}')">${
+              s.active ? "ON" : "OFF"
+            }</button>
+            ${
+              s.location === "user"
+                ? `<button class="skillEditBtn" onclick="window.ARIA_editSkill('${s.id}')">Edit</button>`
+                : ""
+            }
           </div>
-        </div>`).join("")
+        </div>`,
+          )
+          .join("")
       : "<div style='color:var(--text-muted);font-size:11px;padding:8px'>No skills installed. Create one below or drop a SKILL.md into skills/user/.</div>";
 
-    _showQuickModal("Skills", `
+    _showQuickModal(
+      "Skills",
+      `
       <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">
         ${data.active} active · ${data.total} installed · 
         <a href="#" onclick="window.ARIA_createSkill();return false" style="color:var(--red-core)">+ New skill</a>
       </div>
       <div id="skillsList">${skillsHtml}</div>
-    `);
-  } catch { showToast("Failed to load skills", "✗"); }
+    `,
+    );
+  } catch {
+    showToast("Failed to load skills", "✗");
+  }
 };
-window.ARIA_toggleSkill = async function(id) {
+window.ARIA_toggleSkill = async function (id) {
   await fetch(`/api/skills/${id}/toggle`, { method: "POST" });
   window.ARIA_showSkillsUI();
 };
-window.ARIA_editSkill = async function(id) {
+window.ARIA_editSkill = async function (id) {
   try {
-    const data = await fetch(`/api/skills/${id}/content`).then(r => r.json());
-    const newContent = prompt(`Edit skill "${id}" (SKILL.md content):`, data.content);
+    const data = await fetch(`/api/skills/${id}/content`).then((r) => r.json());
+    const newContent = prompt(
+      `Edit skill "${id}" (SKILL.md content):`,
+      data.content,
+    );
     if (newContent === null) return;
-    await fetch(`/api/skills/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: newContent }) });
+    await fetch(`/api/skills/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: newContent }),
+    });
     showToast("Skill updated", "✓");
     window.ARIA_showSkillsUI();
-  } catch { showToast("Edit failed", "✗"); }
+  } catch {
+    showToast("Edit failed", "✗");
+  }
 };
-window.ARIA_createSkill = async function() {
+window.ARIA_createSkill = async function () {
   const id = prompt("Skill ID (e.g. my-skill):");
   if (!id?.trim()) return;
   const template = `---\nname: ${id}\ndescription: What this skill does\nversion: 1.0\ntriggers: []\n---\n\n# ${id}\n\nWrite your skill instructions here.\n`;
   const content = prompt("SKILL.md content:", template);
   if (content === null) return;
-  await fetch("/api/skills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id.trim(), content }) });
+  await fetch("/api/skills", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: id.trim(), content }),
+  });
   showToast("Skill created", "✓");
   window.ARIA_showSkillsUI();
 };
@@ -3515,7 +3797,7 @@ let _macroRecording = false;
 let _macroSteps = [];
 let _macros = JSON.parse(localStorage.getItem("aria_macros") || "{}");
 
-window.ARIA_startMacroRecord = function() {
+window.ARIA_startMacroRecord = function () {
   _macroRecording = true;
   _macroSteps = [];
   showToast("Macro recording started", "⏺");
@@ -3523,7 +3805,7 @@ window.ARIA_startMacroRecord = function() {
   fetch("/api/claw/macro/record", { method: "POST" }).catch(() => {});
 };
 
-window.ARIA_stopMacroRecord = function() {
+window.ARIA_stopMacroRecord = function () {
   _macroRecording = false;
   const name = prompt(`Save macro as (${_macroSteps.length} steps recorded):`);
   if (name?.trim()) {
@@ -3534,30 +3816,47 @@ window.ARIA_stopMacroRecord = function() {
   fetch("/api/claw/macro/stop", { method: "POST" }).catch(() => {});
 };
 
-window.ARIA_runMacro = function(name) {
+window.ARIA_runMacro = function (name) {
   const macro = _macros[name];
-  if (!macro) { showToast("Macro not found", "✗"); return; }
-  fetch("/api/claw/macro/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ steps: macro.steps }) })
+  if (!macro) {
+    showToast("Macro not found", "✗");
+    return;
+  }
+  fetch("/api/claw/macro/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ steps: macro.steps }),
+  })
     .then(() => showToast(`Macro "${name}" running`, "▶"))
     .catch(() => showToast("Macro run failed", "✗"));
 };
 
-window.ARIA_showMacros = function() {
+window.ARIA_showMacros = function () {
   const names = Object.keys(_macros);
-  if (!names.length) { showToast("No macros saved yet", "⏺"); return; }
-  const html = names.map(n => `
+  if (!names.length) {
+    showToast("No macros saved yet", "⏺");
+    return;
+  }
+  const html = names
+    .map(
+      (n) => `
     <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border-cut)">
       <span style="flex:1;font-size:12px">${n} <span style="color:var(--text-muted);font-size:10px">(${_macros[n].steps.length} steps)</span></span>
       <button class="memBtn" onclick="window.ARIA_runMacro('${n}')">▶ Run</button>
       <button class="memBtn" onclick="delete _macros['${n}'];localStorage.setItem('aria_macros',JSON.stringify(_macros));window.ARIA_showMacros()">✕</button>
-    </div>`).join("");
-  _showQuickModal("Claw Macros", `
+    </div>`,
+    )
+    .join("");
+  _showQuickModal(
+    "Claw Macros",
+    `
     <div style="margin-bottom:8px;display:flex;gap:8px">
       <button class="memBtn" onclick="window.ARIA_startMacroRecord()">⏺ Record</button>
       <button class="memBtn" onclick="window.ARIA_stopMacroRecord()">⏹ Stop & Save</button>
     </div>
     ${html}
-  `);
+  `,
+  );
 };
 
 /* ── DAILY BRIEFING RECEIVER ──────────────────────────────────── */
@@ -3572,7 +3871,9 @@ window.ARIA_showMacros = function() {
         if (chat) {
           const briefMsg = {
             role: "aria",
-            content: "🌅 **Good morning! Here's your daily briefing:**\n\n" + data.text,
+            content:
+              "🌅 **Good morning! Here's your daily briefing:**\n\n" +
+              data.text,
             timestamp: Date.now(),
           };
           chat.messages.push(briefMsg);
@@ -3586,8 +3887,9 @@ window.ARIA_showMacros = function() {
 })();
 
 /* ── MULTI-AGENT ORCHESTRATION (server-side) ──────────────────── */
-window.ARIA_multiAgent = async function(task) {
-  const taskText = task || prompt("Multi-agent task (ARIA will coordinate sub-agents):");
+window.ARIA_multiAgent = async function (task) {
+  const taskText =
+    task || prompt("Multi-agent task (ARIA will coordinate sub-agents):");
   if (!taskText?.trim()) return;
   showToast("Spawning multi-agent task…", "🤖");
   try {
@@ -3609,5 +3911,7 @@ window.ARIA_multiAgent = async function(task) {
         syncToServer();
       }
     }
-  } catch { showToast("Multi-agent failed", "✗"); }
+  } catch {
+    showToast("Multi-agent failed", "✗");
+  }
 };
