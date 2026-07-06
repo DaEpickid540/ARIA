@@ -1337,6 +1337,28 @@ app.get("/api/tasks", (req, res) => {
 
 app.get("/api/tasks/stats", (_, res) => res.json(taskEngine.getStats()));
 
+// ── SSE: live task progress ────────────────────────────────────
+// Must be registered before /api/tasks/:id or the :id route captures it.
+app.get("/api/tasks/subscribe", (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
+  taskEngine.addSubscriber(res);
+  const ping = setInterval(() => {
+    try {
+      res.write(": ping\n\n");
+    } catch {}
+  }, 25000);
+  req.on("close", () => {
+    clearInterval(ping);
+    taskEngine.removeSubscriber(res);
+  });
+});
+
 app.get("/api/tasks/:id", (req, res) => {
   const t = taskEngine.getTask(req.params.id);
   if (!t) return res.status(404).json({ error: "Task not found" });
@@ -1361,27 +1383,6 @@ app.post("/api/tasks/:id/edit-steps", (req, res) => {
 });
 app.delete("/api/tasks/:id", (req, res) => {
   res.json({ ok: taskEngine.deleteTask(req.params.id) });
-});
-
-// ── SSE: live task progress ────────────────────────────────────
-app.get("/api/tasks/subscribe", (req, res) => {
-  res.set({
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache, no-transform",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-  });
-  res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
-  taskEngine.addSubscriber(res);
-  const ping = setInterval(() => {
-    try {
-      res.write(": ping\n\n");
-    } catch {}
-  }, 25000);
-  req.on("close", () => {
-    clearInterval(ping);
-    taskEngine.removeSubscriber(res);
-  });
 });
 
 // ── LEGACY COMPAT: old /api/background endpoints ─────────────
