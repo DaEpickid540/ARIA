@@ -3,6 +3,7 @@ import { runToolServer, TOOL_DEFINITIONS } from "./tools/index.js";
 import * as rag from "./lib/rag.js";
 import * as taskEngine from "./lib/tasks.js";
 import * as skills from "./lib/skills.js";
+import * as cloud from "./lib/cloud-sync.js";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -94,10 +95,17 @@ function writeJSONDebounced(f, d) {
   );
 }
 
-process.on("SIGTERM", flushPendingWrites);
+process.on("SIGTERM", () => {
+  flushPendingWrites();
+  // Render sends SIGTERM on redeploy — last chance to push state to Firestore.
+  cloud.flushAll().catch(() => {});
+});
 process.on("SIGINT", () => {
   flushPendingWrites();
-  process.exit(0);
+  cloud
+    .flushAll()
+    .catch(() => {})
+    .finally(() => process.exit(0));
 });
 function flushPendingWrites() {
   for (const [, t] of _writeTimers) clearTimeout(t);
@@ -114,6 +122,13 @@ function flushPendingWrites() {
     taskEngine.flushSync();
   } catch {}
 }
+
+// Pull persisted state down from Firestore BEFORE the sync reads below.
+// Render's disk is ephemeral, so without this every redeploy starts blank.
+// No-ops (local-only) when FIREBASE_SERVICE_ACCOUNT isn't set. Top-level
+// await is fine here — this file is ESM ("type": "module").
+await cloud.hydrateAll();
+cloud.startAutoSync();
 
 let userChats = readJSON(CHATS_FILE, {});
 let ariaMemory = readJSON(MEM_FILE, { facts: [], sessions: [] });
