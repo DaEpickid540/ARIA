@@ -3,6 +3,8 @@ import { runToolServer, TOOL_DEFINITIONS } from "./tools/index.js";
 import * as rag from "./lib/rag.js";
 import * as taskEngine from "./lib/tasks.js";
 import * as skills from "./lib/skills.js";
+import * as cloud from "./lib/cloud-sync.js";
+import * as lifeContext from "./lib/life-context.js";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -94,10 +96,17 @@ function writeJSONDebounced(f, d) {
   );
 }
 
-process.on("SIGTERM", flushPendingWrites);
+process.on("SIGTERM", () => {
+  flushPendingWrites();
+  // Render sends SIGTERM on redeploy — last chance to push state to Firestore.
+  cloud.flushAll().catch(() => {});
+});
 process.on("SIGINT", () => {
   flushPendingWrites();
-  process.exit(0);
+  cloud
+    .flushAll()
+    .catch(() => {})
+    .finally(() => process.exit(0));
 });
 function flushPendingWrites() {
   for (const [, t] of _writeTimers) clearTimeout(t);
@@ -114,6 +123,22 @@ function flushPendingWrites() {
     taskEngine.flushSync();
   } catch {}
 }
+
+// Pull persisted state down from Firestore BEFORE the sync reads below.
+// Render's disk is ephemeral, so without this every redeploy starts blank.
+// No-ops (local-only) when FIREBASE_SERVICE_ACCOUNT isn't set. Top-level
+// await is fine here — this file is ESM ("type": "module").
+await cloud.hydrateAll();
+cloud.startAutoSync();
+
+// GRIND/hardware-tracker context (see lib/life-context.js) — separate from
+// ARIA's own state sync above. No-ops until ARIA_OWNER_UID is set alongside
+// FIREBASE_SERVICE_ACCOUNT.
+await lifeContext.refreshLifeContext();
+const _lifeCtxTimer = setInterval(() => {
+  lifeContext.refreshLifeContext().catch(() => {});
+}, 5 * 60 * 1000);
+_lifeCtxTimer.unref?.();
 
 let userChats = readJSON(CHATS_FILE, {});
 let ariaMemory = readJSON(MEM_FILE, { facts: [], sessions: [] });
@@ -1337,6 +1362,28 @@ app.get("/api/tasks", (req, res) => {
 
 app.get("/api/tasks/stats", (_, res) => res.json(taskEngine.getStats()));
 
+// ── SSE: live task progress ────────────────────────────────────
+// Must be registered before /api/tasks/:id or the :id route captures it.
+app.get("/api/tasks/subscribe", (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
+  taskEngine.addSubscriber(res);
+  const ping = setInterval(() => {
+    try {
+      res.write(": ping\n\n");
+    } catch {}
+  }, 25000);
+  req.on("close", () => {
+    clearInterval(ping);
+    taskEngine.removeSubscriber(res);
+  });
+});
+
 app.get("/api/tasks/:id", (req, res) => {
   const t = taskEngine.getTask(req.params.id);
   if (!t) return res.status(404).json({ error: "Task not found" });
@@ -1361,27 +1408,6 @@ app.post("/api/tasks/:id/edit-steps", (req, res) => {
 });
 app.delete("/api/tasks/:id", (req, res) => {
   res.json({ ok: taskEngine.deleteTask(req.params.id) });
-});
-
-// ── SSE: live task progress ────────────────────────────────────
-app.get("/api/tasks/subscribe", (req, res) => {
-  res.set({
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache, no-transform",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-  });
-  res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
-  taskEngine.addSubscriber(res);
-  const ping = setInterval(() => {
-    try {
-      res.write(": ping\n\n");
-    } catch {}
-  }, 25000);
-  req.on("close", () => {
-    clearInterval(ping);
-    taskEngine.removeSubscriber(res);
-  });
 });
 
 // ── LEGACY COMPAT: old /api/background endpoints ─────────────
@@ -1484,6 +1510,7 @@ app.post("/api/chat", async (req, res) => {
   sysPrompt += TOOL_SYSTEM;
   sysPrompt += buildMemoryContext();
   sysPrompt += buildBehaviourContext();
+  sysPrompt += lifeContext.buildLifeContext();
   sysPrompt += skills.buildSkillsContext(message);
 
   // ── RAG: pull relevant context from past chats + training data ──
