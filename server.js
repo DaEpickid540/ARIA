@@ -4,6 +4,7 @@ import * as rag from "./lib/rag.js";
 import * as taskEngine from "./lib/tasks.js";
 import * as skills from "./lib/skills.js";
 import * as cloud from "./lib/cloud-sync.js";
+import * as lifeContext from "./lib/life-context.js";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -129,6 +130,15 @@ function flushPendingWrites() {
 // await is fine here — this file is ESM ("type": "module").
 await cloud.hydrateAll();
 cloud.startAutoSync();
+
+// GRIND/hardware-tracker context (see lib/life-context.js) — separate from
+// ARIA's own state sync above. No-ops until ARIA_OWNER_UID is set alongside
+// FIREBASE_SERVICE_ACCOUNT.
+await lifeContext.refreshLifeContext();
+const _lifeCtxTimer = setInterval(() => {
+  lifeContext.refreshLifeContext().catch(() => {});
+}, 5 * 60 * 1000);
+_lifeCtxTimer.unref?.();
 
 let userChats = readJSON(CHATS_FILE, {});
 let ariaMemory = readJSON(MEM_FILE, { facts: [], sessions: [] });
@@ -1500,6 +1510,7 @@ app.post("/api/chat", async (req, res) => {
   sysPrompt += TOOL_SYSTEM;
   sysPrompt += buildMemoryContext();
   sysPrompt += buildBehaviourContext();
+  sysPrompt += lifeContext.buildLifeContext();
   sysPrompt += skills.buildSkillsContext(message);
 
   // ── RAG: pull relevant context from past chats + training data ──
