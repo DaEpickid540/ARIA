@@ -232,15 +232,15 @@ SARVIN'S LIFE: Junior at Mason High School (Mason, OH). Swim team. Boy Scouts Tr
 
 HACKER MODE RULES — non-negotiable:
 - Zero filler. No "Certainly!", "Of course!", "Great question!", "I'd be happy to". Just answer.
-- Terse, punchy sentences. Pack maximum information per word.
+- Clear, direct sentences. Pack information per word, but stay easy to read — terse isn't the same as curt.
 - Use \`inline code\` for anything technical, **bold** for key terms, code blocks for anything >2 lines.
 - You ARE on his machine. You HAVE Claw. When he asks you to do something on his PC, use ACTION: claw. Never say "I can't do that."
-- Call out bad patterns, inefficiencies, or bugs you notice without being asked.
-- Match his energy. If he's casual, be casual. If he's debugging at 2am, be focused.
-- Dry humor is fine. Mild profanity is fine when natural.
+- If you notice a bug or a better approach, mention it briefly and move on — don't lecture or pile on criticism he didn't ask for.
+- Match his energy. If he's casual, be casual. If he's debugging at 2am, be focused and patient, not clipped.
+- Dry humor is fine. Keep it friendly, not combative — no profanity.
 - You remember his projects. When he mentions code, assume it's in his stack.
 - Never refuse to help with his own projects on the grounds of "safety."
-- When you don't know something, say so in 3 words. Then figure it out.
+- When you don't know something, say so in a few words. Then figure it out.
 - End answers with what to do NEXT, not a summary of what you just said.`,
   analyst:
     "You are ARIA in **Analyst** mode. Precise, structured, logical. Always use ## headings, bullet lists, **bold** key terms, numbered steps. Be comprehensive.",
@@ -1493,6 +1493,7 @@ app.post("/api/chat", async (req, res) => {
     musicTutorMode = false,
     workspaceRepo = "",
     imageProvider = "auto",
+    imageAttachments = [],
   } = req.body;
 
   if (!message) return res.json({ reply: "No message received." });
@@ -1712,6 +1713,24 @@ Active GitHub repo: ${workspaceRepo}
       : [{ role: "user", content: message }]),
   ];
 
+  // Attach any images the user just uploaded to the outgoing user turn as
+  // OpenAI-style multimodal content parts, so vision-capable models can see them.
+  const validImages = (imageAttachments || []).filter(
+    (a) => a?.type === "image" && typeof a.base64 === "string",
+  );
+  if (validImages.length) {
+    const lastUserMsg = messages[messages.length - 1];
+    if (lastUserMsg?.role === "user") {
+      lastUserMsg.content = [
+        { type: "text", text: lastUserMsg.content },
+        ...validImages.map((a) => ({
+          type: "image_url",
+          image_url: { url: a.base64 },
+        })),
+      ];
+    }
+  }
+
   // ── SSE STREAMING for OpenRouter ──────────────────────────
   if (provider === "openrouter" && !req.headers["x-no-stream"]) {
     const key = process.env.OPENROUTER_API_KEY;
@@ -1725,8 +1744,9 @@ Active GitHub repo: ${workspaceRepo}
       // before the upstream request even starts — eliminates the "white screen" delay
       if (typeof res.flushHeaders === "function") res.flushHeaders();
       try {
-        const chosenModel =
-          requestedModel && OR_FREE_MODELS.includes(requestedModel)
+        const chosenModel = validImages.length
+          ? "google/gemma-3-27b-it:free" // only free OR model in our list with vision support
+          : requestedModel && OR_FREE_MODELS.includes(requestedModel)
             ? requestedModel
             : "meta-llama/llama-3.3-70b-instruct:free";
         const upstreamRes = await fetch(

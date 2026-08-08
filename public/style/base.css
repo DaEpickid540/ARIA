@@ -27,6 +27,12 @@
   --border-glow: #880000;
   --border-live: #ff0000;
 
+  /* Status colors — kept constant across color themes so success/warning/
+     error states stay recognizable regardless of the active accent hue. */
+  --status-success: #00ff88;
+  --status-warning: #ff9900;
+  --status-error: #ff4444;
+
   --glow-sm: 0 0 8px rgba(255, 0, 0, 0.6);
   --glow-md: 0 0 16px rgba(255, 0, 0, 0.7), 0 0 32px rgba(255, 0, 0, 0.3);
   --glow-lg: 0 0 24px rgba(255, 0, 0, 0.9), 0 0 48px rgba(255, 0, 0, 0.5),

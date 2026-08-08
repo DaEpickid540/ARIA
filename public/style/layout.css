@@ -13,6 +13,7 @@
    ============================================================ */
 #sidebar {
   width: 260px;
+  min-width: 260px;
   background: linear-gradient(180deg, #0a0000 0%, #030000 100%);
   border-right: 1px solid var(--red-dim);
   box-shadow:
@@ -20,9 +21,14 @@
     inset -1px 0 0 var(--red-dim);
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   padding: 12px;
   z-index: 2;
   position: relative;
+  overflow: hidden;
+  transition:
+    width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    min-width 0.28s;
 }
 
 /* Red accent strip */
@@ -115,6 +121,32 @@
   gap: 8px;
   padding-top: 12px;
   border-top: 1px solid var(--border-cut);
+}
+
+/* Groups the previously-flat wall of sidebar buttons into labeled sections */
+.sidebarGroupLabel {
+  margin-top: 4px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+.sidebarGroup {
+  display: grid;
+  gap: 6px;
+}
+.sidebarGroupRow {
+  grid-template-columns: 1fr 1fr;
+}
+.sidebarGroupGrid {
+  grid-template-columns: 1fr 1fr;
+}
+.sidebarGroup .secondaryBtn {
+  padding: 8px 6px;
+  font-size: 10px;
+  text-align: center;
 }
 
 /* ============================================================

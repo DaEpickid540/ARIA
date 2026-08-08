@@ -339,14 +339,8 @@ details.thinkBlock > summary::-webkit-details-marker {
   width: 100vw !important;
   overflow: hidden !important;
 }
-#sidebar {
-  width: 260px;
-  min-width: 260px;
-  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.28s;
-  overflow: hidden;
-  flex-shrink: 0;
-  position: relative;
-}
+/* Base #sidebar box model lives in layout.css — only state-based
+   overrides (.collapsed, mobile, code-split) belong here. */
 #sidebar.collapsed {
   width: 40px !important;
   min-width: 40px !important;
@@ -541,7 +535,7 @@ details.thinkBlock > summary::-webkit-details-marker {
   top: 0;
   right: 0;
   background: rgba(0, 0, 0, 0.8);
-  color: #ff4444;
+  color: var(--status-error);
   font-size: 9px;
   cursor: pointer;
   padding: 1px 3px;
@@ -586,12 +580,12 @@ details.thinkBlock > summary::-webkit-details-marker {
   color: var(--red-neon);
 }
 .msgRegenBtn:hover {
-  color: #88ff88;
-  border-color: #88ff88;
+  color: var(--status-success);
+  border-color: var(--status-success);
 }
 .msgDeleteBtn:hover {
-  color: #ff4444;
-  border-color: #ff4444;
+  color: var(--status-error);
+  border-color: var(--status-error);
 }
 .mdLink {
   color: var(--red-neon);

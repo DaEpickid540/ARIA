@@ -673,12 +673,12 @@
 
 /* ── ElevenLabs section ── */
 .elevenlabsSection {
-  border-left: 2px solid #ff9900 !important;
+  border-left: 2px solid var(--status-warning) !important;
   background: rgba(255, 153, 0, 0.02);
 }
 
 .elevenlabsSection h3 {
-  color: #ff9900 !important;
+  color: var(--status-warning) !important;
   text-shadow: 0 0 8px rgba(255, 153, 0, 0.5) !important;
 }
 
@@ -711,12 +711,12 @@
   letter-spacing: 0.08em;
 }
 .elStatus.ok {
-  color: #00ff88;
-  text-shadow: 0 0 6px #00ff88;
+  color: var(--status-success);
+  text-shadow: 0 0 6px var(--status-success);
 }
 .elStatus.error {
-  color: #ff4444;
-  text-shadow: 0 0 6px #ff4444;
+  color: var(--status-error);
+  text-shadow: 0 0 6px var(--status-error);
 }
 
 .elVoicePickRow {
@@ -861,7 +861,7 @@
 
 /* ── Settings toast error state ── */
 #settingsToast.error {
-  border-color: #ff4444;
+  border-color: var(--status-error);
   color: #ff6666;
   background: rgba(255, 0, 0, 0.15);
 }

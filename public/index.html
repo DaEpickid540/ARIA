@@ -61,6 +61,7 @@
     <link rel="stylesheet" href="style/theme-modes.css" />
     <link rel="stylesheet" href="style/tasks.css" />
     <link rel="stylesheet" href="style/features-v2.css" />
+    <link rel="stylesheet" href="style/claw.css" />
     <link rel="stylesheet" href="style/aria-loader.css" />
 
     <link
@@ -251,9 +252,13 @@
         <div id="chatList"></div>
 
         <div id="sidebarBottom">
-          <button id="goHomeBtn" class="secondaryBtn glitch">🏠 Home</button>
-          <button id="goLockBtn" class="secondaryBtn glitch">🔒 Lock</button>
           <button id="newChatBtn" class="primaryBtn glitch">＋ New Chat</button>
+
+          <div class="sidebarGroup sidebarGroupRow">
+            <button id="goHomeBtn" class="secondaryBtn glitch">🏠 Home</button>
+            <button id="goLockBtn" class="secondaryBtn glitch">🔒 Lock</button>
+          </div>
+
           <div id="toolsDropdownWrap">
             <button id="toolsDropdownBtn" class="secondaryBtn glitch">
               🔧 Tools ▾
@@ -286,33 +291,41 @@
               </button>
             </div>
           </div>
-          <button id="commandsBtn" class="secondaryBtn glitch">
-            📋 Commands
-          </button>
-          <button id="bgTasksListBtn" class="secondaryBtn glitch">
-            ⚙ BG Tasks
-          </button>
-          <button class="secondaryBtn" onclick="window.ARIA_showMemoryUI()" title="Memory & Knowledge Base">
-            🧠 Memory
-          </button>
-          <button class="secondaryBtn" onclick="window.ARIA_showSkillsUI()" title="Skills">
-            ⚡ Skills
-          </button>
-          <button class="secondaryBtn" onclick="window.ARIA_showStarred()" title="Starred & Pinned messages">
-            ⭐ Starred
-          </button>
-          <button class="secondaryBtn" onclick="window.ARIA_toggleSplitPane()" title="Split pane mode" id="splitPaneBtn">
-            ◫ Split
-          </button>
-          <button class="secondaryBtn" onclick="window.ARIA_showMacros()" title="Claw macros">
-            ⏺ Macros
-          </button>
-          <button id="settingsBtn" class="secondaryBtn glitch">
-            ⚙ Settings
-          </button>
-          <button id="sidebarClawBtn" class="secondaryBtn glitch">
-            🦾 Claw
-          </button>
+
+          <div class="sidebarGroupLabel">Workspace</div>
+          <div class="sidebarGroup sidebarGroupGrid">
+            <button id="commandsBtn" class="secondaryBtn glitch">
+              📋 Commands
+            </button>
+            <button id="bgTasksListBtn" class="secondaryBtn glitch">
+              ⚙ BG Tasks
+            </button>
+            <button class="secondaryBtn" onclick="window.ARIA_showMemoryUI()" title="Memory & Knowledge Base">
+              🧠 Memory
+            </button>
+            <button class="secondaryBtn" onclick="window.ARIA_showSkillsUI()" title="Skills">
+              ⚡ Skills
+            </button>
+            <button class="secondaryBtn" onclick="window.ARIA_showStarred()" title="Starred & Pinned messages">
+              ⭐ Starred
+            </button>
+            <button class="secondaryBtn" onclick="window.ARIA_toggleSplitPane()" title="Split pane mode" id="splitPaneBtn">
+              ◫ Split
+            </button>
+            <button class="secondaryBtn" onclick="window.ARIA_showMacros()" title="Claw macros">
+              ⏺ Macros
+            </button>
+          </div>
+
+          <div class="sidebarGroupLabel">System</div>
+          <div class="sidebarGroup sidebarGroupRow">
+            <button id="settingsBtn" class="secondaryBtn glitch">
+              ⚙ Settings
+            </button>
+            <button id="sidebarClawBtn" class="secondaryBtn glitch">
+              🦾 Claw
+            </button>
+          </div>
         </div>
       </aside>
 

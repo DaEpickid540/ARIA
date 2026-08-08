@@ -23,6 +23,38 @@ const messages = document.getElementById("messages");
 const chatList = document.getElementById("chatList");
 const layout = document.getElementById("layout");
 
+// Delegated handling for code-block action buttons (Panel/Copy/Download).
+// Delegated on the container (not wired per-render) so buttons work even when
+// a message's innerHTML is set directly by the streaming path, which never
+// calls the full render pass that used to be the only place these got wired.
+messages?.addEventListener("click", (e) => {
+  const panelBtn = e.target.closest(".codePanelBtn");
+  if (panelBtn) {
+    openCodePanel(
+      decodeURIComponent(panelBtn.dataset.code),
+      panelBtn.dataset.lang,
+    );
+    return;
+  }
+  const copyBtn = e.target.closest(".codeCopyBtn");
+  if (copyBtn) {
+    const code = decodeURIComponent(copyBtn.dataset.code);
+    navigator.clipboard
+      ?.writeText(code)
+      .then(() => window.ARIA_showToast("Code copied", "⎘"));
+    copyBtn.textContent = "✓";
+    setTimeout(() => (copyBtn.textContent = "⎘ Copy"), 1300);
+    return;
+  }
+  const dlBtn = e.target.closest(".codeDownloadBtn");
+  if (dlBtn) {
+    window.ARIA_downloadCode(
+      decodeURIComponent(dlBtn.dataset.code),
+      dlBtn.dataset.filename,
+    );
+  }
+});
+
 /* ── LOAD ── */
 try {
   const saved = localStorage.getItem("aria_chats");
@@ -1281,9 +1313,9 @@ function renderMessages() {
             const lang = m[1] || "txt";
             const ext = extMap[lang] || lang || "txt";
             const enc = encodeURIComponent(m[2].trim());
-            return `<button class="fileDownloadBtn" onclick="window.ARIA_downloadCode(decodeURIComponent('${enc}'),'aria-code-${
+            return `<button class="fileDownloadBtn codeDownloadBtn" data-code="${enc}" data-filename="aria-code-${
               i + 1
-            }.${ext}')">⬇ Download .${ext}</button>`;
+            }.${ext}">⬇ Download .${ext}</button>`;
           })
           .join(" ");
         bodyHTML += `<div class="codeDownloadRow">${dlLinks}</div>`;
@@ -1333,12 +1365,8 @@ function renderMessages() {
     messages.appendChild(div);
   });
 
-  // Wire code panel buttons
-  messages.querySelectorAll(".codePanelBtn").forEach((btn) => {
-    btn.addEventListener("click", () =>
-      openCodePanel(decodeURIComponent(btn.dataset.code), btn.dataset.lang),
-    );
-  });
+  // Code panel/copy/download buttons are wired via a single delegated
+  // listener set up once at module load (see top of file) — no per-render wiring needed.
 
   messages.scrollTop = messages.scrollHeight;
 }
@@ -2945,16 +2973,14 @@ function renderMarkdown(text) {
     return `\x00THINK${idx}\x00`;
   });
 
-  // ── STEP 2: Strip leftover/unclosed think tags and unsafe HTML ──
+  // ── STEP 2: Strip leftover/unclosed think tags ──
   text = text.replace(/<think>[\s\S]*/gi, ""); // unclosed <think> — drop remainder
   text = text.replace(/<\/think>/gi, "");
-  text = text.replace(/<[^>]{0,200}$/, ""); // incomplete trailing tag
-  const SAFE_TAG_RE = /^\/?(b|i|strong|em|code|pre|br|hr|ul|ol|li|blockquote|details|summary|table|thead|tbody|tr|th|td)$/i;
-  text = text.replace(/<(\/?[a-zA-Z][a-zA-Z0-9]*)[^>]*>/g, (m, tag) =>
-    SAFE_TAG_RE.test(tag) ? m : "",
-  );
 
-  // ── STEP 3: Extract code blocks BEFORE escaping (protect content) ──
+  // ── STEP 3: Extract code blocks BEFORE any tag stripping/escaping ──
+  // CRITICAL ORDER: fenced code (e.g. an AI-written webpage's own <div>/<script>
+  // tags) must be pulled into placeholders before the unsafe-tag stripper below
+  // runs, otherwise it deletes the code block's own markup as if it were live HTML.
   const codePlaceholders = [];
   text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
     const clean = code.trim();
@@ -2978,8 +3004,8 @@ function renderMarkdown(text) {
       ${lang ? `<span class="codeLabel">${lang.toUpperCase()}</span>` : ""}
       <div class="codeActions">
         <button class="codePanelBtn codeActionBtn" data-code="${enc}" data-lang="${lang}">⤢ Panel</button>
-        <button class="codeActionBtn" onclick="navigator.clipboard?.writeText(decodeURIComponent('${enc}')).then(()=>window.ARIA_showToast('Code copied','⎘'));this.textContent='✓';setTimeout(()=>this.textContent='⎘',1300)">⎘ Copy</button>
-        <button class="codeActionBtn" onclick="window.ARIA_downloadCode(decodeURIComponent('${enc}'),'aria-code.${ext}')">⬇ .${ext}</button>
+        <button class="codeCopyBtn codeActionBtn" data-code="${enc}">⎘ Copy</button>
+        <button class="codeDownloadBtn codeActionBtn" data-code="${enc}" data-filename="aria-code.${ext}">⬇ .${ext}</button>
       </div>
       <pre><code>${escapeHtml(clean)}</code></pre>
     </div>`;
@@ -2987,6 +3013,14 @@ function renderMarkdown(text) {
     codePlaceholders.push(html);
     return `\x00CODE${idx}\x00`;
   });
+
+  // ── STEP 3b: strip incomplete trailing tag / unsafe HTML from the
+  // remaining PROSE only (code content is already protected in placeholders) ──
+  text = text.replace(/<[^>]{0,200}$/, ""); // incomplete trailing tag
+  const SAFE_TAG_RE = /^\/?(b|i|strong|em|code|pre|br|hr|ul|ol|li|blockquote|details|summary|table|thead|tbody|tr|th|td)$/i;
+  text = text.replace(/<(\/?[a-zA-Z][a-zA-Z0-9]*)[^>]*>/g, (m, tag) =>
+    SAFE_TAG_RE.test(tag) ? m : "",
+  );
 
   // ── STEP 4: escapeHtml the remaining text (safe, no code or think) ──
   let h = escapeHtml(text);
