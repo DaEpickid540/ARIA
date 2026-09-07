@@ -1,6 +1,15 @@
 // homeTools.js — place in public/js/ (same folder as chat.js)
 // All home-screen widgets in one file. homepage.js imports from here.
 
+import {
+  getHostInfo,
+  getBrowserInfo,
+  formatBytes,
+  formatUptime,
+  formatPlatform,
+} from "./hostInfo.js";
+import { runSpeedTest, formatMbps } from "./netTest.js";
+
 const QUOTES = [
   "Discipline beats motivation.",
   "Small steps compound into impossible results.",
@@ -187,25 +196,44 @@ export async function initWeather() {
 /* ═══════════════════════════════════════════
    SYSTEM INFO
 ═══════════════════════════════════════════ */
-export function initSystemInfo() {
+export async function initSystemInfo() {
   const sysEl = document.getElementById("homeSystem");
   const netEl = document.getElementById("networkIndicator");
   if (!sysEl) return;
-  const ua = navigator.userAgent;
-  const browser =
-    ua.match(/(Chrome|Firefox|Safari|Edg)\/[\d.]+/)?.[0] || "Browser";
-  const os =
-    ua
-      .match(/\(([^)]+)\)/)?.[1]
-      ?.split(";")[0]
-      ?.trim() || "Unknown OS";
-  const cores = navigator.hardwareConcurrency || "?";
-  const mem = navigator.deviceMemory || "?";
-  sysEl.innerHTML = `${os}<div class="hwSub">${browser}</div><div class="hwSub">${cores} cores · ~${mem}GB</div>`;
+
+  const render = async () => {
+    const info = await getHostInfo();
+    const browser = getBrowserInfo();
+
+    if (info.source === "host") {
+      const { cpu, memory, host } = info;
+      const load =
+        cpu.usagePercent != null ? ` · ${cpu.usagePercent}% load` : "";
+      sysEl.innerHTML = `${formatPlatform(host)}
+        <div class="hwSub">${cpu.model || "Unknown CPU"}</div>
+        <div class="hwSub">${cpu.cores} threads · ${formatBytes(memory.totalBytes)} RAM${load}</div>
+        <div class="hwSub">Up ${formatUptime(host.uptimeSec)} · ${browser.browser}</div>`;
+    } else {
+      // The host is unreachable, so say what the browser knows and mark it as
+      // the browser's view rather than passing it off as machine specs.
+      const cores = info.cpu.cores ? `${info.cpu.cores} threads` : "";
+      const mem = info.memory ? `≥${formatBytes(info.memory.totalBytes)} RAM` : "";
+      sysEl.innerHTML = `${info.host.platform}
+        <div class="hwSub">${browser.browser}</div>
+        <div class="hwSub">${[cores, mem].filter(Boolean).join(" · ")}</div>
+        <div class="hwSub">Host offline — browser reported</div>`;
+    }
+  };
+
+  render();
+  setInterval(render, 10_000);
+
   if (netEl) {
     const upd = () => {
       netEl.textContent = navigator.onLine ? "● ONLINE" : "● OFFLINE";
-      netEl.style.color = navigator.onLine ? "#4cff4c" : "#ff4b4b";
+      netEl.style.color = navigator.onLine
+        ? "var(--success)"
+        : "var(--danger-text)";
     };
     upd();
     window.addEventListener("online", upd);
@@ -309,20 +337,61 @@ export function initSystemHealth() {
   const scoreEl = document.getElementById("homeHealthScore");
   const detailsEl = document.getElementById("homeHealthDetails");
   if (!scoreEl) return;
-  const online = navigator.onLine;
-  const mem = navigator.deviceMemory || 8;
-  const cores = navigator.hardwareConcurrency || 4;
-  let score = 80;
-  if (!online) score -= 20;
-  if (mem < 4) score -= 15;
-  if (cores < 4) score -= 10;
-  score = Math.max(0, Math.min(100, score));
-  const color = score >= 70 ? "#00ff88" : score >= 40 ? "#ffaa00" : "#ff4444";
-  scoreEl.innerHTML = `
-    <div style="font-size:22px;color:${color};font-family:var(--font-sans)">${score}<span style="font-size:12px">/100</span></div>
-    <div class="healthBar"><div class="healthFill" style="width:${score}%;background:${color}"></div></div>`;
-  if (detailsEl)
-    detailsEl.textContent = `${cores} cores · ~${mem}GB · ${online ? "Online" : "Offline"}`;
+
+  const render = async () => {
+    const info = await getHostInfo();
+    const online = navigator.onLine;
+
+    // The old score started at a hardcoded 80 and subtracted for conditions
+    // that are almost never true on a desktop, so it printed "80/100" on every
+    // machine forever. This one is built from what is actually being measured:
+    // CPU load, memory pressure and connectivity, each with the weight it
+    // deserves. Anything unmeasurable is simply left out of the average.
+    const parts = [];
+    if (info.source === "host") {
+      if (info.cpu.usagePercent != null) {
+        parts.push({ label: "CPU", score: 100 - info.cpu.usagePercent });
+      }
+      if (info.memory?.usedPercent != null) {
+        parts.push({ label: "RAM", score: 100 - info.memory.usedPercent });
+      }
+    }
+    parts.push({ label: "Network", score: online ? 100 : 0 });
+
+    const score = Math.round(
+      parts.reduce((sum, p) => sum + p.score, 0) / parts.length,
+    );
+    const color =
+      score >= 70
+        ? "var(--success)"
+        : score >= 40
+          ? "var(--warning)"
+          : "var(--danger-text)";
+
+    scoreEl.innerHTML = `
+      <div style="font-size:22px;color:${color};font-family:var(--font-sans)">${score}<span style="font-size:12px">/100</span></div>
+      <div class="healthBar"><div class="healthFill" style="width:${score}%;background:${color}"></div></div>`;
+
+    if (detailsEl) {
+      if (info.source === "host") {
+        const { cpu, memory } = info;
+        const bits = [];
+        if (cpu.usagePercent != null) bits.push(`CPU ${cpu.usagePercent}%`);
+        if (memory) {
+          bits.push(
+            `RAM ${formatBytes(memory.usedBytes)}/${formatBytes(memory.totalBytes)}`,
+          );
+        }
+        bits.push(online ? "Online" : "Offline");
+        detailsEl.textContent = bits.join(" · ");
+      } else {
+        detailsEl.textContent = `Host offline · ${online ? "Browser online" : "Browser offline"}`;
+      }
+    }
+  };
+
+  render();
+  setInterval(render, 10_000);
 }
 
 /* ═══════════════════════════════════════════
@@ -330,18 +399,57 @@ export function initSystemHealth() {
 ═══════════════════════════════════════════ */
 export async function initSpeedPreview() {
   const el = document.getElementById("homeSpeedPreview");
+  const noteEl = document.getElementById("homeSpeedNote");
   if (!el) return;
-  el.textContent = "Testing…";
-  try {
-    const start = Date.now();
-    await fetch("/api/ping?" + Date.now(), { cache: "no-store" });
-    const ms = Date.now() - start;
-    const mbps =
-      ms < 80 ? ">200" : ms < 200 ? "50–200" : ms < 500 ? "10–50" : "<10";
-    el.innerHTML = `<span class="hw-lg">${mbps} Mbps</span><div class="hwSub">~${ms}ms ping</div>`;
-  } catch {
-    el.textContent = "Unavailable";
+
+  let running = false;
+
+  const run = async () => {
+    if (running) return;
+    running = true;
+    el.innerHTML = '<span class="hwSub">Measuring…</span>';
+    if (noteEl) noteEl.textContent = "Testing download…";
+
+    try {
+      const { latencyMs, download } = await runSpeedTest();
+
+      if (!download && latencyMs == null) {
+        el.innerHTML = '<span class="hwEmpty">Unavailable</span>';
+        if (noteEl) noteEl.textContent = "No route to test endpoint";
+        return;
+      }
+
+      const speed = download
+        ? `<span class="hw-lg">${formatMbps(download.mbps)} Mbps</span>`
+        : '<span class="hw-lg">—</span>';
+      const ping = latencyMs != null ? `${latencyMs}ms to host` : "ping unavailable";
+      el.innerHTML = `${speed}<div class="hwSub">${ping}</div>`;
+
+      if (noteEl) {
+        // Naming the endpoint matters: a download from the ARIA server over
+        // loopback reads in the gigabits and would look like a spectacular
+        // internet connection. Say which one produced the number.
+        noteEl.textContent = download
+          ? download.source === "internet"
+            ? `Internet · ${formatBytes(download.bytes)} in ${download.seconds.toFixed(1)}s · tap to retest`
+            : `Local link to ARIA host · tap to retest`
+          : "Latency only · tap to retest";
+      }
+    } catch {
+      el.innerHTML = '<span class="hwEmpty">Unavailable</span>';
+    } finally {
+      running = false;
+    }
+  };
+
+  const card = document.getElementById("homeSpeedCard");
+  if (card) {
+    card.style.cursor = "pointer";
+    card.title = "Run the speed test again";
+    card.addEventListener("click", run);
   }
+
+  run();
 }
 
 /* ═══════════════════════════════════════════
@@ -449,16 +557,36 @@ export async function initDailySummary() {
 export function initSystemMonitor() {
   const el = document.getElementById("homeSystemMonitor");
   if (!el) return;
-  el.innerHTML = [
-    `Platform: <b>${navigator.platform}</b>`,
-    `Language: <b>${navigator.language}</b>`,
-    `Cores: <b>${navigator.hardwareConcurrency || "?"}</b>`,
-    `Memory: <b>~${navigator.deviceMemory || "?"}GB</b>`,
-    `Screen: <b>${screen.width}×${screen.height}</b>`,
-    `Touch: <b>${"ontouchstart" in window ? "Yes" : "No"}</b>`,
-  ]
-    .map((l) => `<div class="hwListItem">${l}</div>`)
-    .join("");
+
+  const render = async () => {
+    const info = await getHostInfo();
+    const b = getBrowserInfo();
+    const rows = [];
+
+    if (info.source === "host") {
+      const { cpu, memory, host, process: proc } = info;
+      rows.push(`Host: <b>${host.hostname || formatPlatform(host)}</b>`);
+      rows.push(`OS: <b>${formatPlatform(host)}</b>`);
+      if (cpu.usagePercent != null) rows.push(`CPU: <b>${cpu.usagePercent}%</b>`);
+      if (cpu.loadAvg) rows.push(`Load: <b>${cpu.loadAvg.join(" / ")}</b>`);
+      rows.push(
+        `RAM: <b>${formatBytes(memory.usedBytes)} / ${formatBytes(memory.totalBytes)}</b>`,
+      );
+      rows.push(`Uptime: <b>${formatUptime(host.uptimeSec)}</b>`);
+      if (proc) rows.push(`ARIA: <b>${formatBytes(proc.rssBytes)} · ${proc.node}</b>`);
+    } else {
+      rows.push(`Host: <b>offline</b>`);
+      if (info.cpu.cores) rows.push(`Threads: <b>${info.cpu.cores}</b>`);
+    }
+
+    rows.push(`Screen: <b>${b.screen}</b>`);
+    rows.push(`Language: <b>${b.language}</b>`);
+
+    el.innerHTML = rows.map((l) => `<div class="hwListItem">${l}</div>`).join("");
+  };
+
+  render();
+  setInterval(render, 5000);
 }
 
 /* ═══════════════════════════════════════════
