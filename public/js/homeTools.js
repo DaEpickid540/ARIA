@@ -566,7 +566,7 @@ export function initQuickTools() {
     <button class="hwToolBtn" data-qt="memory"><i class="bi bi-hdd" aria-hidden="true"></i> View Memory</button>
     <button class="hwToolBtn" data-qt="link"><i class="bi bi-link-45deg" aria-hidden="true"></i> Link Mode</button>`;
   el.querySelectorAll("button").forEach((btn) => {
-    btn.onclick = () => {
+    btn.onclick = async () => {
       const a = btn.dataset.qt;
       if (a === "clear") {
         if (confirm("Clear all local chats?")) {
@@ -610,9 +610,27 @@ export function initQuickTools() {
         });
       }
       if (a === "memory") {
-        import("./settings.js").then((m) => m.switchSettingsTab?.("memory"));
-        const overlay = document.getElementById("settingsOverlay");
-        if (overlay) overlay.style.display = "flex";
+        // Two things had to be true here and neither was.
+        //
+        // 1. The settings modal lives in the chat module bundle, which the home
+        //    screen has not loaded yet — settings.js wires its tab and close
+        //    handlers from initSettings(), and importing the module alone does
+        //    not run it. The modal opened completely unwired.
+        // 2. Opening it by setting style.display = "flex" beat the .active
+        //    class the CSS actually keys on, so every close path — which all
+        //    call classList.remove("active") — silently did nothing.
+        //    settingsBtn.js carries a comment warning about exactly this.
+        //
+        // loadChatModules() is idempotent and does not change which screen is
+        // showing, so it is safe to call from here.
+        await window.ARIA_loadChatModules?.();
+        const settings = await import("./settings.js");
+        if (window.ARIA_openSettings) {
+          window.ARIA_openSettings();
+        } else {
+          document.getElementById("settingsOverlay")?.classList.add("active");
+        }
+        settings.switchSettingsTab?.("memory");
       }
       if (a === "link") window.ARIA_openLinkMode?.();
     };
