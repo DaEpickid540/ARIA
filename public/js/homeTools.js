@@ -8,7 +8,8 @@ import {
   formatUptime,
   formatPlatform,
 } from "./hostInfo.js";
-import { runSpeedTest, formatMbps } from "./netTest.js";
+import { measureLatency, measureDownload, formatMbps } from "./netTest.js";
+import { createSpeedGauge } from "./speedGauge.js";
 
 const QUOTES = [
   "Discipline beats motivation.",
@@ -400,56 +401,155 @@ export function initSystemHealth() {
 export async function initSpeedPreview() {
   const el = document.getElementById("homeSpeedPreview");
   const noteEl = document.getElementById("homeSpeedNote");
+  const card = document.getElementById("homeSpeedCard");
   if (!el) return;
 
-  let running = false;
+  el.innerHTML = `
+    <div class="speedGaugeWrap"></div>
+    <div class="speedReadout">
+      <span class="speedPing">—</span>
+      <button class="speedGoBtn" type="button">Run test</button>
+    </div>`;
+
+  const gauge = createSpeedGauge(el.querySelector(".speedGaugeWrap"));
+  const pingEl = el.querySelector(".speedPing");
+  const goBtn = el.querySelector(".speedGoBtn");
+
+  let controller = null;
+
+  const LAST_KEY = "aria_speedtest_last";
+
+  // A sustained test moves real data — on a fast line the byte cap is a couple
+  // of hundred megabytes. Running that automatically on every visit to the home
+  // screen would be rude on a metered connection, which is exactly why Ookla,
+  // Fast.com and Google all sit behind a GO button. So: show the last result on
+  // load, measure only when asked.
+  const showLast = () => {
+    let last = null;
+    try {
+      last = JSON.parse(localStorage.getItem(LAST_KEY) || "null");
+    } catch {
+      last = null;
+    }
+    if (!last) {
+      gauge.setState("idle");
+      if (noteEl) noteEl.textContent = "Not measured yet";
+      return;
+    }
+    gauge.setState("done");
+    gauge.setValue(last.mbps);
+    pingEl.textContent = last.latencyMs != null ? `${last.latencyMs} ms` : "—";
+    if (noteEl) {
+      const when = new Date(last.at);
+      const ago = Math.round((Date.now() - last.at) / 60000);
+      const stamp =
+        ago < 1 ? "just now" : ago < 60 ? `${ago}m ago` : when.toLocaleTimeString();
+      noteEl.textContent =
+        (last.source === "internet" ? "Internet" : "Local link to ARIA host") +
+        ` · ${stamp}`;
+    }
+  };
+
+  const stop = () => {
+    controller?.abort();
+    controller = null;
+    goBtn.textContent = "Run test";
+    goBtn.classList.remove("running");
+  };
 
   const run = async () => {
-    if (running) return;
-    running = true;
-    el.innerHTML = '<span class="hwSub">Measuring…</span>';
-    if (noteEl) noteEl.textContent = "Testing download…";
+    if (controller) {
+      stop();
+      showLast();
+      return;
+    }
+    controller = new AbortController();
+    const signal = controller.signal;
+
+    goBtn.textContent = "Stop";
+    goBtn.classList.add("running");
+    gauge.setState("running");
+    gauge.setValue(0);
+    pingEl.textContent = "…";
+    if (noteEl) noteEl.textContent = "Measuring latency…";
 
     try {
-      const { latencyMs, download } = await runSpeedTest();
+      const latencyMs = await measureLatency({ signal });
+      if (signal.aborted) return;
+      pingEl.textContent = latencyMs != null ? `${latencyMs} ms` : "—";
+      if (noteEl) noteEl.textContent = "Warming up…";
 
-      if (!download && latencyMs == null) {
-        el.innerHTML = '<span class="hwEmpty">Unavailable</span>';
-        if (noteEl) noteEl.textContent = "No route to test endpoint";
+      const download = await measureDownload({
+        signal,
+        onProgress: ({ mbps, phase, progress, bytes }) => {
+          gauge.setValue(mbps);
+          if (!noteEl) return;
+          noteEl.textContent =
+            phase === "ramping"
+              ? "Warming up…"
+              : `Measuring · ${Math.round(progress * 100)}% · ${formatBytes(bytes)}`;
+        },
+      });
+
+      if (signal.aborted) return;
+
+      if (!download) {
+        gauge.setState("failed");
+        gauge.setValue(NaN);
+        if (noteEl) noteEl.textContent = "No route to a test endpoint";
         return;
       }
 
-      const speed = download
-        ? `<span class="hw-lg">${formatMbps(download.mbps)} Mbps</span>`
-        : '<span class="hw-lg">—</span>';
-      const ping = latencyMs != null ? `${latencyMs}ms to host` : "ping unavailable";
-      el.innerHTML = `${speed}<div class="hwSub">${ping}</div>`;
+      gauge.setState("done");
+      gauge.setValue(download.mbps);
+
+      try {
+        localStorage.setItem(
+          LAST_KEY,
+          JSON.stringify({
+            mbps: download.mbps,
+            latencyMs,
+            source: download.source,
+            at: Date.now(),
+          }),
+        );
+      } catch {
+        /* private mode — the reading is still on screen */
+      }
 
       if (noteEl) {
         // Naming the endpoint matters: a download from the ARIA server over
         // loopback reads in the gigabits and would look like a spectacular
         // internet connection. Say which one produced the number.
-        noteEl.textContent = download
-          ? download.source === "internet"
-            ? `Internet · ${formatBytes(download.bytes)} in ${download.seconds.toFixed(1)}s · tap to retest`
-            : `Local link to ARIA host · tap to retest`
-          : "Latency only · tap to retest";
+        noteEl.textContent =
+          (download.source === "internet"
+            ? "Internet"
+            : "Local link to ARIA host") +
+          ` · ${formatBytes(download.bytes)} in ${download.seconds.toFixed(1)}s`;
       }
     } catch {
-      el.innerHTML = '<span class="hwEmpty">Unavailable</span>';
+      gauge.setState("failed");
+      if (noteEl) noteEl.textContent = "Test failed";
     } finally {
-      running = false;
+      controller = null;
+      goBtn.textContent = "Run test";
+      goBtn.classList.remove("running");
     }
   };
 
-  const card = document.getElementById("homeSpeedCard");
+  goBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    run();
+  });
+
+  // The card itself is no longer click-to-run: the button is the affordance,
+  // and a stray click on a card shouldn't start a 200MB transfer.
   if (card) {
-    card.style.cursor = "pointer";
-    card.title = "Run the speed test again";
-    card.addEventListener("click", run);
+    card.style.cursor = "default";
+    card.removeAttribute("title");
   }
 
-  run();
+  showLast();
 }
 
 /* ═══════════════════════════════════════════
