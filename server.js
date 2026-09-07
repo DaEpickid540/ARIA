@@ -1,10 +1,12 @@
-// server.js — ARIA v3 (working base + Link Mode + Music Tutor + Workspace + Math v2 + Code v2)
-import { runToolServer, TOOL_DEFINITIONS } from "./tools/index.js";
+// server.js — ARIA v3.1 (Link Mode, Music Tutor, Workspace, Math v2, Code v2,
+// visualize tool, drop-in tools, error log)
+import { runToolServer, TOOL_DEFINITIONS, allTools } from "./tools/index.js";
 import * as rag from "./lib/rag.js";
 import * as taskEngine from "./lib/tasks.js";
 import * as skills from "./lib/skills.js";
 import * as cloud from "./lib/cloud-sync.js";
 import * as lifeContext from "./lib/life-context.js";
+import * as errorLog from "./lib/error-log.js";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -303,6 +305,49 @@ ALWAYS:
 /* ============================================================
    AGENTIC TOOL SYSTEM PROMPT
    ============================================================ */
+/* ============================================================
+   MULTI-MESSAGE REPLIES
+   A model can split one turn into several chat bubbles by wrapping each
+   in <message>…</message>, the way a person sends a short line, then a
+   follow-up, rather than one wall of text.
+   ============================================================ */
+function splitMessages(reply) {
+  if (typeof reply !== "string") return [];
+  const parts = [...reply.matchAll(/<message>([\s\S]*?)<\/message>/gi)]
+    .map((m) => m[1].trim())
+    .filter(Boolean);
+
+  // No complete pair. Usually genuinely untagged prose, but a model can also
+  // leave a tag unclosed — strip any dangling ones so the markup never shows.
+  if (!parts.length) {
+    const stripped = reply.replace(/<\/?message>/gi, "").trim();
+    return [stripped || reply];
+  }
+
+  // Anything outside the tags is usually the model forgetting to wrap its
+  // opening line. Keep it as the first bubble rather than dropping it.
+  const stray = reply.replace(/<message>[\s\S]*?<\/message>/gi, "").trim();
+  return stray ? [stray, ...parts] : parts;
+}
+
+/* Drop-in tools declare themselves in tools/*.js and are discovered at
+   startup, so they cannot be listed in the static prompt below. This appends
+   them, or the model would never learn they exist — which was the point of
+   making them droppable in the first place. */
+let _dropInBlock = "";
+allTools()
+  .then((all) => {
+    const extra = Object.entries(all).filter(([k]) => !(k in TOOL_DEFINITIONS));
+    if (!extra.length) return;
+    _dropInBlock =
+      "\n\nDROP-IN TOOLS (same ACTION format):\n" +
+      extra
+        .map(([name, def]) => `ACTION: ${name} | ${def.args || "<input>"}   — ${def.desc}`)
+        .join("\n");
+    console.log(`[TOOLS] discovered: ${extra.map(([n]) => n).join(", ")}`);
+  })
+  .catch(() => {});
+
 const TOOL_SYSTEM = `
 
 ===TOOL SYSTEM===
@@ -333,6 +378,16 @@ ACTION: todo | add Finish homework
 ACTION: timer | start 300
 ACTION: system | 
 ACTION: gdoc | 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms
+
+MULTIPLE MESSAGES — reply in more than one bubble:
+Wrap each bubble in <message></message>. Use it when a reply has naturally
+separate beats — a quick answer then the detail, or a couple of distinct
+points. Do not use it to chop one thought into fragments.
+
+<message>Found it — the config was pointing at the old port.</message>
+<message>Want me to fix it, or would you rather look first?</message>
+
+If you only have one thing to say, write it plainly with no tags at all.
 
 VISUALIZE — draw something instead of describing it:
 Use this for diagrams, charts, timelines, comparisons, small interactive
@@ -669,7 +724,8 @@ async function runAgenticPipeline(
     const actionMatch = rawReply.match(
       /^\s*ACTION:\s*([^|\n]+?)\s*\|\s*(.*)$/im,
     );
-    if (!actionMatch) return { reply: rawReply, steps };
+    if (!actionMatch)
+      return { reply: rawReply, replies: splitMessages(rawReply), steps };
 
     const toolName = actionMatch[1].trim().toLowerCase();
     const toolInput = actionMatch[2].trim();
@@ -879,6 +935,10 @@ async function runAgenticPipeline(
       }
     } catch (e) {
       toolResult = "Tool error: " + e.message;
+      errorLog.logError("tool_error", `${toolName}: ${e.message}`, "medium", {
+        tool: toolName,
+        input: String(toolInput).slice(0, 200),
+      });
     }
 
     if (toolResult?.startsWith?.("__VISUAL__")) {
@@ -924,6 +984,15 @@ async function runAgenticPipeline(
       }
     }
 
+    if (typeof toolResult === "string" && /^(Tool error|Unknown tool)/.test(toolResult)) {
+      errorLog.logError(
+        toolResult.startsWith("Unknown tool") ? "unknown_tool" : "tool_error",
+        toolResult.slice(0, 300),
+        "medium",
+        { tool: toolName },
+      );
+    }
+
     steps.push({
       tool: toolName,
       input: toolInput,
@@ -941,7 +1010,7 @@ async function runAgenticPipeline(
   }
 
   const finalReply = await callAI(currentMessages, provider, model, modeOpts);
-  return { reply: finalReply, steps };
+  return { reply: finalReply, replies: splitMessages(finalReply), steps };
 }
 
 /* ============================================================
@@ -1368,6 +1437,7 @@ async function runTaskStep(task, step, prevOutputs) {
   const sysPrompt =
     (BASE_PROMPTS[task.personality] || BASE_PROMPTS.hacker) +
     TOOL_SYSTEM +
+    _dropInBlock +
     buildMemoryContext() +
     `\n\n[BACKGROUND TASK MODE]\nYou are executing step ${
       task.currentStep + 1
@@ -1572,6 +1642,7 @@ app.post("/api/chat", async (req, res) => {
 
   let sysPrompt = BASE_PROMPTS[activePersonality] || BASE_PROMPTS.hacker;
   sysPrompt += TOOL_SYSTEM;
+  sysPrompt += _dropInBlock;
   sysPrompt += buildMemoryContext();
   sysPrompt += buildBehaviourContext();
   sysPrompt += lifeContext.buildLifeContext();
@@ -2498,10 +2569,13 @@ app.get("/api/news", async (req, res) => {
 /* ============================================================
    TOOLS + CONFIG
    ============================================================ */
-app.get("/api/tools", (_, res) => {
-  const list = Object.entries(TOOL_DEFINITIONS).map(([name, def]) => ({
+app.get("/api/tools", async (_, res) => {
+  const all = await allTools();
+  const list = Object.entries(all).map(([name, def]) => ({
     name,
     desc: def.desc,
+    dropIn: !(name in TOOL_DEFINITIONS),
+    source: def.source || null,
   }));
   res.json({ tools: list });
 });
@@ -3260,7 +3334,7 @@ const startTime = Date.now();
 app.get("/api/health", (_, res) => {
   res.json({
     ok: true,
-    version: "3.0.0",
+    version: "3.1.0",
     uptimeMs: Date.now() - startTime,
     relays: {
       live: [...clawRelays.values()].filter(
@@ -3282,6 +3356,23 @@ app.get("/api/health", (_, res) => {
     pendingScreenshots: pendingScreenshotResolvers?.size || 0,
     node: process.version,
   });
+});
+
+/* ══════════════════════════════════════════════════════════════
+   ERROR LOG — what keeps breaking
+   Ported from the AGI harness. Read-only from the UI's point of view;
+   nothing here feeds back into ARIA's behaviour automatically.
+   ══════════════════════════════════════════════════════════════ */
+app.get("/api/errors", (_, res) => {
+  res.json({
+    ok: true,
+    stats: errorLog.stats(),
+    clusters: errorLog.clusterByType(),
+  });
+});
+
+app.post("/api/errors/clear", (_, res) => {
+  res.json(errorLog.clearLog());
 });
 
 /* ══════════════════════════════════════════════════════════════
@@ -3585,6 +3676,9 @@ app.get("*", (req, res) =>
 // Catches any uncaught error thrown inside a route handler so the process doesn't die
 app.use((err, req, res, next) => {
   console.error(`[ERR] ${req.method} ${req.path}:`, err.stack || err.message);
+  errorLog.logError("route_error", `${req.method} ${req.path}: ${err.message}`, "high", {
+    path: req.path,
+  });
   if (res.headersSent) return next(err);
   res.status(500).json({
     error: "Internal server error",
@@ -3597,7 +3691,7 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   const banner = `
 ╔══════════════════════════════════════════════════════╗
-║  ARIA v3 — Adaptive Reasoning Intelligence           ║
+║  ARIA v3.1 — Adaptive Reasoning Intelligence         ║
 ║  Port: ${String(PORT).padEnd(46)}║
 ║  Node: ${process.version.padEnd(46)}║
 ║  Env:  ${(process.env.NODE_ENV || "development").padEnd(46)}║

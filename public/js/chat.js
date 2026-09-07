@@ -1338,35 +1338,35 @@ function renderMessages() {
     div.innerHTML = `
       <div class="msgHeader">
         <div class="msgSender">${msg.role === "user" ? "YOU" : "ARIA"}${
-      msg.pinned ? ' <span class="msgPinBadge" title="Pinned">📌</span>' : ""
+      msg.pinned ? ' <span class="msgPinBadge" title="Pinned"><i class="bi bi-pin-angle-fill" aria-hidden="true"></i></span>' : ""
     }${
-      msg.starred ? ' <span class="msgStarBadge" title="Starred">⭐</span>' : ""
+      msg.starred ? ' <span class="msgStarBadge" title="Starred"><i class="bi bi-star-fill" aria-hidden="true"></i></span>' : ""
     }</div>
         <div class="msgMeta">
           <span class="msgTimestamp">${time}</span>
           <button class="msgActionBtn msgCopyBtn" title="Copy" onclick="window.ARIA_copyMessage(${JSON.stringify(
             msg.content,
-          )})">⎘</button>
+          )})"><i class="bi bi-clipboard" aria-hidden="true"></i></button>
           <button class="msgActionBtn msgStarBtn ${
             msg.starred ? "active" : ""
           }" title="${
       msg.starred ? "Unstar" : "Star"
     }" onclick="window.ARIA_starMessage('${chat.id}',${idx})">${
-      msg.starred ? "⭐" : "☆"
+      msg.starred ? '<i class="bi bi-star-fill" aria-hidden="true"></i>' : '<i class="bi bi-star" aria-hidden="true"></i>'
     }</button>
           <button class="msgActionBtn msgPinBtn ${
             msg.pinned ? "active" : ""
           }" title="${
       msg.pinned ? "Unpin" : "Pin"
-    }" onclick="window.ARIA_pinMessage('${chat.id}',${idx})">📌</button>
+    }" onclick="window.ARIA_pinMessage('${chat.id}',${idx})"><i class="bi bi-pin-angle" aria-hidden="true"></i></button>
           ${
             isAria
-              ? `<button class="msgActionBtn msgRegenBtn" title="Regenerate" onclick="window.ARIA_regenerateMsg('${chat.id}',${idx})">↺</button>`
+              ? `<button class="msgActionBtn msgRegenBtn" title="Regenerate" onclick="window.ARIA_regenerateMsg('${chat.id}',${idx})"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>`
               : ""
           }
           <button class="msgActionBtn msgDeleteBtn" title="Delete" onclick="window.ARIA_deleteMessage('${
             chat.id
-          }',${idx})">✕</button>
+          }',${idx})"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
       </div>
       <div class="msgBody">${bodyHTML}</div>`;
@@ -2341,6 +2341,26 @@ function addAIMessage(content) {
   if (ttsEnabled) speak(content);
 }
 
+/* Post several bubbles from one turn, the way a person sends a short line
+   and then a follow-up. The pause between them is proportional to length so
+   a one-liner doesn't sit there as long as a paragraph, and capped so a long
+   reply never feels like a stall. */
+async function addAIMessages(parts) {
+  const list = (parts || []).filter((p) => typeof p === "string" && p.trim());
+  if (!list.length) return;
+  if (list.length === 1) return addAIMessage(list[0]);
+
+  for (let i = 0; i < list.length; i++) {
+    if (i > 0) {
+      const pause = Math.min(200 + list[i].length * 12, 1100);
+      const tid = showTypingIndicator?.();
+      await new Promise((r) => setTimeout(r, pause));
+      if (tid !== undefined) removeTypingIndicator?.(tid);
+    }
+    addAIMessage(list[i]);
+  }
+}
+
 /* ============================================================
    SEND MESSAGE
    ============================================================ */
@@ -2824,7 +2844,8 @@ async function sendMessageContent(text, chat, attachments = []) {
         }
         if (data.reply) addAIMessage(data.reply);
       } else {
-        addAIMessage(data.reply?.trim() || "[No reply]");
+        if (data.replies?.length > 1) await addAIMessages(data.replies);
+        else addAIMessage(data.reply?.trim() || "[No reply]");
       }
       return;
     }
@@ -2868,7 +2889,8 @@ async function sendMessageContent(text, chat, attachments = []) {
       }
       if (data.reply) addAIMessage(data.reply);
     } else {
-      addAIMessage(data.reply?.trim() || "[No reply]");
+      if (data.replies?.length > 1) await addAIMessages(data.replies);
+      else addAIMessage(data.reply?.trim() || "[No reply]");
     }
   } catch (err) {
     removeTypingIndicator(tid);

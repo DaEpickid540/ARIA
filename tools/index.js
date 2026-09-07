@@ -3,7 +3,7 @@
 import os from "os";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { runVisualize } from "./visualize.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -563,11 +563,93 @@ export const TOOL_DEFINITIONS = {
   },
 };
 
+/* ============================================================
+   DROP-IN TOOL DISCOVERY
+   Ported from the AGI harness (agi/tools.py), where tools were scripts in
+   a directory that declared themselves in a header rather than being
+   registered by hand. Adding a tool to ARIA otherwise means editing this
+   file in two places and the system prompt in a third, which is the kind
+   of friction that stops small tools from getting written.
+
+   A drop-in tool is any tools/*.js that exports:
+       export const TOOL_META = { name, desc, args? };
+       export async function run(input) { … }
+
+   Discovery is allowlist-by-directory exactly as it was in AGI: only files
+   physically in tools/ are ever loaded, the name comes from the module's
+   own export rather than from anything a model said, and there is no path
+   parameter — model output selects a name from a fixed list, never a file.
+
+   Additive on purpose. The hand-registered table above is the source of
+   truth and always wins, so nothing existing can be shadowed by a stray
+   file, and discovery failing is never fatal.
+   ============================================================ */
+const _discovered = {};
+
+async function discoverTools() {
+  let files;
+  try {
+    files = fs
+      .readdirSync(__dirname)
+      .filter((f) => f.endsWith(".js") && f !== "index.js");
+  } catch {
+    return _discovered;
+  }
+
+  for (const file of files) {
+    const full = path.join(__dirname, file);
+
+    // Check for the marker in the source before importing, the way AGI parsed
+    // its header comments without executing anything. Importing every sibling
+    // just to look for an export would run each module's top-level code at
+    // startup — and it tripped over tools/websearch.js, which has an unmet
+    // dependency and is not a drop-in tool at all.
+    try {
+      if (!fs.readFileSync(full, "utf8").includes("TOOL_META")) continue;
+    } catch {
+      continue;
+    }
+
+    try {
+      const mod = await import(pathToFileURL(full).href);
+      const meta = mod.TOOL_META;
+      if (!meta?.name || typeof mod.run !== "function") continue;
+      const key = String(meta.name).toLowerCase().trim();
+      if (!key || TOOL_DEFINITIONS[key]) continue; // never shadow a built-in
+      _discovered[key] = {
+        desc: meta.desc || "(no description)",
+        args: meta.args || "",
+        fn: mod.run,
+        source: file,
+      };
+    } catch (e) {
+      console.warn(`[TOOLS] skipped ${file}: ${e.message}`);
+    }
+  }
+  return _discovered;
+}
+
+// Kicked off at import; runToolServer awaits it so the first call cannot
+// race the scan.
+const _discoveryReady = discoverTools();
+
+/** Built-ins plus anything discovered. Await this when listing tools. */
+export async function allTools() {
+  await _discoveryReady;
+  return { ...TOOL_DEFINITIONS, ..._discovered };
+}
+
 export async function runToolServer(toolName, input) {
   const key = toolName.toLowerCase().trim();
-  const entry = TOOL_DEFINITIONS[key];
-  if (!entry)
-    return `Unknown tool: ${toolName}. Available: ${Object.keys(TOOL_DEFINITIONS).join(", ")}`;
+  await _discoveryReady;
+  const entry = TOOL_DEFINITIONS[key] || _discovered[key];
+  if (!entry) {
+    const known = [
+      ...Object.keys(TOOL_DEFINITIONS),
+      ...Object.keys(_discovered),
+    ];
+    return `Unknown tool: ${toolName}. Available: ${known.join(", ")}`;
+  }
   try {
     return await entry.fn(input);
   } catch (e) {

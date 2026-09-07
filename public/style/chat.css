@@ -52,30 +52,37 @@
   color: var(--text);
 }
 
-.msg.aria::before {
-  content: "ARIA";
-  position: absolute;
-  top: 0;
-  left: 16px;
+/* The sender label used to be an absolutely positioned ::before while the
+   real .msgSender element was display:none. That left .msgHeader with only
+   one visible child, so its space-between pushed the action buttons to the
+   left, straight underneath the floating label. Using the real element puts
+   the name and the buttons on one row, which is what the layout expects. */
+.msgSender {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 0.6rem;
   font-weight: 600;
   color: var(--accent-text);
   letter-spacing: 0.13em;
   text-transform: uppercase;
   font-family: var(--font-sans);
+  line-height: 1;
 }
 
-.msgSender {
-  display: none;
+.msg.user .msgSender {
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .msgTimestamp {
-  position: absolute;
-  bottom: -14px;
-  right: 4px;
   font-size: 0.6rem;
   color: var(--text-3);
   letter-spacing: 0;
+  line-height: 1;
+}
+
+.msg.user .msgTimestamp {
+  color: rgba(255, 255, 255, 0.6);
 }
 
 /* ============================================================

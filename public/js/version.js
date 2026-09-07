@@ -5,8 +5,8 @@
 // Examples: Mark 1.0 ARIA, Mark 2.3 ARIA, Mark 4.1 ARIA
 
 export const ARIA_VERSION = {
-  mark: 1, // ← change this for major releases
-  point: 6, // ← change this for minor updates
+  mark: 2, // ← change this for major releases
+  point: 0, // ← change this for minor updates
 
   // Auto-computed — do not edit below this line
   get full() {

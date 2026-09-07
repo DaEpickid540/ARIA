@@ -477,6 +477,84 @@ input[type="range"] {
 }
 
 /* ============================================================
+   MESSAGE HEADER
+   One row: sender on the left, timestamp and actions on the right,
+   all on a single baseline.
+   ============================================================ */
+.msgHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  min-height: 18px;
+}
+
+.msgMeta {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* The buttons fade in on hover, but the timestamp is always readable —
+   it used to fade with them because it shared the container. */
+.msgMeta .msgActionBtn {
+  opacity: 0;
+  transition: opacity var(--tr), color var(--tr), background var(--tr);
+}
+.msg:hover .msgMeta .msgActionBtn,
+.msgActionBtn:focus-visible {
+  opacity: 1;
+}
+
+.msgActionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  margin-left: 2px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--text-3);
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.msgActionBtn:hover {
+  color: var(--accent-text);
+  background: var(--bg-inset);
+}
+.msg.user .msgActionBtn {
+  color: rgba(255, 255, 255, 0.65);
+}
+.msg.user .msgActionBtn:hover {
+  color: #fff;
+  background: rgba(0, 0, 0, 0.18);
+}
+.msgActionBtn.active {
+  color: var(--warning);
+  opacity: 1;
+}
+.msgDeleteBtn:hover {
+  color: var(--danger-text);
+  border-color: transparent;
+}
+.msgRegenBtn:hover {
+  color: var(--success-text);
+  border-color: transparent;
+}
+
+.msgPinBadge,
+.msgStarBadge {
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+/* ============================================================
    VISUALIZATIONS
    Model-authored widgets, rendered in a sandboxed frame. Everything
    here is the chrome around that frame — the frame's own styling is
