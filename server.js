@@ -334,6 +334,31 @@ ACTION: timer | start 300
 ACTION: system | 
 ACTION: gdoc | 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms
 
+VISUALIZE — draw something instead of describing it:
+Use this for diagrams, charts, timelines, comparisons, small interactive
+widgets — anything clearer as a picture. The markup goes in a fenced block on
+the line AFTER the ACTION line, because ACTION input is single-line only.
+
+ACTION: visualize | Short title
+\`\`\`svg
+<svg viewBox="0 0 600 300" xmlns="http://www.w3.org/2000/svg">...</svg>
+\`\`\`
+
+Or full HTML for something interactive:
+
+ACTION: visualize | Budget calculator
+\`\`\`html
+<style>…</style><div>…</div><script>…</script>
+\`\`\`
+
+VISUALIZE RULES:
+- Self-contained only. No external scripts, stylesheets, images or fetches —
+  it renders in a sandboxed frame with no network and no page access.
+- Size to the container: use viewBox and width="100%", never fixed pixel widths.
+- Inherit the theme with var(--v-text), var(--v-bg), var(--v-accent),
+  var(--v-border), var(--v-muted) — these are injected for you.
+- One visualization per reply.
+
 CLAW — PC CONTROL (you CAN do these things):
 ACTION: claw | open: Chrome
 ACTION: claw | open: https://youtube.com
@@ -840,9 +865,45 @@ async function runAgenticPipeline(
 
     let toolResult;
     try {
-      toolResult = await runToolServer(toolName, toolInput);
+      if (toolName === "visualize") {
+        // ACTION input is parsed as a single line, so the markup travels in a
+        // fenced block after it. Grab the first fence in the reply; the info
+        // string (svg/html/xml) is ignored because the tool sniffs the source.
+        const fence = rawReply.match(/```[a-z]*\s*\n([\s\S]*?)```/i);
+        toolResult = await runToolServer("visualize", {
+          title: toolInput,
+          code: fence ? fence[1] : "",
+        });
+      } else {
+        toolResult = await runToolServer(toolName, toolInput);
+      }
     } catch (e) {
       toolResult = "Tool error: " + e.message;
+    }
+
+    if (toolResult?.startsWith?.("__VISUAL__")) {
+      // JSON rather than a delimiter pair: the payload is arbitrary markup and
+      // would happily contain whatever separator we picked.
+      try {
+        const visual = JSON.parse(toolResult.slice("__VISUAL__".length));
+        steps.push({
+          tool: toolName,
+          input: toolInput,
+          preText,
+          result: "[visualization]",
+        });
+        return {
+          reply:
+            // Strip the ACTION line and the fence out of the prose, or the raw
+            // markup gets printed above the rendered widget.
+            (preText.replace(/```[a-z]*\s*\n[\s\S]*?```/i, "").trim()) ||
+            "",
+          visual,
+          steps,
+        };
+      } catch {
+        toolResult = "Visualization could not be packaged.";
+      }
     }
 
     if (toolResult?.startsWith?.("__IMAGE__")) {

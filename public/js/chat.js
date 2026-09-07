@@ -1,4 +1,5 @@
 import { speak, ttsEnabled } from "./tts.js";
+import { createVisual } from "./visualize.js";
 import { loadSettings } from "./personality.js";
 import { runTool } from "./tools.js";
 
@@ -1268,7 +1269,14 @@ function renderMessages() {
     div.classList.add("msg", msg.role);
 
     let bodyHTML;
-    if (msg.type === "image" && msg.imageUrl) {
+    // Visualizations are built as real nodes rather than an HTML string: the
+    // iframe needs its sandbox attribute and its height listener attached
+    // before it is inserted, and innerHTML would give neither.
+    let visualNode = null;
+    if (msg.type === "visual" && msg.visual) {
+      bodyHTML = msg.content ? renderMarkdown(msg.content) : "";
+      visualNode = createVisual(msg.visual);
+    } else if (msg.type === "image" && msg.imageUrl) {
       bodyHTML = `<div class="msgImageWrap">
         <img src="${msg.imageUrl}" alt="Generated" class="msgImage" onclick="window.open('${msg.imageUrl}','_blank')">
         <div class="imgActions">
@@ -1362,6 +1370,7 @@ function renderMessages() {
         </div>
       </div>
       <div class="msgBody">${bodyHTML}</div>`;
+    if (visualNode) div.querySelector(".msgBody").appendChild(visualNode);
     messages.appendChild(div);
   });
 
@@ -2831,7 +2840,20 @@ async function sendMessageContent(text, chat, attachments = []) {
     removeTypingIndicator(tid);
     clearHalo();
 
-    if (data.imageUrl) {
+    if (data.visual) {
+      const chatV = getCurrentChat();
+      if (chatV) {
+        chatV.messages.push({
+          role: "aria",
+          type: "visual",
+          visual: data.visual,
+          content: data.reply?.trim() || "",
+          timestamp: Date.now(),
+        });
+        saveChats();
+        renderMessages();
+      }
+    } else if (data.imageUrl) {
       const chat2 = getCurrentChat();
       if (chat2) {
         chat2.messages.push({

@@ -4,6 +4,7 @@ import os from "os";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { runVisualize } from "./visualize.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -553,6 +554,13 @@ export const TOOL_DEFINITIONS = {
   },
   imagine: { desc: "Generate image — /imagine <prompt>", fn: runImagine },
   gdoc: { desc: "Read Google Doc — /gdoc <doc-id>", fn: runGoogleDocs },
+  // Takes an object rather than a string: the markup is multi-line, so
+  // server.js pulls it out of the fenced block after the ACTION line and
+  // passes { title, code } here.
+  visualize: {
+    desc: "Render an SVG/HTML widget inline — ACTION: visualize | <title> + a fenced block",
+    fn: runVisualize,
+  },
 };
 
 export async function runToolServer(toolName, input) {

@@ -39,6 +39,10 @@
 }
 
 .msg.aria {
+  /* Overrides the fit-content width the bubbles use. ARIA messages run the
+     full column, and a block child with no intrinsic width — a visualization
+     frame, a table — would otherwise collapse to nothing under fit-content. */
+  width: 100%;
   max-width: 100%;
   background: transparent;
   border: none;
