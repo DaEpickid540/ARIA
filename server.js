@@ -3357,23 +3357,6 @@ app.get("/api/speedtest/down", (req, res) => {
   pump();
 });
 
-/* ── Fallback ── */
-app.get("*", (req, res) =>
-  res.sendFile(path.join(__dirname, "public", "index.html")),
-);
-
-/* ── Global error handler ── */
-// Catches any uncaught error thrown inside a route handler so the process doesn't die
-app.use((err, req, res, next) => {
-  console.error(`[ERR] ${req.method} ${req.path}:`, err.stack || err.message);
-  if (res.headersSent) return next(err);
-  res.status(500).json({
-    error: "Internal server error",
-    message: err.message,
-    path: req.path,
-  });
-});
-
 // Don't crash on unhandled promise rejections — log and keep running
 process.on("unhandledRejection", (reason) => {
   console.error("[UNHANDLED REJECTION]", reason);
@@ -3524,6 +3507,30 @@ if (BRIEFING_ENABLED) {
   }, 60_000);
   console.log(`[BRIEFING] Scheduled for ${BRIEFING_HOUR}:00 daily`);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   These two must stay LAST. Express matches routes in registration
+   order, so app.get("*") answers anything declared below it — that is
+   how /api/briefing/* ended up returning index.html to an EventSource.
+   Add new routes above this line.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Fallback ── */
+app.get("*", (req, res) =>
+  res.sendFile(path.join(__dirname, "public", "index.html")),
+);
+
+/* ── Global error handler ── */
+// Catches any uncaught error thrown inside a route handler so the process doesn't die
+app.use((err, req, res, next) => {
+  console.error(`[ERR] ${req.method} ${req.path}:`, err.stack || err.message);
+  if (res.headersSent) return next(err);
+  res.status(500).json({
+    error: "Internal server error",
+    message: err.message,
+    path: req.path,
+  });
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
