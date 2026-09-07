@@ -166,7 +166,7 @@ function _buildPanel() {
         </label>
         <label class="clawCfgRow">
           <span class="clawCfgLabel">Screenshot monitor</span>
-          <select id="cfgMonitorIdx" style="flex:1;background:#0a0000;border:1px solid #1e0000;color:#cc4444;font-family:'Share Tech Mono',monospace;font-size:10px;padding:3px">
+          <select id="cfgMonitorIdx" style="flex:1;background:var(--bg-inset);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono-stack);font-size:10px;padding:3px">
             <option value="-1">All monitors combined</option>
             <option value="0">Primary (0)</option>
             <option value="1">Secondary (1)</option>

@@ -1,204 +1,66 @@
 /* ============================================================
-   theme-modes.css — Mark 1.3
-   Mode-specific overrides applied via body class.
-   Each mode tweaks fonts, borders, scanlines, animations on top
-   of the existing CSS variable system.
+   theme-modes.css
+   Per-mode overrides applied via body class.
+
+   Most of what separated the old modes — surfaces, text, borders, radii,
+   fonts — is now expressed purely as tokens, written onto :root by
+   js/themePreload.js. What remains here is the handful of things a token
+   can't say: Mono squares off inherited radii, and Light needs a couple of
+   surfaces that would otherwise read as muddy.
    ============================================================ */
 
-/* ── Apply font + cursor at body level (uses --font-body etc) ── */
+/* ── Font + cursor come from the mode's tokens ── */
 body {
-  font-family: var(--font-body, "Share Tech Mono", monospace);
-  cursor: var(--cursor-style, crosshair);
+  font-family: var(--font-body, var(--font-sans));
+  cursor: var(--cursor-style, default);
   letter-spacing: var(--text-spacing, 0);
 }
 h1, h2, h3, .chatHeaderARIA, .bootAriaLogo {
-  font-family: var(--font-head, "Orbitron", sans-serif);
+  font-family: var(--font-head, var(--font-sans));
 }
 pre, code, .userPara, kbd {
-  font-family: var(--font-mono, "Share Tech Mono", monospace);
-}
-
-/* ── Scanline opacity is now variable-driven ── */
-body::before {
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 0, 0, var(--scanline-opacity, 0.18)) 2px,
-    rgba(0, 0, 0, var(--scanline-opacity, 0.18)) 4px
-  );
-  opacity: var(--scanline-opacity, 0.18) > 0 ? 1 : 0;
+  font-family: var(--font-mono, var(--font-mono-stack));
 }
 
 /* ════════════════════════════════════════════════════════════
-   CYBERPUNK MODE — the default
+   MONO MODE — square corners throughout
+   The radii tokens cover anything that reads var(--radius-*) or var(--r*),
+   but plenty of rules still carry a literal px radius.
    ════════════════════════════════════════════════════════════ */
-body.mode-cyberpunk {
-  /* Default behaviour already; no overrides needed */
-}
-
-/* ════════════════════════════════════════════════════════════
-   PROFESSIONAL MODE — clean & minimal
-   ════════════════════════════════════════════════════════════ */
-body.mode-professional {
-  cursor: default;
-}
-body.mode-professional::before,
-body.mode-professional::after {
-  display: none !important;
-}
-body.mode-professional .homeCard,
-body.mode-professional .chatItem,
-body.mode-professional #sidebar,
-body.mode-professional #chatHeader,
-body.mode-professional #inputBar,
-body.mode-professional .msg,
-body.mode-professional button,
-body.mode-professional input,
-body.mode-professional textarea,
-body.mode-professional select {
-  border-radius: var(--radius-md);
-  cursor: default !important;
-}
-body.mode-professional button,
-body.mode-professional .chatItem,
-body.mode-professional .voiceBtn {
-  cursor: pointer !important;
-}
-body.mode-professional input,
-body.mode-professional textarea {
-  cursor: text !important;
-}
-body.mode-professional .homeCard {
-  background: var(--bg-panel);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: var(--shadow-card);
-}
-body.mode-professional .msg {
-  background: transparent;
-  border: none;
-}
-body.mode-professional .msg.user {
-  background: rgba(0, 0, 0, 0.04);
-}
-body.mode-professional .msg.aria {
-  background: transparent;
-}
-body.mode-professional * {
-  text-shadow: none !important;
-}
-body.mode-professional .chatHeaderARIA {
-  font-weight: 600;
-  letter-spacing: 0;
-}
-body.mode-professional .glitch,
-body.mode-professional .bootAriaLogo {
-  text-shadow: none !important;
-  animation: none !important;
-}
-body.mode-professional #ariaHalo {
-  display: none;
-}
-
-/* ════════════════════════════════════════════════════════════
-   TERMINAL MODE — phosphor green CRT
-   ════════════════════════════════════════════════════════════ */
-body.mode-terminal {
-  cursor: text;
-}
-body.mode-terminal *,
-body.mode-terminal .homeCard,
-body.mode-terminal button,
-body.mode-terminal input,
-body.mode-terminal textarea {
+body.mode-mono *,
+body.mode-mono *::before,
+body.mode-mono *::after {
   border-radius: 0 !important;
 }
-body.mode-terminal .homeCard {
-  background: var(--bg-panel);
-  border: 1px solid var(--red-deep);
+body.mode-mono .swatchDot,
+body.mode-mono .esp32StatusDot,
+body.mode-mono .statusDot,
+body.mode-mono .colorWheelCanvas,
+body.mode-mono .colorWheelMarker,
+body.mode-mono .themeSwatchV2 {
+  border-radius: 50% !important;
 }
-body.mode-terminal .msg {
-  border-left: 2px solid var(--red-core);
-  padding-left: 12px;
-  background: transparent;
-}
-body.mode-terminal .msg.user::before {
-  content: "$ ";
-  color: var(--red-core);
-}
-body.mode-terminal .msg.aria::before {
-  content: "> ";
-  color: var(--red-core);
-}
-body.mode-terminal .msgSender {
-  display: none;
-}
-body.mode-terminal #userInput::after {
-  content: "_";
-  animation: terminalBlink 1s steps(1) infinite;
-}
-body.mode-terminal #userInput::placeholder {
-  font-style: normal;
-}
-@keyframes terminalBlink {
-  50% { opacity: 0; }
-}
-body.mode-terminal #chatHeader,
-body.mode-terminal #inputBar {
-  border: 1px solid var(--red-deep);
-}
-body.mode-terminal button {
-  background: transparent;
-  border: 1px solid var(--red-core);
-  color: var(--red-core);
-}
-body.mode-terminal button:hover {
-  background: var(--red-core);
-  color: var(--bg-void);
-}
-
-/* ════════════════════════════════════════════════════════════
-   MINIMAL DARK MODE — modern, subtle
-   ════════════════════════════════════════════════════════════ */
-body.mode-minimal {
-  cursor: default;
-}
-body.mode-minimal::before {
-  display: none;
-}
-body.mode-minimal *,
-body.mode-minimal .homeCard,
-body.mode-minimal button,
-body.mode-minimal input,
-body.mode-minimal textarea {
-  cursor: default !important;
-}
-body.mode-minimal button,
-body.mode-minimal .chatItem {
-  cursor: pointer !important;
-}
-body.mode-minimal input,
-body.mode-minimal textarea {
-  cursor: text !important;
-}
-body.mode-minimal .homeCard {
-  background: var(--bg-panel);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: var(--shadow-card);
-}
-body.mode-minimal .msg.user {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-/* ════════════════════════════════════════════════════════════
-   COMMON: derived border / glow respect --glow-intensity
-   ════════════════════════════════════════════════════════════ */
-body.mode-professional [class*="glow"],
-body.mode-minimal [class*="glow"] {
-  text-shadow: none !important;
+body.mode-mono * {
   box-shadow: none !important;
 }
+
+/* ════════════════════════════════════════════════════════════
+   LIGHT MODE
+   A few rules paint translucent white over the surface to lift it. On a
+   white page that does nothing, so they get a real tint instead.
+   ════════════════════════════════════════════════════════════ */
+body.mode-light .msg.user {
+  color: #fff;
+}
+body.mode-light .homeCard,
+body.mode-light .emptyChatSuggestion {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+body.mode-light .msg.aria {
+  color: var(--text);
+}
+
 
 /* ════════════════════════════════════════════════════════════
    COLOR WHEEL PICKER UI
@@ -216,12 +78,12 @@ body.mode-minimal [class*="glow"] {
   position: relative;
   width: 240px;
   height: 240px;
-  cursor: crosshair;
+  cursor: pointer;
 }
 .colorWheelCanvas {
   display: block;
   border-radius: 50%;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--bg-inset) 50%, transparent);
 }
 .colorWheelMarker {
   position: absolute;
@@ -231,7 +93,7 @@ body.mode-minimal [class*="glow"] {
   border-radius: 50%;
   pointer-events: none;
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 0 1px #000, 0 2px 4px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 1px #000, 0 2px 4px color-mix(in srgb, var(--bg-inset) 50%, transparent);
   transition: left 0.05s, top 0.05s;
 }
 .colorWheelControls {
@@ -250,7 +112,7 @@ body.mode-minimal [class*="glow"] {
   height: 50px;
   border-radius: var(--radius-md);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3), 0 0 12px var(--red-core);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-inset) 30%, transparent), 0 0 12px var(--red-core);
 }
 .cwValues {
   flex: 1;
@@ -293,7 +155,7 @@ body.mode-minimal [class*="glow"] {
   cursor: pointer;
   font-family: var(--font-body);
   font-size: 11px;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
   transition: all 0.15s;
 }
 .cwSaveBtn:hover {
@@ -332,7 +194,7 @@ body.mode-minimal [class*="glow"] {
     var(--bg-panel) 0%,
     rgba(var(--accent-h, 0), var(--accent-s, 100%), var(--accent-l, 50%), 0.05) 100%
   );
-  box-shadow: 0 0 0 1px var(--red-core), var(--glow-sm);
+  box-shadow: none;
 }
 .themeModeCard.active::after {
   content: "✓";
@@ -378,7 +240,7 @@ body.mode-minimal [class*="glow"] {
 }
 .themeSwatchV2.active {
   border-color: #fff;
-  box-shadow: 0 0 0 1px #000, 0 0 12px var(--swatch-color);
+  box-shadow: none;
 }
 .themeSwatchV2.active::after {
   content: "✓";
@@ -389,7 +251,7 @@ body.mode-minimal [class*="glow"] {
   justify-content: center;
   color: #fff;
   font-size: 12px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  text-shadow: none;
 }
 .themeSwatchV2 .swatchLabel {
   position: absolute;
@@ -428,7 +290,7 @@ body.mode-minimal [class*="glow"] {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #000;
+  background: var(--bg);
   color: #fff;
   border: 1px solid var(--red-core);
   font-size: 9px;
@@ -467,11 +329,11 @@ body.mode-minimal [class*="glow"] {
   height: 8px;
   border-radius: 50%;
   background: #444;
-  box-shadow: 0 0 6px transparent;
+  box-shadow: none;
 }
 .esp32StatusDot.online {
-  background: #4cff4c;
-  box-shadow: 0 0 8px #4cff4c;
+  background: var(--success);
+  box-shadow: none;
 }
 .esp32DeviceMeta {
   font-size: 11px;
@@ -592,9 +454,9 @@ html[data-font-size="medium"] { font-size: 15px; }
 html[data-font-size="large"] { font-size: 17px; }
 html[data-font-size="xlarge"] { font-size: 19px; }
 
-body[data-density="compact"] .msg { padding: 6px 10px; margin: 4px 0; }
-body[data-density="normal"] .msg { padding: 10px 14px; margin: 8px 0; }
-body[data-density="spacious"] .msg { padding: 16px 20px; margin: 14px 0; }
+body[data-density="compact"] .msg { padding: 6px 10px; margin-block: 4px; }
+body[data-density="normal"] .msg { padding: 10px 14px; margin-block: 8px; }
+body[data-density="spacious"] .msg { padding: 16px 20px; margin-block: 14px; }
 
 body[data-anim="off"] *,
 body[data-anim="off"] *::before,

@@ -12,7 +12,7 @@
     <link rel="manifest" href="/manifest.json" />
 
     <!-- Theme & status bar -->
-    <meta name="theme-color" content="#ff0000" />
+    <meta name="theme-color" content="#1a1a1e" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta
@@ -21,7 +21,7 @@
     />
     <meta name="apple-mobile-web-app-title" content="ARIA" />
     <meta name="application-name" content="ARIA" />
-    <meta name="msapplication-TileColor" content="#000000" />
+    <meta name="msapplication-TileColor" content="#1a1a1e" />
     <meta name="msapplication-TileImage" content="/icons/icon-144.png" />
 
     <!-- Apple touch icons -->
@@ -37,11 +37,15 @@
     <!-- SEO / description -->
     <meta
       name="description"
-      content="ARIA — Adaptive Reasoning Intelligence Architecture. Personal AI OS with voice, chat, memory, and cyberpunk UI."
+      content="ARIA — Adaptive Reasoning Intelligence Architecture. Personal AI OS with voice, chat, memory, and tools."
     />
 
     <!-- Prevent text size adjust on iOS -->
     <meta name="format-detection" content="telephone=no" />
+
+    <!-- Applies the saved theme before first paint. Blocking on purpose:
+         it must beat both the stylesheets and Bootstrap. -->
+    <script src="/js/themePreload.js"></script>
 
     <link rel="stylesheet" href="style/base.css" />
     <link rel="stylesheet" href="style/layout.css" />
@@ -68,11 +72,14 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
     />
+
+    <!-- Design-system finishing layer — must win over Bootstrap -->
+    <link rel="stylesheet" href="style/bookware.css" />
   </head>
 
   <body>
     <!-- ========================= -->
-    <!--  RED PRE-BOOT SCRIPTS     -->
+    <!--  PRE-BOOT SCRIPTS         -->
     <!-- ========================= -->
 
     <!-- Disabled for the curent moment -->
@@ -84,7 +91,7 @@
     </div> -->
 
     <!-- ========================= -->
-    <!--  RED CYBERPUNK BOOT       -->
+    <!--  BOOT SCREEN               -->
     <!-- ========================= -->
     <div id="bootScreen" style="display: none">
       <div id="bootTerminal">
@@ -460,117 +467,28 @@
                ════════════════════════════════════════ -->
           <div class="settingsTabPane active" data-pane="appearance">
             <section class="settingsSection">
-              <h3>Color Theme</h3>
+              <h3>Theme</h3>
               <p class="settingsHint">
-                Changes the entire UI accent color instantly — no save needed.
+                Pick a surface palette. Applies instantly — no save needed.
               </p>
-              <div id="themeSwatches">
-                <button
-                  class="themeSwatch active"
-                  data-theme="red"
-                  style="--sw: #ff0000"
-                >
-                  <span class="swatchDot"></span>Crimson
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="cyan"
-                  style="--sw: #00ffff"
-                >
-                  <span class="swatchDot"></span>Neon Cyan
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="green"
-                  style="--sw: #00ff41"
-                >
-                  <span class="swatchDot"></span>Matrix
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="purple"
-                  style="--sw: #cc00ff"
-                >
-                  <span class="swatchDot"></span>Synthwave
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="orange"
-                  style="--sw: #ff6600"
-                >
-                  <span class="swatchDot"></span>Ember
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="gold"
-                  style="--sw: #ffd700"
-                >
-                  <span class="swatchDot"></span>Gilded
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="pink"
-                  style="--sw: #ff0099"
-                >
-                  <span class="swatchDot"></span>Hot Pink
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="ice"
-                  style="--sw: #00aaff"
-                >
-                  <span class="swatchDot"></span>Ice Blue
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="toxic"
-                  style="--sw: #aaff00"
-                >
-                  <span class="swatchDot"></span>Toxic
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="mono"
-                  style="--sw: #cccccc"
-                >
-                  <span class="swatchDot"></span>Ghost
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="blood"
-                  style="--sw: #880000"
-                >
-                  <span class="swatchDot"></span>Blood
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="teal"
-                  style="--sw: #00ffcc"
-                >
-                  <span class="swatchDot"></span>Teal
-                </button>
-                <button
-                  class="themeSwatch"
-                  data-theme="solar"
-                  style="--sw: #ffaa00"
-                >
-                  <span class="swatchDot"></span>Solar
-                </button>
-              </div>
+              <div id="themeModeGrid" class="themeModeGrid"></div>
             </section>
 
             <section class="settingsSection">
-              <h3>Display Mode</h3>
-              <div class="toggleRow">
-                <div>
-                  <span>Dark Mode</span>
-                  <div class="toggleHint">
-                    Switch between dark (default) and light backgrounds
-                  </div>
-                </div>
-                <button id="darkModeToggle" class="toggleBtn active">ON</button>
-              </div>
-              <label style="margin-top: 12px"
+              <h3>Accent Colour</h3>
+              <p class="settingsHint">
+                Drives buttons, links and highlights across the whole UI.
+              </p>
+              <div id="accentColorGrid" class="accentColorGrid"></div>
+              <label style="margin-top: 18px">Saved custom colours</label>
+              <div id="customColorsRow" class="customColorsRow"></div>
+              <label style="margin-top: 18px">Custom colour</label>
+              <div id="colorWheelHost"></div>
+            </section>
+
+            <section class="settingsSection">
+              <h3>Display</h3>
+              <label
                 >Brightness — <span id="brightnessDisplay">1.00</span></label
               >
               <input
@@ -586,35 +504,23 @@
                 "
               />
               <div class="sliderHintRow">
-                <span>🌑 Dim</span>
+                <span>Dim</span>
                 <span>Normal</span>
-                <span>☀ Bright</span>
+                <span>Bright</span>
               </div>
-            </section>
 
-            <section class="settingsSection">
-              <h3>Visual FX</h3>
-              <div class="toggleRow">
+              <div class="toggleRow" style="margin-top: 16px">
                 <div>
                   <span>Halo Effect</span>
                   <div class="toggleHint">
-                    Screen halo when ARIA thinks, speaks, or settings change
+                    Outlines the screen while ARIA is thinking or speaking
                   </div>
                 </div>
                 <button id="toggle_haloEffects" class="toggleBtn active">
                   ON
                 </button>
               </div>
-              <label
-                style="
-                  font-family: 'Share Tech Mono', monospace;
-                  font-size: 10px;
-                  color: var(--text-muted);
-                  margin-top: 6px;
-                  display: block;
-                "
-                >Halo Intensity</label
-              >
+              <label style="margin-top: 6px">Halo Intensity</label>
               <input
                 type="range"
                 id="haloIntensity"
@@ -624,29 +530,6 @@
                 value="0.5"
                 style="width: 100%; margin-top: 4px"
               />
-
-              <div class="toggleRow">
-                <div>
-                  <span>Scanline Overlay</span>
-                  <div class="toggleHint">
-                    CRT-style horizontal scanlines across the UI
-                  </div>
-                </div>
-                <button id="toggle_scanlines" class="toggleBtn active">
-                  ON
-                </button>
-              </div>
-              <div class="toggleRow" style="margin-top: 8px">
-                <div>
-                  <span>Glitch Effects</span>
-                  <div class="toggleHint">
-                    Hover glitch animations on buttons and panels
-                  </div>
-                </div>
-                <button id="toggle_glitchEffects" class="toggleBtn active">
-                  ON
-                </button>
-              </div>
             </section>
 
             <section class="settingsSection">
@@ -1418,10 +1301,6 @@ Instructions ARIA follows when this skill is active.</code>
     <!-- ========================= -->
     <!--  FX LAYERS                -->
     <!-- ========================= -->
-    <div id="chromaticFlash"></div>
-    <div id="glitchBurst"></div>
-    <div id="scanlineSweep"></div>
-    <div id="sideSweep"></div>
 
     <!-- ========================= -->
     <!--  TOAST                    -->

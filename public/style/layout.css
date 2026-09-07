@@ -4,6 +4,7 @@
 #layout {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   overflow: hidden;
 }
@@ -14,103 +15,57 @@
 #sidebar {
   width: 260px;
   min-width: 260px;
-  background: linear-gradient(180deg, #0a0000 0%, #030000 100%);
-  border-right: 1px solid var(--red-dim);
-  box-shadow:
-    4px 0 30px rgba(255, 0, 0, 0.15),
-    inset -1px 0 0 var(--red-dim);
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   padding: 12px;
+  gap: 4px;
   z-index: 2;
   position: relative;
   overflow: hidden;
-  transition:
-    width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    min-width 0.28s;
-}
-
-/* Red accent strip */
-#sidebar::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 2px;
-  height: 100%;
-  background: linear-gradient(
-    180deg,
-    transparent,
-    var(--red-core),
-    transparent
-  );
-  animation: sidebarPulse 3s ease-in-out infinite;
-}
-
-@keyframes sidebarPulse {
-  0%,
-  100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 1;
-  }
+  transition: width var(--tr-slow), min-width var(--tr-slow);
 }
 
 #chatList {
   flex: 1;
   overflow-y: auto;
   width: 100%;
-  scrollbar-width: thin;
-  scrollbar-color: var(--red-dim) transparent;
-}
-
-#chatList::-webkit-scrollbar {
-  width: 3px;
-}
-#chatList::-webkit-scrollbar-thumb {
-  background: var(--red-dim);
-  border-radius: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0;
 }
 
 .chatItem {
   width: 100%;
-  padding: 9px 10px;
+  padding: 9px 12px;
   background: transparent;
-  color: var(--text-hot);
+  color: var(--text-2);
   border: 1px solid transparent;
-  border-left: 2px solid transparent;
-  cursor: crosshair;
-  font-size: 12px;
-  font-family: "Share Tech Mono", monospace;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-family: var(--font-sans);
   text-align: left;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   position: relative;
   overflow: hidden;
-}
-
-.chatItem::before {
-  content: "> ";
-  color: var(--red-dim);
-  transition: color 0.15s;
-}
-
-.chatItem.active {
-  background: rgba(255, 0, 0, 0.08);
-  border-left-color: var(--red-core);
-  color: var(--text-blaze);
-  box-shadow: inset 0 0 12px rgba(255, 0, 0, 0.1);
-}
-
-.chatItem.active::before {
-  color: var(--red-neon);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chatItem:hover {
-  background: rgba(255, 0, 0, 0.05);
-  border-left-color: var(--red-dim);
-  color: var(--text-blaze);
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.chatItem.active {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+  font-weight: 500;
 }
 
 /* SIDEBAR BOTTOM */
@@ -120,103 +75,106 @@
   flex-direction: column;
   gap: 8px;
   padding-top: 12px;
-  border-top: 1px solid var(--border-cut);
+  border-top: 1px solid var(--border);
 }
 
 /* Groups the previously-flat wall of sidebar buttons into labeled sections */
 .sidebarGroupLabel {
   margin-top: 4px;
-  font-family: "Share Tech Mono", monospace;
-  font-size: 9px;
-  letter-spacing: 0.14em;
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
-  color: var(--text-muted);
-  opacity: 0.7;
+  font-weight: 600;
+  color: var(--text-3);
 }
 .sidebarGroup {
   display: grid;
   gap: 6px;
 }
-.sidebarGroupRow {
-  grid-template-columns: 1fr 1fr;
-}
+.sidebarGroupRow,
 .sidebarGroupGrid {
   grid-template-columns: 1fr 1fr;
 }
 .sidebarGroup .secondaryBtn {
   padding: 8px 6px;
-  font-size: 10px;
+  font-size: 0.68rem;
+  justify-content: center;
   text-align: center;
 }
 
 /* ============================================================
    BUTTONS
+   BookWare's pill buttons: a neutral surface by default, the accent
+   reserved for the one primary action on screen.
    ============================================================ */
 .primaryBtn {
-  background: var(--red-core);
-  color: #000;
-  border: 1px solid var(--red-neon);
-  border-radius: 2px;
-  padding: 10px 14px;
-  cursor: crosshair;
-  font-weight: 900;
-  font-family: "Orbitron", sans-serif;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  box-shadow:
-    var(--glow-sm),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  position: relative;
-  overflow: hidden;
-  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
-}
-
-.primaryBtn::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    transparent 50%
-  );
-  opacity: 0;
-  transition: opacity 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-full);
+  padding: 9px 16px;
+  min-height: 34px;
+  cursor: pointer;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  white-space: nowrap;
 }
 
 .primaryBtn:hover {
-  background: var(--red-hot);
-  box-shadow: var(--glow-lg);
-  transform: translateY(-2px) scale(1.02);
-}
-.primaryBtn:hover::after {
-  opacity: 1;
+  opacity: 0.88;
+  transform: translateY(-1px);
 }
 
 .primaryBtn:active {
-  transform: translateY(0) scale(0.98);
-  box-shadow: var(--glow-sm);
+  transform: translateY(0);
+  opacity: 0.96;
+}
+
+.primaryBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .secondaryBtn {
-  background: var(--bg-elevated);
-  color: var(--text-hot);
-  border: 1px solid var(--border-cut);
-  border-radius: 2px;
-  padding: 9px 12px;
-  cursor: crosshair;
-  font-family: "Share Tech Mono", monospace;
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-inset);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  padding: 8px 14px;
+  min-height: 34px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .secondaryBtn:hover {
-  border-color: var(--red-core);
-  background: rgba(255, 0, 0, 0.07);
-  color: var(--text-blaze);
-  box-shadow: var(--glow-sm);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+}
+
+.secondaryBtn:active {
+  transform: translateY(1px);
+}
+
+.primaryBtn:focus-visible,
+.secondaryBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ============================================================
@@ -226,48 +184,16 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(
-      ellipse at 20% 0%,
-      rgba(255, 0, 0, 0.08) 0%,
-      transparent 60%
-    ),
-    radial-gradient(
-      ellipse at 80% 100%,
-      rgba(200, 0, 0, 0.06) 0%,
-      transparent 50%
-    ),
-    var(--bg-void);
+  background: var(--bg);
   position: relative;
   z-index: 1;
-}
-
-/* Subtle grid overlay on chat area */
-#chatWindow::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255, 0, 0, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 0, 0, 0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-  pointer-events: none;
-  z-index: 0;
+  min-width: 0;
 }
 
 #messages {
   flex: 1;
-  padding: 20px;
+  padding: 24px 20px;
   overflow-y: auto;
   position: relative;
   z-index: 1;
-  scrollbar-width: thin;
-  scrollbar-color: var(--red-dim) transparent;
-}
-
-#messages::-webkit-scrollbar {
-  width: 3px;
-}
-#messages::-webkit-scrollbar-thumb {
-  background: var(--red-dim);
 }

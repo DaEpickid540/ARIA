@@ -6,7 +6,7 @@
 #bgTasksModal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: color-mix(in srgb, var(--bg-inset) 70%, transparent);
   display: none;
   align-items: center;
   justify-content: center;
@@ -18,10 +18,10 @@
   width: 90vw;
   max-width: 880px;
   max-height: 86vh;
-  background: var(--bg-panel, #080808);
-  border: 1px solid var(--border-cut, #330000);
+  background: var(--bg-card);
+  border: 1px solid var(--border-cut, var(--border));
   border-radius: var(--radius-md, 6px);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), var(--glow-md, 0 0 32px rgba(255, 0, 0, 0.3));
+  box-shadow: 0 20px 60px color-mix(in srgb, var(--bg-inset) 80%, transparent), var(--glow-md, 0 0 32px color-mix(in srgb, var(--accent) 30%, transparent));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -33,21 +33,21 @@
   align-items: center;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-cut);
-  background: var(--bg-abyss, #030303);
+  background: var(--bg-inset);
   flex-shrink: 0;
 }
 #bgTasksHeader h2 {
-  font-family: var(--font-head, "Orbitron", sans-serif);
+  font-family: var(--font-head, var(--font-sans));
   font-size: 12px;
-  letter-spacing: 0.25em;
-  color: var(--red-core, #ff2040);
-  text-shadow: var(--glow-sm);
+  letter-spacing: 0.02em;
+  color: var(--red-core, var(--accent-text));
+  text-shadow: none;
   margin: 0;
 }
 #bgTasksCloseBtn {
   background: transparent;
   border: 1px solid var(--border-cut);
-  color: var(--text-hot, #ff9999);
+  color: var(--text-hot, var(--accent-text));
   width: 28px;
   height: 28px;
   border-radius: var(--radius-sm, 2px);
@@ -82,12 +82,12 @@
   filter: drop-shadow(0 0 10px var(--red-core));
 }
 .tpEmptyTitle {
-  color: var(--text-blaze, #fff);
+  color: var(--text);
   font-size: 14px;
   margin-bottom: 4px;
 }
 .tpEmptyHint {
-  color: var(--text-muted, #553333);
+  color: var(--text-2);
   font-size: 11px;
 }
 
@@ -101,11 +101,11 @@
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .tpTaskCard:hover {
-  border-color: var(--border-glow, #880000);
+  border-color: var(--border-glow, var(--border-strong));
 }
 .tpTaskCard.expanded {
   border-color: var(--red-core);
-  box-shadow: 0 0 0 1px var(--red-core), var(--glow-sm);
+  box-shadow: none;
 }
 .tpTaskRow {
   display: grid;
@@ -121,7 +121,7 @@
   gap: 4px;
   padding: 3px 8px;
   font-size: 10px;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   border: 1px solid currentColor;
   border-radius: var(--radius-sm);
@@ -174,15 +174,15 @@
   color: var(--bg-void);
 }
 .tpBtnDel:hover {
-  border-color: #ff4444;
-  color: #ff4444;
+  border-color: var(--accent-border);
+  color: var(--accent-text);
 }
 
 /* ── Expanded detail ── */
 .tpTaskDetail {
   padding: 12px 14px 14px;
   border-top: 1px solid var(--border-cut);
-  background: rgba(0, 0, 0, 0.3);
+  background: color-mix(in srgb, var(--bg-inset) 30%, transparent);
   font-size: 12px;
 }
 .tpDetailDesc {
@@ -198,7 +198,7 @@
 .tpDetailError {
   background: rgba(255, 68, 68, 0.1);
   border: 1px solid rgba(255, 68, 68, 0.4);
-  color: #ff8080;
+  color: var(--accent-text);
   padding: 8px;
   border-radius: var(--radius-sm);
   margin-bottom: 8px;
@@ -207,7 +207,7 @@
 .tpDetailNote {
   background: rgba(255, 200, 0, 0.08);
   border: 1px solid rgba(255, 200, 0, 0.3);
-  color: #ffd060;
+  color: var(--warning);
   padding: 6px 10px;
   border-radius: var(--radius-sm);
   margin-bottom: 8px;
@@ -234,7 +234,7 @@
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 .tpStep-running {
-  border-left-color: #4cff4c;
+  border-left-color: var(--success);
   background: rgba(76, 255, 76, 0.05);
   animation: tpRunningPulse 2s ease-in-out infinite;
 }
@@ -246,7 +246,7 @@
   border-left-color: var(--red-core);
 }
 .tpStep-error {
-  border-left-color: #ff4444;
+  border-left-color: var(--accent-border);
 }
 .tpStepHeader {
   display: flex;
@@ -316,7 +316,7 @@
   color: var(--red-core);
   cursor: pointer;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
 }
 .tpFinalResult pre {
   margin: 8px 0 0;
@@ -350,7 +350,7 @@
   border-bottom: 1px dotted rgba(255, 255, 255, 0.05);
 }
 .tpLogTime {
-  color: var(--red-deep, #cc0000);
+  color: var(--red-deep, var(--accent-text));
   margin-right: 6px;
 }
 
@@ -363,7 +363,7 @@
 }
 .tpCreateHeader {
   font-size: 11px;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--red-core);
   margin-bottom: 8px;
@@ -395,7 +395,7 @@
   font-size: 11px;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
 }
 .tpCheck {
   display: flex;
@@ -434,7 +434,7 @@
   font-family: var(--font-body);
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   transition: all 0.15s;
 }
@@ -465,7 +465,7 @@
   padding: 10px 14px;
   color: var(--text-blaze);
   font-size: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), var(--glow-sm);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--bg-inset) 60%, transparent), var(--glow-sm);
   opacity: 0;
   transform: translateX(20px);
   transition: opacity 0.3s, transform 0.3s;
@@ -481,13 +481,13 @@
   background: var(--bg-elevated);
 }
 .taskToast-ok {
-  border-color: #4cff4c;
+  border-color: var(--success);
 }
 .taskToast-err {
-  border-color: #ff4444;
+  border-color: var(--accent-border);
 }
 .taskToast-info {
-  border-color: #80c0ff;
+  border-color: var(--info);
 }
 
 /* ── Mobile ── */

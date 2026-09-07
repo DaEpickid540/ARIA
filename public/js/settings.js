@@ -22,125 +22,51 @@ import {
   getEmotion,
   setEmotion,
 } from "./personality.js";
-
 /* ============================================================
-   THEMES
+   THEMES — compatibility shim
+   The V1 palette map lived here and painted its own neon ramp onto
+   :root. Theming now runs entirely through themes.js (modes + accent),
+   so this keeps the old export shape and forwards to it.
    ============================================================ */
-export const THEMES = {
-  red: {
-    label: "Crimson",
-    vars: {
-      "--red-core": "#ff0000",
-      "--red-hot": "#ff2200",
-      "--red-neon": "#ff3333",
-      "--red-deep": "#cc0000",
-      "--red-dim": "#660000",
-      "--red-ember": "#ff6633",
-    },
-  },
-  cyan: {
-    label: "Neon Cyan",
-    vars: {
-      "--red-core": "#00ffff",
-      "--red-hot": "#00dddd",
-      "--red-neon": "#33ffff",
-      "--red-deep": "#008888",
-      "--red-dim": "#004444",
-      "--red-ember": "#00ffcc",
-    },
-  },
-  green: {
-    label: "Matrix",
-    vars: {
-      "--red-core": "#00ff41",
-      "--red-hot": "#00cc33",
-      "--red-neon": "#33ff66",
-      "--red-deep": "#007722",
-      "--red-dim": "#003311",
-      "--red-ember": "#88ff00",
-    },
-  },
-  purple: {
-    label: "Synthwave",
-    vars: {
-      "--red-core": "#cc00ff",
-      "--red-hot": "#aa00dd",
-      "--red-neon": "#dd33ff",
-      "--red-deep": "#660088",
-      "--red-dim": "#330044",
-      "--red-ember": "#ff44cc",
-    },
-  },
-  orange: {
-    label: "Ember",
-    vars: {
-      "--red-core": "#ff6600",
-      "--red-hot": "#ff4400",
-      "--red-neon": "#ff8833",
-      "--red-deep": "#cc3300",
-      "--red-dim": "#661100",
-      "--red-ember": "#ffaa00",
-    },
-  },
-  gold: {
-    label: "Gilded",
-    vars: {
-      "--red-core": "#ffd700",
-      "--red-hot": "#ffbb00",
-      "--red-neon": "#ffe033",
-      "--red-deep": "#aa8800",
-      "--red-dim": "#554400",
-      "--red-ember": "#ffee88",
-    },
-  },
+import {
+  ACCENT_PRESETS,
+  applyThemeFull,
+  applySavedTheme,
+  loadSavedTheme,
+} from './themes.js';
+
+// Old keys -> the accent presets that replaced them.
+const LEGACY_ACCENTS = {
+  red: '#f8291c',
+  cyan: '#0e9bb5',
+  green: '#27ae60',
+  purple: '#9b2dc4',
+  orange: '#e67e22',
+  gold: '#d4a017',
 };
 
+export const THEMES = Object.fromEntries(
+  Object.entries(ACCENT_PRESETS).map(([key, p]) => [
+    key,
+    { label: p.label, vars: { '--accent': p.core } },
+  ]),
+);
+
 export function applyTheme(themeKey, darkMode = true) {
-  const theme = THEMES[themeKey] || THEMES.red;
-  const root = document.documentElement;
-  const core = theme.vars["--red-core"];
-
-  Object.entries(theme.vars).forEach(([k, v]) => root.style.setProperty(k, v));
-  root.style.setProperty("--glow-sm", `0 0 8px ${core}99`);
-  root.style.setProperty("--glow-md", `0 0 16px ${core}bb, 0 0 32px ${core}55`);
-  root.style.setProperty(
-    "--glow-lg",
-    `0 0 24px ${core}ee, 0 0 48px ${core}88, 0 0 80px ${core}33`,
-  );
-  root.style.setProperty(
-    "--glow-ultra",
-    `0 0 4px #fff, 0 0 14px ${core}, 0 0 40px ${core}, 0 0 80px ${core}88`,
-  );
-  root.style.setProperty("--border-cut", theme.vars["--red-dim"]);
-  root.style.setProperty("--border-glow", theme.vars["--red-deep"]);
-
-  if (darkMode) {
-    root.style.setProperty("--bg-void", "#000000");
-    root.style.setProperty("--bg-abyss", "#030303");
-    root.style.setProperty("--bg-panel", "#080808");
-    root.style.setProperty("--bg-elevated", "#0d0d0d");
-    root.style.setProperty("--bg-raised", "#111111");
-    root.style.setProperty("--text-blaze", "#ffffff");
-    root.style.setProperty("--text-hot", core + "cc");
-    root.style.setProperty("--text-muted", "#444444");
-    root.classList.remove("light-mode");
-  } else {
-    root.style.setProperty("--bg-void", "#f0f0f0");
-    root.style.setProperty("--bg-abyss", "#e8e8e8");
-    root.style.setProperty("--bg-panel", "#d8d8d8");
-    root.style.setProperty("--bg-elevated", "#cccccc");
-    root.style.setProperty("--bg-raised", "#c0c0c0");
-    root.style.setProperty("--text-blaze", "#111111");
-    root.style.setProperty("--text-hot", "#333333");
-    root.style.setProperty("--text-muted", "#888888");
-    root.classList.add("light-mode");
-  }
+  const accent =
+    LEGACY_ACCENTS[themeKey] ||
+    ACCENT_PRESETS[themeKey]?.core ||
+    loadSavedTheme().accent;
+  const saved = loadSavedTheme().mode;
+  // darkMode === false is the only reason to leave the saved mode: it is the
+  // old boolean light switch, which maps onto the light mode.
+  const mode = darkMode === false ? 'light' : saved === 'light' ? 'dark' : saved;
+  applyThemeFull(mode, accent);
 
   document
-    .querySelectorAll(".themeSwatch")
-    .forEach((s) => s.classList.toggle("active", s.dataset.theme === themeKey));
+    .querySelectorAll('.themeSwatch')
+    .forEach((s) => s.classList.toggle('active', s.dataset.theme === themeKey));
 }
-
 export function applyBrightness(val) {
   // val = 0.3 (dim) to 1.5 (bright). 1.0 = normal
   document.documentElement.style.setProperty("--brightness", String(val));
@@ -294,12 +220,9 @@ function applySettingsToUI() {
   if (vttLangEl && currentSettings.vttLang)
     vttLangEl.value = currentSettings.vttLang;
 
-  // Theme & dark mode
-  applyTheme(
-    currentSettings.theme || "red",
-    currentSettings.darkMode !== false,
-  );
-  syncToggle("darkModeToggle", currentSettings.darkMode !== false);
+  // Theme — owned by themes.js (mode + accent), persisted independently of
+  // currentSettings, so re-assert the saved one rather than deriving it here.
+  applySavedTheme();
 
   // Brightness
   const brightEl = document.getElementById("brightnessSlider");
@@ -312,20 +235,10 @@ function applySettingsToUI() {
 
   // Feature toggles
   [
-    "glitchEffects",
-    "scanlines",
     "sendOnEnter",
     "showTimestamps",
     "haloEffects",
   ].forEach((k) => syncToggle("toggle_" + k, currentSettings[k] !== false));
-  document.body.classList.toggle(
-    "no-scanlines",
-    currentSettings.scanlines === false,
-  );
-  document.body.classList.toggle(
-    "no-glitch",
-    currentSettings.glitchEffects === false,
-  );
 
   // Font size
   const fsEl = document.getElementById("fontSizeSelect");
@@ -519,10 +432,8 @@ function renderEmotionSummary() {
   const current = getEmotion();
   const e = EMOTIONS[current] || EMOTIONS.neutral;
   el.innerHTML = `
-    <div class="emotionCurrent" style="color:${e.color}; text-shadow: 0 0 8px ${
-    e.color
-  }">
-      ${e.icon} ${e.label.toUpperCase()}
+    <div class="emotionCurrent" style="color:${e.color}">
+      ${e.icon} ${e.label}
     </div>
     <div class="settingsHint" style="margin-top:6px">
       Shifts naturally through conversation. Override below.
@@ -858,8 +769,6 @@ function wireAllControls() {
 
   // ── Feature toggles ──
   [
-    "glitchEffects",
-    "scanlines",
     "sendOnEnter",
     "showTimestamps",
     "haloEffects",
@@ -867,10 +776,6 @@ function wireAllControls() {
     document.getElementById("toggle_" + key)?.addEventListener("click", () => {
       currentSettings[key] = currentSettings[key] === false ? true : false;
       syncToggle("toggle_" + key, currentSettings[key]);
-      if (key === "scanlines")
-        document.body.classList.toggle("no-scanlines", !currentSettings[key]);
-      if (key === "glitchEffects")
-        document.body.classList.toggle("no-glitch", !currentSettings[key]);
     });
   });
 
@@ -1043,19 +948,8 @@ export function initSettings() {
     window.ARIA_setVTTLanguage?.(currentSettings.vttLang);
 
   // Apply visual settings
-  applyTheme(
-    currentSettings.theme || "red",
-    currentSettings.darkMode !== false,
-  );
+  applySavedTheme();
   applyFontSize(currentSettings.fontSize || "medium");
-  document.body.classList.toggle(
-    "no-scanlines",
-    currentSettings.scanlines === false,
-  );
-  document.body.classList.toggle(
-    "no-glitch",
-    currentSettings.glitchEffects === false,
-  );
 
   // Wire all controls (all DOM queries happen inside here)
   wireAllControls();

@@ -319,7 +319,7 @@ export function initSystemHealth() {
   score = Math.max(0, Math.min(100, score));
   const color = score >= 70 ? "#00ff88" : score >= 40 ? "#ffaa00" : "#ff4444";
   scoreEl.innerHTML = `
-    <div style="font-size:22px;color:${color};font-family:'Orbitron',sans-serif">${score}<span style="font-size:12px">/100</span></div>
+    <div style="font-size:22px;color:${color};font-family:var(--font-sans)">${score}<span style="font-size:12px">/100</span></div>
     <div class="healthBar"><div class="healthFill" style="width:${score}%;background:${color}"></div></div>`;
   if (detailsEl)
     detailsEl.textContent = `${cores} cores · ~${mem}GB · ${online ? "Online" : "Offline"}`;
@@ -350,23 +350,6 @@ export async function initSpeedPreview() {
 export function initQuickTools() {
   const el = document.getElementById("homeQuickTools");
   if (!el) return;
-  const themes = [
-    "red",
-    "cyan",
-    "green",
-    "purple",
-    "orange",
-    "gold",
-    "pink",
-    "ice",
-    "toxic",
-    "blood",
-    "teal",
-    "solar",
-    "violet",
-    "rose",
-    "cobalt",
-  ];
   el.innerHTML = `
     <button class="hwToolBtn" data-qt="clear">🗑 Clear Chats</button>
     <button class="hwToolBtn" data-qt="export">📋 Export</button>
@@ -412,8 +395,11 @@ export function initQuickTools() {
         inp.click();
       }
       if (a === "theme") {
-        const t = themes[Math.floor(Math.random() * themes.length)];
-        import("./settings.js").then((m) => m.applyTheme?.(t, true));
+        import("./themes.js").then((m) => {
+          const hues = Object.values(m.ACCENT_PRESETS).map((p) => p.core);
+          const pick = hues[Math.floor(Math.random() * hues.length)];
+          m.applyThemeFull(m.loadSavedTheme().mode, pick);
+        });
       }
       if (a === "memory") {
         import("./settings.js").then((m) => m.switchSettingsTab?.("memory"));

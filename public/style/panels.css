@@ -17,7 +17,7 @@
   width: 50%;
   min-width: 280px;
   border-left-color: var(--red-core);
-  box-shadow: -6px 0 30px rgba(255, 0, 0, 0.18);
+  box-shadow: -6px 0 30px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 #layout.code-split #sidebar {
   width: 40px !important;
@@ -41,11 +41,11 @@
   white-space: nowrap;
 }
 #codePanelLang {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 10px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.02em;
   color: var(--red-core);
-  text-shadow: var(--glow-sm);
+  text-shadow: none;
   flex-shrink: 0;
 }
 .codePanelActions {
@@ -57,12 +57,12 @@
   background: transparent;
   border: 1px solid var(--border-cut);
   color: var(--text-muted);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 10px;
-  cursor: crosshair;
+  cursor: pointer;
   padding: 4px 10px;
   transition: all 0.15s;
-  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+  border-radius: var(--r-sm);
 }
 .codePanelActions button:hover {
   border-color: var(--red-core);
@@ -83,7 +83,7 @@
   padding: 20px 18px;
   font-size: 12.5px;
   line-height: 1.7;
-  font-family: "Share Tech Mono", "Courier New", monospace;
+  font-family: var(--font-sans);
   color: var(--text-blaze);
   background: var(--bg-void);
   white-space: pre;
@@ -111,13 +111,13 @@
   gap: 4px;
 }
 .codeActionBtn {
-  background: rgba(255, 0, 0, 0.06);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
   border: 1px solid var(--red-dim);
   color: var(--text-muted);
   font-size: 9px;
-  cursor: crosshair;
+  cursor: pointer;
   padding: 2px 7px;
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   transition: all 0.15s;
 }
 .codeActionBtn:hover {
@@ -129,7 +129,7 @@
 details.thinkBlock {
   margin: 0 0 10px 0;
   border-left: 2px solid var(--red-dim);
-  background: rgba(255, 0, 0, 0.03);
+  background: color-mix(in srgb, var(--accent) 3%, transparent);
   border-radius: 0;
   transition: border-color 0.2s;
 }
@@ -139,9 +139,9 @@ details.thinkBlock:hover {
 details.thinkBlock > summary {
   cursor: pointer;
   padding: 6px 10px;
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 8px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.02em;
   color: var(--red-dim);
   list-style: none;
   user-select: none;
@@ -168,7 +168,7 @@ details.thinkBlock > summary::-webkit-details-marker {
 }
 .thinkContent {
   padding: 6px 12px 10px 12px;
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 10px;
   line-height: 1.65;
   color: var(--text-muted);
@@ -191,16 +191,16 @@ details.thinkBlock > summary::-webkit-details-marker {
   display: flex;
   align-items: baseline;
   gap: 7px;
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 9.5px;
   line-height: 1.5;
   color: var(--text-muted);
   padding: 1px 0;
 }
 .thinkStepLabel {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 7px;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.02em;
   color: var(--red-dim);
   text-transform: uppercase;
   white-space: nowrap;
@@ -227,18 +227,11 @@ details.thinkBlock > summary::-webkit-details-marker {
   height: 400px;
   background: var(--bg-panel);
   border: 1px solid var(--red-core);
-  box-shadow: var(--glow-lg), 0 8px 32px rgba(0, 0, 0, 0.8);
+  box-shadow: var(--glow-lg), 0 8px 32px color-mix(in srgb, var(--bg-inset) 80%, transparent);
   z-index: 999990;
   display: flex;
   flex-direction: column;
-  clip-path: polygon(
-    0 0,
-    calc(100% - 12px) 0,
-    100% 12px,
-    100% 100%,
-    12px 100%,
-    0 calc(100% - 12px)
-  );
+  border-radius: var(--r-sm);
   resize: both;
   overflow: hidden;
 }
@@ -250,9 +243,9 @@ details.thinkBlock > summary::-webkit-details-marker {
   background: var(--bg-abyss);
   border-bottom: 1px solid var(--red-dim);
   cursor: move;
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.02em;
   color: var(--red-core);
   flex-shrink: 0;
 }
@@ -284,14 +277,14 @@ details.thinkBlock > summary::-webkit-details-marker {
   scrollbar-color: var(--red-dim) transparent;
 }
 .pipMsg {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   line-height: 1.4;
   padding: 5px 8px;
   border-radius: 2px;
 }
 .pipMsgUser {
-  background: rgba(255, 0, 0, 0.12);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   border-left: 2px solid var(--red-core);
   text-align: right;
 }
@@ -311,7 +304,7 @@ details.thinkBlock > summary::-webkit-details-marker {
   background: var(--bg-raised);
   border: 1px solid var(--border-cut);
   color: var(--text-blaze);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   padding: 5px 8px;
   outline: none;
@@ -323,11 +316,11 @@ details.thinkBlock > summary::-webkit-details-marker {
   background: var(--red-core);
   border: none;
   color: #000;
-  font-family: "Orbitron", monospace;
+  font-family: var(--font-sans);
   font-size: 9px;
   padding: 5px 10px;
   cursor: pointer;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
 }
 
 /* ============================================================
@@ -372,23 +365,23 @@ details.thinkBlock > summary::-webkit-details-marker {
   border: 1px solid var(--red-dim);
   border-right: none;
   color: var(--red-core);
-  cursor: crosshair;
+  cursor: pointer;
   font-size: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10;
   transition: all 0.15s;
-  clip-path: polygon(0 4px, 100% 0, 100% 100%, 0 calc(100% - 4px));
+  border-radius: var(--r-sm);
 }
 #sidebarCollapseBtn:hover {
-  background: rgba(255, 0, 0, 0.12);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   border-color: var(--red-core);
 }
 #sidebarCollapseIcon {
   display: inline-block;
   transition: transform 0.25s;
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   letter-spacing: -2px;
 }
 #sidebar.collapsed #sidebarCollapseIcon {
@@ -419,7 +412,7 @@ details.thinkBlock > summary::-webkit-details-marker {
   border: 1px solid var(--red-core);
   box-shadow: var(--glow-md);
   z-index: 500;
-  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+  border-radius: var(--r-sm);
 }
 .toolDropItem {
   display: block;
@@ -429,17 +422,17 @@ details.thinkBlock > summary::-webkit-details-marker {
   border: none;
   border-bottom: 1px solid var(--border-cut);
   color: var(--text-hot);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   text-align: left;
-  cursor: crosshair;
+  cursor: pointer;
   transition: all 0.12s;
 }
 .toolDropItem:last-child {
   border-bottom: none;
 }
 .toolDropItem:hover {
-  background: rgba(255, 0, 0, 0.1);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--text-blaze);
   padding-left: 18px;
 }
@@ -519,11 +512,11 @@ details.thinkBlock > summary::-webkit-details-marker {
   align-items: center;
   justify-content: center;
   font-size: 8px;
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   color: var(--text-muted);
   overflow: hidden;
   position: relative;
-  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+  border-radius: var(--r-sm);
 }
 .attachThumb img {
   width: 100%;
@@ -534,7 +527,7 @@ details.thinkBlock > summary::-webkit-details-marker {
   position: absolute;
   top: 0;
   right: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: color-mix(in srgb, var(--bg-inset) 80%, transparent);
   color: var(--status-error);
   font-size: 9px;
   cursor: pointer;
@@ -544,7 +537,7 @@ details.thinkBlock > summary::-webkit-details-marker {
 /* Drag-over highlight */
 .drag-over {
   outline: 2px dashed var(--red-core) !important;
-  background: rgba(255, 0, 0, 0.06) !important;
+  background: color-mix(in srgb, var(--accent) 6%, transparent) !important;
 }
 
 /* Message bits */
@@ -569,7 +562,7 @@ details.thinkBlock > summary::-webkit-details-marker {
   border: 1px solid transparent;
   color: var(--text-muted);
   font-size: 11px;
-  cursor: crosshair;
+  cursor: pointer;
   padding: 2px 5px;
   line-height: 1;
   transition: all 0.15s;
@@ -592,8 +585,7 @@ details.thinkBlock > summary::-webkit-details-marker {
   text-decoration: underline;
 }
 .userPara {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif !important;
+  font-family: var(--font-body, var(--font-sans)) !important;
   font-size: 14px !important;
   line-height: 1.65 !important;
   letter-spacing: 0 !important;
@@ -609,13 +601,13 @@ details.thinkBlock > summary::-webkit-details-marker {
   padding: 8px;
 }
 #stopGenBtn button {
-  background: rgba(255, 0, 0, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   border: 1px solid var(--red-dim);
   color: var(--red-neon);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   padding: 6px 16px;
-  cursor: crosshair;
+  cursor: pointer;
 }
 .msgImage {
   max-width: 100%;
@@ -631,22 +623,22 @@ details.thinkBlock > summary::-webkit-details-marker {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: rgba(255, 0, 0, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   border: 1px solid var(--red-dim);
   color: var(--red-neon);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 10px;
   padding: 5px 12px;
   cursor: pointer;
   text-decoration: none;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
   margin-top: 6px;
   margin-right: 5px;
-  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+  border-radius: var(--r-sm);
   transition: all 0.15s;
 }
 .fileDownloadBtn:hover {
-  background: rgba(255, 0, 0, 0.18);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   border-color: var(--red-core);
   box-shadow: var(--glow-sm);
 }
@@ -680,7 +672,7 @@ details.thinkBlock > summary::-webkit-details-marker {
   border: 1px solid transparent;
   color: var(--text-muted);
   font-size: 11px;
-  cursor: crosshair;
+  cursor: pointer;
   align-items: center;
   justify-content: center;
   transition: all 0.15s;
@@ -702,7 +694,7 @@ details.thinkBlock > summary::-webkit-details-marker {
 #bgTasksModal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.88);
+  background: color-mix(in srgb, var(--bg-inset) 88%, transparent);
   z-index: 99998;
   display: flex;
   align-items: center;
@@ -717,14 +709,7 @@ details.thinkBlock > summary::-webkit-details-marker {
   max-height: 82vh;
   display: flex;
   flex-direction: column;
-  clip-path: polygon(
-    0 0,
-    calc(100% - 16px) 0,
-    100% 16px,
-    100% 100%,
-    16px 100%,
-    0 calc(100% - 16px)
-  );
+  border-radius: var(--r-sm);
 }
 #commandsHeader,
 #bgTasksHeader {
@@ -738,11 +723,11 @@ details.thinkBlock > summary::-webkit-details-marker {
 }
 #commandsHeader h2,
 #bgTasksHeader h2 {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   color: var(--red-core);
-  text-shadow: var(--glow-sm);
-  letter-spacing: 0.2em;
+  text-shadow: none;
+  letter-spacing: 0.02em;
 }
 #commandsHeader button,
 #bgTasksHeader button {
@@ -750,7 +735,7 @@ details.thinkBlock > summary::-webkit-details-marker {
   border: none;
   color: var(--text-muted);
   font-size: 18px;
-  cursor: crosshair;
+  cursor: pointer;
 }
 #commandsList,
 #bgTasksList {
@@ -767,7 +752,7 @@ details.thinkBlock > summary::-webkit-details-marker {
   border-bottom: 1px solid var(--border-cut);
 }
 .commandName {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--red-neon);
   min-width: 160px;
@@ -776,30 +761,30 @@ details.thinkBlock > summary::-webkit-details-marker {
 .commandDesc {
   font-size: 11px;
   color: var(--text-muted);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
 }
 
 /* Homepage extras */
 .homeListItem {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   padding: 2px 0;
   color: var(--text-hot);
 }
 .homeToolBtn {
-  background: rgba(255, 0, 0, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   border: 1px solid var(--red-dim);
   color: var(--red-neon);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 10px;
   padding: 5px 10px;
-  cursor: crosshair;
+  cursor: pointer;
   margin: 3px 3px 0 0;
   transition: all 0.12s;
   display: inline-block;
 }
 .homeToolBtn:hover {
-  background: rgba(255, 0, 0, 0.18);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   border-color: var(--red-core);
 }
 .healthBar {
@@ -862,7 +847,7 @@ details.thinkBlock > summary::-webkit-details-marker {
     display: block !important;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.78);
+    background: color-mix(in srgb, var(--bg-inset) 78%, transparent);
     z-index: 999;
     opacity: 0;
     pointer-events: none;
@@ -992,18 +977,18 @@ details.thinkBlock > summary::-webkit-details-marker {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  background: rgba(255, 0, 0, 0.06);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
   border: 1px solid var(--red-core);
   padding: 10px 14px;
   margin: 6px 0;
-  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  border-radius: var(--r-sm);
 }
 .htmlPreviewLabel {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 10px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.02em;
   color: var(--red-neon);
-  text-shadow: var(--glow-sm);
+  text-shadow: none;
 }
 .htmlPreviewActions {
   display: flex;
@@ -1014,7 +999,7 @@ details.thinkBlock > summary::-webkit-details-marker {
    STEP MESSAGES — subtle styling, less prominent than normal
    ============================================================ */
 .msg.aria.stepMsg {
-  background: rgba(255, 0, 0, 0.03) !important;
+  background: color-mix(in srgb, var(--accent) 3%, transparent) !important;
   border-left: 2px dashed var(--red-dim) !important;
   border-right: none !important;
   opacity: 0.8;
@@ -1030,22 +1015,10 @@ details.thinkBlock > summary::-webkit-details-marker {
   display: none !important; /* hide the ARIA// tag on step messages */
 }
 
-/* ============================================================
-   AGGRESSIVE CYBERPUNK OVERRIDES
-   ============================================================ */
-.msg.user {
-  border-right: 4px solid var(--red-hot) !important;
-  box-shadow: var(--glow-lg), inset 0 0 20px rgba(255, 0, 0, 0.12) !important;
-}
-.msg.aria:not(.stepMsg) {
-  border-left: 4px solid var(--red-core) !important;
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.9), inset 2px 0 0 rgba(255, 0, 0, 0.1) !important;
-}
 
 /* User message font fix */
 .userPara {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif !important;
+  font-family: var(--font-body, var(--font-sans)) !important;
   font-size: 14px !important;
   line-height: 1.65 !important;
   letter-spacing: 0 !important;
@@ -1078,7 +1051,7 @@ details.thinkBlock > summary::-webkit-details-marker {
   padding: 20px 18px;
   font-size: 12.5px;
   line-height: 1.7;
-  font-family: "Share Tech Mono", "Courier New", monospace;
+  font-family: var(--font-sans);
   color: var(--text-blaze);
   background: var(--bg-void);
   white-space: pre;
@@ -1098,7 +1071,7 @@ details.thinkBlock > summary::-webkit-details-marker {
   height: 100%;
   background: var(--bg-panel);
   border-left: 2px solid var(--red-core);
-  box-shadow: -8px 0 40px rgba(255, 0, 0, 0.25);
+  box-shadow: -8px 0 40px color-mix(in srgb, var(--accent) 25%, transparent);
   z-index: 9000;
   display: flex;
   flex-direction: column;
@@ -1119,11 +1092,11 @@ details.thinkBlock > summary::-webkit-details-marker {
   background: var(--bg-abyss);
   border-bottom: 2px solid var(--red-dim);
   flex-shrink: 0;
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 10px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.02em;
   color: var(--red-core);
-  text-shadow: var(--glow-sm);
+  text-shadow: none;
   gap: 8px;
 }
 
@@ -1131,10 +1104,10 @@ details.thinkBlock > summary::-webkit-details-marker {
   background: transparent;
   border: 1px solid var(--border-cut);
   color: var(--text-muted);
-  cursor: crosshair;
+  cursor: pointer;
   padding: 3px 8px;
   font-size: 11px;
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   transition: all 0.15s;
 }
 #mathPanelHeader button:hover {
@@ -1160,9 +1133,9 @@ details.thinkBlock > summary::-webkit-details-marker {
 }
 
 .mathSectionLabel {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 8px;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.02em;
   color: var(--text-muted);
   margin-bottom: 4px;
   padding-bottom: 2px;
@@ -1179,27 +1152,27 @@ details.thinkBlock > summary::-webkit-details-marker {
   background: var(--bg-raised);
   border: 1px solid var(--border-cut);
   color: var(--text-blaze);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 12px;
   padding: 7px 4px;
-  cursor: crosshair;
+  cursor: pointer;
   transition: all 0.1s;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  clip-path: polygon(2px 0%, 100% 0%, calc(100% - 2px) 100%, 0% 100%);
+  border-radius: var(--r-sm);
 }
 
 .mathKey:hover {
-  background: rgba(255, 0, 0, 0.18);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   border-color: var(--red-core);
   color: var(--red-neon);
   box-shadow: var(--glow-sm);
 }
 
 .mathKey:active {
-  background: rgba(255, 0, 0, 0.35);
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
   transform: scale(0.95);
 }
 
@@ -1218,7 +1191,7 @@ body.mathPanelOpen #chatWindow {
   height: 100%;
   background: var(--bg-panel);
   border-left: 2px solid var(--red-core);
-  box-shadow: -8px 0 40px rgba(255, 0, 0, 0.25);
+  box-shadow: -8px 0 40px color-mix(in srgb, var(--accent) 25%, transparent);
   z-index: 9001;
   display: flex;
   flex-direction: column;
@@ -1237,16 +1210,16 @@ body.mathPanelOpen #chatWindow {
   background: var(--bg-abyss);
   border-bottom: 2px solid var(--red-dim);
   flex-shrink: 0;
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 10px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.02em;
   color: var(--red-core);
 }
 #musicPanelHeader button {
   background: transparent;
   border: 1px solid var(--border-cut);
   color: var(--text-muted);
-  cursor: crosshair;
+  cursor: pointer;
   padding: 3px 8px;
   font-size: 11px;
 }
@@ -1271,9 +1244,9 @@ body.mathPanelOpen #chatWindow {
   margin-bottom: 8px;
 }
 .musicSectionLabel {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 8px;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.02em;
   color: var(--text-muted);
   margin-bottom: 4px;
   padding-bottom: 2px;
@@ -1291,9 +1264,9 @@ body.mathPanelOpen #chatWindow {
   background: var(--bg-panel);
   border: 1px solid var(--red-core);
   color: var(--text-blaze);
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.02em;
   padding: 10px 28px;
   z-index: 99990;
   opacity: 0;
@@ -1301,7 +1274,7 @@ body.mathPanelOpen #chatWindow {
   transition: opacity 0.2s ease, transform 0.2s ease;
   text-align: center;
   box-shadow: var(--glow-md);
-  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  border-radius: var(--r-sm);
   white-space: nowrap;
 }
 #chatNotification.visible {
@@ -1317,16 +1290,16 @@ body.mathPanelOpen #chatWindow {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  background: rgba(255, 0, 0, 0.06);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
   border: 1px solid var(--red-core);
   padding: 10px 14px;
   margin: 6px 0;
-  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  border-radius: var(--r-sm);
 }
 .htmlPreviewLabel {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 10px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.02em;
   color: var(--red-neon);
 }
 .htmlPreviewActions {
@@ -1355,7 +1328,7 @@ body.mathPanelOpen #chatWindow {
   padding: 20px 18px;
   font-size: 12.5px;
   line-height: 1.7;
-  font-family: "Share Tech Mono", "Courier New", monospace;
+  font-family: var(--font-sans);
   color: var(--text-blaze);
   background: var(--bg-void);
   white-space: pre;
@@ -1369,33 +1342,33 @@ body.mathPanelOpen #chatWindow {
    ============================================================ */
 .drag-over {
   outline: 2px dashed var(--red-core) !important;
-  background: rgba(255, 0, 0, 0.06) !important;
+  background: color-mix(in srgb, var(--accent) 6%, transparent) !important;
 }
 
 /* ============================================================
    HOME SCREEN EXTRAS
    ============================================================ */
 .homeListItem {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   padding: 2px 0;
   color: var(--text-hot);
   line-height: 1.4;
 }
 .homeToolBtn {
-  background: rgba(255, 0, 0, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   border: 1px solid var(--red-dim);
   color: var(--red-neon);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 10px;
   padding: 5px 10px;
-  cursor: crosshair;
+  cursor: pointer;
   margin: 3px 3px 0 0;
   transition: all 0.12s;
   display: inline-block;
 }
 .homeToolBtn:hover {
-  background: rgba(255, 0, 0, 0.18);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   border-color: var(--red-core);
 }
 .healthBar {
@@ -1432,12 +1405,12 @@ body.mathPanelOpen #chatWindow {
   transition: border-color 0.3s;
 }
 .thinkLivePanel.thinkLiveDone {
-  border-left-color: rgba(255, 0, 0, 0.2);
+  border-left-color: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 .thinkLiveHeader {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 7.5px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--red-dim);
   display: flex;
@@ -1447,7 +1420,7 @@ body.mathPanelOpen #chatWindow {
   transition: color 0.3s;
 }
 .thinkLiveDone .thinkLiveHeader {
-  color: rgba(255, 0, 0, 0.35);
+  color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 .thinkLiveDot {
   width: 5px;
@@ -1459,7 +1432,7 @@ body.mathPanelOpen #chatWindow {
 }
 .thinkLiveDot.done {
   animation: none;
-  background: rgba(255, 0, 0, 0.3);
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 @keyframes thinkPulse {
   0%,
@@ -1481,7 +1454,7 @@ body.mathPanelOpen #chatWindow {
   display: flex;
   align-items: baseline;
   gap: 7px;
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 9px;
   color: var(--text-muted);
   opacity: 0;
@@ -1505,12 +1478,12 @@ body.mathPanelOpen #chatWindow {
   top: 14px;
   right: 16px;
   z-index: 99999;
-  background: var(--bg-panel, #0a0a0a);
-  border: 1px solid var(--red-dim, #4a0000);
-  color: var(--text-hot, #ff4444);
-  font-family: "Share Tech Mono", monospace;
+  background: var(--bg-card);
+  border: 1px solid var(--red-dim, var(--border));
+  color: var(--text-hot, var(--accent-text));
+  font-family: var(--font-sans);
   font-size: 11px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
   padding: 6px 12px 6px 9px;
   display: flex;
   align-items: center;
@@ -1542,9 +1515,9 @@ body.mathPanelOpen #chatWindow {
   align-items: center;
   gap: 8px;
   padding: 5px 12px;
-  background: rgba(255, 0, 0, 0.04);
-  border-top: 1px solid var(--red-dim, #4a0000);
-  border-bottom: 1px solid var(--red-dim, #4a0000);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+  border-top: 1px solid var(--red-dim, var(--border));
+  border-bottom: 1px solid var(--red-dim, var(--border));
   flex-shrink: 0;
 }
 #ariaStopBar.active {
@@ -1553,14 +1526,14 @@ body.mathPanelOpen #chatWindow {
 #ariaStopBtn,
 #ariaPauseBtn,
 #ariaPauseResumeBtn {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 8px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.02em;
   padding: 4px 10px;
   background: transparent;
-  border: 1px solid var(--red-dim, #4a0000);
+  border: 1px solid var(--red-dim, var(--border));
   color: var(--text-muted);
-  cursor: crosshair;
+  cursor: pointer;
   transition: all 0.15s;
   text-transform: uppercase;
   white-space: nowrap;
@@ -1585,9 +1558,9 @@ body.mathPanelOpen #chatWindow {
 #ariaPauseInput {
   flex: 1;
   background: var(--bg-abyss, #000);
-  border: 1px solid var(--red-dim, #4a0000);
+  border: 1px solid var(--red-dim, var(--border));
   color: var(--text-hot);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   padding: 3px 8px;
   outline: none;
@@ -1608,29 +1581,29 @@ body.mathPanelOpen #chatWindow {
    MATH PANEL — Desmos tab buttons
    ============================================================ */
 .mathTabBtn {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 7.5px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   padding: 3px 8px;
   background: transparent;
-  border: 1px solid var(--red-dim, #4a0000);
+  border: 1px solid var(--red-dim, var(--border));
   color: var(--text-muted);
-  cursor: crosshair;
+  cursor: pointer;
   transition: all 0.15s;
 }
 .mathTabBtn.active,
 .mathTabBtn:hover {
   border-color: var(--red-core);
   color: var(--red-core);
-  background: rgba(255, 0, 0, 0.06);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 #desmosContainer {
   flex: 1;
   min-height: 380px;
 }
 #desmosContainer .dcg-container {
-  background: #000 !important;
+  background: var(--bg) !important;
 }
 
 /* ============================================================
@@ -1656,7 +1629,7 @@ body.mathPanelOpen #chatWindow {
   background: transparent;
   border: 1px solid var(--red-dim);
   color: var(--text-hot);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   padding: 4px 8px;
   outline: none;
@@ -1668,7 +1641,7 @@ body.mathPanelOpen #chatWindow {
   background: var(--bg-abyss);
   border: 1px solid var(--red-dim);
   color: var(--text-hot);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 10px;
   padding: 3px 5px;
 }
@@ -1676,8 +1649,8 @@ body.mathPanelOpen #chatWindow {
   flex: 1;
   width: 100%;
   display: block;
-  background: #000;
-  cursor: crosshair;
+  background: var(--bg);
+  cursor: pointer;
 }
 #mathVizLatex {
   padding: 6px 10px;
@@ -1685,7 +1658,7 @@ body.mathPanelOpen #chatWindow {
   color: var(--text-muted);
   min-height: 36px;
   border-top: 1px solid var(--border-cut);
-  background: rgba(0, 0, 0, 0.3);
+  background: color-mix(in srgb, var(--bg-inset) 30%, transparent);
   flex-shrink: 0;
 }
 
@@ -1698,13 +1671,13 @@ body.mathPanelOpen #chatWindow {
   gap: 3px;
   margin: 4px 0 8px 0;
   padding-left: 10px;
-  border-left: 2px solid rgba(255, 0, 0, 0.2);
+  border-left: 2px solid color-mix(in srgb, var(--accent) 20%, transparent);
 }
 .clawStepPill {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 9.5px;
   color: var(--text-muted);
   opacity: 0;

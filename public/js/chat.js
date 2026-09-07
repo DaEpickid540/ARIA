@@ -1637,7 +1637,7 @@ function _render2D(expr, type) {
 
   // Label
   ctx.fillStyle = "rgba(255,100,100,0.7)";
-  ctx.font = `${12 * dpr}px Share Tech Mono, monospace`;
+  ctx.font = `${12 * dpr}px 'JetBrains Mono', ui-monospace, monospace`;
   ctx.fillText("y = " + expr, 8 * dpr, 18 * dpr);
 }
 
@@ -1773,7 +1773,7 @@ function _render3D(expr, type) {
       }
     }
     ctx.fillStyle = "rgba(255,80,80,0.6)";
-    ctx.font = `${11 * dpr}px Share Tech Mono,monospace`;
+    ctx.font = `${11 * dpr}px 'JetBrains Mono', ui-monospace, monospace`;
     ctx.fillText(expr, 8 * dpr, 18 * dpr);
     _mathVizAnimId = requestAnimationFrame(drawFrame);
   }
@@ -2049,14 +2049,14 @@ function buildMathPanelHTML() {
     <div id="desmosContainer" style="flex:1;min-height:380px;"></div>
     <div id="mathVizContainer" style="display:none;flex:1;flex-direction:column;min-height:380px;overflow:hidden;">
       <div id="mathVizInput" style="display:flex;gap:6px;padding:8px;border-bottom:1px solid var(--red-dim)">
-        <input id="mathVizExpr" type="text" placeholder="e.g. sin(x), x^2-4, sphere, torus" style="flex:1;background:var(--bg-abyss);border:1px solid var(--red-dim);color:var(--text-hot);font-family:'Share Tech Mono',monospace;font-size:11px;padding:4px 8px;outline:none">
-        <select id="mathVizType" style="background:var(--bg-abyss);border:1px solid var(--red-dim);color:var(--text-hot);font-family:'Share Tech Mono',monospace;font-size:10px;padding:3px">
+        <input id="mathVizExpr" type="text" placeholder="e.g. sin(x), x^2-4, sphere, torus" style="flex:1;background:var(--bg-abyss);border:1px solid var(--red-dim);color:var(--text-hot);font-family:var(--font-mono-stack);font-size:11px;padding:4px 8px;outline:none">
+        <select id="mathVizType" style="background:var(--bg-abyss);border:1px solid var(--red-dim);color:var(--text-hot);font-family:var(--font-mono-stack);font-size:10px;padding:3px">
           <option value="2d">2D Graph</option>
           <option value="3d">3D Surface</option>
           <option value="shape">3D Shape</option>
           <option value="polar">Polar</option>
         </select>
-        <button onclick="window._renderMathViz()" style="background:transparent;border:1px solid var(--red-core);color:var(--red-core);font-family:'Orbitron',sans-serif;font-size:8px;letter-spacing:.1em;padding:4px 10px;cursor:crosshair">PLOT</button>
+        <button onclick="window._renderMathViz()" style="background:transparent;border:1px solid var(--red-core);color:var(--red-core);font-family:var(--font-sans);font-size:8px;letter-spacing:.1em;padding:4px 10px;cursor:pointer">PLOT</button>
       </div>
       <canvas id="mathVizCanvas" style="flex:1;width:100%;background:#000"></canvas>
       <div id="mathVizLatex" style="padding:8px;font-size:12px;color:var(--text-muted);min-height:40px;border-top:1px solid var(--border-cut)"></div>

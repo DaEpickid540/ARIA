@@ -1,15 +1,7 @@
-  width: 340px;
-  height: 100%;
-  background: var(--bg-panel);
-  border-left: 2px solid var(--red-core);
-  box-shadow: -8px 0 40px rgba(255, 0, 0, 0.25);
-  z-index: 9000;
-  display: flex;
-  flex-direction: column;
-  transform: translateX(110%);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: transform;
-}
+/* ============================================================
+   hometools.css — home dashboard widgets, side panels, link mode
+   ============================================================ */
+
 #mathPanel.open {
   transform: translateX(0) !important;
 }
@@ -22,9 +14,9 @@
   background: var(--bg-abyss);
   border-bottom: 2px solid var(--red-dim);
   flex-shrink: 0;
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 10px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.02em;
   color: var(--red-core);
   gap: 8px;
 }
@@ -32,9 +24,9 @@
   background: transparent;
   border: 1px solid var(--border-cut);
   color: var(--text-muted);
-  cursor: crosshair;
+  cursor: pointer;
   padding: 3px 8px;
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   transition: all 0.12s;
 }
@@ -59,9 +51,9 @@
   margin-bottom: 10px;
 }
 .mathSectionLabel {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 8px;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.02em;
   color: var(--text-muted);
   margin-bottom: 5px;
   padding-bottom: 3px;
@@ -77,10 +69,10 @@
   background: var(--bg-raised);
   border: 1px solid var(--border-cut);
   color: var(--text-blaze);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 12px;
   padding: 8px 4px;
-  cursor: crosshair;
+  cursor: pointer;
   transition: all 0.1s;
   text-align: center;
   overflow: hidden;
@@ -88,13 +80,13 @@
   white-space: nowrap;
 }
 .mathKey:hover {
-  background: rgba(255, 0, 0, 0.18);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   border-color: var(--red-core);
   color: var(--red-neon);
   box-shadow: var(--glow-sm);
 }
 .mathKey:active {
-  background: rgba(255, 0, 0, 0.35);
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
   transform: scale(0.93);
 }
 
@@ -114,7 +106,7 @@ body.mathPanelOpen #chatWindow {
   height: 100%;
   background: var(--bg-panel);
   border-left: 2px solid var(--red-core);
-  box-shadow: -8px 0 40px rgba(255, 0, 0, 0.25);
+  box-shadow: -8px 0 40px color-mix(in srgb, var(--accent) 25%, transparent);
   z-index: 9001;
   display: flex;
   flex-direction: column;
@@ -132,16 +124,16 @@ body.mathPanelOpen #chatWindow {
   background: var(--bg-abyss);
   border-bottom: 2px solid var(--red-dim);
   flex-shrink: 0;
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 10px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.02em;
   color: var(--red-core);
 }
 #musicPanelHeader button {
   background: transparent;
   border: 1px solid var(--border-cut);
   color: var(--text-muted);
-  cursor: crosshair;
+  cursor: pointer;
   padding: 3px 8px;
   font-size: 11px;
 }
@@ -164,7 +156,7 @@ body.mathPanelOpen #chatWindow {
 /* ── DRAG OVER ── */
 .drag-over {
   outline: 2px dashed var(--red-core) !important;
-  background: rgba(255, 0, 0, 0.06) !important;
+  background: color-mix(in srgb, var(--accent) 6%, transparent) !important;
 }
 
 /* ── CHAT NOTIFICATION CENTER ── */
@@ -176,9 +168,9 @@ body.mathPanelOpen #chatWindow {
   background: var(--bg-panel);
   border: 1px solid var(--red-core);
   color: var(--text-blaze);
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.02em;
   padding: 10px 28px;
   z-index: 99990;
   opacity: 0;
@@ -188,7 +180,7 @@ body.mathPanelOpen #chatWindow {
     transform 0.2s;
   text-align: center;
   box-shadow: var(--glow-md);
-  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  border-radius: var(--r-sm);
   white-space: nowrap;
 }
 #chatNotification.visible {
@@ -198,10 +190,10 @@ body.mathPanelOpen #chatWindow {
 
 /* ── VERSION LABEL ── */
 #ariaVersionLabel {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 9px;
   color: var(--text-muted);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.02em;
   margin-left: 8px;
   opacity: 0.7;
 }
@@ -217,18 +209,11 @@ body.mathPanelOpen #chatWindow {
   border: 1px solid var(--red-core);
   box-shadow:
     var(--glow-lg),
-    0 8px 32px rgba(0, 0, 0, 0.9);
+    0 8px 32px color-mix(in srgb, var(--bg-inset) 90%, transparent);
   z-index: 999990;
   display: flex;
   flex-direction: column;
-  clip-path: polygon(
-    0 0,
-    calc(100% - 12px) 0,
-    100% 12px,
-    100% 100%,
-    12px 100%,
-    0 calc(100% - 12px)
-  );
+  border-radius: var(--r-sm);
 }
 #pipChatHeader {
   display: flex;
@@ -238,9 +223,9 @@ body.mathPanelOpen #chatWindow {
   background: var(--bg-abyss);
   border-bottom: 1px solid var(--red-dim);
   cursor: move;
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.02em;
   color: var(--red-core);
   flex-shrink: 0;
 }
@@ -272,13 +257,13 @@ body.mathPanelOpen #chatWindow {
   scrollbar-color: var(--red-dim) transparent;
 }
 .pipMsg {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   line-height: 1.4;
   padding: 5px 8px;
 }
 .pipMsgUser {
-  background: rgba(255, 0, 0, 0.12);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   border-left: 2px solid var(--red-core);
   text-align: right;
 }
@@ -298,7 +283,7 @@ body.mathPanelOpen #chatWindow {
   background: var(--bg-raised);
   border: 1px solid var(--border-cut);
   color: var(--text-blaze);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   padding: 5px 8px;
   outline: none;
@@ -310,94 +295,13 @@ body.mathPanelOpen #chatWindow {
   background: var(--red-core);
   border: none;
   color: #000;
-  font-family: "Orbitron", monospace;
+  font-family: var(--font-sans);
   font-size: 9px;
   padding: 5px 10px;
   cursor: pointer;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
 }
 
-/* ── ANIMATED BACKGROUNDS ── */
-body.aria-bg-grid {
-  background-image:
-    linear-gradient(var(--red-dim) 1px, transparent 1px),
-    linear-gradient(90deg, var(--red-dim) 1px, transparent 1px) !important;
-  background-size: 40px 40px !important;
-}
-body.aria-bg-rain::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(
-    180deg,
-    transparent 0px,
-    transparent 20px,
-    rgba(0, 255, 0, 0.03) 20px,
-    rgba(0, 255, 0, 0.03) 21px
-  );
-  animation: bgRain 3s linear infinite;
-  pointer-events: none;
-  z-index: 0;
-}
-@keyframes bgRain {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: 0 600px;
-  }
-}
-body.aria-bg-stars::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(
-    ellipse at 50% 50%,
-    var(--bg-void) 0%,
-    transparent 100%
-  );
-  background-image: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 0.15) 1px,
-    transparent 1px
-  );
-  background-size: 40px 40px;
-  pointer-events: none;
-  z-index: 0;
-  animation: bgStarDrift 60s linear infinite;
-}
-@keyframes bgStarDrift {
-  0% {
-    transform: translate(0, 0);
-  }
-  100% {
-    transform: translate(-40px, -40px);
-  }
-}
-body.aria-bg-pulse::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(
-    ellipse at center,
-    var(--red-dim) 0%,
-    transparent 70%
-  );
-  animation: bgPulse 4s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 0;
-}
-@keyframes bgPulse {
-  0%,
-  100% {
-    opacity: 0.3;
-    transform: scale(0.9);
-  }
-  50% {
-    opacity: 0.7;
-    transform: scale(1.1);
-  }
-}
 
 /* ── MEMORY PANEL ITEMS ── */
 .memFactItem {
@@ -413,24 +317,24 @@ body.aria-bg-pulse::after {
   margin-bottom: 4px;
 }
 .memFactCat {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 8px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
   color: var(--red-neon);
 }
 .memFactSrc {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 9px;
   color: var(--text-muted);
 }
 .memFactDate {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 9px;
   color: var(--text-muted);
   margin-left: auto;
 }
 .memFactText {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--text-blaze);
   line-height: 1.4;
@@ -444,10 +348,10 @@ body.aria-bg-pulse::after {
   background: transparent;
   border: 1px solid var(--border-cut);
   color: var(--text-muted);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 9px;
   padding: 2px 8px;
-  cursor: crosshair;
+  cursor: pointer;
   transition: all 0.12s;
 }
 .memEditBtn:hover {
@@ -455,141 +359,47 @@ body.aria-bg-pulse::after {
   color: var(--red-neon);
 }
 .memDelBtn:hover {
-  border-color: #ff4444;
-  color: #ff4444;
+  border-color: var(--accent-border);
+  color: var(--accent-text);
 }
 .memSectionHeader {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 9px;
   color: var(--red-core);
-  letter-spacing: 0.15em;
+  letter-spacing: 0.02em;
   padding: 10px 0 5px;
   border-top: 1px solid var(--border-cut);
   margin-top: 5px;
 }
 
 /* ── NEW THEMES ── */
-:root[data-theme="pink"] {
-  --red-core: #ff0099;
-  --red-hot: #ff33aa;
-  --red-neon: #ff55bb;
-  --red-deep: #aa0066;
-  --red-dim: #550033;
-  --red-ember: #ff66cc;
-}
-:root[data-theme="ice"] {
-  --red-core: #00aaff;
-  --red-hot: #00ccff;
-  --red-neon: #33bbff;
-  --red-deep: #006699;
-  --red-dim: #002244;
-  --red-ember: #00ddff;
-}
-:root[data-theme="toxic"] {
-  --red-core: #aaff00;
-  --red-hot: #bbff33;
-  --red-neon: #ccff44;
-  --red-deep: #558800;
-  --red-dim: #224400;
-  --red-ember: #ddff88;
-}
-:root[data-theme="mono"] {
-  --red-core: #cccccc;
-  --red-hot: #dddddd;
-  --red-neon: #eeeeee;
-  --red-deep: #888888;
-  --red-dim: #333333;
-  --red-ember: #aaaaaa;
-}
-:root[data-theme="blood"] {
-  --red-core: #880000;
-  --red-hot: #aa0000;
-  --red-neon: #aa1111;
-  --red-deep: #550000;
-  --red-dim: #220000;
-  --red-ember: #cc2222;
-}
-:root[data-theme="teal"] {
-  --red-core: #00ffcc;
-  --red-hot: #00ddaa;
-  --red-neon: #33ffdd;
-  --red-deep: #008866;
-  --red-dim: #003322;
-  --red-ember: #00ffaa;
-}
-:root[data-theme="solar"] {
-  --red-core: #ffaa00;
-  --red-hot: #ff8800;
-  --red-neon: #ffbb33;
-  --red-deep: #cc6600;
-  --red-dim: #553300;
-  --red-ember: #ffdd88;
-}
-:root[data-theme="violet"] {
-  --red-core: #8844ff;
-  --red-hot: #aa66ff;
-  --red-neon: #bb88ff;
-  --red-deep: #441188;
-  --red-dim: #220044;
-  --red-ember: #cc99ff;
-}
-:root[data-theme="rose"] {
-  --red-core: #ff4466;
-  --red-hot: #ff6688;
-  --red-neon: #ff88aa;
-  --red-deep: #aa1133;
-  --red-dim: #550011;
-  --red-ember: #ffaacc;
-}
-:root[data-theme="cobalt"] {
-  --red-core: #0066ff;
-  --red-hot: #3388ff;
-  --red-neon: #55aaff;
-  --red-deep: #003388;
-  --red-dim: #001144;
-  --red-ember: #88ccff;
-}
+
+
+
+
+
+
+
+
+
+
 
 /* Scanline theme colors */
-:root[data-theme="cyan"] {
-  --scanline-rgb: 0, 255, 255;
-}
-:root[data-theme="green"] {
-  --scanline-rgb: 0, 255, 65;
-}
-:root[data-theme="pink"] {
-  --scanline-rgb: 255, 0, 153;
-}
-:root[data-theme="ice"] {
-  --scanline-rgb: 0, 170, 255;
-}
-:root[data-theme="toxic"] {
-  --scanline-rgb: 170, 255, 0;
-}
-:root[data-theme="blood"] {
-  --scanline-rgb: 136, 0, 0;
-}
-:root[data-theme="teal"] {
-  --scanline-rgb: 0, 255, 204;
-}
-:root[data-theme="solar"] {
-  --scanline-rgb: 255, 170, 0;
-}
-:root[data-theme="violet"] {
-  --scanline-rgb: 136, 68, 255;
-}
-:root[data-theme="rose"] {
-  --scanline-rgb: 255, 68, 102;
-}
-:root[data-theme="cobalt"] {
-  --scanline-rgb: 0, 102, 255;
-}
+
+
+
+
+
+
+
+
+
+
+
 
 /* ── USER MESSAGE FONT ── */
 .userPara {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif !important;
+  font-family: var(--font-body, var(--font-sans)) !important;
   font-size: 14px !important;
   line-height: 1.65 !important;
   letter-spacing: 0 !important;
@@ -608,7 +418,7 @@ body.aria-bg-pulse::after {
 #linkModeOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.92);
+  background: color-mix(in srgb, var(--bg-inset) 92%, transparent);
   z-index: 99999;
   display: flex;
   align-items: center;
@@ -623,14 +433,7 @@ body.aria-bg-pulse::after {
   box-shadow: var(--glow-lg);
   display: flex;
   flex-direction: column;
-  clip-path: polygon(
-    0 0,
-    calc(100% - 16px) 0,
-    100% 16px,
-    100% 100%,
-    16px 100%,
-    0 calc(100% - 16px)
-  );
+  border-radius: var(--r-sm);
 }
 #linkModeHeader {
   display: flex;
@@ -639,11 +442,11 @@ body.aria-bg-pulse::after {
   padding: 12px 16px;
   background: var(--bg-abyss);
   border-bottom: 2px solid var(--red-dim);
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.02em;
   color: var(--red-core);
-  text-shadow: var(--glow-sm);
+  text-shadow: none;
   flex-shrink: 0;
 }
 #linkModeHeader button {
@@ -651,7 +454,7 @@ body.aria-bg-pulse::after {
   border: 1px solid var(--border-cut);
   color: var(--text-muted);
   font-size: 14px;
-  cursor: crosshair;
+  cursor: pointer;
   padding: 2px 8px;
   transition: all 0.15s;
 }
@@ -679,7 +482,7 @@ body.aria-bg-pulse::after {
 }
 .linkDeviceEmpty {
   color: var(--text-muted);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   text-align: center;
   padding: 20px;
@@ -708,13 +511,13 @@ body.aria-bg-pulse::after {
   min-width: 0;
 }
 .linkDeviceName {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
   color: var(--text-blaze);
 }
 .linkDeviceMeta {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 9px;
   color: var(--text-muted);
   margin-top: 2px;
@@ -728,17 +531,17 @@ body.aria-bg-pulse::after {
   flex-shrink: 0;
 }
 .linkDevBtn {
-  background: rgba(255, 0, 0, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   border: 1px solid var(--red-dim);
   color: var(--red-neon);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 10px;
   padding: 4px 9px;
-  cursor: crosshair;
+  cursor: pointer;
   transition: all 0.12s;
 }
 .linkDevBtn:hover {
-  background: rgba(255, 0, 0, 0.2);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
   border-color: var(--red-core);
 }
 #linkModeActions {
@@ -750,27 +553,27 @@ body.aria-bg-pulse::after {
   flex-shrink: 0;
 }
 .linkBtn {
-  background: rgba(255, 0, 0, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   border: 1px solid var(--red-core);
   color: var(--red-neon);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   padding: 7px 14px;
-  cursor: crosshair;
+  cursor: pointer;
   transition: all 0.15s;
-  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+  border-radius: var(--r-sm);
 }
 .linkBtn:hover {
-  background: rgba(255, 0, 0, 0.2);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
   box-shadow: var(--glow-sm);
 }
 
 /* ── ARIA VERSION LABEL ── */
 #ariaVersionLabel {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 9px;
   color: var(--text-muted);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
   margin-left: 8px;
   opacity: 0.65;
 }
@@ -784,9 +587,9 @@ body.aria-bg-pulse::after {
   background: var(--bg-panel);
   border: 1px solid var(--red-core);
   color: var(--text-blaze);
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.02em;
   padding: 10px 28px;
   z-index: 99990;
   opacity: 0;
@@ -796,7 +599,7 @@ body.aria-bg-pulse::after {
     transform 0.2s;
   text-align: center;
   box-shadow: var(--glow-md);
-  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  border-radius: var(--r-sm);
   white-space: nowrap;
 }
 #chatNotification.visible {
@@ -815,18 +618,11 @@ body.aria-bg-pulse::after {
   border: 1px solid var(--red-core);
   box-shadow:
     var(--glow-lg),
-    0 8px 32px rgba(0, 0, 0, 0.9);
+    0 8px 32px color-mix(in srgb, var(--bg-inset) 90%, transparent);
   z-index: 999990;
   display: flex;
   flex-direction: column;
-  clip-path: polygon(
-    0 0,
-    calc(100% - 12px) 0,
-    100% 12px,
-    100% 100%,
-    12px 100%,
-    0 calc(100% - 12px)
-  );
+  border-radius: var(--r-sm);
 }
 #pipChatHeader {
   display: flex;
@@ -836,9 +632,9 @@ body.aria-bg-pulse::after {
   background: var(--bg-abyss);
   border-bottom: 1px solid var(--red-dim);
   cursor: move;
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.02em;
   color: var(--red-core);
   flex-shrink: 0;
 }
@@ -870,13 +666,13 @@ body.aria-bg-pulse::after {
   scrollbar-color: var(--red-dim) transparent;
 }
 .pipMsg {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   line-height: 1.4;
   padding: 5px 8px;
 }
 .pipMsgUser {
-  background: rgba(255, 0, 0, 0.12);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   border-left: 2px solid var(--red-core);
   text-align: right;
 }
@@ -896,7 +692,7 @@ body.aria-bg-pulse::after {
   background: var(--bg-raised);
   border: 1px solid var(--border-cut);
   color: var(--text-blaze);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   padding: 5px 8px;
   outline: none;
@@ -908,11 +704,11 @@ body.aria-bg-pulse::after {
   background: var(--red-core);
   border: none;
   color: #000;
-  font-family: "Orbitron", monospace;
+  font-family: var(--font-sans);
   font-size: 9px;
   padding: 5px 10px;
   cursor: pointer;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
 }
 
 /* Memory panel items */
@@ -929,24 +725,24 @@ body.aria-bg-pulse::after {
   margin-bottom: 4px;
 }
 .memFactCat {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 8px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
   color: var(--red-neon);
 }
 .memFactSrc {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 9px;
   color: var(--text-muted);
 }
 .memFactDate {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 9px;
   color: var(--text-muted);
   margin-left: auto;
 }
 .memFactText {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--text-blaze);
   line-height: 1.4;
@@ -960,10 +756,10 @@ body.aria-bg-pulse::after {
   background: transparent;
   border: 1px solid var(--border-cut);
   color: var(--text-muted);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 9px;
   padding: 2px 8px;
-  cursor: crosshair;
+  cursor: pointer;
   transition: all 0.12s;
 }
 .memEditBtn:hover {
@@ -971,14 +767,14 @@ body.aria-bg-pulse::after {
   color: var(--red-neon);
 }
 .memDelBtn:hover {
-  border-color: #ff4444;
-  color: #ff4444;
+  border-color: var(--accent-border);
+  color: var(--accent-text);
 }
 .memSectionHeader {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 9px;
   color: var(--red-core);
-  letter-spacing: 0.15em;
+  letter-spacing: 0.02em;
   padding: 10px 0 5px;
   border-top: 1px solid var(--border-cut);
   margin-top: 5px;
@@ -987,14 +783,12 @@ body.aria-bg-pulse::after {
 /* Drag-over */
 .drag-over {
   outline: 2px dashed var(--red-core) !important;
-  background: rgba(255, 0, 0, 0.06) !important;
+  background: color-mix(in srgb, var(--accent) 6%, transparent) !important;
 }
 
 /* User message font */
 .userPara {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif !important;
+  font-family: var(--font-body, var(--font-sans)) !important;
   font-size: 14px !important;
   line-height: 1.65 !important;
   letter-spacing: 0 !important;

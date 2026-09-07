@@ -25,8 +25,8 @@ html.light-mode body::before {
     0deg,
     transparent,
     transparent 2px,
-    rgba(0, 0, 0, 0.06) 2px,
-    rgba(0, 0, 0, 0.06) 4px
+    color-mix(in srgb, var(--bg-inset) 6%, transparent) 2px,
+    color-mix(in srgb, var(--bg-inset) 6%, transparent) 4px
   );
 }
 body.no-scanlines::before {
@@ -37,64 +37,13 @@ body.no-glitch .glitch:hover {
 }
 
 /* ============================================================
-   SETTINGS TABS
+   SETTINGS TABS — see settings.css; the pane show/hide lives there too.
    ============================================================ */
-#settingsTabs {
-  display: flex;
-  gap: 2px;
-  padding: 8px 12px 0;
-  background: rgba(255, 0, 0, 0.03);
-  border-bottom: 1px solid var(--border-cut);
-  flex-wrap: wrap;
-}
-
-.settingsTab {
-  padding: 6px 10px;
-  font-family: "Share Tech Mono", monospace;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  background: transparent;
-  border: 1px solid transparent;
-  border-bottom: none;
-  color: var(--text-muted);
-  cursor: crosshair;
-  transition: all 0.15s;
-  position: relative;
-  top: 1px;
-  white-space: nowrap;
-}
-
-.settingsTab:hover {
-  color: var(--text-hot);
-  border-color: var(--border-cut);
-}
-
-.settingsTab.active {
-  color: var(--red-core);
-  border-color: var(--border-cut);
-  border-bottom: 1px solid var(--bg-abyss);
-  background: var(--bg-abyss);
-  text-shadow: var(--glow-sm);
-}
-
 .settingsTabPane {
   display: none;
-  animation: tabFadeIn 0.2s ease;
 }
-
 .settingsTabPane.active {
   display: block;
-}
-
-@keyframes tabFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* ============================================================
@@ -103,8 +52,8 @@ body.no-glitch .glitch:hover {
 .settingsSubtitle {
   font-size: 9px;
   color: var(--text-muted);
-  letter-spacing: 0.1em;
-  font-family: "Share Tech Mono", monospace;
+  letter-spacing: 0.02em;
+  font-family: var(--font-sans);
   margin-top: 2px;
 }
 
@@ -113,7 +62,7 @@ body.no-glitch .glitch:hover {
   color: var(--text-muted);
   margin-bottom: 8px;
   line-height: 1.5;
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
 }
 
 .settingsTextInput {
@@ -122,11 +71,11 @@ body.no-glitch .glitch:hover {
   background: var(--bg-raised);
   border: 1px solid var(--border-cut);
   color: var(--text-blaze);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 12px;
   outline: none;
   caret-color: var(--red-core);
-  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  border-radius: var(--r-sm);
 }
 .settingsTextInput:focus {
   border-color: var(--red-core);
@@ -142,18 +91,18 @@ body.no-glitch .glitch:hover {
 .dangerBtn {
   width: 100%;
   padding: 9px;
-  background: rgba(255, 0, 0, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   border: 1px solid var(--red-dim);
   color: var(--red-neon);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
-  cursor: crosshair;
-  letter-spacing: 0.08em;
-  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  border-radius: var(--r-sm);
   transition: all 0.15s;
 }
 .dangerBtn:hover {
-  background: rgba(255, 0, 0, 0.18);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   border-color: var(--red-core);
   box-shadow: var(--glow-sm);
 }
@@ -176,11 +125,11 @@ body.no-glitch .glitch:hover {
   background: var(--bg-raised);
   border: 1px solid var(--border-cut);
   color: var(--text-muted);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 10px;
-  cursor: crosshair;
-  letter-spacing: 0.06em;
-  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  border-radius: var(--r-sm);
   transition: all 0.15s;
 }
 
@@ -189,8 +138,8 @@ body.no-glitch .glitch:hover {
   height: 8px;
   background: var(--sw);
   border-radius: 0;
-  box-shadow: 0 0 6px var(--sw);
-  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  box-shadow: none;
+  border-radius: var(--r-sm);
   flex-shrink: 0;
 }
 
@@ -203,7 +152,7 @@ body.no-glitch .glitch:hover {
   border-color: var(--sw);
   color: var(--text-blaze);
   background: rgba(255, 255, 255, 0.04);
-  box-shadow: 0 0 8px var(--sw);
+  box-shadow: none;
 }
 
 /* ============================================================
@@ -217,12 +166,12 @@ body.no-glitch .glitch:hover {
 }
 
 .aboutLogo {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 2rem;
   font-weight: 900;
   color: var(--red-core);
-  text-shadow: var(--glow-lg);
-  letter-spacing: 0.4em;
+  text-shadow: none;
+  letter-spacing: 0.02em;
 }
 
 .aboutAcronym {
@@ -234,23 +183,23 @@ body.no-glitch .glitch:hover {
 }
 
 .aboutAcronym span {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 10px;
   color: var(--text-muted);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.02em;
 }
 
 .aboutAcronym span b {
   color: var(--red-core);
-  text-shadow: var(--glow-sm);
+  text-shadow: none;
 }
 
 .aboutVersion {
   margin-top: 8px;
   font-size: 9px;
   color: var(--text-muted);
-  font-family: "Share Tech Mono", monospace;
-  letter-spacing: 0.15em;
+  font-family: var(--font-sans);
+  letter-spacing: 0.02em;
 }
 
 /* ============================================================
@@ -270,7 +219,7 @@ body.no-glitch .glitch:hover {
   padding: 6px 8px;
   background: var(--bg-raised);
   border: 1px solid var(--border-cut);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   margin-bottom: 4px;
 }
@@ -291,7 +240,7 @@ body.no-glitch .glitch:hover {
   color: var(--text-muted);
   padding: 12px;
   text-align: center;
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   border: 1px dashed var(--border-cut);
 }
 
@@ -305,20 +254,20 @@ body.no-glitch .glitch:hover {
   border-left: 2px solid var(--red-dim);
   margin-bottom: 4px;
   font-size: 11px;
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   transition: border-color 0.15s;
 }
 
 .memFact.pinned {
   border-left-color: var(--red-core);
-  background: rgba(255, 0, 0, 0.05);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
 }
 
 .memCategory {
   font-size: 9px;
   color: var(--red-core);
-  font-family: "Orbitron", sans-serif;
-  letter-spacing: 0.1em;
+  font-family: var(--font-sans);
+  letter-spacing: 0.02em;
   padding: 2px 5px;
   border: 1px solid var(--red-dim);
   white-space: nowrap;
@@ -342,7 +291,7 @@ body.no-glitch .glitch:hover {
 .memDelete {
   background: transparent;
   border: none;
-  cursor: crosshair;
+  cursor: pointer;
   font-size: 12px;
   padding: 0 3px;
   opacity: 0.6;
@@ -357,9 +306,9 @@ body.no-glitch .glitch:hover {
    EMOTION SYSTEM
    ============================================================ */
 .emotionIndicator {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.02em;
   color: #888;
   transition:
     color 0.4s ease,
@@ -371,10 +320,10 @@ body.no-glitch .glitch:hover {
 }
 
 .emotionCurrent {
-  font-family: "Orbitron", sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.2rem;
   font-weight: 700;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.02em;
   padding: 12px;
   text-align: center;
   border: 1px solid var(--border-cut);
@@ -393,23 +342,23 @@ body.no-glitch .glitch:hover {
   background: var(--bg-raised);
   border: 1px solid var(--border-cut);
   color: var(--text-muted);
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 10px;
-  cursor: crosshair;
-  letter-spacing: 0.06em;
-  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  border-radius: var(--r-sm);
   transition: all 0.15s;
 }
 .emotionOverrideBtn:hover {
   border-color: var(--em-color, var(--red-core));
   color: var(--text-blaze);
-  box-shadow: 0 0 8px var(--em-color, var(--red-core));
+  box-shadow: none;
 }
 .emotionOverrideBtn.active {
   background: rgba(255, 255, 255, 0.05);
   border-color: var(--em-color, var(--red-core));
   color: var(--text-blaze);
-  box-shadow: 0 0 10px var(--em-color, var(--red-core));
+  box-shadow: none;
 }
 
 /* ============================================================

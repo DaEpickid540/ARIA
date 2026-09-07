@@ -1,17 +1,20 @@
 {
-  "name": "ARIA \u2014 Adaptive Reasoning Intelligence Architecture",
+  "name": "ARIA — Adaptive Reasoning Intelligence Architecture",
   "short_name": "ARIA",
-  "description": "Personal AI OS \u2014 voice, chat, tools, and memory in a cyberpunk interface.",
+  "description": "Personal AI OS — voice, chat, tools, and memory.",
   "start_url": "/?source=pwa",
   "scope": "/",
   "id": "aria-app",
   "display": "fullscreen",
   "orientation": "portrait-primary",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#1a1a1e",
+  "theme_color": "#1a1a1e",
   "lang": "en-US",
   "dir": "ltr",
-  "categories": ["productivity", "utilities"],
+  "categories": [
+    "productivity",
+    "utilities"
+  ],
   "prefer_related_applications": false,
   "icons": [
     {
@@ -109,9 +112,21 @@
     {
       "action": "/?source=pwa&file=1",
       "accept": {
-        "image/*": [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"],
-        "text/plain": [".txt", ".md"],
-        "application/pdf": [".pdf"]
+        "image/*": [
+          ".jpg",
+          ".jpeg",
+          ".png",
+          ".gif",
+          ".webp",
+          ".bmp"
+        ],
+        "text/plain": [
+          ".txt",
+          ".md"
+        ],
+        "application/pdf": [
+          ".pdf"
+        ]
       }
     }
   ],
@@ -126,7 +141,11 @@
       "files": [
         {
           "name": "file",
-          "accept": ["image/*", "text/plain", "application/pdf"]
+          "accept": [
+            "image/*",
+            "text/plain",
+            "application/pdf"
+          ]
         }
       ]
     }

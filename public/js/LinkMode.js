@@ -150,7 +150,7 @@ function drawGraph() {
     ctx.stroke();
 
     ctx.fillStyle = "#ffffff";
-    ctx.font = `${isSelf ? 9 : 8}px 'Share Tech Mono', monospace`;
+    ctx.font = `${isSelf ? 9 : 8}px 'JetBrains Mono', ui-monospace, monospace`;
     ctx.textAlign = "center";
     ctx.fillText(
       d.name?.slice(0, 12) || "Device",

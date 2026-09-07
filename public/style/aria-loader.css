@@ -53,8 +53,8 @@
   backface-visibility: visible;
   transition: border-color 0.5s, background 0.5s, opacity 0.5s;
 }
-/* Default: red cyberpunk cube */
-.alFace         { border-color: rgba(255,32,64,0.6); background: rgba(255,32,64,0.04); }
+/* Default: accent cube */
+.alFace         { border-color: color-mix(in srgb, var(--accent) 60%, transparent); background: color-mix(in srgb, var(--accent) 4%, transparent); }
 .alFace:nth-child(1) { transform: translateZ(20px); }
 .alFace:nth-child(2) { transform: rotateY(180deg) translateZ(20px); }
 .alFace:nth-child(3) { transform: rotateY(90deg)  translateZ(20px); }
@@ -64,26 +64,26 @@
 
 /* Glow on the front face */
 .alFace:nth-child(1) {
-  border-color: rgba(255,32,64,0.9);
-  background: rgba(255,32,64,0.08);
-  box-shadow: 0 0 8px rgba(255,32,64,0.3), inset 0 0 8px rgba(255,32,64,0.08);
+  border-color: color-mix(in srgb, var(--accent) 90%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  box-shadow: none;
 }
 
 /* ── Task-specific colors ── */
-.ariaLoader.search .alFace      { border-color: rgba(0, 200, 255, 0.5); background: rgba(0, 200, 255, 0.03); }
-.ariaLoader.search .alFace:nth-child(1) { border-color: rgba(0,200,255,0.9); box-shadow: 0 0 8px rgba(0,200,255,0.3); }
-.ariaLoader.claw .alFace        { border-color: rgba(255,150,0,0.5); background: rgba(255,150,0,0.03); }
-.ariaLoader.claw .alFace:nth-child(1) { border-color: rgba(255,150,0,0.9); box-shadow: 0 0 8px rgba(255,150,0,0.3); }
-.ariaLoader.image .alFace       { border-color: rgba(180,0,255,0.5); background: rgba(180,0,255,0.03); }
-.ariaLoader.image .alFace:nth-child(1) { border-color: rgba(180,0,255,0.9); box-shadow: 0 0 8px rgba(180,0,255,0.3); }
-.ariaLoader.files .alFace       { border-color: rgba(0,255,100,0.5); background: rgba(0,255,100,0.03); }
-.ariaLoader.files .alFace:nth-child(1) { border-color: rgba(0,255,100,0.9); box-shadow: 0 0 8px rgba(0,255,100,0.3); }
-.ariaLoader.math .alFace        { border-color: rgba(255,220,0,0.5); background: rgba(255,220,0,0.03); }
-.ariaLoader.math .alFace:nth-child(1) { border-color: rgba(255,220,0,0.9); box-shadow: 0 0 8px rgba(255,220,0,0.3); }
-.ariaLoader.code .alFace        { border-color: rgba(100,255,180,0.5); background: rgba(100,255,180,0.03); }
-.ariaLoader.code .alFace:nth-child(1) { border-color: rgba(100,255,180,0.9); box-shadow: 0 0 8px rgba(100,255,180,0.3); }
-.ariaLoader.rag .alFace         { border-color: rgba(255,100,180,0.5); }
-.ariaLoader.rag .alFace:nth-child(1) { border-color: rgba(255,100,180,0.9); box-shadow: 0 0 8px rgba(255,100,180,0.3); }
+.ariaLoader.search .alFace      { border-color: rgba(35, 152, 225, 0.5); background: rgba(35, 152, 225, 0.03); }
+.ariaLoader.search .alFace:nth-child(1) { border-color: rgba(35,152,225,0.9); }
+.ariaLoader.claw .alFace        { border-color: rgba(243,156,18,0.5); background: rgba(243,156,18,0.03); }
+.ariaLoader.claw .alFace:nth-child(1) { border-color: rgba(243,156,18,0.9); }
+.ariaLoader.image .alFace       { border-color: rgba(155,45,196,0.5); background: rgba(155,45,196,0.03); }
+.ariaLoader.image .alFace:nth-child(1) { border-color: rgba(155,45,196,0.9); }
+.ariaLoader.files .alFace       { border-color: rgba(46,204,113,0.5); background: rgba(46,204,113,0.03); }
+.ariaLoader.files .alFace:nth-child(1) { border-color: rgba(46,204,113,0.9); }
+.ariaLoader.math .alFace        { border-color: rgba(212,160,23,0.5); background: rgba(212,160,23,0.03); }
+.ariaLoader.math .alFace:nth-child(1) { border-color: rgba(212,160,23,0.9); }
+.ariaLoader.code .alFace        { border-color: rgba(18,165,148,0.5); background: rgba(18,165,148,0.03); }
+.ariaLoader.code .alFace:nth-child(1) { border-color: rgba(18,165,148,0.9); }
+.ariaLoader.rag .alFace         { border-color: rgba(181,56,158,0.5); }
+.ariaLoader.rag .alFace:nth-child(1) { border-color: rgba(181,56,158,0.9); }
 
 /* Face icons */
 .alFace .alFaceIcon {
@@ -125,36 +125,36 @@
   min-width: 160px;
 }
 .alTaskLabel {
-  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-family: var(--font-sans);
   font-size: 8px;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: var(--red-core, #ff2040);
-  text-shadow: 0 0 8px rgba(255,32,64,0.5);
+  color: var(--accent-text);
+  text-shadow: none;
   transition: color 0.4s;
   white-space: nowrap;
 }
-.ariaLoader.search .alTaskLabel  { color: #00c8ff; text-shadow: 0 0 8px rgba(0,200,255,0.5); }
-.ariaLoader.claw   .alTaskLabel  { color: #ff9600; text-shadow: 0 0 8px rgba(255,150,0,0.5); }
-.ariaLoader.image  .alTaskLabel  { color: #b400ff; text-shadow: 0 0 8px rgba(180,0,255,0.5); }
-.ariaLoader.files  .alTaskLabel  { color: #00ff64; text-shadow: 0 0 8px rgba(0,255,100,0.5); }
-.ariaLoader.math   .alTaskLabel  { color: #ffdc00; text-shadow: 0 0 8px rgba(255,220,0,0.5); }
-.ariaLoader.code   .alTaskLabel  { color: #64ffb4; text-shadow: 0 0 8px rgba(100,255,180,0.5); }
-.ariaLoader.rag    .alTaskLabel  { color: #ff64b4; text-shadow: 0 0 8px rgba(255,100,180,0.5); }
+.ariaLoader.search .alTaskLabel  { color: var(--info); }
+.ariaLoader.claw   .alTaskLabel  { color: var(--warning); }
+.ariaLoader.image  .alTaskLabel  { color: #9b2dc4; }
+.ariaLoader.files  .alTaskLabel  { color: var(--success); }
+.ariaLoader.math   .alTaskLabel  { color: #d4a017; }
+.ariaLoader.code   .alTaskLabel  { color: #12a594; }
+.ariaLoader.rag    .alTaskLabel  { color: #b5389e; }
 
 .alStatus {
-  font-family: "Share Tech Mono", "JetBrains Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
-  color: var(--text-blaze, #fff);
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 220px;
 }
 .alSubtext {
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 9px;
-  color: var(--text-muted, #553333);
+  color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -194,19 +194,19 @@
   0%, 80%, 100% { opacity: 0.15; transform: scale(0.8); }
   40%           { opacity: 1;    transform: scale(1.2); }
 }
-.ariaLoader.claw   .alDot { color: #ff9600; }
-.ariaLoader.search .alDot { color: #00c8ff; }
-.ariaLoader.image  .alDot { color: #b400ff; }
-.ariaLoader.files  .alDot { color: #00ff64; }
-.ariaLoader.math   .alDot { color: #ffdc00; }
-.ariaLoader.code   .alDot { color: #64ffb4; }
-.ariaLoader.rag    .alDot { color: #ff64b4; }
+.ariaLoader.claw   .alDot { color: var(--warning); }
+.ariaLoader.search .alDot { color: var(--info); }
+.ariaLoader.image  .alDot { color: #9b2dc4; }
+.ariaLoader.files  .alDot { color: var(--success); }
+.ariaLoader.math   .alDot { color: #d4a017; }
+.ariaLoader.code   .alDot { color: #12a594; }
+.ariaLoader.rag    .alDot { color: #b5389e; }
 
 /* ── Click interaction ripple ── */
 .alRipple {
   position: absolute;
   border-radius: 50%;
-  background: rgba(255,32,64,0.3);
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
   transform: scale(0);
   animation: alRippleOut 0.5s ease-out forwards;
   pointer-events: none;
@@ -226,15 +226,15 @@
   position: absolute;
   left: 0;
   bottom: calc(100% + 8px);
-  background: var(--bg-panel, #080808);
-  border: 1px solid var(--red-core, #ff2040);
+  background: var(--bg-card);
+  border: 1px solid var(--accent-text);
   border-radius: 4px;
   padding: 8px 12px;
-  font-family: "Share Tech Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
-  color: var(--text-blaze, #fff);
+  color: var(--text);
   white-space: nowrap;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.6), 0 0 12px rgba(255,32,64,0.2);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--bg-inset) 60%, transparent), 0 0 12px color-mix(in srgb, var(--accent) 20%, transparent);
   animation: alPopupIn 0.15s ease-out;
   z-index: 100;
   max-width: 300px;
@@ -247,7 +247,7 @@
   top: 100%;
   left: 24px;
   border: 5px solid transparent;
-  border-top-color: var(--red-core, #ff2040);
+  border-top-color: var(--accent-text);
 }
 @keyframes alPopupIn {
   from { opacity: 0; transform: translateY(4px); }

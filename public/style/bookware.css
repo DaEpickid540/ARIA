@@ -1,0 +1,678 @@
+/* ============================================================
+   bookware.css — design-system finishing layer
+   Loaded last. base.css re-points the tokens; this file settles the
+   things tokens can't reach: brand type, the leftover neon decoration,
+   and the shared shapes of buttons, fields, panels and chips.
+   ============================================================ */
+
+/* ============================================================
+   GROUND
+   Bootstrap loads after every ARIA stylesheet and repaints `body` with
+   its own white background and font stack. Restated here, after it.
+   ============================================================ */
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body, var(--font-sans));
+  font-size: 0.875rem;
+  line-height: 1.5;
+  letter-spacing: var(--text-spacing, 0);
+  cursor: var(--cursor-style, default);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Bootstrap also owns bare `button` and the form controls. */
+.btn,
+button {
+  font-family: inherit;
+}
+
+/* ============================================================
+   BRAND TYPE
+   Every ARIA wordmark was a heavy tracked-out Orbitron in accent red.
+   It is now the serif display face in text colour, at one size per slot.
+   ============================================================ */
+.homeTitleMain,
+.sidebarLogo,
+.chatHeaderARIA,
+.bootAriaLogo,
+.aboutLogo,
+.lockLogo,
+.emptyChatLogo {
+  /* --font-display is the serif in every mode except Mono, which sets it to
+     the mono face so the wordmark matches the rest of that mode. */
+  font-family: var(--font-display, var(--font-serif));
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text);
+  text-shadow: none;
+  animation: none;
+}
+
+.homeTitleMain {
+  font-size: 1.9rem;
+}
+.sidebarLogo {
+  font-size: 1.4rem;
+}
+.chatHeaderARIA {
+  font-size: 1.05rem;
+}
+
+.homeTitleAcronym,
+.sidebarAcronym,
+.chatHeaderSub,
+.bootAcronym,
+.aboutAcronym span {
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  color: var(--text-3);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.aboutAcronym span b,
+.bootAcronym span b {
+  color: var(--accent-text);
+  text-shadow: none;
+}
+
+/* ============================================================
+   RETIRED DECORATION
+   Scanning lines, corner sweeps and pulsing rails were the old chrome.
+   ============================================================ */
+#chatHeader::after,
+#inputBar::before,
+#sidebar::before,
+#homepageContent::before,
+.homeCard::before,
+#lockScreen::before {
+  content: none;
+  display: none;
+  animation: none;
+}
+
+.sidebarDivider {
+  background: var(--border);
+}
+
+@keyframes titlePulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes inputGlow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* ============================================================
+   BARS — sidebar header, chat header, panel headers
+   ============================================================ */
+#sidebarHeader {
+  padding: 10px 4px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+
+#chatHeader {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 18px;
+}
+
+/* ============================================================
+   SURFACES — panels, overlays, popovers, cards
+   ============================================================ */
+#settingsPanel,
+#clawPanel,
+#shortcutsPanel,
+#mathPanel,
+#musicPanel,
+#tasksPanel,
+.panelCard,
+.toolCard,
+.featureCard {
+  background: var(--bg-card);
+  border-color: var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Modal scrims sit on the ground colour, not a red-tinted black.
+   #ambientOverlay is deliberately excluded — it is a full-screen mode, not a
+   dialog behind-drop, and it needs to stay opaque. */
+#shortcutsOverlay,
+#clawConfirmOverlay,
+#callModeOverlay {
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+#ambientOverlay {
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+}
+
+/* ============================================================
+   FIELDS
+   One shape for every text-entry surface in the app.
+   ============================================================ */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="url"],
+textarea,
+select,
+.settingsTextInput,
+.cwHexInput {
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-family: var(--font-sans);
+  outline: none;
+  transition: border-color var(--tr);
+}
+
+input:focus,
+textarea:focus,
+select:focus,
+.settingsTextInput:focus,
+.cwHexInput:focus {
+  border-color: var(--accent-text);
+  box-shadow: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-3);
+}
+
+input[type="range"] {
+  accent-color: var(--accent);
+}
+
+/* ============================================================
+   BUTTON-LIKE CONTROLS
+   The app's many one-off button classes converge on BookWare's pill.
+   ============================================================ */
+.themeSwatch,
+.emotionOverrideBtn,
+.dangerBtn,
+.cwSaveBtn,
+.esp32SendCmdBtn,
+.toolBtn,
+.chipBtn {
+  font-family: var(--font-sans);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  transition: background var(--tr), border-color var(--tr), color var(--tr);
+}
+
+.themeSwatch,
+.emotionOverrideBtn,
+.esp32SendCmdBtn,
+.chipBtn {
+  border-radius: var(--r-full);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+.themeSwatch:hover,
+.emotionOverrideBtn:hover,
+.esp32SendCmdBtn:hover,
+.chipBtn:hover {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+  background: var(--bg-inset);
+  box-shadow: none;
+}
+
+.themeSwatch.active,
+.emotionOverrideBtn.active,
+.chipBtn.active {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+  background: var(--accent-bg);
+  box-shadow: none;
+}
+
+/* Danger keeps its own semantic colour rather than the accent. */
+.dangerBtn {
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  color: var(--danger-text);
+  border-radius: var(--r-full);
+}
+.dangerBtn:hover {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+  box-shadow: none;
+}
+
+/* Claw kill switch — a real destructive control, so it keeps the danger
+   colour, but as a bordered chip rather than a glowing orb. */
+#clawKillSwitch {
+  background: var(--bg-card);
+  border: 1px solid var(--danger-border);
+  color: var(--danger-text);
+  font-family: var(--font-sans);
+  font-size: 0.55rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  box-shadow: var(--shadow);
+}
+#clawKillSwitch:hover {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+  box-shadow: var(--shadow);
+  transform: none;
+}
+#clawKillSwitch.killed {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+  animation: killPulse 1.6s ease-in-out infinite;
+}
+@keyframes killPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* ARIA halo — state feedback, so it stays, but as a hairline frame instead
+   of a 60px neon bloom. */
+#ariaHalo.thinking,
+#ariaHalo.speaking,
+#ariaHalo.pulse {
+  box-shadow: none;
+  border: 1px solid var(--accent-border);
+}
+@keyframes haloThink {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+@keyframes haloSpeak {
+  from {
+    opacity: 0.4;
+  }
+  to {
+    opacity: 0.85;
+  }
+}
+
+/* Round dots stay round — the notch rewrite squared a few of them off. */
+.swatchDot,
+.esp32StatusDot,
+.statusDot {
+  border-radius: 50%;
+  box-shadow: none;
+}
+
+/* ============================================================
+   HOME-TOOL WIDGETS
+   These are generated by homeTools.js and never had CSS of their own,
+   so they were rendering as raw Bootstrap buttons and unstyled spans.
+   ============================================================ */
+.hwToolBtn,
+.codeCopyBtn,
+.codeDownloadBtn,
+.codePanelBtn,
+.clipCopy,
+.clipDel,
+.mgZoomIn,
+.mgZoomOut,
+.mgReset {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  min-height: 26px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--tr), color var(--tr), background var(--tr);
+}
+
+.hwToolBtn:hover,
+.codeCopyBtn:hover,
+.codeDownloadBtn:hover,
+.codePanelBtn:hover,
+.clipCopy:hover,
+.clipDel:hover,
+.mgZoomIn:hover,
+.mgZoomOut:hover,
+.mgReset:hover {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+}
+
+.hwEmpty {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-3);
+  line-height: 1.6;
+}
+
+.hwSub {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  line-height: 1.6;
+}
+
+.hw-lg {
+  font-size: 1.05rem;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.hwListItem {
+  padding: 5px 0;
+  font-size: 0.76rem;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border);
+  line-height: 1.5;
+}
+.hwListItem:last-child {
+  border-bottom: none;
+}
+.hwListClickable {
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  padding: 5px 6px;
+  transition: background var(--tr), color var(--tr);
+}
+.hwListClickable:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.htWidget {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.htWidgetLabel {
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.htWidgetValue {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+/* Data rows shared by the crypto / clock / dictionary widgets */
+.cryptoRow,
+.worldClockRow,
+.clipItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 0.76rem;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border);
+}
+.cryptoRow:last-child,
+.worldClockRow:last-child,
+.clipItem:last-child {
+  border-bottom: none;
+}
+.cryptoSym,
+.worldClockCity,
+.dictWord {
+  font-weight: 600;
+  color: var(--text);
+}
+.cryptoPrice,
+.worldClockTime {
+  margin-left: auto;
+  font-family: var(--font-mono-stack);
+  color: var(--text);
+}
+.worldClockDiff,
+.dictPos {
+  font-size: 0.68rem;
+  color: var(--text-3);
+}
+.dictMeaning {
+  font-size: 0.76rem;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+.clipText {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   CODE SURFACES
+   The global font sweep moved everything to DM Sans; code goes back.
+   ============================================================ */
+.codeBlock,
+code,
+code.inlineCode,
+pre,
+pre.clawEntryText,
+kbd,
+.text-input--mono,
+.cwHexInput,
+.cwHsl {
+  font-family: var(--font-mono-stack);
+}
+
+code.inlineCode {
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--accent-text);
+  font-size: 0.85em;
+}
+
+.codeBlock,
+pre.clawEntryText {
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+}
+
+/* ============================================================
+   SCROLLBARS
+   theme-modes.css paints these in the accent; the design system wants
+   them to disappear into the border colour.
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: var(--r-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* ============================================================
+   MEMORY / TASK / LIST ROWS
+   ============================================================ */
+.memFact,
+.customVoiceItem,
+.esp32DeviceCard,
+.taskRow {
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-family: var(--font-sans);
+}
+
+.memFact {
+  border-left: 2px solid var(--border);
+}
+.memFact.pinned {
+  border-left-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.memCategory {
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--r-full);
+  padding: 2px 7px;
+}
+
+.memEmpty {
+  font-family: var(--font-sans);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-3);
+}
+
+/* ============================================================
+   ABOUT BLOCK
+   ============================================================ */
+.aboutBlock {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg-card);
+  padding: 18px;
+}
+
+.aboutVersion {
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* ============================================================
+   THEME PICKER (settings)
+   ============================================================ */
+.themeModeCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+.themeModeCard:hover {
+  border-color: var(--border-strong);
+  transform: none;
+}
+.themeModeCard.active {
+  border-color: var(--accent-text);
+  background: var(--accent-bg);
+  box-shadow: none;
+}
+.themeModeCard.active::after {
+  color: var(--accent-text);
+}
+.themeModeLabel {
+  font-weight: 600;
+  color: var(--text);
+}
+.themeModeDesc {
+  font-size: 0.7rem;
+  color: var(--text-3);
+}
+
+/* The grid is aspect-ratio 1 across 8 columns, which in an 820px panel makes
+   each swatch ~95px tall — a wall of colour. Cap the height instead. */
+.accentColorGrid {
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: 8px;
+  margin: 8px 0 22px;
+}
+.themeSwatchV2 {
+  aspect-ratio: auto;
+  height: 34px;
+  border-radius: var(--r-sm);
+}
+.themeSwatchV2:hover {
+  transform: none;
+  outline: 1px solid var(--border-strong);
+  outline-offset: 2px;
+}
+.themeSwatchV2.active {
+  border-color: transparent;
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.colorWheelV2 {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+.cwSwatch {
+  border: 1px solid var(--border);
+  box-shadow: none;
+  border-radius: var(--r-sm);
+}
+.cwSaveBtn {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+  border-radius: var(--r-full);
+}
+.cwSaveBtn:hover {
+  opacity: 0.88;
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ============================================================
+   MOTION
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

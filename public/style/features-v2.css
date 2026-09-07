@@ -9,8 +9,8 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: var(--bg-elevated, #1a0000);
-  border-bottom: 1px solid var(--red-core, #ff2040);
+  background: var(--bg-elevated, var(--border));
+  border-bottom: 1px solid var(--red-core, var(--accent-border));
   flex-shrink: 0;
 }
 #chatSearchBar.open { display: flex; }
@@ -133,7 +133,7 @@
 #ariaQuickModal {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.7);
+  background: color-mix(in srgb, var(--bg-inset) 70%, transparent);
   display: none;
   align-items: center;
   justify-content: center;
@@ -144,7 +144,7 @@
   background: var(--bg-panel);
   border: 1px solid var(--border-cut);
   border-radius: var(--radius-md);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.8), var(--glow-md);
+  box-shadow: 0 20px 60px color-mix(in srgb, var(--bg-inset) 80%, transparent), var(--glow-md);
   width: 90vw;
   max-width: 640px;
   max-height: 80vh;
@@ -164,10 +164,10 @@
 #ariaQuickModalTitle {
   font-family: var(--font-head);
   font-size: 11px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--red-core);
-  text-shadow: var(--glow-sm);
+  text-shadow: none;
 }
 #ariaQuickModalClose {
   background: transparent;
@@ -206,7 +206,7 @@
   padding: 0 4px;
   flex-shrink: 0;
 }
-.memFactDel:hover { color: #ff4444; }
+.memFactDel:hover { color: var(--accent-text); }
 .memBtn {
   display: inline-block;
   padding: 4px 10px;
@@ -242,7 +242,7 @@
   border: 1px solid rgba(255, 32, 64, 0.3);
   border-radius: 10px;
   color: var(--red-core);
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
 }
 .skillActions { display: flex; gap: 6px; flex-shrink: 0; }
 .skillToggleBtn {
@@ -251,7 +251,7 @@
   font-size: 10px;
   cursor: pointer;
   font-family: var(--font-mono);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
   border: 1px solid;
   transition: all 0.15s;
 }
@@ -286,4 +286,4 @@
   font-size: 12px;
   color: var(--text-blaze);
 }
-.briefingBanner strong { color: #ffb700; }
+.briefingBanner strong { color: var(--warning); }

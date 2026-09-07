@@ -8,7 +8,7 @@ A personal AI OS with chat, voice, memory, tool use, and remote PC control.
 |---|---|---|
 | **ARIA server** | Express server, AI routing, memory, agentic tools | `server.js` |
 | **Tools** | Calc, weather, notes, todo, timer, search, news, calendar… | `tools/index.js` |
-| **Web UI** | Cyberpunk front-end (chat, voice, settings, claw panel) | `public/` |
+| **Web UI** | Front-end (chat, voice, settings, claw panel) | `public/` |
 | **Claw Relay (PC)** | Runs on your computer; lets ARIA control keyboard/mouse | `claw-relay.js` |
 | **ESP32 Relay** | Same as above but over BLE HID for Chromebooks/sandboxed devices | `ARIA_ESP32__Relay/` |
 | **Screenshot Watcher** | Companion script for ESP32 to enable vision on a Chromebook | `aria-screenshot-watcher.js` |
