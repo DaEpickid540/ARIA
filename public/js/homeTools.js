@@ -459,12 +459,12 @@ export function initQuickTools() {
   const el = document.getElementById("homeQuickTools");
   if (!el) return;
   el.innerHTML = `
-    <button class="hwToolBtn" data-qt="clear">🗑 Clear Chats</button>
-    <button class="hwToolBtn" data-qt="export">📋 Export</button>
-    <button class="hwToolBtn" data-qt="import">📂 Import</button>
-    <button class="hwToolBtn" data-qt="theme">🎨 Random Theme</button>
-    <button class="hwToolBtn" data-qt="memory">🧠 View Memory</button>
-    <button class="hwToolBtn" data-qt="link">🔗 Link Mode</button>`;
+    <button class="hwToolBtn" data-qt="clear"><i class="bi bi-trash" aria-hidden="true"></i> Clear Chats</button>
+    <button class="hwToolBtn" data-qt="export"><i class="bi bi-box-arrow-up" aria-hidden="true"></i> Export</button>
+    <button class="hwToolBtn" data-qt="import"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i> Import</button>
+    <button class="hwToolBtn" data-qt="theme"><i class="bi bi-palette" aria-hidden="true"></i> Random Theme</button>
+    <button class="hwToolBtn" data-qt="memory"><i class="bi bi-hdd" aria-hidden="true"></i> View Memory</button>
+    <button class="hwToolBtn" data-qt="link"><i class="bi bi-link-45deg" aria-hidden="true"></i> Link Mode</button>`;
   el.querySelectorAll("button").forEach((btn) => {
     btn.onclick = () => {
       const a = btn.dataset.qt;

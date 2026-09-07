@@ -28,6 +28,55 @@ button {
 }
 
 /* ============================================================
+   ICONS
+   Bootstrap Icons, the set BookWare uses. They are a font, so they
+   inherit colour from the element and scale with its font-size — the
+   emoji they replaced did neither, which is why the old sidebar was a
+   row of multicoloured glyphs against monochrome labels.
+   ============================================================ */
+.bi {
+  /* The font ships a small baseline offset that leaves icons sitting low
+     next to text. -0.125em is Bootstrap's own correction. */
+  vertical-align: -0.125em;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Slightly smaller than the label they sit beside, so the text leads. */
+.homeLabel .bi,
+.settingsTab .bi,
+.secondaryBtn .bi,
+.voiceBtn .bi,
+.hwToolBtn .bi,
+.toolDropItem .bi {
+  font-size: 1.05em;
+}
+
+/* The flex buttons declare their own `gap`, which is what separates icon from
+   label there — a flex container discards the whitespace in the markup. These
+   three are block/inline, so the whitespace survives and only needs a nudge. */
+.homeLabel .bi,
+.settingsTab .bi,
+.toolDropItem .bi {
+  margin-right: 2px;
+}
+
+/* Icon-only buttons: no text to sit beside, so drop the nudge. */
+#ariaSettingsBtn .bi,
+#settingsCloseBtn .bi,
+#commandsCloseBtn .bi,
+#bgTasksCloseBtn .bi,
+.attachInline .bi {
+  vertical-align: 0;
+  margin-right: 0;
+}
+
+.pBtnIcon .bi {
+  font-size: 1.15rem;
+  vertical-align: 0;
+}
+
+/* ============================================================
    BRAND TYPE
    Every ARIA wordmark was a heavy tracked-out Orbitron in accent red.
    It is now the serif display face in text colour, at one size per slot.
@@ -327,6 +376,104 @@ input[type="range"] {
 .statusDot {
   border-radius: 50%;
   box-shadow: none;
+}
+
+/* ============================================================
+   SIDEBAR COLLAPSE BUTTON
+   It was a 20px sliver pinned to right:0 with the right border removed —
+   a tab meant to straddle the sidebar edge. Once the notch clip-path
+   became a border-radius it stopped reading as a tab and started reading
+   as a stray rounded box.
+   ============================================================ */
+#sidebarCollapseBtn {
+  width: 22px;
+  height: 44px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  /* Rounded on the inboard side only, so it still reads as a tab attached
+     to the sidebar edge rather than a floating pill. */
+  border-radius: var(--r) 0 0 var(--r);
+  border-right: none;
+  color: var(--text-3);
+  font-size: 0.75rem;
+}
+#sidebarCollapseBtn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--accent-text);
+}
+
+#sidebarCollapseIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0;
+  transition: transform var(--tr-slow);
+}
+
+/* Collapsed, the sidebar is a 40px rail and the button is all that's in
+   it — so it becomes a centred pill instead of an edge tab. right:0 is
+   measured from the padding box, which left it 8px from one edge and
+   12px from the other: the off-centre look. */
+#sidebar.collapsed #sidebarCollapseBtn {
+  right: auto;
+  /* An absolutely positioned child centres on its containing block, which is
+     the sidebar's PADDING box. That box excludes the 1px right border, so its
+     centre sits half a pixel LEFT of the centre of the 40px rail you actually
+     see. Adding it back lands the button on the visual centre. */
+  left: calc(50% + 0.5px);
+  transform: translate(-50%, -50%);
+  width: 28px;
+  height: 40px;
+  border-radius: var(--r-sm);
+  border-right: 1px solid var(--border);
+}
+
+#sidebar.collapsed #sidebarCollapseIcon {
+  transform: rotate(180deg);
+}
+
+/* ============================================================
+   COMPOSER ROW
+   The textarea and the buttons beside it were sized independently —
+   38px against 34px — and the row is bottom-aligned so the textarea can
+   grow upward as you type. At rest that left the input standing a few
+   pixels proud of the buttons. One shared height fixes the resting
+   state without breaking the growth behaviour.
+   ============================================================ */
+#userInput {
+  min-height: var(--input-h) !important;
+  padding: 9px 14px;
+  line-height: 1.4;
+  /* A textarea is inline-block by default, so its wrapper reserves a few
+     pixels of descender space underneath it. The row is bottom-aligned, so
+     that gap pushed the field up off the button baseline even once the
+     heights matched. */
+  display: block;
+}
+
+#inputBtnRow .voiceBtn,
+#inputBtnRow .primaryBtn,
+#inputBtnRow .secondaryBtn,
+#sendBtn {
+  min-height: var(--input-h);
+  height: var(--input-h);
+}
+
+/* The paperclip rides inside the textarea, so centre it on the resting
+   height rather than pinning it to the bottom edge. */
+.attachInline {
+  bottom: auto;
+  top: calc(var(--input-h) / 2);
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  color: var(--text-3);
+  opacity: 1;
+  font-size: 0.95rem;
+}
+.attachInline:hover {
+  color: var(--accent-text);
 }
 
 /* ============================================================

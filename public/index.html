@@ -73,6 +73,12 @@
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
     />
 
+    <!-- Bootstrap Icons — the set BookWare uses, same CDN as Bootstrap above -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    />
+
     <!-- Design-system finishing layer — must win over Bootstrap -->
     <link rel="stylesheet" href="style/bookware.css" />
   </head>
@@ -141,7 +147,7 @@
           autocomplete="off"
         />
         <button id="unlockBtn" class="primaryBtn glitch">
-          ⚡ AUTHENTICATE
+          <i class="bi bi-shield-lock" aria-hidden="true"></i> AUTHENTICATE
         </button>
         <p id="lockError"></p>
         <div class="lockFooter">
@@ -170,16 +176,16 @@
         <!-- TOP GRID (3-COLUMN) -->
         <div id="homeTopGrid" class="homeGrid">
           <div id="homeTimeCard" class="homeCard" style="--i: 0">
-            <div class="homeLabel">⏱ SYSTEM TIME</div>
+            <div class="homeLabel"><i class="bi bi-clock" aria-hidden="true"></i> SYSTEM TIME</div>
             <div id="homeTime" class="homeValue"></div>
           </div>
           <div id="homeWeatherCard" class="homeCard" style="--i: 1">
-            <div class="homeLabel">🌡 WEATHER — MASON, OH</div>
+            <div class="homeLabel"><i class="bi bi-thermometer-half" aria-hidden="true"></i> WEATHER — MASON, OH</div>
             <div id="homeWeatherMain" class="homeValue"></div>
             <div id="homeWeatherDetails" class="homeSub"></div>
           </div>
           <div id="homeSystemCard" class="homeCard" style="--i: 2">
-            <div class="homeLabel">💻 SYSTEM</div>
+            <div class="homeLabel"><i class="bi bi-pc-display" aria-hidden="true"></i> SYSTEM</div>
             <div id="homeSystem" class="homeValue"></div>
             <div id="networkIndicator" class="homeSub"></div>
           </div>
@@ -188,15 +194,15 @@
         <!-- SCROLL ROW 1 -->
         <div class="scrollRow">
           <div id="homeQuoteCard" class="homeCard scrollCard">
-            <div class="homeLabel">💬 MOTIVATION</div>
+            <div class="homeLabel"><i class="bi bi-chat-quote" aria-hidden="true"></i> MOTIVATION</div>
             <div id="homeQuote" class="homeValue"></div>
           </div>
           <div id="homeTasksCard" class="homeCard scrollCard">
-            <div class="homeLabel">✅ TASKS PREVIEW</div>
+            <div class="homeLabel"><i class="bi bi-check2-square" aria-hidden="true"></i> TASKS PREVIEW</div>
             <div id="homeTasksList" class="homeValue"></div>
           </div>
           <div id="homeRecentCard" class="homeCard scrollCard">
-            <div class="homeLabel">🗂 RECENT CHATS</div>
+            <div class="homeLabel"><i class="bi bi-collection" aria-hidden="true"></i> RECENT CHATS</div>
             <div id="homeRecentChats" class="homeValue"></div>
           </div>
         </div>
@@ -204,32 +210,32 @@
         <!-- SCROLL ROW 2 -->
         <div class="scrollRow">
           <div id="homeHealthCard" class="homeCard scrollCard">
-            <div class="homeLabel">🔧 SYSTEM HEALTH</div>
+            <div class="homeLabel"><i class="bi bi-heart-pulse" aria-hidden="true"></i> SYSTEM HEALTH</div>
             <div id="homeHealthScore" class="homeValue"></div>
             <div id="homeHealthDetails" class="homeSub"></div>
           </div>
           <div id="homeSpeedCard" class="homeCard scrollCard">
-            <div class="homeLabel">⚡ SPEED TEST</div>
+            <div class="homeLabel"><i class="bi bi-speedometer2" aria-hidden="true"></i> SPEED TEST</div>
             <div id="homeSpeedPreview" class="homeValue"></div>
             <div id="homeSpeedNote" class="homeSub"></div>
           </div>
           <div id="homeQuickToolsCard" class="homeCard scrollCard">
-            <div class="homeLabel">🛠 QUICK TOOLS</div>
+            <div class="homeLabel"><i class="bi bi-tools" aria-hidden="true"></i> QUICK TOOLS</div>
             <div id="homeQuickTools" class="homeValue"></div>
           </div>
           <div id="homeSummaryCard" class="homeCard scrollCard">
-            <div class="homeLabel">📋 DAILY SUMMARY</div>
+            <div class="homeLabel"><i class="bi bi-journal-text" aria-hidden="true"></i> DAILY SUMMARY</div>
             <div id="homeDailySummary" class="homeValue"></div>
           </div>
           <div id="homeMonitorCard" class="homeCard scrollCard">
-            <div class="homeLabel">📡 SYSTEM MONITOR</div>
+            <div class="homeLabel"><i class="bi bi-activity" aria-hidden="true"></i> SYSTEM MONITOR</div>
             <div id="homeSystemMonitor" class="homeValue"></div>
           </div>
         </div>
 
         <div id="homeButtons">
           <button id="enterConsoleBtn" class="primaryBtn glitch wideBtn">
-            ⚡ ENTER ARIA CONSOLE
+            <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> ENTER ARIA CONSOLE
           </button>
         </div>
       </div>
@@ -243,7 +249,7 @@
       <div id="ariaHalo"></div>
       <aside id="sidebar">
         <button id="sidebarCollapseBtn" title="Toggle sidebar">
-          <span id="sidebarCollapseIcon">‹‹</span>
+          <span id="sidebarCollapseIcon"><i class="bi bi-chevron-left" aria-hidden="true"></i></span>
         </button>
         <!-- ARIA logo in sidebar -->
         <div id="sidebarHeader">
@@ -262,39 +268,39 @@
           <button id="newChatBtn" class="primaryBtn glitch">＋ New Chat</button>
 
           <div class="sidebarGroup sidebarGroupRow">
-            <button id="goHomeBtn" class="secondaryBtn glitch">🏠 Home</button>
-            <button id="goLockBtn" class="secondaryBtn glitch">🔒 Lock</button>
+            <button id="goHomeBtn" class="secondaryBtn glitch"><i class="bi bi-house" aria-hidden="true"></i> Home</button>
+            <button id="goLockBtn" class="secondaryBtn glitch"><i class="bi bi-lock" aria-hidden="true"></i> Lock</button>
           </div>
 
           <div id="toolsDropdownWrap">
             <button id="toolsDropdownBtn" class="secondaryBtn glitch">
-              🔧 Tools ▾
+              <i class="bi bi-tools" aria-hidden="true"></i> Tools <i class="bi bi-chevron-down" aria-hidden="true"></i>
             </button>
             <div id="toolsDropdown" style="display: none">
               <button class="toolDropItem" id="tool_math">∑ Math Mode</button>
-              <button class="toolDropItem" id="tool_code">🖥 Code Mode</button>
+              <button class="toolDropItem" id="tool_code"><i class="bi bi-terminal" aria-hidden="true"></i> Code Mode</button>
               <button class="toolDropItem" id="tool_study">
-                📚 Study Mode
+                <i class="bi bi-book" aria-hidden="true"></i> Study Mode
               </button>
               <button class="toolDropItem" id="tool_think">
-                🧠 Thinking Mode
+                <i class="bi bi-lightbulb" aria-hidden="true"></i> Thinking Mode
               </button>
               <div class="toolDropDivider"></div>
               <button class="toolDropItem" id="tool_search">
-                🔍 Web Search
+                <i class="bi bi-search" aria-hidden="true"></i> Web Search
               </button>
               <button class="toolDropItem" id="tool_imagine">
-                🎨 Generate Image
+                <i class="bi bi-image" aria-hidden="true"></i> Generate Image
               </button>
               <button class="toolDropItem" id="tool_calendar">
-                📅 Calendar
+                <i class="bi bi-calendar3" aria-hidden="true"></i> Calendar
               </button>
               <button class="toolDropItem" id="tool_bg">
-                ⚙ Background Task
+                <i class="bi bi-gear-wide-connected" aria-hidden="true"></i> Background Task
               </button>
               <div class="toolDropDivider"></div>
               <button class="toolDropItem" id="tool_commands">
-                📋 All Commands
+                <i class="bi bi-command" aria-hidden="true"></i> All Commands
               </button>
             </div>
           </div>
@@ -302,35 +308,35 @@
           <div class="sidebarGroupLabel">Workspace</div>
           <div class="sidebarGroup sidebarGroupGrid">
             <button id="commandsBtn" class="secondaryBtn glitch">
-              📋 Commands
+              <i class="bi bi-command" aria-hidden="true"></i> Commands
             </button>
             <button id="bgTasksListBtn" class="secondaryBtn glitch">
-              ⚙ BG Tasks
+              <i class="bi bi-gear-wide-connected" aria-hidden="true"></i> BG Tasks
             </button>
             <button class="secondaryBtn" onclick="window.ARIA_showMemoryUI()" title="Memory & Knowledge Base">
-              🧠 Memory
+              <i class="bi bi-hdd" aria-hidden="true"></i> Memory
             </button>
             <button class="secondaryBtn" onclick="window.ARIA_showSkillsUI()" title="Skills">
-              ⚡ Skills
+              <i class="bi bi-lightning-charge" aria-hidden="true"></i> Skills
             </button>
             <button class="secondaryBtn" onclick="window.ARIA_showStarred()" title="Starred & Pinned messages">
-              ⭐ Starred
+              <i class="bi bi-star" aria-hidden="true"></i> Starred
             </button>
             <button class="secondaryBtn" onclick="window.ARIA_toggleSplitPane()" title="Split pane mode" id="splitPaneBtn">
               ◫ Split
             </button>
             <button class="secondaryBtn" onclick="window.ARIA_showMacros()" title="Claw macros">
-              ⏺ Macros
+              <i class="bi bi-record-circle" aria-hidden="true"></i> Macros
             </button>
           </div>
 
           <div class="sidebarGroupLabel">System</div>
           <div class="sidebarGroup sidebarGroupRow">
             <button id="settingsBtn" class="secondaryBtn glitch">
-              ⚙ Settings
+              <i class="bi bi-gear" aria-hidden="true"></i> Settings
             </button>
             <button id="sidebarClawBtn" class="secondaryBtn glitch">
-              🦾 Claw
+              <i class="bi bi-robot" aria-hidden="true"></i> Claw
             </button>
           </div>
         </div>
@@ -341,9 +347,9 @@
         <div id="codePanelHeader">
           <span id="codePanelLang">CODE</span>
           <div class="codePanelActions">
-            <button id="codePanelCopyBtn">⎘ Copy</button>
-            <button id="codePanelDownloadBtn">⬇ Download</button>
-            <button id="codePanelCloseBtn">✕ Close</button>
+            <button id="codePanelCopyBtn"><i class="bi bi-clipboard" aria-hidden="true"></i> Copy</button>
+            <button id="codePanelDownloadBtn"><i class="bi bi-download" aria-hidden="true"></i> Download</button>
+            <button id="codePanelCloseBtn"><i class="bi bi-x-lg" aria-hidden="true"></i> Close</button>
           </div>
         </div>
         <div id="codePanelBody">
@@ -354,7 +360,7 @@
         <div id="commandsPanel">
           <div id="commandsHeader">
             <h2>ARIA COMMANDS</h2>
-            <button id="commandsCloseBtn">✕</button>
+            <button id="commandsCloseBtn"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
           </div>
           <div id="commandsList"></div>
         </div>
@@ -363,7 +369,7 @@
         <div id="bgTasksPanel">
           <div id="bgTasksHeader">
             <h2>BACKGROUND TASKS</h2>
-            <button id="bgTasksCloseBtn">✕</button>
+            <button id="bgTasksCloseBtn"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
           </div>
           <div id="bgTasksList"></div>
         </div>
@@ -381,7 +387,7 @@
           <div id="chatHeaderRight">
             <div id="ariaStatusDot" class="statusDot"></div>
             <span id="ariaStatusLabel">ONLINE</span>
-            <button id="ariaSettingsBtn" title="Settings">⚙</button>
+            <button id="ariaSettingsBtn" title="Settings"><i class="bi bi-gear" aria-hidden="true"></i></button>
           </div>
         </div>
 
@@ -397,7 +403,7 @@
                 rows="1"
               ></textarea>
               <label class="attachInline" title="Attach file"
-                >📎<input
+                ><i class="bi bi-paperclip" aria-hidden="true"></i><input
                   type="file"
                   id="fileUploadBtn"
                   accept=".txt,.md,.pdf,.docx,.png,.jpg,.jpeg,.webp"
@@ -413,13 +419,13 @@
               class="voiceBtn glitch"
               aria-label="Menu"
             >
-              ☰ Menu
+              <i class="bi bi-list" aria-hidden="true"></i> Menu
             </button>
             <!-- mobilSettingsBtn removed — new #ariaSettingsBtn used instead -->
-            <button id="callModeBtn" class="voiceBtn glitch">📞 Call</button>
-            <button id="pushToTalkBtn" class="voiceBtn glitch">🎙 PTT</button>
-            <button id="vttBtn" class="voiceBtn glitch">🗣 VTT</button>
-            <button id="ttsBtn" class="voiceBtn glitch">🔊 TTS</button>
+            <button id="callModeBtn" class="voiceBtn glitch"><i class="bi bi-telephone" aria-hidden="true"></i> Call</button>
+            <button id="pushToTalkBtn" class="voiceBtn glitch"><i class="bi bi-mic" aria-hidden="true"></i> PTT</button>
+            <button id="vttBtn" class="voiceBtn glitch"><i class="bi bi-soundwave" aria-hidden="true"></i> VTT</button>
+            <button id="ttsBtn" class="voiceBtn glitch"><i class="bi bi-volume-up" aria-hidden="true"></i> TTS</button>
             <button id="mathModeBtn" style="display: none"></button>
             <button id="codeAssistBtn" style="display: none"></button>
             <button id="studyModeBtn" style="display: none"></button>
@@ -444,21 +450,21 @@
             <h2>ARIA CONFIG</h2>
             <div class="settingsSubtitle">System Configuration Terminal</div>
           </div>
-          <button id="settingsCloseBtn">✕</button>
+          <button id="settingsCloseBtn"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
 
         <!-- ── TAB NAV ── -->
         <div id="settingsTabs">
           <button class="settingsTab active" data-tab="appearance">
-            🎨 Look
+            <i class="bi bi-palette" aria-hidden="true"></i> Look
           </button>
-          <button class="settingsTab" data-tab="voice">🔊 Voice</button>
-          <button class="settingsTab" data-tab="personality">🧠 Mind</button>
-          <button class="settingsTab" data-tab="memory">💾 Memory</button>
-          <button class="settingsTab" data-tab="emotion">❤ Emotion</button>
-          <button class="settingsTab" data-tab="system">⚙ System</button>
-          <button class="settingsTab" data-tab="skills">⚡ Skills</button>
-          <button class="settingsTab" data-tab="briefing">🌅 Briefing</button>
+          <button class="settingsTab" data-tab="voice"><i class="bi bi-volume-up" aria-hidden="true"></i> Voice</button>
+          <button class="settingsTab" data-tab="personality"><i class="bi bi-lightbulb" aria-hidden="true"></i> Mind</button>
+          <button class="settingsTab" data-tab="memory"><i class="bi bi-hdd" aria-hidden="true"></i> Memory</button>
+          <button class="settingsTab" data-tab="emotion"><i class="bi bi-heart" aria-hidden="true"></i> Emotion</button>
+          <button class="settingsTab" data-tab="system"><i class="bi bi-gear" aria-hidden="true"></i> System</button>
+          <button class="settingsTab" data-tab="skills"><i class="bi bi-lightning-charge" aria-hidden="true"></i> Skills</button>
+          <button class="settingsTab" data-tab="briefing"><i class="bi bi-sunrise" aria-hidden="true"></i> Briefing</button>
         </div>
 
         <div id="settingsContent">
@@ -726,7 +732,7 @@
 
             <!-- ── ELEVENLABS AI VOICES ── -->
             <section class="settingsSection elevenlabsSection">
-              <h3>⚡ ElevenLabs AI Voices</h3>
+              <h3><i class="bi bi-lightning-charge" aria-hidden="true"></i> ElevenLabs AI Voices</h3>
               <p class="settingsHint">
                 ElevenLabs provides ultra-realistic AI voices. Free tier: 10,000
                 characters/month.
@@ -847,7 +853,7 @@
 
             <!-- ── CUSTOM FILE VOICES ── -->
             <section class="settingsSection">
-              <h3>🎙 Custom File Voices</h3>
+              <h3><i class="bi bi-mic" aria-hidden="true"></i> Custom File Voices</h3>
               <p class="settingsHint">
                 Upload any MP3, WAV, or OGG audio clip. When this voice is
                 active, ARIA plays your clip while her text response is
@@ -867,7 +873,7 @@
                     class="secondaryBtn"
                     onclick="document.getElementById('customVoiceFile').click()"
                   >
-                    📁 Choose File
+                    <i class="bi bi-folder2-open" aria-hidden="true"></i> Choose File
                   </button>
                   <span id="customVoiceFileName" class="fileNameDisplay"
                     >No file selected</span
@@ -902,37 +908,37 @@
               </p>
               <div id="personalityList">
                 <button class="personalityBtn" data-preset="hacker">
-                  <span class="pBtnIcon">💀</span>
+                  <span class="pBtnIcon"><i class="bi bi-emoji-sunglasses" aria-hidden="true"></i></span>
                   <span class="pBtnLabel">Hacker</span>
                   <span class="pBtnDesc">Terse, technical, cryptic</span>
                 </button>
                 <button class="personalityBtn" data-preset="companion">
-                  <span class="pBtnIcon">💙</span>
+                  <span class="pBtnIcon"><i class="bi bi-emoji-smile" aria-hidden="true"></i></span>
                   <span class="pBtnLabel">Companion</span>
                   <span class="pBtnDesc">Warm, friendly, supportive</span>
                 </button>
                 <button class="personalityBtn" data-preset="analyst">
-                  <span class="pBtnIcon">📊</span>
+                  <span class="pBtnIcon"><i class="bi bi-graph-up" aria-hidden="true"></i></span>
                   <span class="pBtnLabel">Analyst</span>
                   <span class="pBtnDesc">Precise, structured, logical</span>
                 </button>
                 <button class="personalityBtn" data-preset="chaotic">
-                  <span class="pBtnIcon">⚡</span>
+                  <span class="pBtnIcon"><i class="bi bi-lightning-charge" aria-hidden="true"></i></span>
                   <span class="pBtnLabel">Chaotic</span>
                   <span class="pBtnDesc">Energetic, glitchy, wild</span>
                 </button>
                 <button class="personalityBtn" data-preset="hostile">
-                  <span class="pBtnIcon">🔥</span>
+                  <span class="pBtnIcon"><i class="bi bi-fire" aria-hidden="true"></i></span>
                   <span class="pBtnLabel">Hostile</span>
                   <span class="pBtnDesc">Blunt, cold, minimal</span>
                 </button>
                 <button class="personalityBtn" data-preset="mentor">
-                  <span class="pBtnIcon">🎓</span>
+                  <span class="pBtnIcon"><i class="bi bi-mortarboard" aria-hidden="true"></i></span>
                   <span class="pBtnLabel">Mentor</span>
                   <span class="pBtnDesc">Patient, educational, guiding</span>
                 </button>
                 <button class="personalityBtn" data-preset="oracle">
-                  <span class="pBtnIcon">🔮</span>
+                  <span class="pBtnIcon"><i class="bi bi-stars" aria-hidden="true"></i></span>
                   <span class="pBtnLabel">Oracle</span>
                   <span class="pBtnDesc">Mysterious, poetic, deep</span>
                 </button>
@@ -1142,7 +1148,7 @@
             <section class="settingsSection">
               <h3>Manage Memory</h3>
               <button id="clearMemoryBtn" class="dangerBtn">
-                🗑 Clear All Memories
+                <i class="bi bi-trash" aria-hidden="true"></i> Clear All Memories
               </button>
             </section>
           </div>
@@ -1183,10 +1189,10 @@
               </p>
               <div class="twoColBtns">
                 <button id="exportSettingsBtn" class="secondaryBtn">
-                  ⬇ Export Config
+                  <i class="bi bi-download" aria-hidden="true"></i> Export Config
                 </button>
                 <button id="importSettingsBtn" class="secondaryBtn">
-                  ⬆ Import Config
+                  <i class="bi bi-upload" aria-hidden="true"></i> Import Config
                 </button>
               </div>
               <input
@@ -1217,7 +1223,7 @@
                ════════════════════════════════════════ -->
           <div class="settingsTabPane" data-pane="skills">
             <section class="settingsSection">
-              <h3>⚡ Skills</h3>
+              <h3><i class="bi bi-lightning-charge" aria-hidden="true"></i> Skills</h3>
               <p class="settingsHint">
                 Skills inject custom instructions into ARIA's system prompt.
                 Same format as Claude SKILL.md files — drop a folder with a SKILL.md
@@ -1250,7 +1256,7 @@ Instructions ARIA follows when this skill is active.</code>
                ════════════════════════════════════════ -->
           <div class="settingsTabPane" data-pane="briefing">
             <section class="settingsSection">
-              <h3>🌅 Daily Briefing</h3>
+              <h3><i class="bi bi-sunrise" aria-hidden="true"></i> Daily Briefing</h3>
               <p class="settingsHint">
                 ARIA assembles a morning briefing with weather, news, todos, and active tasks.
                 Enable in your <code>.env</code> with <code>BRIEFING_ENABLED=true</code>
@@ -1258,10 +1264,10 @@ Instructions ARIA follows when this skill is active.</code>
               </p>
               <div class="twoColBtns">
                 <button class="secondaryBtn" onclick="fetch('/api/briefing/trigger',{method:'POST'}).then(()=>window.ARIA_showToast('Briefing generating…','🌅'))">
-                  🌅 Trigger Now
+                  <i class="bi bi-sunrise" aria-hidden="true"></i> Trigger Now
                 </button>
                 <button class="secondaryBtn" id="showLastBriefingBtn">
-                  📄 Show Last Briefing
+                  <i class="bi bi-file-earmark-text" aria-hidden="true"></i> Show Last Briefing
                 </button>
               </div>
               <div id="lastBriefingPreview" style="margin-top:12px;font-size:12px;color:var(--text-muted);display:none"></div>
@@ -1272,7 +1278,7 @@ Instructions ARIA follows when this skill is active.</code>
 
         <div id="settingsFooter">
           <button id="settingsSaveBtn" class="primaryBtn">
-            💾 Save &amp; Close
+            <i class="bi bi-check-lg" aria-hidden="true"></i> Save &amp; Close
           </button>
         </div>
       </div>
@@ -1305,7 +1311,7 @@ Instructions ARIA follows when this skill is active.</code>
     <!-- ========================= -->
     <!--  TOAST                    -->
     <!-- ========================= -->
-    <div id="settingsToast">✓ Settings saved</div>
+    <div id="settingsToast"><i class="bi bi-check-circle" aria-hidden="true"></i> Settings saved</div>
 
     <!-- ========================= -->
     <!--  AUDIO                    -->

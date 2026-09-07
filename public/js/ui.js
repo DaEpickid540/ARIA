@@ -20,7 +20,8 @@ fixVH();
 /* ── DESKTOP SIDEBAR COLLAPSE ── */
 const sidebar = document.getElementById("sidebar");
 const collapseBtn = document.getElementById("sidebarCollapseBtn");
-const collapseIcon = document.getElementById("sidebarCollapseIcon");
+// #sidebarCollapseIcon is styled and rotated entirely in CSS; nothing here
+// needs a handle on it.
 function isMobile() {
   return window.innerWidth <= 768;
 }
@@ -28,13 +29,13 @@ function isMobile() {
 function collapseSidebar() {
   if (isMobile()) return;
   sidebar?.classList.add("collapsed");
-  if (collapseIcon) collapseIcon.textContent = "»»";
+  collapseBtn?.setAttribute("title", "Expand sidebar");
   localStorage.setItem("aria_sidebar_collapsed", "1");
 }
 function expandSidebar() {
   if (isMobile()) return;
   sidebar?.classList.remove("collapsed");
-  if (collapseIcon) collapseIcon.textContent = "‹‹";
+  collapseBtn?.setAttribute("title", "Collapse sidebar");
   localStorage.setItem("aria_sidebar_collapsed", "0");
 }
 collapseBtn?.addEventListener("click", () =>
@@ -44,7 +45,7 @@ collapseBtn?.addEventListener("click", () =>
 );
 if (!isMobile() && localStorage.getItem("aria_sidebar_collapsed") === "1") {
   sidebar?.classList.add("collapsed");
-  if (collapseIcon) collapseIcon.textContent = "»»";
+  collapseBtn?.setAttribute("title", "Expand sidebar");
 }
 window.ARIA_collapseSidebar = collapseSidebar;
 window.ARIA_expandSidebar = expandSidebar;

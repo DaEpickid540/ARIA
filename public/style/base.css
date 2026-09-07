@@ -74,6 +74,9 @@
   --font-mono-stack: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
     Consolas, monospace;
 
+  /* ── Composer ── */
+  --input-h: 38px;
+
   /* ── Transitions ── */
   --tr: 0.18s ease;
   --tr-slow: 0.28s ease;

@@ -120,6 +120,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* A flex container drops the whitespace between the icon and the label, so
+     the gap has to be declared. Matches .primaryBtn / .secondaryBtn. */
+  gap: 6px;
   padding: 8px 12px;
   min-height: 34px;
   background: var(--bg-inset);
@@ -296,8 +299,15 @@
   transform: translateY(0);
 }
 .emptyChatIcon {
-  font-size: 1.2rem;
+  font-size: 1.05rem;
   flex-shrink: 0;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  transition: color var(--tr);
+}
+.emptyChatSuggestion:hover .emptyChatIcon {
+  color: var(--accent-text);
 }
 .emptyChatLabel {
   flex: 1;

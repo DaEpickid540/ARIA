@@ -1156,15 +1156,15 @@ function renderEmptyState() {
 
   const suggestions = [
     {
-      icon: "💻",
+      icon: '<i class="bi bi-bug" aria-hidden="true"></i>',
       label: "Help me debug code",
       text: "Help me debug this code: ",
     },
-    { icon: "📚", label: "Explain a concept", text: "Explain " },
-    { icon: "✍️", label: "Draft something", text: "Help me write " },
-    { icon: "🧮", label: "Quick math", text: "Calculate " },
-    { icon: "🔍", label: "Search the web", text: "Search for " },
-    { icon: "🎨", label: "Generate an image", text: "Imagine: " },
+    { icon: '<i class="bi bi-book" aria-hidden="true"></i>', label: "Explain a concept", text: "Explain " },
+    { icon: '<i class="bi bi-pencil-square" aria-hidden="true"></i>', label: "Draft something", text: "Help me write " },
+    { icon: '<i class="bi bi-calculator" aria-hidden="true"></i>', label: "Quick math", text: "Calculate " },
+    { icon: '<i class="bi bi-search" aria-hidden="true"></i>', label: "Search the web", text: "Search for " },
+    { icon: '<i class="bi bi-image" aria-hidden="true"></i>', label: "Generate an image", text: "Imagine: " },
   ];
 
   const html = `
