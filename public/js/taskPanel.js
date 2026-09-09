@@ -233,6 +233,14 @@ function renderTaskDetail(t) {
               ? `<details class="tpStepOutput"><summary>Output</summary><pre>${esc(String(s.output).slice(0, 5000))}${String(s.output).length > 5000 ? "\n…(truncated)" : ""}</pre></details>`
               : ""
           }
+          ${
+            // Split out by the engine (lib/think.js) rather than left in the
+            // output. Kept, not dropped: on a step that went sideways the
+            // reasoning is usually where the answer went wrong.
+            s.thinking
+              ? `<details class="tpStepThinking"><summary>Reasoning</summary><pre>${esc(String(s.thinking).slice(0, 5000))}${String(s.thinking).length > 5000 ? "\n…(truncated)" : ""}</pre></details>`
+              : ""
+          }
         </div>`;
     })
     .join("");

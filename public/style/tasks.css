@@ -277,9 +277,34 @@
   margin-left: 22px;
   line-height: 1.4;
 }
-.tpStepOutput {
+.tpStepOutput,
+.tpStepThinking {
   margin-top: 6px;
   margin-left: 22px;
+}
+/* Reasoning is secondary to the output it sits under: same shape, quieter
+   label, so a step reads as one result with its working folded behind it. */
+.tpStepThinking summary {
+  font-size: 10px;
+  color: var(--text-3);
+  cursor: pointer;
+  user-select: none;
+}
+.tpStepThinking summary:hover {
+  color: var(--text-2);
+}
+.tpStepThinking pre {
+  margin: 6px 0 0;
+  padding: 8px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  max-height: 240px;
+  overflow-y: auto;
 }
 .tpStepOutput summary {
   font-size: 10px;

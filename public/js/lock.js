@@ -234,6 +234,10 @@ async function loadChatModules() {
       const { initTaskPanel } = await import("./taskPanel.js");
       initTaskPanel();
     } catch {}
+    try {
+      const { initInstallApp } = await import("./installApp.js");
+      initInstallApp();
+    } catch {}
 
     // ── Apply version stamp ──
     try {

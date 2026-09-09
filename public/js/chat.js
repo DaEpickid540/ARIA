@@ -1,5 +1,5 @@
 import { speak, ttsEnabled } from "./tts.js";
-import { createVisual } from "./visualize.js";
+import { createVisual, buildSrcdoc } from "./visualize.js";
 import { loadSettings } from "./personality.js";
 import { runTool } from "./tools.js";
 
@@ -171,9 +171,16 @@ const codePanelClose = document.getElementById("codePanelCloseBtn");
 let currentCodeContent = "";
 let currentCodeLang = "";
 
+/* Which languages are a document a browser can actually render.
+   JSX is deliberately absent. React source put through a browser as HTML
+   renders its own <h1>s at full size, drops every {expression} on the page as
+   literal text and 404s each <img>, which is what the old preview did — it
+   looked like the app had broken rather than like a preview of the code. */
+const PREVIEWABLE = new Set(["html", "htm", "svg", "xml"]);
+
 function openCodePanel(code, lang) {
   currentCodeContent = code;
-  currentCodeLang = lang || "code";
+  currentCodeLang = (lang || "code").toLowerCase();
   previewActive = false;
   if (codePanelCode) codePanelCode.textContent = code;
   if (codePanelLang) codePanelLang.textContent = (lang || "CODE").toUpperCase();
@@ -187,9 +194,8 @@ function openCodePanel(code, lang) {
     frame.srcdoc = "";
   }
   if (prevBtn) {
-    const isHTML = ["html", "htm", "svg"].includes((lang || "").toLowerCase());
-    prevBtn.style.display = isHTML ? "" : "none";
-    prevBtn.textContent = "🖥 Preview";
+    prevBtn.style.display = PREVIEWABLE.has(currentCodeLang) ? "" : "none";
+    prevBtn.innerHTML = '<i class="bi bi-window" aria-hidden="true"></i> Preview';
   }
   codePanelEl?.classList.add("open");
   layout?.classList.add("code-split");
@@ -198,6 +204,14 @@ function openCodePanel(code, lang) {
 function closeCodePanel() {
   codePanelEl?.classList.remove("open");
   layout?.classList.remove("code-split");
+  // Leaving a live preview document running behind a closed panel keeps its
+  // timers and its network alive for the rest of the session.
+  const frame = document.getElementById("codePanelPreviewFrame");
+  if (frame) {
+    frame.style.display = "none";
+    frame.srcdoc = "";
+  }
+  previewActive = false;
   window.ARIA_expandSidebar?.();
 }
 
@@ -236,17 +250,25 @@ document
     const pre = document.getElementById("codePanelContent");
     const frame = document.getElementById("codePanelPreviewFrame");
     const btn = document.getElementById("codePanelPreviewBtn");
-    if (!frame) return;
+    if (!frame || !PREVIEWABLE.has(currentCodeLang)) return;
     previewActive = !previewActive;
     if (previewActive) {
-      frame.srcdoc = currentCodeContent;
+      // Through buildSrcdoc, not a bare srcdoc of the code: the frame is
+      // sandboxed without allow-same-origin and its CSP blocks the network,
+      // so previewing a page the model wrote cannot read ARIA's storage,
+      // call its API or phone anything home.
+      frame.srcdoc = buildSrcdoc({
+        kind: currentCodeLang === "svg" ? "svg" : "html",
+        code: currentCodeContent,
+      });
       frame.style.display = "flex";
       if (pre) pre.style.display = "none";
-      if (btn) btn.textContent = "< Code";
+      if (btn) btn.innerHTML = '<i class="bi bi-code-slash" aria-hidden="true"></i> Code';
     } else {
       frame.style.display = "none";
+      frame.srcdoc = "";
       if (pre) pre.style.display = "";
-      if (btn) btn.textContent = "🖥 Preview";
+      if (btn) btn.innerHTML = '<i class="bi bi-window" aria-hidden="true"></i> Preview';
     }
   });
 
@@ -1250,6 +1272,48 @@ function renderChatList() {
 }
 
 /* ============================================================
+   SOURCES — the pages the research agent actually read.
+
+   Kept as a real element under the message rather than as markdown inside it:
+   the model does not get to edit, reorder or quietly drop this list, so the
+   numbered citations in its answer always resolve to something the server
+   really fetched. Failures are shown too — "I could not read this one" is
+   the part a reader needs to judge the answer.
+   ============================================================ */
+function createSourceList(sources) {
+  const wrap = document.createElement("div");
+  wrap.className = "msgSources";
+
+  const ok = sources.filter((s) => s.ok !== false);
+  const head = document.createElement("div");
+  head.className = "msgSourcesHead";
+  head.textContent = `${ok.length} source${ok.length === 1 ? "" : "s"} read`;
+  wrap.appendChild(head);
+
+  const list = document.createElement("ol");
+  list.className = "msgSourcesList";
+  sources.forEach((s, i) => {
+    const li = document.createElement("li");
+    if (s.ok === false) li.classList.add("msgSourceFailed");
+    const a = document.createElement("a");
+    a.href = s.url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    // textContent everywhere: titles come off the open web.
+    a.textContent = s.title || s.url;
+    const host = document.createElement("span");
+    host.className = "msgSourceHost";
+    host.textContent =
+      s.ok === false ? ` — ${s.error || "unreadable"}` : ` ${s.host || ""}`;
+    li.append(a, host);
+    li.value = s.n || i + 1;
+    list.appendChild(li);
+  });
+  wrap.appendChild(list);
+  return wrap;
+}
+
+/* ============================================================
    RENDER MESSAGES
    ============================================================ */
 function renderMessages() {
@@ -1371,6 +1435,8 @@ function renderMessages() {
       </div>
       <div class="msgBody">${bodyHTML}</div>`;
     if (visualNode) div.querySelector(".msgBody").appendChild(visualNode);
+    if (msg.sources?.length)
+      div.querySelector(".msgBody").appendChild(createSourceList(msg.sources));
     messages.appendChild(div);
   });
 
@@ -2361,6 +2427,60 @@ async function addAIMessages(parts) {
   }
 }
 
+/* Render one non-streamed /api/chat response.
+   Shared by the two JSON paths (a provider that never streams, and OpenRouter
+   falling back to JSON) so a reply carrying a widget or a source list renders
+   the same either way — the fallback path used to drop both on the floor. */
+async function renderChatResponse(data, userText = "") {
+  const chat = getCurrentChat();
+
+  if (data.visual && chat) {
+    chat.messages.push({
+      role: "aria",
+      type: "visual",
+      visual: data.visual,
+      content: data.reply?.trim() || "",
+      ...(data.sources?.length ? { sources: data.sources } : {}),
+      timestamp: Date.now(),
+    });
+    saveChats();
+    renderMessages();
+    syncToServer();
+    return;
+  }
+
+  if (data.imageUrl && chat) {
+    chat.messages.push({
+      role: "aria",
+      type: "image",
+      imageUrl: data.imageUrl,
+      content: `Generated: ${data.imagePrompt || userText}`,
+      timestamp: Date.now(),
+    });
+    saveChats();
+    renderMessages();
+    if (data.reply) addAIMessage(data.reply);
+    return;
+  }
+
+  if (data.sources?.length && chat) {
+    chat.messages.push({
+      role: "aria",
+      content: data.reply?.trim() || "",
+      sources: data.sources,
+      timestamp: Date.now(),
+    });
+    saveChats();
+    renderMessages();
+    syncToServer();
+    if (ttsEnabled && data.reply) speak(data.reply);
+    return;
+  }
+
+  if (data.replies?.length > 1) await addAIMessages(data.replies);
+  else addAIMessage(data.reply?.trim() || "[No reply]");
+}
+
 /* ============================================================
    SEND MESSAGE
    ============================================================ */
@@ -2413,6 +2533,10 @@ async function sendMessage() {
         return null;
       },
     ],
+    // /research does the whole loop server-side and answers with a source
+    // list; /search only ever hands back links to click.
+    [/^\/research (.+)/i, (m) => runTool("research", m[1])],
+    [/^\/scrape (.+)/i, (m) => runTool("scrape", m[1])],
     [/^\/news(.*)/i, (m) => runTool("news", m[1].trim())],
     [/^\/system/i, (_) => runTool("system", "")],
     [/^\/help/i, (_) => Promise.resolve(HELP_TEXT)],
@@ -2431,6 +2555,8 @@ async function sendMessage() {
 
 const HELP_TEXT = `**ARIA Commands**
 /calc /time /weather /notes /todo /timer /search /news /system /imagine /help
+/research <question> — searches, reads the top pages, answers with sources
+/scrape <url> — read one page
 
 Open **🔧 Tools** in the sidebar for mode toggles and tool shortcuts.`;
 
@@ -2557,6 +2683,9 @@ async function sendMessageContent(text, chat, attachments = []) {
         let inThink = false;
         let thinkDone = false;
         let stepsShown = new Set();
+        let finalVisual = null; // widget from the visualize tool, if any
+        let finalSources = null; // pages the research agent actually read
+        let finalImage = null;
 
         // 60fps throttled DOM update during streaming
         let _renderPending = false;
@@ -2567,8 +2696,14 @@ async function sendMessageContent(text, chat, attachments = []) {
             _renderPending = false;
             const bodyEl = document.getElementById(streamId + "_body");
             if (!bodyEl || !answerText) return;
+            // Everything from an ACTION line on is machine-readable: the tool
+            // call and, for visualize, a screenful of raw SVG. It is replaced
+            // by the tool's own output at the end of the stream, so streaming
+            // it into the bubble first only shows the user the plumbing.
+            const visible = answerText.split(/^[ \t]*ACTION:/m)[0];
+            if (!visible.trim()) return;
             // Lightweight inline render while streaming — avoids full markdown parse each token
-            const safe = answerText
+            const safe = visible
               .replace(/&/g, "&amp;")
               .replace(/</g, "&lt;")
               .replace(/>/g, "&gt;")
@@ -2761,11 +2896,19 @@ async function sendMessageContent(text, chat, attachments = []) {
               }
 
               // ── Done event (server sends authoritative final content) ──
-              if (evt.done && evt.full) {
-                const tc = evt.full.indexOf("</think>");
-                answerText =
-                  tc !== -1 ? evt.full.slice(tc + 8).trimStart() : evt.full;
-                accumulated = evt.full;
+              if (evt.done) {
+                // A visualize reply is often ONLY the widget, so the final
+                // text is legitimately empty — the old `&& evt.full` guard
+                // kept the raw streamed markup on screen instead.
+                if (typeof evt.full === "string") {
+                  const tc = evt.full.indexOf("</think>");
+                  answerText =
+                    tc !== -1 ? evt.full.slice(tc + 8).trimStart() : evt.full;
+                  accumulated = evt.full;
+                }
+                if (evt.visual) finalVisual = evt.visual;
+                if (evt.sources?.length) finalSources = evt.sources;
+                if (evt.imageUrl) finalImage = { url: evt.imageUrl, prompt: evt.imagePrompt };
               }
             } catch {} // malformed SSE line
           }
@@ -2784,14 +2927,45 @@ async function sendMessageContent(text, chat, attachments = []) {
         }
         if (stepsShown.size === 0 && !inThink) thinkLiveDiv.remove();
 
+        // An image has its own message shape, so it is easier to hand the
+        // whole thing to renderMessages than to graft the markup onto the
+        // streaming bubble — the bubble is rebuilt from history anyway.
+        if (finalImage) {
+          streamDiv.remove();
+          const _chatImg = getCurrentChat();
+          if (_chatImg) {
+            _chatImg.messages.push({
+              role: "aria",
+              type: "image",
+              imageUrl: finalImage.url,
+              content:
+                answerText.trim() || `Generated: ${finalImage.prompt || text}`,
+              timestamp: Date.now(),
+            });
+            saveChats();
+            renderMessages();
+            syncToServer();
+          }
+          return;
+        }
+
         const finalText =
-          answerText.trim() || accumulated.trim() || "[No reply]";
+          answerText.trim() ||
+          accumulated.trim() ||
+          // A widget with no prose around it is a complete reply.
+          (finalVisual ? "" : "[No reply]");
 
         // ── Update the stream bubble IN PLACE — no flash, no teardown ──
         // Apply full renderMarkdown to the existing bubble instead of removing + rebuilding.
         const finalBodyEl = document.getElementById(streamId + "_body");
         if (finalBodyEl) {
-          finalBodyEl.innerHTML = renderMarkdown(finalText);
+          finalBodyEl.innerHTML = finalText ? renderMarkdown(finalText) : "";
+          // The widget is appended to the bubble that was already streaming,
+          // rather than re-rendering the whole log, so the frame is built once
+          // and its height handshake is not thrown away.
+          if (finalVisual) finalBodyEl.appendChild(createVisual(finalVisual));
+          if (finalSources?.length)
+            finalBodyEl.appendChild(createSourceList(finalSources));
         }
         streamDiv.style.display = "";
         streamDiv.querySelector(".streamCursor")?.remove();
@@ -2802,11 +2976,13 @@ async function sendMessageContent(text, chat, attachments = []) {
           _chat.messages.push({
             role: "aria",
             content: finalText,
+            ...(finalVisual ? { type: "visual", visual: finalVisual } : {}),
+            ...(finalSources?.length ? { sources: finalSources } : {}),
             timestamp: Date.now(),
           });
           saveChats();
           syncToServer();
-          if (ttsEnabled) speak(finalText);
+          if (ttsEnabled && finalText) speak(finalText);
         }
         // RAG indexing (fire and forget)
         const _chatId = req?.body?.chatId || currentChatId;
@@ -2829,24 +3005,7 @@ async function sendMessageContent(text, chat, attachments = []) {
       const data = await res.json();
       removeTypingIndicator(tid);
       clearHalo();
-      if (data.imageUrl) {
-        const chat2 = getCurrentChat();
-        if (chat2) {
-          chat2.messages.push({
-            role: "aria",
-            type: "image",
-            imageUrl: data.imageUrl,
-            content: `Generated: ${data.imagePrompt || text}`,
-            timestamp: Date.now(),
-          });
-          saveChats();
-          renderMessages();
-        }
-        if (data.reply) addAIMessage(data.reply);
-      } else {
-        if (data.replies?.length > 1) await addAIMessages(data.replies);
-        else addAIMessage(data.reply?.trim() || "[No reply]");
-      }
+      await renderChatResponse(data, text);
       return;
     }
 
@@ -2861,37 +3020,7 @@ async function sendMessageContent(text, chat, attachments = []) {
     removeTypingIndicator(tid);
     clearHalo();
 
-    if (data.visual) {
-      const chatV = getCurrentChat();
-      if (chatV) {
-        chatV.messages.push({
-          role: "aria",
-          type: "visual",
-          visual: data.visual,
-          content: data.reply?.trim() || "",
-          timestamp: Date.now(),
-        });
-        saveChats();
-        renderMessages();
-      }
-    } else if (data.imageUrl) {
-      const chat2 = getCurrentChat();
-      if (chat2) {
-        chat2.messages.push({
-          role: "aria",
-          type: "image",
-          imageUrl: data.imageUrl,
-          content: `Generated: ${data.imagePrompt || text}`,
-          timestamp: Date.now(),
-        });
-        saveChats();
-        renderMessages();
-      }
-      if (data.reply) addAIMessage(data.reply);
-    } else {
-      if (data.replies?.length > 1) await addAIMessages(data.replies);
-      else addAIMessage(data.reply?.trim() || "[No reply]");
-    }
+    await renderChatResponse(data, text);
   } catch (err) {
     removeTypingIndicator(tid);
     clearHalo();
@@ -3026,7 +3155,10 @@ function renderMarkdown(text) {
   // tags) must be pulled into placeholders before the unsafe-tag stripper below
   // runs, otherwise it deletes the code block's own markup as if it were live HTML.
   const codePlaceholders = [];
-  text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+
+  /** One fenced block → the placeholder that stands in for it. */
+  const stashCode = (lang, code, truncated = false) => {
+    lang = (lang || "").toLowerCase();
     const clean = code.trim();
     const enc = encodeURIComponent(clean);
     const extMap = {
@@ -3044,27 +3176,45 @@ function renderMarkdown(text) {
       go: "go",
     };
     const ext = extMap[lang] || lang || "txt";
-    const html = `<div class="codeBlock">
-      ${lang ? `<span class="codeLabel">${lang.toUpperCase()}</span>` : ""}
-      <div class="codeActions">
-        <button class="codePanelBtn codeActionBtn" data-code="${enc}" data-lang="${lang}">⤢ Panel</button>
-        <button class="codeCopyBtn codeActionBtn" data-code="${enc}">⎘ Copy</button>
-        <button class="codeDownloadBtn codeActionBtn" data-code="${enc}" data-filename="aria-code.${ext}">⬇ .${ext}</button>
+    const html = `<div class="codeBlock${truncated ? " codeBlockTruncated" : ""}">
+      <div class="codeBlockHead">
+        <span class="codeLabel">${lang ? lang.toUpperCase() : "CODE"}</span>
+        ${truncated ? `<span class="codeTruncatedFlag" title="The reply ended before this block was closed">cut off</span>` : ""}
+        <div class="codeActions">
+          <button class="codePanelBtn codeActionBtn" data-code="${enc}" data-lang="${lang}"><i class="bi bi-arrows-angle-expand" aria-hidden="true"></i> Panel</button>
+          <button class="codeCopyBtn codeActionBtn" data-code="${enc}"><i class="bi bi-clipboard" aria-hidden="true"></i> Copy</button>
+          <button class="codeDownloadBtn codeActionBtn" data-code="${enc}" data-filename="aria-code.${ext}"><i class="bi bi-download" aria-hidden="true"></i> .${ext}</button>
+        </div>
       </div>
       <pre><code>${escapeHtml(clean)}</code></pre>
     </div>`;
     const idx = codePlaceholders.length;
     codePlaceholders.push(html);
     return `\x00CODE${idx}\x00`;
-  });
+  };
 
-  // ── STEP 3b: strip incomplete trailing tag / unsafe HTML from the
-  // remaining PROSE only (code content is already protected in placeholders) ──
-  text = text.replace(/<[^>]{0,200}$/, ""); // incomplete trailing tag
-  const SAFE_TAG_RE = /^\/?(b|i|strong|em|code|pre|br|hr|ul|ol|li|blockquote|details|summary|table|thead|tbody|tr|th|td)$/i;
-  text = text.replace(/<(\/?[a-zA-Z][a-zA-Z0-9]*)[^>]*>/g, (m, tag) =>
-    SAFE_TAG_RE.test(tag) ? m : "",
+  text = text.replace(/```(\w*)[ \t]*\r?\n?([\s\S]*?)```/g, (_, lang, code) =>
+    stashCode(lang, code),
   );
+
+  // A reply cut off by the token limit — routine for a multi-file answer —
+  // leaves its last fence unclosed. Treating that tail as prose is what put
+  // half a React component through the markdown renderer as live markup, so
+  // it becomes a code block too, flagged as cut off.
+  // Anchored to a line start, unlike the paired pass above: a lone ``` inside
+  // a sentence is the model talking about fences, and swallowing the rest of
+  // the reply into a code block over it would be its own kind of wrong.
+  text = text.replace(/^[ \t]*```(\w*)[ \t]*\r?\n?([\s\S]*)$/m, (_, lang, code) =>
+    stashCode(lang, code, true),
+  );
+
+  // ── STEP 3b: the remaining PROSE ──
+  // STEP 4 escapes every angle bracket left here, so nothing the model wrote
+  // can become live DOM. The old allowlist that ran at this point kept a set
+  // of "safe" tags that STEP 4 then escaped anyway — it only ever deleted
+  // markup the reader would rather have seen quoted. The one thing worth
+  // removing is the multi-bubble marker, which is protocol, not content.
+  text = text.replace(/<\/?message>/gi, "");
 
   // ── STEP 4: escapeHtml the remaining text (safe, no code or think) ──
   let h = escapeHtml(text);

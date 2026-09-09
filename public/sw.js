@@ -4,7 +4,7 @@
 // Bump CACHE_VERSION when you ship breaking front-end changes — old caches
 // get auto-purged on activate.
 
-const CACHE_VERSION = "v3-2026-05c";
+const CACHE_VERSION = "v4-2026-09a";
 const CACHE_NAME = `aria-${CACHE_VERSION}`;
 
 // Core shell to precache. Stylesheet paths must match what index.html links.
@@ -30,9 +30,20 @@ const PRECACHE = [
   "/style/tasks.css",
   "/style/features-v2.css",
   "/style/aria-loader.css",
+  "/style/claw.css",
+  "/style/search-engine-picker.css",
+  // Loaded last in index.html and the layer the current design lives in —
+  // missing here, an offline cold start rendered the app unstyled.
+  "/style/bookware.css",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
 ];
+
+// Icons and the manifest are versioned in the markup (?v=3) and answered from
+// cache first, so a changed logo used to sit behind the old bytes until the
+// entry happened to be revalidated. They are refetched from the network here
+// and the stale-while-revalidate branch below leaves them alone.
+const ALWAYS_FRESH = /^\/(favicon\.ico|manifest\.json|icons\/)/;
 
 // ── Install: precache shell ──
 self.addEventListener("install", (event) => {
@@ -80,6 +91,23 @@ self.addEventListener("fetch", (event) => {
 
   // Only handle GETs — never cache POST/PUT/DELETE
   if (event.request.method !== "GET") return;
+
+  // Network-first for the app's identity: icon and manifest changes must show
+  // up on the next load, not two loads later.
+  if (ALWAYS_FRESH.test(url.pathname)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.status === 200 && response.type === "basic") {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((c) => c || Response.error())),
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {

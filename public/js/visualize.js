@@ -35,8 +35,11 @@ function themeCss() {
   ).join("\n      ");
 }
 
-/** The document that goes inside the frame. */
-function buildSrcdoc({ kind, code }) {
+/** The document that goes inside the frame.
+ *  Exported because the code panel's preview needs the same boundary: it is
+ *  rendering the same kind of thing — markup a model just wrote — and a plain
+ *  `iframe.srcdoc` in the app's own origin would hand that markup the page. */
+export function buildSrcdoc({ kind, code }) {
   // default-src 'none' with an explicit unsafe-inline for style/script: the
   // widget's own inline CSS and JS must run, but nothing may be fetched.
   // No connect-src, no img-src beyond data:, so there is no path off the page.

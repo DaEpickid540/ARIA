@@ -30,9 +30,18 @@
     <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png" />
     <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png" />
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-96.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-72.png" />
+    <!-- Favicon.
+         /favicon.ico is what a browser asks for when nothing else matches, and
+         what Windows reads for a pinned shortcut. Without the file, the SPA
+         catch-all answered that request with index.html and the tab fell back
+         to a blank page icon. The PNGs are cut at their real sizes from the
+         trimmed logo — a 96px glyph with its black margin downscaled to 16px
+         was an unreadable smudge. ?v= is the cache buster: the old icon is
+         held by the service worker and by the browser's own icon store. -->
+    <link rel="icon" href="/favicon.ico?v=3" sizes="16x16 32x32 48x48" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png?v=3" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16.png?v=3" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=3" />
 
     <!-- SEO / description -->
     <meta
@@ -347,6 +356,10 @@
         <div id="codePanelHeader">
           <span id="codePanelLang">CODE</span>
           <div class="codePanelActions">
+            <!-- Shown only for html/svg/xml — see PREVIEWABLE in chat.js. -->
+            <button id="codePanelPreviewBtn" style="display: none">
+              <i class="bi bi-window" aria-hidden="true"></i> Preview
+            </button>
             <button id="codePanelCopyBtn"><i class="bi bi-clipboard" aria-hidden="true"></i> Copy</button>
             <button id="codePanelDownloadBtn"><i class="bi bi-download" aria-hidden="true"></i> Download</button>
             <button id="codePanelCloseBtn"><i class="bi bi-x-lg" aria-hidden="true"></i> Close</button>
@@ -354,6 +367,16 @@
         </div>
         <div id="codePanelBody">
           <pre id="codePanelContent"><code id="codePanelCode"></code></pre>
+          <!-- No allow-same-origin: with it, sandboxed content can reach out
+               and remove its own sandbox attribute. The document inside is
+               built by buildSrcdoc(), which also sets a no-network CSP. -->
+          <iframe
+            id="codePanelPreviewFrame"
+            sandbox="allow-scripts"
+            referrerpolicy="no-referrer"
+            title="Code preview"
+            style="display: none"
+          ></iframe>
         </div>
       </div>
       <div id="commandsModal" style="display: none">
@@ -385,6 +408,12 @@
             >
           </div>
           <div id="chatHeaderRight">
+            <!-- Shown only while the browser is offering an install; hidden
+                 again once ARIA is installed. Wired in js/installApp.js. -->
+            <button id="installAppBtn" title="Install ARIA as a desktop app" hidden>
+              <i class="bi bi-download" aria-hidden="true"></i>
+              <span>Install app</span>
+            </button>
             <div id="ariaStatusDot" class="statusDot"></div>
             <span id="ariaStatusLabel">ONLINE</span>
             <button id="ariaSettingsBtn" title="Settings"><i class="bi bi-gear" aria-hidden="true"></i></button>

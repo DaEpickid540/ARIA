@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { runVisualize } from "./visualize.js";
+import { research, fetchReadable } from "../lib/research.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -304,28 +305,28 @@ async function runFiles() {
 /* ============================================================
    WEB SCRAPE — fetch + strip HTML
    ============================================================ */
+// Shares the reader with the research agent: the old inline version flattened
+// nav, scripts and footers into the 4000-character budget, so the actual
+// article was often truncated away before the model ever saw it. It also
+// fetched whatever URL it was handed — including the server's own network.
 async function runScrape(url = "") {
-  if (!url.trim()) return "Usage: /scrape <url>";
-  try {
-    const resp = await fetch(url.trim(), {
-      headers: { "User-Agent": "Mozilla/5.0" },
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!resp.ok) return `HTTP ${resp.status}`;
-    const html = await resp.text();
-    const text = html
-      .replace(/<script[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[\s\S]*?<\/style>/gi, "")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s{2,}/g, " ")
-      .trim()
-      .slice(0, 4000);
-    const title =
-      html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || url;
-    return `**${title}**\n\n${text}…\n\n*Source: ${url}*`;
-  } catch (e) {
-    return `Scrape error: ${e.message}`;
-  }
+  const target = url.trim();
+  if (!target) return "Usage: /scrape <url>";
+  const page = await fetchReadable(target, { maxChars: 6000 });
+  if (!page.ok) return `Could not read ${target} — ${page.error}`;
+  return `**${page.title}**\n\n${page.text}…\n\n*Source: ${target}*`;
+}
+
+/* ============================================================
+   RESEARCH (tool form) — search + read several pages.
+   The pipeline in server.js has its own path for this so the synthesis can
+   run on the user's chosen model; this entry is what /research and any
+   non-chat caller gets, and it returns the extracts unsummarised.
+   ============================================================ */
+async function runResearch(query = "") {
+  if (!query.trim()) return "Usage: /research <question>";
+  const out = await research(query, { maxSources: 4 });
+  return out.markdown;
 }
 
 /* ============================================================
@@ -546,7 +547,11 @@ export const TOOL_DEFINITIONS = {
   news: { desc: "Headlines — /news [topic]", fn: runNews },
   system: { desc: "Server info — /system", fn: runSystem },
   files: { desc: "File system (sandboxed) — /files", fn: runFiles },
-  scrape: { desc: "Scrape a URL — /scrape <url>", fn: runScrape },
+  scrape: { desc: "Read a URL — /scrape <url>", fn: runScrape },
+  research: {
+    desc: "Search the web, read the top pages, cite them — /research <question>",
+    fn: runResearch,
+  },
   calendar: { desc: "View calendar — /calendar", fn: runCalendarGet },
   "calendar add": {
     desc: "Add event — /calendar add Title | date | date",

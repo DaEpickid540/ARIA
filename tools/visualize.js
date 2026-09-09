@@ -51,3 +51,46 @@ export async function runVisualize({ title = "", code = "" } = {}) {
     })
   );
 }
+
+/* ============================================================
+   VISUALIZE — pull the markup out of a reply
+
+   ACTION input is single-line, so the markup travels in a fenced block after
+   the ACTION line. Three things went wrong with matching the first fence in
+   the whole reply: prose above the ACTION line often has a code block of its
+   own, an unlabelled or same-line fence did not match at all, and smaller
+   models frequently emit the <svg> bare with no fence. All three ended with
+   an empty widget while the model happily reported it had drawn one, so each
+   is handled here.
+   ============================================================ */
+export function extractVisualBlock(rawReply, actionIndex = 0) {
+  // Everything after the ACTION line. Anything before it is prose, and prose
+  // is where a stray code block usually lives.
+  const nl = rawReply.indexOf("\n", actionIndex);
+  const tail = nl === -1 ? "" : rawReply.slice(nl + 1);
+  // The reply as a whole is the fallback: a model that puts the markup above
+  // its ACTION line still meant to draw something.
+  return (
+    scanForMarkup(tail) || scanForMarkup(rawReply) || { code: "", consumed: "" }
+  );
+}
+
+/** First renderable block in a string, or null. */
+function scanForMarkup(text) {
+  // ```lang\n … ```  — the info string is ignored, the tool sniffs the source.
+  // The newline after it is optional: models routinely open the fence and
+  // start the markup on the same line.
+  const fence = text.match(/```[a-zA-Z]*[ \t]*\r?\n?([\s\S]*?)```/);
+  if (fence?.[1].trim()) return { code: fence[1].trim(), consumed: fence[0] };
+
+  // No fence at all — smaller models emit the element bare.
+  const svg = text.match(/<svg[\s\S]*<\/svg>/i);
+  if (svg) return { code: svg[0], consumed: svg[0] };
+
+  const htmlish = text.match(
+    /<(?:div|style|table|section|canvas|ul)[\s>][\s\S]*<\/(?:div|style|table|section|canvas|ul)>/i,
+  );
+  if (htmlish) return { code: htmlish[0], consumed: htmlish[0] };
+
+  return null;
+}

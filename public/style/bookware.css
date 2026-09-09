@@ -1135,3 +1135,311 @@ pre.clawEntryText {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   SOURCES
+   The pages the research agent actually fetched, listed under the
+   answer. Deliberately quiet — it is provenance, not content — but
+   always present when research ran, so a citation can be checked.
+   ============================================================ */
+.msgSources {
+  margin: 12px 0 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg-card);
+}
+
+.msgSourcesHead {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+
+.msgSourcesList {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.msgSourcesList li::marker {
+  color: var(--text-3);
+}
+
+.msgSourcesList a {
+  color: var(--accent-text);
+  text-decoration: none;
+}
+
+.msgSourcesList a:hover {
+  text-decoration: underline;
+}
+
+.msgSourceHost {
+  color: var(--text-3);
+  font-size: 0.74rem;
+}
+
+/* A page that could not be read still earns its line — the gap in the
+   evidence is part of the answer. */
+.msgSourceFailed a {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+/* ============================================================
+   CODE BLOCKS IN MESSAGES
+   overlays.css still dressed these the old way: a neon left bar, an
+   inset red glow, 2px corners, a tinted uppercase label — and, most
+   visibly, `font-family: var(--font-sans)` on the code itself, which
+   beat the mono rule above on specificity and rendered every snippet
+   in the body font. The selectors here match that specificity so the
+   design system wins without editing the legacy file.
+   ============================================================ */
+.msgBody .codeBlock {
+  position: relative;
+  /* panels.css reserves 30px of top padding for absolutely positioned
+     action buttons; the header row below is a real element instead. */
+  padding-top: 0 !important;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: none;
+  margin: 12px 0;
+  overflow: hidden;
+}
+
+.codeBlockHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+
+.msgBody .codeBlock .codeLabel {
+  display: inline-block;
+  padding: 0;
+  background: none;
+  border: 0;
+  font-family: var(--font-mono-stack);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+
+/* A block whose closing fence never arrived, because the reply hit the
+   token limit. Saying so beats the reader assuming the code is complete. */
+.codeTruncatedFlag {
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--warning-text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  padding: 1px 7px;
+}
+
+.msgBody .codeBlock .codeActions {
+  position: static;
+  margin-left: auto;
+  gap: 4px;
+}
+
+.codeActionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: color var(--tr), border-color var(--tr), background var(--tr);
+}
+.codeActionBtn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.msgBody .codeBlock pre {
+  margin: 0;
+  padding: 12px 14px;
+  background: transparent;
+}
+
+.msgBody .codeBlock code,
+#codePanelContent {
+  font-family: var(--font-mono-stack);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+/* ============================================================
+   CODE PANEL
+   ============================================================ */
+#codePanel {
+  background: var(--bg-card);
+  border-left: 1px solid var(--border);
+}
+#codePanel.open {
+  border-left-color: var(--border);
+  box-shadow: var(--shadow-lg);
+}
+#codePanelHeader {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+#codePanelLang {
+  font-family: var(--font-mono-stack);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+.codePanelActions button {
+  border-radius: var(--r-sm);
+  border-color: var(--border);
+  font-size: 0.72rem;
+}
+.codePanelActions button:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text);
+  box-shadow: none;
+}
+#codePanelContent {
+  background: var(--bg-inset);
+}
+/* The previewed document paints its own themed ground; a white frame
+   behind it flashed on every toggle. */
+#codePanelPreviewFrame {
+  background: var(--bg-inset);
+}
+
+/* ============================================================
+   DIALOGS
+   The command palette, the background-task board and the quick modal
+   were built before the design system: a red 1px outline, a neon glow
+   and a red uppercase title. Every other surface in the app is a card
+   on a blurred scrim, so these become that.
+   ============================================================ */
+#commandsModal,
+#bgTasksModal,
+#ariaQuickModal {
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+#commandsPanel,
+#bgTasksPanel,
+#ariaQuickModalInner {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+#commandsHeader,
+#bgTasksHeader,
+#ariaQuickModalHeader {
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+  padding: 14px 18px;
+}
+
+#commandsHeader h2,
+#bgTasksHeader h2,
+#ariaQuickModalTitle {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+}
+
+/* One close button, matching the icon buttons everywhere else. */
+#commandsHeader button,
+#bgTasksHeader button,
+#ariaQuickModalClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: color var(--tr), border-color var(--tr), background var(--tr);
+}
+#commandsHeader button:hover,
+#bgTasksHeader button:hover,
+#ariaQuickModalClose:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+#commandsList,
+#bgTasksList,
+#ariaQuickModalBody {
+  padding: 14px 18px;
+}
+
+.commandItem {
+  border-bottom: 1px solid var(--border);
+  padding: 9px 0;
+}
+.commandName {
+  font-family: var(--font-mono-stack);
+  font-size: 0.78rem;
+  color: var(--text);
+}
+.commandDesc {
+  font-size: 0.78rem;
+  color: var(--text-2);
+}
+
+/* ============================================================
+   INSTALL BUTTON
+   Appears in the chat header only while the browser is actually
+   offering to install (see js/installApp.js), so it must not hold
+   layout when hidden.
+   ============================================================ */
+#installAppBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--r-full);
+  color: var(--accent-text);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  padding: 4px 12px;
+  margin-right: 4px;
+  cursor: pointer;
+  transition: background var(--tr), border-color var(--tr);
+}
+#installAppBtn:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--accent);
+}
+#installAppBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
