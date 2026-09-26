@@ -300,6 +300,12 @@ async function loadChatModules() {
       const { initInstallApp } = await import("./installApp.js");
       initInstallApp();
     } catch {}
+    try {
+      const { initModelSwitcher } = await import("./modelSwitcher.js");
+      initModelSwitcher();
+    } catch (e) {
+      console.warn("[ARIA] model switcher init failed:", e);
+    }
 
     // ── Apply version stamp ──
     try {

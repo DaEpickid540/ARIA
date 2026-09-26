@@ -12,6 +12,8 @@ A personal AI OS with chat, voice, memory, tool use, and remote PC control.
 | **Claw Relay (PC)** | Runs on your computer; lets ARIA control keyboard/mouse | `claw-relay.js` |
 | **ESP32 Relay** | Same as above but over BLE HID for Chromebooks/sandboxed devices | `ARIA_ESP32__Relay/` |
 | **Screenshot Watcher** | Companion script for ESP32 to enable vision on a Chromebook | `aria-screenshot-watcher.js` |
+| **Voice Hook (PC)** | Gives ARIA a phone number via Google Voice, password-locked | `aria-voice-hook.js` |
+| **Ollama Hook (PC)** | Lets a hosted ARIA use the Ollama models on your PC | `aria-ollama-hook.js` |
 
 ## Quick start
 
@@ -73,6 +75,63 @@ node aria-screenshot-watcher.js https://your-aria-url.onrender.com --key=<ARIA_R
 ```
 This watches `~/Downloads` and uploads screenshots to ARIA when the ESP32 triggers a capture.
 
+## Use your PC's Ollama models
+
+On Render, `localhost:11434` is Render's machine, so ARIA can't see the Ollama
+on your PC by itself. `aria-ollama-hook.js` runs next to Ollama, connects out
+to ARIA (nothing to port-forward) and runs model requests locally:
+
+```bash
+node aria-ollama-hook.js https://your-aria-url.onrender.com --key=<ARIA_RELAY_KEY>
+```
+
+Your models then appear in the model switcher in the chat header; pick one
+there. That choice is also saved on the server, so texts through the voice
+hook use it too. If the hook goes offline, the switcher turns amber and ARIA
+falls back to a cloud model.
+
+- `--ctx=16384` (default) sets the context window. ARIA's system prompt is
+  about 3k tokens, and Ollama's default on GPUs under 24 GB is 4k, which
+  leaves no room for the conversation. Use less if the model spills out of
+  VRAM (`ollama ps` should say 100% GPU); `--ctx=0` keeps Ollama's own setting.
+- `--ollama=http://host:11434` if Ollama isn't on this machine's localhost.
+- Newly pulled models show up within 30 seconds, no restart needed.
+
+## Text ARIA from your phone (Google Voice)
+
+`aria-voice-hook.js` runs on your PC, keeps voice.google.com open in a real
+browser (Playwright driving your installed Edge/Chrome), and answers texts to
+your Google Voice number with ARIA.
+
+```bash
+npm install                 # adds playwright-core; downloads no browser
+# .env: ARIA_SMS_PASSWORD=<8+ chars>, plus ARIA_ACCESS_KEY if the server has one
+node aria-voice-hook.js https://your-aria-url.onrender.com
+```
+
+The first run opens a browser window: sign in to Google Voice there. The login
+is kept in `data/gvoice-profile/` (your Google session, so keep it private);
+after that you can add `--headless`.
+
+**The lock.** Every conversation starts locked. Text the password to unlock it;
+until then nothing gets a reply and nothing is sent on to the ARIA server.
+After 5 minutes with no texts either way it locks again (`--idle=<min>`), and
+the next text gets one "locked" notice. Text `lock` to lock right away. Five
+texts to a locked conversation that aren't the password mute it for 15
+minutes, password included. Restarting the hook locks everything.
+`--allow=+15551234567` limits unlocking to your own number(s).
+
+**Claw over text.** If ARIA wants to run something that needs approval, it
+texts you what it wants to do; reply `YES` or `NO`.
+
+**Caveats.** Google Voice has no API. This drives the web page, so a Google UI
+change can break it; the page selectors are all in `SEL` near the top of the
+file. Google's Voice Acceptable Use Policy prohibits sending messages via an
+automated process and can suspend numbers that break it. The hook keeps volume
+low (it only answers unlocked conversations, and mutes a thread that gets 8+
+replies in a minute), but that is a risk to your number. Use a Google account you can live
+without.
+
 ## API endpoints (selected)
 
 | Endpoint | Use |
@@ -88,6 +147,8 @@ This watches `~/Downloads` and uploads screenshots to ARIA when the ESP32 trigge
 | `POST /api/claw/kill` | Emergency stop — clears all queues |
 | `POST /api/auth/login` | Exchange `ARIA_ACCESS_KEY` for a session cookie |
 | `POST /api/confirm` | Approve/deny a held Claw action by id |
+| `GET/POST /api/model` | The model switcher's pick; used by requests that name no provider |
+| `/api/ollama/relay/*` | Ollama hook: register, long-poll jobs, return results |
 
 ## Data persistence
 
@@ -102,6 +163,32 @@ All writes are atomic (temp file + rename) and debounced to avoid hammering disk
 ## Architecture notes
 
 **Agentic pipeline.** When ARIA needs a tool, the model emits `ACTION: toolname | input`. The pipeline parses this, runs the tool, injects the result back as a user message, and re-prompts up to 8 iterations.
+
+**Tool calls in the chat.** Every tool call behind a reply appears in a panel
+above it: tool, input, result, time, status, and for web lookups the pages
+read. Each row expands. The panel is saved with the chat, so it survives
+a reload.
+
+**Web lookups read 6 pages.** `research` and `search` (now the same tool) and
+the fact-check agent each read 6 pages. A page that fails to load is replaced
+by the next result. If the web runs out of readable results, the answer says
+how many were read. `scrape` still reads the one URL it's given.
+
+**Sub-agents (`spawn`).** ARIA can brief its own agents and run up to 4 in
+parallel:
+
+```
+ACTION: spawn | name | the agent's instructions | its task
+ACTION: spawn | [{"name":"for","prompt":"…","task":"…"},{"name":"against","prompt":"…","task":"…"}]
+```
+
+- **Tools:** each agent runs the same tool loop with your instructions as its
+  system prompt, but only read-only tools: research, scrape, calc, convert,
+  time, weather, news and the fixed agents.
+- **Limits:** no PC control, approvals, tasks or further agents. Each agent
+  gets 5 tool rounds and 3 minutes.
+- **Results:** reports go back to ARIA, which writes the reply. Their tool
+  calls appear nested under the spawn row.
 
 **Streaming.** SSE-based. Chat replies stream token-by-token. If the streamed reply contains an `ACTION:`, the pipeline runs after the stream finishes.
 

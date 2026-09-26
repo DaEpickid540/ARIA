@@ -256,12 +256,13 @@ async function runTimer(input = "") {
 }
 
 /* ============================================================
-   SEARCH — returns URLs
+   SEARCH — the same as research. It used to hand back a DuckDuckGo and a
+   Google link and read nothing, while the prompt told the model to use it
+   whenever someone said "search". Every web lookup now reads WEB_PAGES pages.
    ============================================================ */
 async function runSearch(query = "") {
   if (!query.trim()) return "Usage: /search <query>";
-  const enc = encodeURIComponent(query.trim());
-  return `Search: "${query}"\n🦆 https://duckduckgo.com/?q=${enc}\n🔍 https://www.google.com/search?q=${enc}`;
+  return runResearch(query);
 }
 
 /* ============================================================
@@ -325,7 +326,7 @@ async function runScrape(url = "") {
    ============================================================ */
 async function runResearch(query = "") {
   if (!query.trim()) return "Usage: /research <question>";
-  const out = await research(query, { maxSources: 4 });
+  const out = await research(query);
   return out.markdown;
 }
 
@@ -543,13 +544,13 @@ export const TOOL_DEFINITIONS = {
   notes: { desc: "Notes — /notes add|list|delete|clear", fn: runNotes },
   todo: { desc: "Tasks — /todo add|list|done|delete", fn: runTodo },
   timer: { desc: "Timers — /timer start|list|cancel", fn: runTimer },
-  search: { desc: "Search links — /search <query>", fn: runSearch },
+  search: { desc: "Search the web and read 6 pages — /search <query>", fn: runSearch },
   news: { desc: "Headlines — /news [topic]", fn: runNews },
   system: { desc: "Server info — /system", fn: runSystem },
   files: { desc: "File system (sandboxed) — /files", fn: runFiles },
   scrape: { desc: "Read a URL — /scrape <url>", fn: runScrape },
   research: {
-    desc: "Search the web, read the top pages, cite them — /research <question>",
+    desc: "Search the web, read 6 pages, cite them — /research <question>",
     fn: runResearch,
   },
   calendar: { desc: "View calendar — /calendar", fn: runCalendarGet },

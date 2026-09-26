@@ -562,7 +562,7 @@ function wireAllControls() {
       if (urlDisplay) urlDisplay.textContent = d.url || "localhost:11434";
       if (!d.running) {
         sel.innerHTML =
-          "<option value=''>Ollama not running — run: ollama serve</option>";
+          "<option value=''>Not connected — start Ollama and aria-ollama-hook.js</option>";
         return;
       }
       const models = d.models || [];
@@ -865,8 +865,20 @@ function wireAllControls() {
     const sel = document.getElementById("voiceSelect");
     if (sel) currentSettings.voice = sel.value;
     saveSettings(currentSettings);
+    // The header model switcher shows (and tells the server) the model.
+    window.dispatchEvent(new CustomEvent("aria:model-changed"));
     closeSettings();
     showToast("✓ Settings saved");
+  });
+
+  // The header model switcher (modelSwitcher.js) saves these keys itself.
+  // Every save from this panel writes the whole in-memory copy, so keep it
+  // in step or the next theme change would quietly undo the model pick.
+  window.addEventListener("aria:model-changed", () => {
+    const saved = loadSettings();
+    for (const k of ["provider", "orModel", "ollamaModel", "lmstudioModel", "cfModel", "cfAutoModel"])
+      currentSettings[k] = saved[k];
+    if (document.getElementById("settingsOverlay")?.classList.contains("active")) applySettingsToUI();
   });
 
   // ── Export / Import ──
