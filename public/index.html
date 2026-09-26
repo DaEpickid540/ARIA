@@ -408,6 +408,16 @@
             >
           </div>
           <div id="chatHeaderRight">
+            <!-- Model switcher: cloud models + your PC's Ollama models via
+                 aria-ollama-hook.js. Wired in js/modelSwitcher.js. -->
+            <div id="modelSwitchWrap">
+              <button id="modelSwitchBtn" type="button" title="Change AI model" aria-haspopup="menu" aria-expanded="false">
+                <i id="modelSwitchIcon" class="bi bi-cpu" aria-hidden="true"></i>
+                <span id="modelSwitchLabel">Model</span>
+                <i class="bi bi-chevron-down" aria-hidden="true"></i>
+              </button>
+              <div id="modelSwitchMenu" role="menu" aria-label="AI model" hidden></div>
+            </div>
             <!-- Shown only while the browser is offering an install; hidden
                  again once ARIA is installed. Wired in js/installApp.js. -->
             <button id="installAppBtn" title="Install ARIA as a desktop app" hidden>
@@ -1083,7 +1093,9 @@
             >
               <h3>Ollama Model</h3>
               <p class="settingsHint">
-                Locally hosted. Set OLLAMA_URL env var if not on localhost.
+                Runs on your PC. When ARIA is hosted elsewhere (Render), run
+                <code>node aria-ollama-hook.js &lt;ARIA url&gt; --key=…</code> next
+                to Ollama.
               </p>
               <select id="ollamaModelSelect">
                 <option value="">Loading models…</option>

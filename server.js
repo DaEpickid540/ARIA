@@ -11,6 +11,7 @@ import { research } from "./lib/research.js";
 import { splitThinking, stripThinking } from "./lib/think.js";
 import { extractVisualBlock } from "./tools/visualize.js";
 import * as auth from "./lib/auth.js";
+import * as ollamaRelay from "./lib/ollama-relay.js";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -34,6 +35,7 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(auth.apiGuard);
 auth.mountAuthRoutes(app);
 auth.logAuthPosture();
+ollamaRelay.mountOllamaRelayRoutes(app);
 app.use(express.static(path.join(__dirname, "public")));
 
 // ── Request logger ────────────────────────────────────────────
@@ -154,6 +156,12 @@ _lifeCtxTimer.unref?.();
 
 let userChats = readJSON(CHATS_FILE, {});
 let ariaMemory = readJSON(MEM_FILE, { facts: [], sessions: [] });
+
+// What the client's model switcher last picked. Requests that don't name a
+// provider themselves — texts from aria-voice-hook.js — use it.
+const MODEL_FILE = path.join(DATA_DIR, "model.json");
+const PROVIDERS = ["openrouter", "groq", "cloudflare", "nemotron", "deepseek", "ollama", "lmstudio"];
+let activeModel = readJSON(MODEL_FILE, { provider: "openrouter", model: null });
 
 /* ── Claw state ── */
 const clawQueue = new Map(); // deviceId → [commands]
@@ -1466,24 +1474,37 @@ async function callAI(messages, provider, model, modeOpts = {}) {
   // ── OLLAMA (locally hosted) ──
   if (provider === "ollama") {
     const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
-    const ollamaModel = model || process.env.OLLAMA_MODEL || "llama3";
+    const ollamaModel =
+      model || process.env.OLLAMA_MODEL || ollamaRelay.defaultModel() || "llama3";
     try {
+      // Your PC's Ollama, through aria-ollama-hook.js — the only way a cloud
+      // deploy can reach it. Without a hook, talk to OLLAMA_URL directly.
+      if (ollamaRelay.connected()) return await ollamaRelay.chat(ollamaModel, messages);
       const res = await fetch(`${ollamaUrl}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: ollamaModel, messages, stream: false }),
+        body: JSON.stringify({
+          model: ollamaModel,
+          messages: ollamaRelay.toOllamaMessages(messages),
+          stream: false,
+        }),
       });
       if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
       const data = await res.json();
       const reply = data?.message?.content?.trim();
-      if (!reply) throw new Error("Empty Ollama response");
-      return reply;
+      const thinking = data?.message?.thinking?.trim();
+      if (!reply && !thinking) throw new Error("Empty Ollama response");
+      // Thinking models keep their reasoning in its own field; wrap it the
+      // way the rest of ARIA expects to find it.
+      return thinking ? `<think>${thinking}</think>\n${reply || ""}` : reply;
     } catch (e) {
       // Ollama not running — fall through to next provider
       console.warn("[AI] Ollama unavailable:", e.message, "— falling back");
+      // `model` names a local model ("qwen3:8b"); sent to Groq it would fail
+      // the fallback too. Let each cloud provider use its own default.
       if (hasCF) return callCloudflare(messages, pickCFModel(modeOpts));
-      if (hasGroq) return callGroq(messages, model);
-      if (hasOR) return callOpenRouter(messages, model, modeOpts);
+      if (hasGroq) return callGroq(messages, null);
+      if (hasOR) return callOpenRouter(messages, null, modeOpts);
       throw e;
     }
   }
@@ -1511,9 +1532,10 @@ async function callAI(messages, provider, model, modeOpts = {}) {
       return reply;
     } catch (e) {
       console.warn("[AI] LM Studio unavailable:", e.message, "— falling back");
+      // Same as Ollama above: a local model name means nothing to the cloud.
       if (hasCF) return callCloudflare(messages, pickCFModel(modeOpts));
-      if (hasGroq) return callGroq(messages, model);
-      if (hasOR) return callOpenRouter(messages, model, modeOpts);
+      if (hasGroq) return callGroq(messages, null);
+      if (hasOR) return callOpenRouter(messages, null, modeOpts);
       throw e;
     }
   }
@@ -1936,9 +1958,9 @@ app.post("/api/chat", async (req, res) => {
   const {
     message,
     history = [],
-    provider = "openrouter",
+    provider: askedProvider,
     personality = "hacker",
-    model: requestedModel,
+    model: askedModel,
     mathMode = false,
     programmingMode = false,
     studyMode = false,
@@ -1949,6 +1971,9 @@ app.post("/api/chat", async (req, res) => {
     imageAttachments = [],
     channel = "web",
   } = req.body;
+  // A request that doesn't choose gets the model switcher's pick.
+  const provider = askedProvider || activeModel.provider || "openrouter";
+  const requestedModel = askedProvider ? askedModel : askedModel || activeModel.model || undefined;
 
   if (!message) return res.json({ reply: "No message received." });
 
@@ -2976,18 +3001,20 @@ app.get("/api/config", async (_, res) => {
   const hasNV = !!process.env.NEMOTRON_NVIDIA;
   const hasDS = !!process.env.DEEPSEEK_KEY;
 
-  // Check if local Ollama is running
-  let ollamaModels = [];
-  try {
-    const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
-    const r = await fetch(`${ollamaUrl}/api/tags`, {
-      signal: AbortSignal.timeout(2000),
-    });
-    if (r.ok) {
-      const d = await r.json();
-      ollamaModels = (d.models || []).map((m) => m.name);
-    }
-  } catch {}
+  // Ollama: through the PC hook if one is connected, else directly.
+  let ollamaModels = ollamaRelay.status().models;
+  if (!ollamaModels.length) {
+    try {
+      const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
+      const r = await fetch(`${ollamaUrl}/api/tags`, {
+        signal: AbortSignal.timeout(2000),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        ollamaModels = (d.models || []).map((m) => m.name);
+      }
+    } catch {}
+  }
 
   res.json({
     customVoiceKey: process.env.CUSTOM_VOICE || null,
@@ -3726,9 +3753,36 @@ app.get("/api/confirm/pending", (_req, res) => {
 });
 
 /* ============================================================
+   ACTIVE MODEL — set by the client's model switcher
+   ============================================================ */
+app.get("/api/model", (_req, res) => res.json(activeModel));
+
+app.post("/api/model", (req, res) => {
+  const { provider, model } = req.body || {};
+  if (!PROVIDERS.includes(provider))
+    return res.status(400).json({ error: `Unknown provider. Use one of: ${PROVIDERS.join(", ")}` });
+  if (model != null && (typeof model !== "string" || model.length > 200))
+    return res.status(400).json({ error: "model must be a string (max 200 chars)" });
+  activeModel = { provider, model: model || null };
+  // Written straight away: flushPendingWrites() on SIGTERM would drop a
+  // debounced write of it.
+  writeJSON(MODEL_FILE, activeModel);
+  res.json({ ok: true, ...activeModel });
+});
+
+/* ============================================================
    OLLAMA — local LLM status + model listing
    ============================================================ */
 app.get("/api/ollama/status", async (req, res) => {
+  const hook = ollamaRelay.status();
+  if (hook.connected)
+    return res.json({
+      running: true,
+      via: "hook",
+      url: `${hook.hostname} (aria-ollama-hook)`,
+      models: hook.models,
+      details: hook.details,
+    });
   const url = process.env.OLLAMA_URL || "http://localhost:11434";
   try {
     const r = await fetch(`${url}/api/tags`, {
@@ -3745,6 +3799,8 @@ app.get("/api/ollama/status", async (req, res) => {
 });
 
 app.get("/api/ollama/models", async (req, res) => {
+  const hook = ollamaRelay.status();
+  if (hook.connected) return res.json({ models: hook.models, via: "hook", url: hook.hostname });
   const url = process.env.OLLAMA_URL || "http://localhost:11434";
   try {
     const r = await fetch(`${url}/api/tags`, {

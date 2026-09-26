@@ -13,6 +13,7 @@ A personal AI OS with chat, voice, memory, tool use, and remote PC control.
 | **ESP32 Relay** | Same as above but over BLE HID for Chromebooks/sandboxed devices | `ARIA_ESP32__Relay/` |
 | **Screenshot Watcher** | Companion script for ESP32 to enable vision on a Chromebook | `aria-screenshot-watcher.js` |
 | **Voice Hook (PC)** | Gives ARIA a phone number via Google Voice, password-locked | `aria-voice-hook.js` |
+| **Ollama Hook (PC)** | Lets a hosted ARIA use the Ollama models on your PC | `aria-ollama-hook.js` |
 
 ## Quick start
 
@@ -74,6 +75,28 @@ node aria-screenshot-watcher.js https://your-aria-url.onrender.com --key=<ARIA_R
 ```
 This watches `~/Downloads` and uploads screenshots to ARIA when the ESP32 triggers a capture.
 
+## Use your PC's Ollama models
+
+On Render, `localhost:11434` is Render's machine, so ARIA can't see the Ollama
+on your PC by itself. `aria-ollama-hook.js` runs next to Ollama, connects out
+to ARIA (nothing to port-forward) and runs model requests locally:
+
+```bash
+node aria-ollama-hook.js https://your-aria-url.onrender.com --key=<ARIA_RELAY_KEY>
+```
+
+Your models then appear in the model switcher in the chat header; pick one
+there. That choice is also saved on the server, so texts through the voice
+hook use it too. If the hook goes offline, the switcher turns amber and ARIA
+falls back to a cloud model.
+
+- `--ctx=16384` (default) sets the context window. ARIA's system prompt is
+  about 3k tokens, and Ollama's default on GPUs under 24 GB is 4k, which
+  leaves no room for the conversation. Use less if the model spills out of
+  VRAM (`ollama ps` should say 100% GPU); `--ctx=0` keeps Ollama's own setting.
+- `--ollama=http://host:11434` if Ollama isn't on this machine's localhost.
+- Newly pulled models show up within 30 seconds, no restart needed.
+
 ## Text ARIA from your phone (Google Voice)
 
 `aria-voice-hook.js` runs on your PC, keeps voice.google.com open in a real
@@ -124,6 +147,8 @@ without.
 | `POST /api/claw/kill` | Emergency stop — clears all queues |
 | `POST /api/auth/login` | Exchange `ARIA_ACCESS_KEY` for a session cookie |
 | `POST /api/confirm` | Approve/deny a held Claw action by id |
+| `GET/POST /api/model` | The model switcher's pick; used by requests that name no provider |
+| `/api/ollama/relay/*` | Ollama hook: register, long-poll jobs, return results |
 
 ## Data persistence
 

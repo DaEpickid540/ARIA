@@ -1443,3 +1443,113 @@ pre.clawEntryText {
   opacity: 0.6;
   cursor: default;
 }
+
+/* ============================================================
+   MODEL SWITCHER — chat header, see js/modelSwitcher.js
+   ============================================================ */
+#modelSwitchWrap {
+  position: relative;
+  min-width: 0;
+}
+#modelSwitchBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: border-color var(--tr), color var(--tr), background var(--tr);
+}
+#modelSwitchBtn:hover,
+#modelSwitchBtn[aria-expanded="true"] {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+  background: var(--accent-bg);
+}
+#modelSwitchLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#modelSwitchBtn .bi-chevron-down {
+  font-size: 0.8em;
+}
+/* A PC model is picked but the hook isn't connected, so replies are coming
+   from a cloud fallback. */
+#modelSwitchBtn.modelSwitchOffline {
+  border-color: var(--warning);
+  color: var(--warning-text);
+}
+/* Fixed, not absolute: js/modelSwitcher.js places it against the viewport
+   so it can't run off either edge of a phone screen. */
+#modelSwitchMenu {
+  position: fixed;
+  z-index: 600;
+  width: max-content;
+  min-width: min(240px, calc(100vw - 32px));
+  max-width: min(340px, calc(100vw - 32px));
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  padding: 4px 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-lg);
+}
+.modelSwitchHeading {
+  padding: 8px 14px 4px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.toolDropItem.modelSwitchItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+.toolDropItem.modelSwitchItem[aria-checked="true"] {
+  color: var(--accent-text);
+}
+.toolDropItem.modelSwitchItem:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.toolDropItem.modelSwitchItem:disabled:hover {
+  padding-left: 14px;
+  background: transparent;
+}
+.modelSwitchName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.modelSwitchSub {
+  font-size: 10px;
+  color: var(--text-3);
+}
+.modelSwitchNote {
+  padding: 6px 14px 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.modelSwitchNote code {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  #modelSwitchBtn {
+    max-width: 130px;
+  }
+}

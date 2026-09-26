@@ -204,6 +204,15 @@ export function saveSettings(settings) {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
+/** Merge a few keys into the saved settings. Unlike saveSettings() this
+ *  leaves `voice` alone — that one is read from the voice <select>, which
+ *  is still "Loading voices…" until the Voice tab has been opened. */
+export function patchSettings(patch) {
+  const next = { ...loadSettings(), ...patch };
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+  return next;
+}
+
 export function getSystemPrompt(personalityKey) {
   const preset =
     personalityPresets[personalityKey] || personalityPresets[DEFAULT_PRESET];
