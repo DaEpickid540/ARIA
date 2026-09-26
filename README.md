@@ -164,6 +164,32 @@ All writes are atomic (temp file + rename) and debounced to avoid hammering disk
 
 **Agentic pipeline.** When ARIA needs a tool, the model emits `ACTION: toolname | input`. The pipeline parses this, runs the tool, injects the result back as a user message, and re-prompts up to 8 iterations.
 
+**Tool calls in the chat.** Every tool call behind a reply appears in a panel
+above it: tool, input, result, time, status, and for web lookups the pages
+read. Each row expands. The panel is saved with the chat, so it survives
+a reload.
+
+**Web lookups read 6 pages.** `research` and `search` (now the same tool) and
+the fact-check agent each read 6 pages. A page that fails to load is replaced
+by the next result. If the web runs out of readable results, the answer says
+how many were read. `scrape` still reads the one URL it's given.
+
+**Sub-agents (`spawn`).** ARIA can brief its own agents and run up to 4 in
+parallel:
+
+```
+ACTION: spawn | name | the agent's instructions | its task
+ACTION: spawn | [{"name":"for","prompt":"…","task":"…"},{"name":"against","prompt":"…","task":"…"}]
+```
+
+- **Tools:** each agent runs the same tool loop with your instructions as its
+  system prompt, but only read-only tools: research, scrape, calc, convert,
+  time, weather, news and the fixed agents.
+- **Limits:** no PC control, approvals, tasks or further agents. Each agent
+  gets 5 tool rounds and 3 minutes.
+- **Results:** reports go back to ARIA, which writes the reply. Their tool
+  calls appear nested under the spawn row.
+
 **Streaming.** SSE-based. Chat replies stream token-by-token. If the streamed reply contains an `ACTION:`, the pipeline runs after the stream finishes.
 
 **Memory.** Two layers: fact extraction (regex-based, runs on every reply) and behavior signals (positive/negative feedback). Both persist to `data/` and inject into the system prompt on subsequent turns.

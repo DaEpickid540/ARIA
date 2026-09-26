@@ -1314,6 +1314,149 @@ function createSourceList(sources) {
 }
 
 /* ============================================================
+   TOOL CALLS — every tool ARIA used for a reply, above the reply.
+
+   The live pills during a stream vanished with the stream and never existed
+   on the JSON path, so what ARIA actually did was only visible while it did
+   it. This list is saved with the message. Each row opens to show what went
+   in and what came back; a spawn row lists its agents and their own calls.
+   Everything is set with textContent: results carry text from web pages.
+   ============================================================ */
+// Function declarations, not consts: chat.js renders the saved chats while
+// the module is still loading (see LOAD at the top), before any const this
+// far down exists — a saved reply with tool calls would throw there and take
+// the whole chat module down with it.
+function toolIconName(tool) {
+  return (
+    {
+      research: "bi-globe2",
+      search: "bi-globe2",
+      scrape: "bi-file-earmark-text",
+      spawn: "bi-diagram-3",
+      agent: "bi-robot",
+      claw: "bi-pc-display",
+      claw_confirm: "bi-pc-display",
+      calc: "bi-calculator",
+      weather: "bi-cloud-sun",
+      news: "bi-newspaper",
+      visualize: "bi-bar-chart",
+      imagine: "bi-image",
+      task: "bi-list-task",
+    }[tool] || "bi-wrench"
+  );
+}
+/** [icon, tooltip] for a call's status; unknown statuses read as done. */
+function toolStatusInfo(status) {
+  return (
+    {
+      ok: ["bi-check-circle", "done"],
+      error: ["bi-x-circle", "failed"],
+      blocked: ["bi-slash-circle", "not allowed"],
+      held: ["bi-pause-circle", "waiting for approval"],
+    }[status] || null
+  );
+}
+
+function tcEl(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+function tcIcon(name) {
+  const i = tcEl("i", `bi ${name}`);
+  i.setAttribute("aria-hidden", "true");
+  return i;
+}
+function tcSecs(ms) {
+  return ms == null ? "" : ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
+
+function toolCallRow(call) {
+  const status = toolStatusInfo(call.status) ? call.status : "ok";
+  const li = tcEl("li", `toolCall toolCall--${status}`);
+  const det = tcEl("details");
+  // A spawn row is mostly its agents; show them without a click.
+  if (call.agents?.length) det.open = true;
+  const sum = tcEl("summary", "toolCallSummary");
+  const [statusIcon, statusText] = toolStatusInfo(status);
+  const st = tcIcon(statusIcon);
+  st.classList.add("toolCallStatus");
+  st.title = statusText;
+  const base = String(call.tool || "").split(":")[0];
+  sum.append(
+    st,
+    tcIcon(toolIconName(base)),
+    tcEl("span", "toolCallName", call.tool),
+    tcEl("span", "toolCallInput", call.input || ""),
+    tcEl("span", "toolCallMs", tcSecs(call.ms)),
+  );
+  det.appendChild(sum);
+
+  const body = tcEl("div", "toolCallBody");
+  if (call.input) body.append(tcEl("div", "toolCallLabel", "Input"), tcEl("pre", "toolCallPre", call.input));
+  if (call.sources?.length) {
+    const read = call.sources.filter((s) => s.ok !== false).length;
+    body.append(tcEl("div", "toolCallLabel", `Pages — ${read} read`));
+    const ol = tcEl("ol", "toolCallPages");
+    for (const s of call.sources) {
+      const li2 = tcEl("li", s.ok === false ? "toolCallPageFailed" : "");
+      if (/^https?:\/\//i.test(s.url || "")) {
+        const a = tcEl("a", "", s.title || s.url);
+        a.href = s.url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        li2.appendChild(a);
+      } else li2.textContent = s.title || s.url || "";
+      if (s.ok === false) li2.append(` — ${s.error || "unreadable"}`);
+      ol.appendChild(li2);
+    }
+    body.appendChild(ol);
+  }
+  if (call.agents?.length) {
+    for (const a of call.agents) {
+      const ad = tcEl("details", `toolCallAgent toolCallAgent--${a.status === "ok" ? "ok" : "error"}`);
+      ad.open = true;
+      const as = tcEl("summary", "toolCallSummary");
+      as.append(
+        tcIcon("bi-robot"),
+        tcEl("span", "toolCallName", a.name),
+        tcEl("span", "toolCallInput", a.task || ""),
+        tcEl("span", "toolCallMs", tcSecs(a.ms)),
+      );
+      ad.appendChild(as);
+      const ab = tcEl("div", "toolCallBody");
+      if (a.prompt) ab.append(tcEl("div", "toolCallLabel", "Instructions"), tcEl("pre", "toolCallPre", a.prompt));
+      if (a.calls?.length) ab.appendChild(createToolCallList(a.calls, { nested: true }));
+      if (a.result) ab.append(tcEl("div", "toolCallLabel", "Report"), tcEl("pre", "toolCallPre", a.result));
+      ad.appendChild(ab);
+      body.appendChild(ad);
+    }
+  } else if (call.result) {
+    body.append(tcEl("div", "toolCallLabel", "Result"), tcEl("pre", "toolCallPre", call.result));
+  }
+  det.appendChild(body);
+  li.appendChild(det);
+  return li;
+}
+
+function createToolCallList(calls, { nested = false } = {}) {
+  const wrap = tcEl("details", `msgToolCalls${nested ? " msgToolCalls--nested" : ""}`);
+  wrap.open = true;
+  const total = calls.reduce((t, c) => t + (c.ms || 0), 0);
+  const sum = tcEl("summary", "msgToolCallsHead");
+  sum.append(
+    tcIcon("bi-tools"),
+    tcEl("span", "", `${calls.length} tool call${calls.length === 1 ? "" : "s"}${total ? ` · ${tcSecs(total)}` : ""}`),
+  );
+  wrap.appendChild(sum);
+  const list = tcEl("ol", "toolCallList");
+  for (const c of calls) list.appendChild(toolCallRow(c));
+  wrap.appendChild(list);
+  return wrap;
+}
+
+/* ============================================================
    RENDER MESSAGES
    ============================================================ */
 function renderMessages() {
@@ -1437,6 +1580,9 @@ function renderMessages() {
     if (visualNode) div.querySelector(".msgBody").appendChild(visualNode);
     if (msg.sources?.length)
       div.querySelector(".msgBody").appendChild(createSourceList(msg.sources));
+    // Above the answer: the tools ran before it was written.
+    if (msg.toolCalls?.length)
+      div.querySelector(".msgBody").prepend(createToolCallList(msg.toolCalls));
     messages.appendChild(div);
   });
 
@@ -2397,10 +2543,10 @@ function addSystemMessage(content) {
   renderMessages();
 }
 
-function addAIMessage(content) {
+function addAIMessage(content, extra = {}) {
   const chat = getCurrentChat();
   if (!chat) return;
-  chat.messages.push({ role: "aria", content, timestamp: Date.now() });
+  chat.messages.push({ role: "aria", content, ...extra, timestamp: Date.now() });
   saveChats();
   syncToServer();
   renderMessages();
@@ -2411,10 +2557,10 @@ function addAIMessage(content) {
    and then a follow-up. The pause between them is proportional to length so
    a one-liner doesn't sit there as long as a paragraph, and capped so a long
    reply never feels like a stall. */
-async function addAIMessages(parts) {
+async function addAIMessages(parts, extra = {}) {
   const list = (parts || []).filter((p) => typeof p === "string" && p.trim());
   if (!list.length) return;
-  if (list.length === 1) return addAIMessage(list[0]);
+  if (list.length === 1) return addAIMessage(list[0], extra);
 
   for (let i = 0; i < list.length; i++) {
     if (i > 0) {
@@ -2423,7 +2569,8 @@ async function addAIMessages(parts) {
       await new Promise((r) => setTimeout(r, pause));
       if (tid !== undefined) removeTypingIndicator?.(tid);
     }
-    addAIMessage(list[i]);
+    // The turn's tool calls sit on its first bubble, above the rest.
+    addAIMessage(list[i], i === 0 ? extra : {});
   }
 }
 
@@ -2434,6 +2581,8 @@ async function addAIMessages(parts) {
 async function renderChatResponse(data, userText = "") {
   const chat = getCurrentChat();
   if (data.confirm) window.ARIA_clawConfirm?.(data.confirm);
+  // Saved on the message whichever shape it takes below.
+  const calls = data.toolCalls?.length ? { toolCalls: data.toolCalls } : {};
 
   if (data.visual && chat) {
     chat.messages.push({
@@ -2442,6 +2591,7 @@ async function renderChatResponse(data, userText = "") {
       visual: data.visual,
       content: data.reply?.trim() || "",
       ...(data.sources?.length ? { sources: data.sources } : {}),
+      ...calls,
       timestamp: Date.now(),
     });
     saveChats();
@@ -2456,6 +2606,7 @@ async function renderChatResponse(data, userText = "") {
       type: "image",
       imageUrl: data.imageUrl,
       content: `Generated: ${data.imagePrompt || userText}`,
+      ...calls,
       timestamp: Date.now(),
     });
     saveChats();
@@ -2469,6 +2620,7 @@ async function renderChatResponse(data, userText = "") {
       role: "aria",
       content: data.reply?.trim() || "",
       sources: data.sources,
+      ...calls,
       timestamp: Date.now(),
     });
     saveChats();
@@ -2478,8 +2630,8 @@ async function renderChatResponse(data, userText = "") {
     return;
   }
 
-  if (data.replies?.length > 1) await addAIMessages(data.replies);
-  else addAIMessage(data.reply?.trim() || "[No reply]");
+  if (data.replies?.length > 1) await addAIMessages(data.replies, calls);
+  else addAIMessage(data.reply?.trim() || "[No reply]", calls);
 }
 
 /* ============================================================
@@ -2687,6 +2839,7 @@ async function sendMessageContent(text, chat, attachments = []) {
         let finalVisual = null; // widget from the visualize tool, if any
         let finalSources = null; // pages the research agent actually read
         let finalImage = null;
+        let finalToolCalls = null; // every tool call, saved with the message
 
         // 60fps throttled DOM update during streaming
         let _renderPending = false;
@@ -2909,6 +3062,7 @@ async function sendMessageContent(text, chat, attachments = []) {
                 }
                 if (evt.visual) finalVisual = evt.visual;
                 if (evt.sources?.length) finalSources = evt.sources;
+                if (evt.toolCalls?.length) finalToolCalls = evt.toolCalls;
                 if (evt.imageUrl) finalImage = { url: evt.imageUrl, prompt: evt.imagePrompt };
                 // A held claw command or outgoing text waiting on the owner.
                 if (evt.confirm) window.ARIA_clawConfirm?.(evt.confirm);
@@ -2943,6 +3097,7 @@ async function sendMessageContent(text, chat, attachments = []) {
               imageUrl: finalImage.url,
               content:
                 answerText.trim() || `Generated: ${finalImage.prompt || text}`,
+              ...(finalToolCalls ? { toolCalls: finalToolCalls } : {}),
               timestamp: Date.now(),
             });
             saveChats();
@@ -2969,6 +3124,12 @@ async function sendMessageContent(text, chat, attachments = []) {
           if (finalVisual) finalBodyEl.appendChild(createVisual(finalVisual));
           if (finalSources?.length)
             finalBodyEl.appendChild(createSourceList(finalSources));
+          // The saved list takes over from the live pills, which would
+          // otherwise say the same thing twice until the next re-render.
+          if (finalToolCalls) {
+            finalBodyEl.prepend(createToolCallList(finalToolCalls));
+            stepBar?.remove();
+          }
         }
         streamDiv.style.display = "";
         streamDiv.querySelector(".streamCursor")?.remove();
@@ -2981,6 +3142,7 @@ async function sendMessageContent(text, chat, attachments = []) {
             content: finalText,
             ...(finalVisual ? { type: "visual", visual: finalVisual } : {}),
             ...(finalSources?.length ? { sources: finalSources } : {}),
+            ...(finalToolCalls ? { toolCalls: finalToolCalls } : {}),
             timestamp: Date.now(),
           });
           saveChats();
@@ -2988,7 +3150,10 @@ async function sendMessageContent(text, chat, attachments = []) {
           if (ttsEnabled && finalText) speak(finalText);
         }
         // RAG indexing (fire and forget)
-        const _chatId = req?.body?.chatId || currentChatId;
+        // Was `req?.body?.chatId || …`, copied from the server: `req` doesn't
+        // exist here, so every streamed reply threw a ReferenceError, never
+        // got indexed, and was followed by "[Error contacting server]".
+        const _chatId = currentChatId;
         if (finalText.length >= 30) {
           fetch("/api/rag/index-chat", {
             method: "POST",

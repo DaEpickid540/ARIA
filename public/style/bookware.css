@@ -1192,6 +1192,143 @@ pre.clawEntryText {
 }
 
 /* ============================================================
+   TOOL CALLS — above a reply, see createToolCallList() in chat.js
+   ============================================================ */
+.msgToolCalls {
+  margin: 2px 0 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg-card);
+  font-size: 0.8rem;
+}
+.msgToolCalls--nested {
+  margin: 6px 0;
+  background: var(--bg-inset);
+}
+.msgToolCallsHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.toolCallList {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+.toolCall + .toolCall {
+  border-top: 1px solid var(--border);
+}
+.toolCallSummary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 5px 2px;
+  cursor: pointer;
+  color: var(--text-2);
+}
+.toolCallSummary,
+.msgToolCallsHead {
+  list-style: none; /* Firefox's disclosure triangle */
+}
+.toolCallSummary::-webkit-details-marker,
+.msgToolCallsHead::-webkit-details-marker {
+  display: none;
+}
+.toolCallSummary:hover {
+  color: var(--text);
+}
+.toolCallName {
+  font-family: var(--font-mono-stack);
+  font-size: 0.76rem;
+  color: var(--text);
+  flex-shrink: 0;
+}
+.toolCallInput {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-3);
+}
+.toolCallMs {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--text-3);
+}
+.toolCall--ok .toolCallStatus {
+  color: var(--success-text);
+}
+.toolCall--error .toolCallStatus {
+  color: var(--danger-text);
+}
+.toolCall--blocked .toolCallStatus,
+.toolCall--held .toolCallStatus {
+  color: var(--warning-text);
+}
+.toolCallBody {
+  padding: 2px 0 8px 22px;
+}
+.toolCallLabel {
+  margin: 6px 0 3px;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.toolCallPre {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  background: var(--bg-inset);
+  color: var(--text-2);
+  font-family: var(--font-mono-stack);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* A nested list already sits on the inset colour. */
+.msgToolCalls--nested .toolCallPre {
+  background: var(--bg-card);
+}
+.toolCallPages {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+.toolCallPages a {
+  color: var(--accent-text);
+  text-decoration: none;
+}
+.toolCallPages a:hover {
+  text-decoration: underline;
+}
+.toolCallPageFailed,
+.toolCallPageFailed a {
+  color: var(--text-3);
+}
+.toolCallAgent {
+  margin: 6px 0 0;
+  padding: 2px 8px;
+  border-left: 2px solid var(--border-strong);
+}
+.toolCallAgent--error {
+  border-left-color: var(--danger);
+}
+
+/* ============================================================
    CODE BLOCKS IN MESSAGES
    overlays.css still dressed these the old way: a neon left bar, an
    inset red glow, 2px corners, a tinted uppercase label — and, most
