@@ -7,7 +7,7 @@
 //
 //  Usage:
 //    node aria-screenshot-watcher.js
-//    node aria-screenshot-watcher.js https://your-render-url.onrender.com
+//    node aria-screenshot-watcher.js https://your-render-url.onrender.com --key=<ARIA_RELAY_KEY>
 //
 //  ChromeOS: screenshots go to ~/Downloads as "Screenshot YYYY-MM-DD..."
 //  Windows:  screenshots go to ~/Pictures/Screenshots
@@ -23,7 +23,15 @@ import path from "path";
 import https from "https";
 import http from "http";
 
-const SERVER_URL = process.argv[2] || "http://localhost:3000";
+// Positional arg = server URL; --key=<ARIA_RELAY_KEY> (or the ARIA_RELAY_KEY
+// env var) authenticates to a server that has ARIA_ACCESS_KEY set.
+const _args = process.argv.slice(2);
+const SERVER_URL =
+  _args.find((a) => !a.startsWith("--")) || "http://localhost:3000";
+const RELAY_KEY =
+  _args.find((a) => a.startsWith("--key="))?.slice(6) ||
+  process.env.ARIA_RELAY_KEY ||
+  "";
 const PLATFORM = os.platform();
 const DEVICE_ID = `screenwatcher-${os.hostname()}-${PLATFORM}`;
 const POLL_MS = 800; // how often to scan for new files
@@ -189,6 +197,7 @@ async function apiPost(path, data) {
         headers: {
           "Content-Type": "application/json",
           "Content-Length": Buffer.byteLength(body),
+          ...(RELAY_KEY ? { "x-aria-relay-key": RELAY_KEY } : {}),
         },
       },
       (res) => {

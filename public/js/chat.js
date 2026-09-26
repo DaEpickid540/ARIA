@@ -2433,6 +2433,7 @@ async function addAIMessages(parts) {
    the same either way — the fallback path used to drop both on the floor. */
 async function renderChatResponse(data, userText = "") {
   const chat = getCurrentChat();
+  if (data.confirm) window.ARIA_clawConfirm?.(data.confirm);
 
   if (data.visual && chat) {
     chat.messages.push({
@@ -2909,6 +2910,8 @@ async function sendMessageContent(text, chat, attachments = []) {
                 if (evt.visual) finalVisual = evt.visual;
                 if (evt.sources?.length) finalSources = evt.sources;
                 if (evt.imageUrl) finalImage = { url: evt.imageUrl, prompt: evt.imagePrompt };
+                // A held claw command or outgoing text waiting on the owner.
+                if (evt.confirm) window.ARIA_clawConfirm?.(evt.confirm);
               }
             } catch {} // malformed SSE line
           }

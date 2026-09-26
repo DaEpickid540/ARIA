@@ -37,25 +37,39 @@ At minimum you need one AI provider. See `.env.example` for the full list.
 | `CLOUDFLARE_AI_API` + `CLOUDFLARE_ACCOUNT_ID` | optional | FLUX image gen |
 | `NEWSDATA_KEY` | optional | Live news headlines |
 
+## Access control
+
+Set `ARIA_ACCESS_KEY` (and ideally `ARIA_RELAY_KEY`) in the Render environment.
+The lock screen sends what you type to `POST /api/auth/login`; a match sets an
+HttpOnly session cookie that every `/api` route checks. Relays authenticate with
+the relay key instead. With no key on a public deploy, the API stays open but
+Claw refuses to run. Locally (no `RENDER` env), everything is open as before.
+
 ## Claw (remote PC control)
 
 Claw lets ARIA control keyboard, mouse, screenshots, app launching on a target machine. Two relay flavors:
 
 ### Node relay (Windows / macOS / Linux)
 ```bash
-node claw-relay.js https://your-aria-url.onrender.com
+node claw-relay.js https://your-aria-url.onrender.com --key=<ARIA_RELAY_KEY>
 ```
+
+The model now gets each command's real result (shell output, errors) back
+instead of "queued". Destructive shell commands (`rm -rf`, `Remove-Item`,
+`format`, `shutdown`, `curl … | sh`, …) are held for approval no matter how the
+model phrases them, as is any PC action after ARIA has read web content in the
+same turn. Approvals are held server-side by id and expire after 10 minutes.
 
 ### ESP32 BLE HID relay (Chromebooks, locked-down devices)
 1. Open `ARIA_ESP32__Relay/ARIA_ESP32_Relay.ino` in Arduino IDE
 2. Set partition scheme to **Huge APP (3MB No OTA/1MB SPIFFS)**
 3. Install libraries: `NimBLE-Arduino`, `ArduinoJson`
-4. Edit `WIFI_NETWORKS` and `SERVER_URL` constants
+4. Edit `WIFI_NETWORKS`, `SERVER_URL` and `RELAY_KEY` constants
 5. Flash, then pair "ARIA Claw" from Bluetooth settings on target device
 
 For **screenshots** on Chromebook (since ESP32 has no screen capture), also run:
 ```bash
-node aria-screenshot-watcher.js https://your-aria-url.onrender.com
+node aria-screenshot-watcher.js https://your-aria-url.onrender.com --key=<ARIA_RELAY_KEY>
 ```
 This watches `~/Downloads` and uploads screenshots to ARIA when the ESP32 triggers a capture.
 
@@ -72,6 +86,8 @@ This watches `~/Downloads` and uploads screenshots to ARIA when the ESP32 trigge
 | `GET  /api/claw/queue` | Relay polls commands here |
 | `POST /api/claw/relay/result` | Relay reports command result + screenshots |
 | `POST /api/claw/kill` | Emergency stop — clears all queues |
+| `POST /api/auth/login` | Exchange `ARIA_ACCESS_KEY` for a session cookie |
+| `POST /api/confirm` | Approve/deny a held Claw action by id |
 
 ## Data persistence
 
