@@ -1947,6 +1947,7 @@ app.post("/api/chat", async (req, res) => {
     workspaceRepo = "",
     imageProvider = "auto",
     imageAttachments = [],
+    channel = "web",
   } = req.body;
 
   if (!message) return res.json({ reply: "No message received." });
@@ -1967,6 +1968,11 @@ app.post("/api/chat", async (req, res) => {
   sysPrompt += buildBehaviourContext();
   sysPrompt += lifeContext.buildLifeContext();
   sysPrompt += skills.buildSkillsContext(message);
+  // Texts from aria-voice-hook.js. Nothing renders on a phone's SMS app:
+  // markdown arrives as literal asterisks and widgets not at all.
+  if (channel === "sms") {
+    sysPrompt += `\n\n[CHANNEL: SMS]\nThis conversation is happening over text message. Keep replies short — a few sentences unless asked for more. Plain text only: no markdown, headings, tables or code fences. Don't build visualize widgets; they can't be shown here. <message> bubbles are fine — each one goes out as its own text.`;
+  }
 
   // ── RAG: pull relevant context from past chats + training data ──
   // Run search against the user's message. Cross-chat recall + training data

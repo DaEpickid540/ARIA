@@ -12,6 +12,7 @@ A personal AI OS with chat, voice, memory, tool use, and remote PC control.
 | **Claw Relay (PC)** | Runs on your computer; lets ARIA control keyboard/mouse | `claw-relay.js` |
 | **ESP32 Relay** | Same as above but over BLE HID for Chromebooks/sandboxed devices | `ARIA_ESP32__Relay/` |
 | **Screenshot Watcher** | Companion script for ESP32 to enable vision on a Chromebook | `aria-screenshot-watcher.js` |
+| **Voice Hook (PC)** | Gives ARIA a phone number via Google Voice, password-locked | `aria-voice-hook.js` |
 
 ## Quick start
 
@@ -72,6 +73,41 @@ For **screenshots** on Chromebook (since ESP32 has no screen capture), also run:
 node aria-screenshot-watcher.js https://your-aria-url.onrender.com --key=<ARIA_RELAY_KEY>
 ```
 This watches `~/Downloads` and uploads screenshots to ARIA when the ESP32 triggers a capture.
+
+## Text ARIA from your phone (Google Voice)
+
+`aria-voice-hook.js` runs on your PC, keeps voice.google.com open in a real
+browser (Playwright driving your installed Edge/Chrome), and answers texts to
+your Google Voice number with ARIA.
+
+```bash
+npm install                 # adds playwright-core; downloads no browser
+# .env: ARIA_SMS_PASSWORD=<8+ chars>, plus ARIA_ACCESS_KEY if the server has one
+node aria-voice-hook.js https://your-aria-url.onrender.com
+```
+
+The first run opens a browser window: sign in to Google Voice there. The login
+is kept in `data/gvoice-profile/` (your Google session, so keep it private);
+after that you can add `--headless`.
+
+**The lock.** Every conversation starts locked. Text the password to unlock it;
+until then nothing gets a reply and nothing is sent on to the ARIA server.
+After 5 minutes with no texts either way it locks again (`--idle=<min>`), and
+the next text gets one "locked" notice. Text `lock` to lock right away. Five
+texts to a locked conversation that aren't the password mute it for 15
+minutes, password included. Restarting the hook locks everything.
+`--allow=+15551234567` limits unlocking to your own number(s).
+
+**Claw over text.** If ARIA wants to run something that needs approval, it
+texts you what it wants to do; reply `YES` or `NO`.
+
+**Caveats.** Google Voice has no API. This drives the web page, so a Google UI
+change can break it; the page selectors are all in `SEL` near the top of the
+file. Google's Voice Acceptable Use Policy prohibits sending messages via an
+automated process and can suspend numbers that break it. The hook keeps volume
+low (it only answers unlocked conversations, and mutes a thread that gets 8+
+replies in a minute), but that is a risk to your number. Use a Google account you can live
+without.
 
 ## API endpoints (selected)
 

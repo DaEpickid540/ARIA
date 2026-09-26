@@ -16,5 +16,8 @@
     "node-fetch": "^3.3.2",
     "pdf-parse": "^1.1.1",
     "sharp": "^0.33.3"
+  },
+  "optionalDependencies": {
+    "playwright-core": "^1.63.0"
   }
 }
