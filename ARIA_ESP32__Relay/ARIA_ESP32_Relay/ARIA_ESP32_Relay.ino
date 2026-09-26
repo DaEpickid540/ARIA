@@ -38,6 +38,9 @@ static const WifiNet WIFI_NETWORKS[] = {
 };
 WiFiMulti wifiMulti;
 #define SERVER_URL      "https://aria-69jr.onrender.com"
+// Must match ARIA_RELAY_KEY (or ARIA_ACCESS_KEY) on the server. Leave "" only
+// if the server has no key set.
+#define RELAY_KEY       ""
 #define POLL_MS         1500
 #define DEVICE_ID       "esp32-hid-relay"
 #define BLE_NAME        "ARIA Claw"
@@ -263,6 +266,7 @@ bool ariaRegister() {
   if(WiFi.status()!=WL_CONNECTED) return false;
   HTTPClient h;
   h.begin(String(F(SERVER_URL)) + F("/api/claw/relay/register"));
+  h.addHeader(F("x-aria-relay-key"),F(RELAY_KEY));
   h.addHeader(F("Content-Type"),F("application/json"));
   String b = String(F("{\"deviceId\":\"")) + DEVICE_ID +
              F("\",\"platform\":\"esp32-nimble\",\"relayType\":\"esp32\",\"hostname\":\"") + BLE_NAME + F("\"}");
@@ -276,6 +280,7 @@ void ariaResult(const char* id, const char* res) {
   if(WiFi.status()!=WL_CONNECTED) return;
   HTTPClient h;
   h.begin(String(F(SERVER_URL)) + F("/api/claw/relay/result"));
+  h.addHeader(F("x-aria-relay-key"),F(RELAY_KEY));
   h.addHeader(F("Content-Type"),F("application/json"));
   String b = String(F("{\"deviceId\":\"")) + DEVICE_ID +
              F("\",\"cmdId\":\"") + id + F("\",\"result\":\"") + res + F("\"}");
@@ -286,6 +291,7 @@ void ariaHeartbeat() {
   if(WiFi.status()!=WL_CONNECTED) return;
   HTTPClient h;
   h.begin(String(F(SERVER_URL)) + F("/api/claw/relay/heartbeat"));
+  h.addHeader(F("x-aria-relay-key"),F(RELAY_KEY));
   h.addHeader(F("Content-Type"),F("application/json"));
   // Include diagnostic info: uptime, WiFi signal, free heap, BLE state
   String b = String(F("{\"deviceId\":\"")) + DEVICE_ID +
@@ -527,6 +533,7 @@ void poll() {
   if(WiFi.status()!=WL_CONNECTED){ wifiConnect(); return; }
   HTTPClient h;
   h.begin(String(F(SERVER_URL)) + F("/api/claw/queue?deviceId=") + DEVICE_ID);
+  h.addHeader(F("x-aria-relay-key"),F(RELAY_KEY));
   h.setTimeout(5000);
   int code=h.GET();
   if(code!=200){ h.end(); if(code>0) Serial.printf("[P] %d\n",code); return; }

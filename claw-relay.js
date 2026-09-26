@@ -5,7 +5,7 @@
 //
 //  Usage:
 //    node claw-relay.js
-//    node claw-relay.js https://your-render-url.onrender.com
+//    node claw-relay.js https://your-render-url.onrender.com --key=<ARIA_RELAY_KEY>
 //
 //  Supports: Windows (PowerShell/nircmd), macOS (osascript), Linux (xdotool/bash)
 //  Kill switch: click the red ⬡ KILL CLAW button in any ARIA tab
@@ -18,7 +18,15 @@ import os from "os";
 import https from "https";
 import http from "http";
 
-const SERVER_URL = process.argv[2] || "http://localhost:3000";
+// Positional arg = server URL; --key=<ARIA_RELAY_KEY> (or the ARIA_RELAY_KEY
+// env var) authenticates to a server that has ARIA_ACCESS_KEY set.
+const _args = process.argv.slice(2);
+const SERVER_URL =
+  _args.find((a) => !a.startsWith("--")) || "http://localhost:3000";
+const RELAY_KEY =
+  _args.find((a) => a.startsWith("--key="))?.slice(6) ||
+  process.env.ARIA_RELAY_KEY ||
+  "";
 const POLL_MS = 1500; // how often to check for commands
 const DEVICE_ID = `relay-${os.hostname()}-${os.platform()}`;
 const PLATFORM = os.platform(); // "win32" | "darwin" | "linux"
@@ -133,13 +141,18 @@ async function register() {
   let delay = 1000;
   for (let attempt = 1; attempt <= 10; attempt++) {
     try {
-      await apiPost("/api/claw/relay/register", {
+      const r = await apiPost("/api/claw/relay/register", {
         deviceId: DEVICE_ID,
         platform: PLATFORM,
         hostname: os.hostname(),
         arch: os.arch(),
         browser: DEFAULT_BROWSER,
       });
+      if (r?.error === "bad_relay_key" || r?.error === "claw_disabled") {
+        // Retrying cannot fix either of these.
+        console.error(`[RELAY] Server refused: ${r.message || r.error}`);
+        process.exit(1);
+      }
       console.log("[RELAY] Registered with ARIA server ✓");
       return;
     } catch (e) {
@@ -868,7 +881,10 @@ async function apiGet(path) {
     const url = new URL(path, SERVER_URL);
     const mod = url.protocol === "https:" ? https : http;
     mod
-      .get(url.toString(), (res) => {
+      .get(
+        url.toString(),
+        { headers: RELAY_KEY ? { "x-aria-relay-key": RELAY_KEY } : {} },
+        (res) => {
         let body = "";
         res.on("data", (d) => (body += d));
         res.on("end", () => {
@@ -878,7 +894,8 @@ async function apiGet(path) {
             resolve({});
           }
         });
-      })
+        },
+      )
       .on("error", reject);
   });
 }
@@ -895,6 +912,7 @@ async function apiPost(path, data) {
         headers: {
           "Content-Type": "application/json",
           "Content-Length": Buffer.byteLength(body),
+          ...(RELAY_KEY ? { "x-aria-relay-key": RELAY_KEY } : {}),
         },
       },
       (res) => {

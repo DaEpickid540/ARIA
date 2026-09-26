@@ -502,44 +502,64 @@ function _buildConfirmDialog() {
     </div>`;
   document.body.appendChild(dlg);
 
-  document.getElementById("clawConfirmDeny").addEventListener("click", () => {
-    dlg.style.display = "none";
-    _log("CONFIRM", "Action DENIED.", "error");
-    fetch("/api/claw/confirm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "", approved: false }),
-    });
-    if (_confirmResolve) {
-      _confirmResolve(false);
-      _confirmResolve = null;
-    }
-  });
-  document.getElementById("clawConfirmAllow").addEventListener("click", () => {
-    const action = document.getElementById("clawConfirmAction").dataset.action;
-    dlg.style.display = "none";
-    _log("CONFIRM", "Action APPROVED.", "output");
-    fetch("/api/claw/confirm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, approved: true }),
-    });
-    if (_confirmResolve) {
-      _confirmResolve(true);
-      _confirmResolve = null;
-    }
-  });
+  document.getElementById("clawConfirmDeny").addEventListener("click", () =>
+    _answerConfirm(false),
+  );
+  document.getElementById("clawConfirmAllow").addEventListener("click", () =>
+    _answerConfirm(true),
+  );
 }
 
-function showConfirmDialog({ action, description }) {
+// Approvals are held on the server by id (see resolveConfirm in server.js);
+// the dialog only ever says yes or no to that id.
+const _confirmQueue = [];
+const _confirmSeen = new Set();
+let _confirmCurrent = null;
+
+async function _answerConfirm(approved) {
+  const dlg = document.getElementById("clawConfirmOverlay");
+  const c = _confirmCurrent;
+  _confirmCurrent = null;
+  dlg.style.display = "none";
+  if (c) {
+    _log("CONFIRM", approved ? "Approved: " + c.action : "Denied.", approved ? "output" : "error");
+    try {
+      const r = await fetch("/api/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: c.id, approved }),
+      }).then((x) => x.json());
+      if (r.error) _log("CONFIRM", r.error, "error");
+      else if (r.output || r.message) _log("RESULT", r.output || r.message, "output");
+    } catch (e) {
+      _log("CONFIRM", "Failed: " + e.message, "error");
+    }
+  }
+  if (_confirmResolve) {
+    _confirmResolve(approved);
+    _confirmResolve = null;
+  }
+  _showNextConfirm();
+}
+
+function _showNextConfirm() {
+  if (_confirmCurrent || !_confirmQueue.length) return;
+  _confirmCurrent = _confirmQueue.shift();
+  const c = _confirmCurrent;
   const dlg = document.getElementById("clawConfirmOverlay");
   document.getElementById("clawConfirmBody").textContent =
-    description || "ARIA wants to run a sensitive action:";
-  document.getElementById("clawConfirmAction").textContent = action;
-  document.getElementById("clawConfirmAction").dataset.action = action;
+    c.reason || c.description || "ARIA wants to run a sensitive action:";
+  document.getElementById("clawConfirmAction").textContent = c.action;
   dlg.style.display = "flex";
-  document.getElementById("clawPanel")?.classList.add("open");
-  _log("⚠ CONFIRM", "Action: " + action, "error");
+  _log("⚠ CONFIRM", "Action: " + c.action, "error");
+}
+
+/** Accepts a server confirm ({id, kind, action, reason}). */
+function showConfirmDialog(c) {
+  if (!c?.id || _confirmSeen.has(c.id)) return Promise.resolve(false);
+  _confirmSeen.add(c.id);
+  _confirmQueue.push(c);
+  _showNextConfirm();
   return new Promise((r) => {
     _confirmResolve = r;
   });
@@ -552,6 +572,9 @@ function _startStatusPoll() {
   async function poll() {
     try {
       const d = await fetch("/api/claw/status").then((r) => r.json());
+      // Approvals raised from a text or a background task have no chat
+      // reply to ride on, so they arrive here.
+      for (const c of d.pendingConfirms || []) showConfirmDialog(c);
       const dot = document.getElementById("clawRelayDot");
       const nameEl = document.getElementById("clawRelayName");
       const platEl = document.getElementById("clawRelayPlatform");
@@ -565,8 +588,18 @@ function _startStatusPoll() {
         if (killBtn) killBtn.innerHTML = "⬡<br>KILL";
       }
 
-      if (d.relays?.length) {
-        const relay = d.relays[0];
+      if (d.disabled) {
+        if (dot) {
+          dot.textContent = "⬡";
+          dot.className = "clawDotOff";
+          dot.title = "Disabled";
+        }
+        if (nameEl)
+          nameEl.textContent = "Disabled — set ARIA_ACCESS_KEY on the server";
+        if (platEl) platEl.textContent = "";
+      } else if (d.relays?.length) {
+        const relay =
+          d.relays.find((r) => r.relayType !== "screenwatcher") || d.relays[0];
         if (dot) {
           dot.textContent = "●";
           dot.className = "clawDotOn";

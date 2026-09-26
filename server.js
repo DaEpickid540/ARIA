@@ -10,6 +10,7 @@ import * as errorLog from "./lib/error-log.js";
 import { research } from "./lib/research.js";
 import { splitThinking, stripThinking } from "./lib/think.js";
 import { extractVisualBlock } from "./tools/visualize.js";
+import * as auth from "./lib/auth.js";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -29,6 +30,10 @@ const CHATS_MAX_SIZE = 5 * 1024 * 1024; // soft cap before truncating oldest cha
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+// Auth before any /api route — see lib/auth.js for why this exists.
+app.use(auth.apiGuard);
+auth.mountAuthRoutes(app);
+auth.logAuthPosture();
 app.use(express.static(path.join(__dirname, "public")));
 
 // ── Request logger ────────────────────────────────────────────
@@ -217,12 +222,114 @@ function _parseChatClawInput(s) {
       ? { id, type: "browser", url: t }
       : { id, type: "launch_app", app: t };
   }
-  // Fallback: echo what we're trying to do
-  return {
-    id,
-    type: "shell",
-    cmd: "echo 'ARIA Claw: " + s.replace(/'/g, "") + "'",
-  };
+  // Unknown — used to be queued as a shell echo, which told the model it had
+  // succeeded at something it had not done.
+  return { id, type: "unknown", raw: s };
+}
+
+const CLAW_HELP =
+  "open:, switch:, new_tab:, close_tab, hotkey:, type:, shell:, screenshot, write_code:, " +
+  "scroll:, move:, click:, right_click:, double_click:, drag:";
+
+/* ── Claw: which relay, waiting for results, approvals ──────────
+   The screen watcher registers as a relay so it shows up in the panel, but
+   it executes nothing — it used to be picked as the target whenever it
+   happened to be first in the map, and every command vanished. */
+function liveClawRelays() {
+  return [...clawRelays.entries()].filter(
+    ([, v]) => Date.now() - v.lastSeen < 20000 && v.relayType !== "screenwatcher",
+  );
+}
+function pickRelay({ preferEsp32 = false } = {}) {
+  const live = liveClawRelays();
+  if (preferEsp32) {
+    const esp = live.find(([, v]) => v.relayType === "esp32");
+    if (esp) return esp[0];
+  }
+  const node = live.find(([, v]) => v.relayType !== "esp32");
+  return (node || live[0])?.[0] || null;
+}
+function queueClaw(deviceId, ...cmds) {
+  if (!clawQueue.has(deviceId)) clawQueue.set(deviceId, []);
+  clawQueue.get(deviceId).push(...cmds);
+}
+
+// cmdId → { resolve, timer }. Filled by /api/claw/relay/result so the model
+// sees what a command actually did instead of "✓ Queued".
+const pendingClawResults = new Map();
+function awaitClawResult(cmdId, ms) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      pendingClawResults.delete(cmdId);
+      resolve(null);
+    }, ms);
+    pendingClawResults.set(cmdId, { resolve, timer });
+  });
+}
+function clawWaitMs(cmd) {
+  if (cmd.type === "shell") return 20000;
+  if (cmd.type === "wait") return (cmd.ms || 1000) + 4000;
+  if (cmd.type === "continuous_screen") return 0;
+  return 10000;
+}
+
+// Commands that only look. Everything else acts on the machine.
+const CLAW_READONLY = new Set(["screenshot", "wait", "scroll", "mouse_move", "move"]);
+const DANGEROUS_SHELL = [
+  /\brm\s+-\w*[rf]/i, /\brmdir\b/i, /\b(del|erase)\b[^|&]*\/[sq]/i,
+  /Remove-Item\b/i, /\bformat(\.com)?\s+[a-z]:/i, /\bmkfs/i, /\bdd\s+if=/i,
+  /\bdiskpart\b/i, /\b(shutdown|reboot|halt|poweroff)\b/i,
+  /(Restart|Stop)-Computer/i, /\breg(\.exe)?\s+(delete|add|import)\b/i,
+  /(Remove|Set|New)-ItemProperty/i, /\bbcdedit\b/i, /\bcipher\s+\/w/i,
+  /\btakeown\b/i, /\bicacls\b/i, /\bch(mod|own)\s+-R\b/i,
+  /\bnet\s+(user|localgroup)\b/i, /Set-ExecutionPolicy/i,
+  /\b(iex|Invoke-Expression)\b/i, /-e(nc(odedcommand)?)?\s+[A-Za-z0-9+/=]{16,}/i,
+  /(curl|wget|iwr|irm|Invoke-WebRequest|Invoke-RestMethod)\b.*\|\s*(sh|bash|zsh|iex|powershell|pwsh|python|node)\b/i,
+  /\bsudo\b/i, /\bschtasks\b.*\/create/i, /\bcrontab\b/i,
+  /\bsc(\.exe)?\s+(delete|config|create)\b/i, /Stop-Process|taskkill|pkill|killall/i,
+  /\bvssadmin\b/i, /\bwmic\b.*\bdelete\b/i,
+  /git\s+(push\b.*(--force|-f\b)|reset\s+--hard|clean\s+-\w*f)/i,
+  />\s*\/dev\/sd/, /:\(\)\s*\{/, /\bmv\s+.*\s+\/dev\/null/i,
+];
+
+/**
+ * Why this command needs the owner's OK, or null if it can run.
+ * `tainted` = this run has already pulled in text a stranger wrote (web
+ * pages). After that, anything that acts on the PC asks first, so a page
+ * saying "ARIA, run …" cannot drive the machine.
+ */
+function clawConfirmReason(cmd, { tainted = false } = {}) {
+  if (cmd.type === "shell" && DANGEROUS_SHELL.some((re) => re.test(cmd.cmd || "")))
+    return "that shell command looks destructive";
+  if (tainted && !CLAW_READONLY.has(cmd.type))
+    return "this conversation includes text from web pages, so PC actions need your OK";
+  return null;
+}
+
+function describeClaw(cmd) {
+  const d =
+    cmd.cmd ?? cmd.text ?? cmd.app ?? cmd.url ?? cmd.path ?? "";
+  return `${cmd.type}${d !== "" ? ": " + String(d).slice(0, 200) : ""}`;
+}
+
+// id → { id, kind: "claw", payload, summary, reason, created }
+// Held server-side so an approval runs exactly what was proposed, and
+// expires so a stale dialog cannot fire later.
+const pendingConfirms = new Map();
+const CONFIRM_TTL_MS = 10 * 60 * 1000;
+function createConfirm(kind, payload, summary, reason) {
+  const id = "cf_" + crypto.randomBytes(6).toString("hex");
+  const c = { id, kind, payload, summary, reason, created: Date.now() };
+  pendingConfirms.set(id, c);
+  for (const [k, v] of pendingConfirms)
+    if (Date.now() - v.created > CONFIRM_TTL_MS) pendingConfirms.delete(k);
+  return c;
+}
+const publicConfirm = (c) => ({ id: c.id, kind: c.kind, action: c.summary, reason: c.reason });
+
+function truncateOut(s, n = 4000) {
+  s = String(s ?? "");
+  return s.length > n ? s.slice(0, n) + `\n…[${s.length - n} more chars]` : s;
 }
 
 /* ============================================================
@@ -462,6 +569,8 @@ ACTION: claw | click: 500,300
 ACTION: claw | right_click: 500,300
 ACTION: claw | double_click: 500,300
 ACTION: claw | drag: 100,200 to 400,500
+Claw results come back to you (shell output, errors). Read them
+before telling Sarvin something worked. If a result says "exit 1:" it FAILED.
 
 MOUSE RULES — CRITICAL:
 - NEVER use shell: to move the mouse or click. shell: is for terminal commands only.
@@ -478,6 +587,8 @@ MOUSE RULES — CRITICAL:
 SENSITIVE CLAW (requires Sarvin's approval — use CONFIRM: prefix):
 CONFIRM: claw | shell: rm -rf somefolder
 CONFIRM: claw | shell: <any destructive command>
+The server also holds destructive shell commands for approval
+on its own, so do not try to rephrase around it.
 
 MANDATORY TRIGGER CONDITIONS:
 - User asks about weather → ACTION: weather
@@ -758,6 +869,9 @@ async function runAgenticPipeline(
   const MAX_ITER = 8; // always use full agentic budget
   let currentMessages = [...messages];
   let pending = seedReply;
+  // Set once this run has read text someone else wrote (web pages);
+  // after that, PC actions need the owner's OK. See clawConfirmReason().
+  let tainted = false;
   const emit = (evt) => { try { onEvent?.(evt); } catch {} };
 
   while (iteration < MAX_ITER) {
@@ -792,126 +906,130 @@ async function runAgenticPipeline(
       .trim();
     emit({ step: true, type: "tool_start", tool: toolName, msg: `${toolName}: ${String(toolInput).slice(0, 80)}` });
 
-    // ── CONFIRM: sensitive claw action → return for user approval ──
+    // ── CONFIRM: sensitive claw action → hold it server-side for approval ──
     const confirmMatch = rawReply.match(/^\s*CONFIRM:\s*claw\s*\|\s*(.+)$/im);
     if (confirmMatch) {
-      const pendingAction = confirmMatch[1].trim();
       const pt = rawReply.replace(/^\s*CONFIRM:.*$/m, "").trim();
-      steps.push({
-        tool: "claw_confirm",
-        input: pendingAction,
-        preText: pt,
-        result: "awaiting_approval",
-      });
+      const cmd = _parseChatClawInput(confirmMatch[1].trim());
+      const c = createConfirm("claw", { cmd }, describeClaw(cmd), "ARIA flagged this as sensitive");
+      steps.push({ tool: "claw_confirm", input: c.summary, preText: pt, result: "awaiting_approval" });
       return {
         reply: pt || "I need your approval before running this.",
-        clawConfirm: { action: pendingAction },
+        confirm: publicConfirm(c),
         steps,
       };
     }
 
-    // ── Claw: queue command for relay ──
+    // ── Claw: queue for the relay, wait for what it actually did ──
     if (toolName === "claw") {
       let clawResult;
-      if (clawKilled) {
+      const tid = pickRelay();
+      if (!auth.dangerousAllowed()) {
+        clawResult = auth.DANGEROUS_DISABLED_MSG;
+      } else if (clawKilled) {
         clawResult =
           "Claw is killed. Click RESUME in the Claw panel to re-enable.";
+      } else if (!tid) {
+        clawResult =
+          "No relay connected. To control your PC: run `node claw-relay.js " +
+          (process.env.RENDER_EXTERNAL_URL ||
+            "https://your-aria-url.onrender.com") +
+          " --key=<ARIA_RELAY_KEY>` on your machine. Node.js required, zero installs.";
       } else {
-        const liveRelays = [...clawRelays.entries()].filter(
-          ([, v]) => Date.now() - v.lastSeen < 20000,
-        );
-        const tid = liveRelays[0]?.[0];
-        if (!tid) {
-          clawResult =
-            "No relay connected. To control your PC: run `node claw-relay.js " +
-            (process.env.RENDER_EXTERNAL_URL ||
-              "https://your-aria-url.onrender.com") +
-            "` on your machine. Node.js required, zero installs.";
-        } else {
-          const cmd = _parseChatClawInput(toolInput);
-
-          // ── Screenshot: wait for companion watcher to upload image, then inject as vision ──
-          if (cmd.type === "screenshot") {
-            if (!clawQueue.has(tid)) clawQueue.set(tid, []);
-            clawQueue.get(tid).push(cmd);
-
-            // Wait up to 12s for the companion watcher to POST the screenshot
-            const screenshotB64 = await new Promise((resolve) => {
-              const deviceId = tid;
-              const timeoutTimer = setTimeout(() => {
-                pendingScreenshotResolvers.delete(cmd.id);
-                resolve(null); // timed out — no image
-              }, 12000);
-              pendingScreenshotResolvers.set(cmd.id, {
-                deviceId,
-                resolve,
-                timer: timeoutTimer,
-              });
+        const cmd = _parseChatClawInput(toolInput);
+        const needs = cmd.type === "unknown" ? null : clawConfirmReason(cmd, { tainted });
+        if (cmd.type === "unknown") {
+          clawResult = `Unknown claw command "${cmd.raw}". Valid: ${CLAW_HELP}`;
+        } else if (needs) {
+          const c = createConfirm("claw", { cmd, deviceId: tid }, describeClaw(cmd), needs);
+          steps.push({ tool: "claw_confirm", input: c.summary, preText, result: "awaiting_approval" });
+          emit({ step: true, type: "tool_done", tool: "claw", msg: "waiting for your approval" });
+          return {
+            reply:
+              (preText ? preText + "\n\n" : "") +
+              `Needs your OK before I run \`${c.summary}\` — ${needs}.`,
+            confirm: publicConfirm(c),
+            steps,
+          };
+        } else if (cmd.type === "screenshot") {
+          // ── Screenshot: wait for the image, then inject it as vision ──
+          queueClaw(tid, cmd);
+          const screenshotB64 = await new Promise((resolve) => {
+            const timeoutTimer = setTimeout(() => {
+              pendingScreenshotResolvers.delete(cmd.id);
+              resolve(null); // timed out — no image
+            }, 12000);
+            pendingScreenshotResolvers.set(cmd.id, {
+              deviceId: tid,
+              resolve,
+              timer: timeoutTimer,
             });
+          });
 
-            if (screenshotB64) {
-              // Inject screenshot as a vision message so the AI can see the screen
-              const b64Data = screenshotB64.replace(
-                /^data:image\/\w+;base64,/,
-                "",
-              );
-              steps.push({
-                tool: "claw",
-                input: "screenshot",
-                preText,
-                result: "[screenshot captured]",
-              });
-              currentMessages = [
-                ...currentMessages,
-                { role: "assistant", content: rawReply },
-                {
-                  role: "user",
-                  content: [
-                    {
-                      type: "image",
-                      source: {
-                        type: "base64",
-                        media_type: "image/png",
-                        data: b64Data,
-                      },
+          if (screenshotB64) {
+            const b64Data = screenshotB64.replace(
+              /^data:image\/\w+;base64,/,
+              "",
+            );
+            steps.push({
+              tool: "claw",
+              input: "screenshot",
+              preText,
+              result: "[screenshot captured]",
+            });
+            currentMessages = [
+              ...currentMessages,
+              { role: "assistant", content: rawReply },
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "image",
+                    source: {
+                      type: "base64",
+                      media_type: "image/png",
+                      data: b64Data,
                     },
-                    {
-                      type: "text",
-                      text:
-                        "[CLAW RESULT]: Screenshot captured. Analyze this screen and continue your task.",
-                    },
-                  ],
-                },
-              ];
-            } else {
-              // Timed out — tell AI no image arrived
-              steps.push({
-                tool: "claw",
-                input: "screenshot",
-                preText,
-                result: "screenshot_timeout",
-              });
-              currentMessages = [
-                ...currentMessages,
-                { role: "assistant", content: rawReply },
-                {
-                  role: "user",
-                  content:
-                    "[CLAW RESULT]: Screenshot was triggered but no image arrived (is the ARIA Screenshot Watcher running on the target machine?). Continue without visual context.",
-                },
-              ];
-            }
-            continue;
+                  },
+                  {
+                    type: "text",
+                    text:
+                      "[CLAW RESULT]: Screenshot captured. Analyze this screen and continue your task.",
+                  },
+                ],
+              },
+            ];
+          } else {
+            steps.push({
+              tool: "claw",
+              input: "screenshot",
+              preText,
+              result: "screenshot_timeout",
+            });
+            currentMessages = [
+              ...currentMessages,
+              { role: "assistant", content: rawReply },
+              {
+                role: "user",
+                content:
+                  "[CLAW RESULT]: Screenshot was triggered but no image arrived (is the ARIA Screenshot Watcher running on the target machine?). Continue without visual context.",
+              },
+            ];
           }
-
-          if (!clawQueue.has(tid)) clawQueue.set(tid, []);
-          clawQueue.get(tid).push(cmd);
+          continue;
+        } else {
+          queueClaw(tid, cmd);
           // If macro recording is active, capture this command
           if (_macroRecording && cmd.type !== "wait")
             _macroBuffer.push({ ...cmd });
-          const desc = cmd.cmd || cmd.text || cmd.app || cmd.url || cmd.type;
+          const waitMs = clawWaitMs(cmd);
+          const out = waitMs ? await awaitClawResult(cmd.id, waitMs) : null;
           clawResult =
-            "✓ Queued [" + cmd.type + "]: " + String(desc).slice(0, 60);
+            out == null
+              ? `Queued [${describeClaw(cmd)}] — no result back within ${Math.round(
+                  waitMs / 1000,
+                )}s (the relay may still be running it).`
+              : `[${describeClaw(cmd)}]\n${truncateOut(out)}`;
         }
       }
       steps.push({
@@ -920,6 +1038,7 @@ async function runAgenticPipeline(
         preText,
         result: clawResult,
       });
+      emit({ step: true, type: "tool_done", tool: "claw", msg: clawResult.split("\n")[0].slice(0, 80) });
       currentMessages = [
         ...currentMessages,
         { role: "assistant", content: rawReply },
@@ -947,6 +1066,7 @@ async function runAgenticPipeline(
         ).join(", ")}`;
       } else if (agent.grounded) {
         // Grounded agents get pages, not recall.
+        tainted = true;
         try {
           const out = await research(agentInput, {
             ai: (msgs) => callAI(msgs, provider, agent.model || AGENT_MODEL, {}),
@@ -1088,6 +1208,7 @@ async function runAgenticPipeline(
         result: researchResult,
         sources: found.map(({ url, title, ok, error }) => ({ url, title, ok, error })),
       });
+      tainted = true;
       emit({ step: true, type: "tool_done", tool: "research", msg: `read ${found.filter((s) => s.ok).length} pages` });
       currentMessages = [
         ...currentMessages,
@@ -1120,6 +1241,8 @@ async function runAgenticPipeline(
         input: String(toolInput).slice(0, 200),
       });
     }
+
+    if (toolName === "scrape") tainted = true;
 
     if (toolResult?.startsWith?.("__VISUAL__")) {
       // JSON rather than a delimiter pair: the payload is arbitrary markup and
@@ -1954,11 +2077,14 @@ Active GitHub repo: ${workspaceRepo}
   }
 
   // ── Live relay status — injected so AI knows what's connected ──
-  const liveRelaysForPrompt = [...clawRelays.entries()].filter(
-    ([, v]) => Date.now() - v.lastSeen < 20000,
-  );
+  const promptRelayId = pickRelay();
+  const liveRelaysForPrompt = promptRelayId
+    ? [[promptRelayId, clawRelays.get(promptRelayId)]]
+    : [];
 
-  if (liveRelaysForPrompt.length === 0) {
+  if (!auth.dangerousAllowed()) {
+    sysPrompt += `\n\n[CLAW STATUS — DISABLED]\nPC control is switched off because this server is public and has no ARIA_ACCESS_KEY. If asked, tell the user to set ARIA_ACCESS_KEY and ARIA_RELAY_KEY in the Render environment.`;
+  } else if (liveRelaysForPrompt.length === 0) {
     sysPrompt += `\n\n[CLAW STATUS — NO RELAY]\nNo relay is currently connected. DO NOT attempt any claw/ACTION commands.\nIf the user asks to control their PC, tell them:\n- For full PC control: run \`node claw-relay.js ${
       process.env.RENDER_EXTERNAL_URL || "https://aria-69jr.onrender.com"
     }\` on their machine\n- For wireless BLE control: flash the ESP32 relay and pair "ARIA Claw" via Bluetooth`;
@@ -1976,7 +2102,7 @@ Active GitHub repo: ${workspaceRepo}
           : "";
       sysPrompt += `\n\n[CLAW STATUS — PC RELAY CONNECTED]\nDevice: ${
         relay.hostname || relay.platform
-      } | Type: ${relayType}${browserLabel}\nFull PC control is available. All claw commands work including shell, screenshot, launch_app, browser, mouse, keyboard.`;
+      } | Type: ${relayType}${browserLabel}\nFull PC control is available. All claw commands work including shell, screenshot, launch_app, browser, mouse, keyboard. Results come back to you — read them before claiming something worked.`;
     }
   }
   // Build message array — with persistent summary for long chats
@@ -2208,6 +2334,7 @@ Active GitHub repo: ${workspaceRepo}
                 sources: pipeResult.sources,
                 imageUrl: pipeResult.imageUrl,
                 imagePrompt: pipeResult.imagePrompt,
+                confirm: pipeResult.confirm,
               })}\n\n`,
             );
           } catch {
@@ -2256,6 +2383,7 @@ Active GitHub repo: ${workspaceRepo}
       sources: result.sources,
       imageUrl: result.imageUrl,
       imagePrompt: result.imagePrompt,
+      confirm: result.confirm,
     });
     // Async feedback detection (don't block response)
     const fb2 = detectFeedback(message);
@@ -3156,11 +3284,9 @@ app.post("/api/claw/macro/run", (req, res) => {
   if (!Array.isArray(steps) || !steps.length)
     return res.status(400).json({ error: "steps array required" });
 
-  // Find target relay
-  const liveRelays = [...clawRelays.entries()].filter(
-    ([, v]) => Date.now() - v.lastSeen < 20000,
-  );
-  const tid = deviceId || liveRelays[0]?.[0];
+  if (!auth.dangerousAllowed())
+    return res.status(403).json({ error: auth.DANGEROUS_DISABLED_MSG });
+  const tid = deviceId || pickRelay();
   if (!tid) return res.status(503).json({ error: "No relay connected" });
 
   if (!clawQueue.has(tid)) clawQueue.set(tid, []);
@@ -3358,15 +3484,26 @@ app.post("/api/claw/relay/result", (req, res) => {
       fname: fname || "",
       ts: Date.now(),
     });
-    // Resolve any AI pipeline waiting on a screenshot for this device
-    for (const [, entry] of pendingScreenshotResolvers) {
-      if (entry.deviceId === deviceId) {
-        clearTimeout(entry.timer);
-        entry.resolve(screenshot);
-        pendingScreenshotResolvers.delete(cmdId);
-        break;
-      }
+    // Resolve the pipeline waiting on this screenshot. The node relay names
+    // the command; the screen watcher can't know which command triggered the
+    // capture (and posts under its own deviceId, which is why matching on
+    // deviceId never fired for the ESP32), so it takes the oldest waiter.
+    const key =
+      cmdId && pendingScreenshotResolvers.has(cmdId)
+        ? cmdId
+        : pendingScreenshotResolvers.keys().next().value;
+    const entry = key && pendingScreenshotResolvers.get(key);
+    if (entry) {
+      clearTimeout(entry.timer);
+      entry.resolve(screenshot);
+      pendingScreenshotResolvers.delete(key);
     }
+  }
+  const waiter = cmdId && pendingClawResults.get(cmdId);
+  if (waiter) {
+    clearTimeout(waiter.timer);
+    pendingClawResults.delete(cmdId);
+    waiter.resolve(String(result ?? "ok"));
   }
   res.json({ ok: true });
 });
@@ -3430,7 +3567,16 @@ app.get("/api/claw/status", (req, res) => {
       relayType: v.relayType || "node",
       browser: v.browser,
     }));
-  res.json({ killed: clawKilled, relays });
+  res.json({
+    killed: clawKilled,
+    relays,
+    disabled: !auth.dangerousAllowed(),
+    // Approvals raised where no dialog could show (background tasks)
+    // surface through the panel's status poll.
+    pendingConfirms: [...pendingConfirms.values()]
+      .filter((v) => Date.now() - v.created <= CONFIRM_TTL_MS)
+      .map(publicConfirm),
+  });
 });
 
 // Manual dispatch from Claw panel (AI task or direct mode)
@@ -3442,12 +3588,10 @@ app.post("/api/claw", async (req, res) => {
       error: "Claw is killed. Click RESUME in the Claw panel.",
     });
 
-  const liveRelays = [...clawRelays.entries()].filter(
-    ([, v]) => Date.now() - v.lastSeen < 20000,
-  );
-  // Prefer ESP32 if available, otherwise use first relay
-  const esp32Relay = liveRelays.find(([id]) => id.startsWith("esp32"));
-  const tid = esp32Relay?.[0] || liveRelays[0]?.[0];
+  if (!auth.dangerousAllowed())
+    return res.json({ error: auth.DANGEROUS_DISABLED_MSG });
+  // Prefer ESP32 if available, otherwise the PC relay (never the screen watcher)
+  const tid = pickRelay({ preferEsp32: true });
 
   if (mode === "ai") {
     // AI plans steps then queues them
@@ -3522,9 +3666,18 @@ app.post("/api/claw", async (req, res) => {
       error:
         "No relay connected. Run claw-relay.js on your machine, or flash and pair the ESP32 relay.",
     });
-  const cmd = _parseChatClawInput(mode + ": " + input);
-  if (!clawQueue.has(tid)) clawQueue.set(tid, []);
-  clawQueue.get(tid).push(cmd);
+  // Mouse mode takes "move X Y | click X Y | scroll up 3"; the rest are "<mode>: <input>".
+  const line =
+    mode === "mouse"
+      ? input.trim().replace(
+          /^(move|click|right_click|double_click|scroll|drag)\s+/i,
+          (_, verb) => verb.toLowerCase() + ": ",
+        )
+      : mode + ": " + input;
+  const cmd = _parseChatClawInput(line);
+  if (cmd.type === "unknown")
+    return res.json({ error: `Unknown command "${cmd.raw}". Valid: ${CLAW_HELP}` });
+  queueClaw(tid, cmd);
   return res.json({
     output: "Queued: " + cmd.type,
     queued: [cmd.type],
@@ -3532,21 +3685,38 @@ app.post("/api/claw", async (req, res) => {
   });
 });
 
-// Approve a CONFIRM: action
-app.post("/api/claw/confirm", (req, res) => {
-  const { action, approved } = req.body;
-  if (!approved) return res.json({ ok: true, message: "Action cancelled." });
-  const liveRelays = [...clawRelays.entries()].filter(
-    ([, v]) => Date.now() - v.lastSeen < 20000,
-  );
-  // Prefer ESP32 if available, otherwise use first relay
-  const esp32Relay = liveRelays.find(([id]) => id.startsWith("esp32"));
-  const tid = esp32Relay?.[0] || liveRelays[0]?.[0];
-  if (!tid) return res.json({ error: "No relay connected." });
-  const cmd = _parseChatClawInput(action);
-  if (!clawQueue.has(tid)) clawQueue.set(tid, []);
-  clawQueue.get(tid).push(cmd);
-  res.json({ ok: true, queued: cmd.type });
+// Approve or deny a held claw command. The client
+// only sends the id — what runs is exactly what was proposed.
+async function resolveConfirm(req, res) {
+  const { id, approved } = req.body || {};
+  const c = id && pendingConfirms.get(id);
+  if (!c) return res.json({ ok: false, error: "No such pending action (expired or already handled)." });
+  pendingConfirms.delete(id);
+  if (!approved) return res.json({ ok: true, message: "Cancelled." });
+  if (Date.now() - c.created > CONFIRM_TTL_MS)
+    return res.json({ ok: false, error: "That approval expired — ask ARIA again." });
+  if (!auth.dangerousAllowed()) return res.json({ ok: false, error: auth.DANGEROUS_DISABLED_MSG });
+
+  if (clawKilled) return res.json({ ok: false, error: "Claw is killed. Click RESUME first." });
+  const live = liveClawRelays().map(([k]) => k);
+  const tid = live.includes(c.payload.deviceId) ? c.payload.deviceId : pickRelay();
+  if (!tid) return res.json({ ok: false, error: "No relay connected." });
+  const cmd = { ...c.payload.cmd, id: nextClawId() };
+  queueClaw(tid, cmd);
+  const out = await awaitClawResult(cmd.id, clawWaitMs(cmd) || 1000);
+  res.json({
+    ok: true,
+    queued: cmd.type,
+    output: out == null ? "Queued — no result yet." : truncateOut(out, 2000),
+  });
+}
+app.post("/api/confirm", resolveConfirm);
+app.post("/api/claw/confirm", resolveConfirm); // older clients
+
+app.get("/api/confirm/pending", (_req, res) => {
+  for (const [k, v] of pendingConfirms)
+    if (Date.now() - v.created > CONFIRM_TTL_MS) pendingConfirms.delete(k);
+  res.json({ pending: [...pendingConfirms.values()].map(publicConfirm) });
 });
 
 /* ============================================================

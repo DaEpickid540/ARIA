@@ -24,6 +24,35 @@ window.addEventListener("online", () => {
 
 const USERS = [{ id: "sarvin", password: "727846" }];
 
+// ── Session expiry ───────────────────────────────────────────
+// Any /api call answered 401 means the server-side session is gone (key
+// rotated, cookie expired). Put the lock screen back up instead of letting
+// every panel fail silently.
+const _origFetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+  const res = await _origFetch(...args);
+  if (res.status === 401) {
+    try {
+      const url = String(args[0]?.url || args[0] || "");
+      if (url.includes("/api/") && !url.includes("/api/auth/")) relock();
+    } catch {}
+  }
+  return res;
+};
+
+function relock(msg = "SESSION EXPIRED — ENTER ACCESS CODE") {
+  const lockScreen = document.getElementById("lockScreen");
+  if (!lockScreen || lockScreen.style.display === "flex") return;
+  lockScreen.style.display = "flex";
+  const hp = document.getElementById("homepageScreen");
+  const lay = document.getElementById("layout");
+  if (hp) hp.style.display = "none";
+  if (lay) lay.style.display = "none";
+  const err = document.getElementById("lockError");
+  if (err) err.textContent = msg;
+  document.getElementById("passwordInput")?.focus();
+}
+
 let _buttonsWired = false;
 let _modulesLoaded = false;
 
@@ -67,7 +96,38 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const user = USERS.find((u) => u.id.toLowerCase() === enteredId);
+    // The server decides when it has ARIA_ACCESS_KEY set (lib/auth.js) and
+    // sets an HttpOnly session cookie. The in-page USERS list below is only
+    // consulted when the server says auth is not configured — it was never
+    // real security, since this file is public.
+    let serverUser = null;
+    try {
+      const r = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: enteredId, key: enteredPass }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.status === 429) {
+        if (lockError)
+          lockError.textContent = "TOO MANY ATTEMPTS — SERVER LOCKED 15 MIN";
+        return;
+      }
+      if (d.ok && !d.authDisabled) serverUser = { id: enteredId };
+      else if (!d.ok) {
+        failedAttempts++;
+        if (lockError)
+          lockError.textContent = "INVALID ACCESS CODE — ACCESS DENIED";
+        if (passwordInput) passwordInput.value = "";
+        checkLockout();
+        return;
+      }
+    } catch {
+      // Server unreachable — fall through to the offline check.
+    }
+
+    const user =
+      serverUser || USERS.find((u) => u.id.toLowerCase() === enteredId);
     if (!user) {
       failedAttempts++;
       if (lockError)
@@ -75,7 +135,7 @@ window.addEventListener("DOMContentLoaded", () => {
       checkLockout();
       return;
     }
-    if (user.password !== enteredPass) {
+    if (!serverUser && user.password !== enteredPass) {
       failedAttempts++;
       if (lockError)
         lockError.textContent = "INVALID ACCESS CODE — ACCESS DENIED";
@@ -164,6 +224,8 @@ function wireConsoleButtons() {
     if (h) h.style.display = "none";
     const lkEl = lk();
     if (lkEl) lkEl.style.display = "flex";
+    // Locking ends the server session too, so the lock screen is not just a curtain.
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
   });
 }
 
