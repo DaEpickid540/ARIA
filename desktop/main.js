@@ -14,8 +14,10 @@
 //     ARIA_DATA_DIR, so updating or uninstalling the app never touches it.
 //   - Ollama needs no hook: the server is on the same PC, so it talks to
 //     OLLAMA_URL (localhost:11434) directly and the model switcher lists them.
-//   - Claw (PC control) is off until you tick it in the ARIA menu; it runs
+//   - Claw (PC control) is off until you turn it on: in ARIA's Claw panel
+//     (through preload.cjs's window.ariaDesktop) or the ARIA menu. It runs
 //     claw-relay.js against this local server.
+//   - Keys saved in Settings ▸ Keys go to the same .env (ARIA_ENV_FILE).
 //   - The server binds 127.0.0.1 only. Locally the API has no login
 //     (lib/auth.js), so it must not be reachable from the LAN.
 // ═══════════════════════════════════════════════════════════════════
@@ -25,6 +27,7 @@ import {
   BrowserWindow,
   Menu,
   dialog,
+  ipcMain,
   shell,
   session,
   utilityProcess,
@@ -36,6 +39,9 @@ import { parseEnv } from "util";
 import { fileURLToPath } from "url";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+// A second, separate copy (e.g. a dev build next to the installed app): its
+// own keys, data and single-instance lock.
+if (process.env.ARIA_USER_DATA) app.setPath("userData", process.env.ARIA_USER_DATA);
 const USER_DIR = app.getPath("userData");
 const DATA_DIR = path.join(USER_DIR, "data");
 const LOG_DIR = path.join(USER_DIR, "logs");
@@ -177,6 +183,10 @@ async function startServer() {
       PORT: String(port),
       ARIA_HOST: HOST,
       ARIA_DATA_DIR: DATA_DIR,
+      ARIA_ENV_FILE: ENV_FILE,
+      // Tells the server to point at the Claw panel's switch, not at
+      // `node claw-relay.js`, when PC control is off.
+      ARIA_DESKTOP: "1",
       NODE_ENV: "production",
     }),
   });
@@ -232,6 +242,19 @@ function stopRelay() {
   relay = null;
   r?.kill();
 }
+
+/** The one switch for PC control, from the page or the menu. */
+function setClaw(on) {
+  settings = { ...settings, claw: !!on };
+  saveSettings(settings);
+  if (on) startRelay();
+  else stopRelay();
+  buildMenu(); // keep the menu checkbox in step
+  return settings.claw;
+}
+
+ipcMain.handle("aria:getClaw", () => settings.claw);
+ipcMain.handle("aria:setClaw", (_e, on) => setClaw(on));
 
 async function restartAll() {
   stopRelay();
@@ -291,6 +314,7 @@ function createWindow() {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
+      preload: path.join(ROOT, "desktop", "preload.cjs"),
     },
   });
   win.once("ready-to-show", () => win.show());
@@ -320,7 +344,8 @@ function setPermissions() {
     cb(isLocal(wc.getURL()) && allowed.has(permission));
   });
   session.defaultSession.setPermissionCheckHandler((wc, permission, requestingOrigin) => {
-    return requestingOrigin === origin && allowed.has(permission);
+    // Electron may pass the origin with or without a trailing slash.
+    return isLocal(requestingOrigin) && allowed.has(permission);
   });
 }
 
@@ -347,12 +372,7 @@ function buildMenu() {
           label: "PC control (Claw relay)",
           type: "checkbox",
           checked: settings.claw,
-          click: (item) => {
-            settings = { ...settings, claw: item.checked };
-            saveSettings(settings);
-            if (item.checked) startRelay();
-            else stopRelay();
-          },
+          click: (item) => setClaw(item.checked),
         },
         { type: "separator" },
         { label: "Open in browser", click: () => origin && shell.openExternal(origin) },
@@ -422,12 +442,11 @@ if (!app.requestSingleInstanceLock()) {
           title: "ARIA",
           message: "Add an AI provider key to get replies.",
           detail:
-            "ARIA can use Ollama on this PC with no key. For cloud models, put at least one key " +
-            "(OPENROUTER_API_KEY or GROQ_API_KEY) in the .env file, save it, then use " +
-            "ARIA ▸ Restart server.",
-          buttons: ["Open .env", "Later"],
-        })
-        .then(({ response }) => response === 0 && shell.openPath(ENV_FILE));
+            "ARIA can use Ollama on this PC with no key. For cloud models, open Settings ▸ Keys " +
+            "and add one (OpenRouter or Groq; both have free tiers). A Groq key also makes " +
+            "voice input faster.",
+          buttons: ["OK"],
+        });
     }
 
     await boot();

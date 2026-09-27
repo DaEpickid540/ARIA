@@ -38,10 +38,10 @@
          trimmed logo — a 96px glyph with its black margin downscaled to 16px
          was an unreadable smudge. ?v= is the cache buster: the old icon is
          held by the service worker and by the browser's own icon store. -->
-    <link rel="icon" href="/favicon.ico?v=3" sizes="16x16 32x32 48x48" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png?v=3" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16.png?v=3" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=3" />
+    <link rel="icon" href="/favicon.ico?v=4" sizes="16x16 32x32 48x48" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png?v=4" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16.png?v=4" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=4" />
 
     <!-- SEO / description -->
     <meta
@@ -511,6 +511,7 @@
           <button class="settingsTab" data-tab="personality"><i class="bi bi-lightbulb" aria-hidden="true"></i> Mind</button>
           <button class="settingsTab" data-tab="memory"><i class="bi bi-hdd" aria-hidden="true"></i> Memory</button>
           <button class="settingsTab" data-tab="emotion"><i class="bi bi-heart" aria-hidden="true"></i> Emotion</button>
+          <button class="settingsTab" data-tab="keys"><i class="bi bi-key" aria-hidden="true"></i> Keys</button>
           <button class="settingsTab" data-tab="system"><i class="bi bi-gear" aria-hidden="true"></i> System</button>
           <button class="settingsTab" data-tab="skills"><i class="bi bi-lightning-charge" aria-hidden="true"></i> Skills</button>
           <button class="settingsTab" data-tab="briefing"><i class="bi bi-sunrise" aria-hidden="true"></i> Briefing</button>
@@ -1231,6 +1232,21 @@
           <!-- ════════════════════════════════════════
                TAB: SYSTEM
                ════════════════════════════════════════ -->
+          <!-- ════════════════════════════════════════
+               TAB: KEYS (filled by js/keysPanel.js)
+               ════════════════════════════════════════ -->
+          <div class="settingsTabPane" data-pane="keys">
+            <section class="settingsSection">
+              <h3><i class="bi bi-key" aria-hidden="true"></i> API keys</h3>
+              <p class="settingsHint">
+                Saved on this computer and used from the next message, with no
+                restart needed. ARIA never shows a saved key again, only its
+                last four characters.
+              </p>
+              <div id="keysList">Loading…</div>
+            </section>
+          </div>
+
           <div class="settingsTabPane" data-pane="system">
             <section class="settingsSection">
               <h3>Export / Import Configuration</h3>

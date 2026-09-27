@@ -701,3 +701,24 @@ pre.clawEntryText {
     width: 100vw;
   }
 }
+
+/* Desktop app: switch the built-in relay on from the panel (claw.js) */
+.clawDesktopOn {
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 8px;
+  margin-left: 4px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm, 6px);
+  background: transparent;
+  color: var(--accent-text, var(--accent));
+  cursor: pointer;
+}
+.clawDesktopOn:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+.clawDesktopOn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

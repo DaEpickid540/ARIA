@@ -260,6 +260,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // The lock screen shows before the chat modules (which normally stamp it).
   import("./version.js").then((m) => m.applyVersion()).catch(() => {});
+  // Settings opens from the home screen too, before the chat modules load.
+  import("./keysPanel.js").then((m) => m.initKeysPanel()).catch(() => {});
 
   // Auto-focus
   setTimeout(() => (userIdInput || passwordInput)?.focus(), 80);

@@ -4,7 +4,7 @@
 // Bump CACHE_VERSION when you ship breaking front-end changes — old caches
 // get auto-purged on activate.
 
-const CACHE_VERSION = "v5-2026-09-google";
+const CACHE_VERSION = "v6-2026-09-fixes";
 const CACHE_NAME = `aria-${CACHE_VERSION}`;
 
 // Core shell to precache. Stylesheet paths must match what index.html links.

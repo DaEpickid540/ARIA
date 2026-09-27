@@ -35,6 +35,7 @@ await build({
       "claw-relay.js",
       ".env.example",
       "desktop/main.js",
+      "desktop/preload.cjs",
       "lib/**",
       "tools/**",
       "skills/**",

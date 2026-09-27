@@ -1,5 +1,6 @@
 // server.js — ARIA v3.1 (Link Mode, Music Tutor, Workspace, Math v2, Code v2,
 // visualize tool, drop-in tools, error log)
+import "./lib/load-env.js"; // first: .env into process.env for everything below
 import { runToolServer, TOOL_DEFINITIONS, allTools } from "./tools/index.js";
 import * as rag from "./lib/rag.js";
 import * as taskEngine from "./lib/tasks.js";
@@ -12,6 +13,7 @@ import { splitThinking, stripThinking } from "./lib/think.js";
 import { extractVisualBlock } from "./tools/visualize.js";
 import * as auth from "./lib/auth.js";
 import * as ollamaRelay from "./lib/ollama-relay.js";
+import { mountKeyRoutes } from "./lib/keys.js";
 import { DATA_DIR } from "./lib/paths.js";
 import express from "express";
 import path from "path";
@@ -37,6 +39,7 @@ app.use(auth.apiGuard);
 auth.mountAuthRoutes(app);
 auth.logAuthPosture();
 ollamaRelay.mountOllamaRelayRoutes(app);
+mountKeyRoutes(app);
 app.use(express.static(path.join(__dirname, "public")));
 
 // ── Request logger ────────────────────────────────────────────
@@ -74,6 +77,53 @@ try {
     limits: { fileSize: 20 * 1024 * 1024 },
   });
 } catch {}
+
+/* ── Speech to text ──
+   For voice input where the browser's own recognizer can't be used: the
+   desktop app (Electron has the Web Speech API, but it always fails with
+   "network") and Firefox. Groq's Whisper is fast and has a free tier;
+   OpenAI's is the fallback. With neither, 501 tells the page to transcribe
+   locally instead (public/js/vtt.js). */
+app.post("/api/transcribe", (req, res, next) => (upload ? upload.single("audio")(req, res, next) : next()), async (req, res) => {
+  const file = req.file;
+  if (!file?.buffer?.length) return res.status(400).json({ error: "no_audio" });
+  const providers = [
+    process.env.GROQ_API_KEY && {
+      url: "https://api.groq.com/openai/v1/audio/transcriptions",
+      key: process.env.GROQ_API_KEY,
+      model: "whisper-large-v3-turbo",
+    },
+    process.env.OPENAI_KEY && {
+      url: "https://api.openai.com/v1/audio/transcriptions",
+      key: process.env.OPENAI_KEY,
+      model: "whisper-1",
+    },
+  ].filter(Boolean);
+  if (!providers.length) return res.status(501).json({ error: "no_stt" });
+
+  let lastErr = "";
+  for (const p of providers) {
+    try {
+      const form = new FormData();
+      form.append("file", new Blob([file.buffer], { type: file.mimetype || "audio/webm" }), file.originalname || "speech.webm");
+      form.append("model", p.model);
+      form.append("response_format", "json");
+      const r = await fetch(p.url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${p.key}` },
+        body: form,
+        signal: AbortSignal.timeout(60_000),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}: ${(await r.text()).slice(0, 160)}`);
+      const d = await r.json();
+      return res.json({ text: String(d.text || "").trim(), via: p.model });
+    } catch (e) {
+      lastErr = e.message;
+      console.warn(`[STT] ${p.model} failed:`, e.message);
+    }
+  }
+  res.status(502).json({ error: "stt_failed", message: lastErr });
+});
 
 /* ── dirs + persistence ── */
 const CHATS_FILE = path.join(DATA_DIR, "chats.json");
@@ -1128,6 +1178,9 @@ async function runAgenticPipeline(
       } else if (clawKilled) {
         clawResult =
           "Claw is killed. Click RESUME in the Claw panel to re-enable.";
+      } else if (!tid && process.env.ARIA_DESKTOP) {
+        clawResult =
+          'PC control is off. Turn it on in the Claw panel ("Turn on PC control"), then ask again.';
       } else if (!tid) {
         clawResult =
           "No relay connected. To control your PC: run `node claw-relay.js " +
@@ -1705,6 +1758,239 @@ async function generateEmbedding(text) {
   return data?.result?.data?.[0] ?? null;
 }
 
+/* ── Prompted reasoning ──
+   Appended to the system prompt for non-trivial turns. Kept as constants so
+   a model that reasons natively (Ollama "thinking" models) can have them
+   taken back out: asked for 15-20 thoughts on top of its own reasoning, it
+   reasons twice. See ollamaRequest(). */
+const REASONING_PROMPT = `
+
+[REASONING]
+Before answering, think inside <think>...</think> tags. Reason freely — no rigid structure.
+
+Use → to mark each distinct thought as you work through the problem:
+→ like this for each insight, question, or decision point
+
+Think like a smart person reasoning out loud. A good reasoning chain:
+- Questions what's actually being asked (not just the surface request)
+- Pulls in relevant context, memory, prior knowledge
+- Tries an approach, notices flaws, adjusts
+- Considers edge cases and failure modes
+- Asks "what am I missing?" and "where could I be wrong?"
+- Revises until genuinely confident
+
+Target 15-20 distinct → thoughts. More is fine. The depth of your reasoning directly determines the quality of your answer.
+
+Rules:
+- Zero text before <think>. Not even whitespace.
+- Think in first person, conversationally, honestly
+- The → markers are your thinking — don't repeat them in your answer
+- Your answer after </think> should be richer because you thought, not just longer
+- Short answers are fine when that's genuinely correct`;
+
+const EXTENDED_REASONING_PROMPT = `
+
+[EXTENDED REASONING]
+This is a complex request. Push further inside your <think> block:
+→ explore alternative approaches and why you're not taking them
+→ steelman the opposing view or a competing solution
+→ find the weakest point in your own answer and address it
+→ what would an expert in this specific domain add?
+→ what's the simplest possible correct answer, and is your answer unnecessarily complex?
+
+Aim for 25-30 → thoughts total. Your final response: comprehensive, well-structured, thorough.`;
+
+/* ── Ollama: what each local model can do ──
+   /api/show lists a model's capabilities ("vision", "thinking", "tools").
+   Cached: it only changes when a model is re-pulled. */
+const _ollamaCaps = new Map(); // model → { caps: Set<string>, at }
+async function ollamaCaps(url, model) {
+  const hit = _ollamaCaps.get(model);
+  if (hit && Date.now() - hit.at < 10 * 60 * 1000) return hit.caps;
+  let caps = new Set();
+  try {
+    const r = await fetch(`${url}/api/show`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model }),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (r.ok) {
+      const d = await r.json();
+      caps = new Set(d.capabilities || []);
+      // "Thinking" builds (qwen3:30b is Qwen3-30B-A3B-Thinking) always
+      // reason. think:false doesn't stop them; it only makes the reasoning
+      // spill into the answer untagged.
+      if (/thinking/i.test(d.model_info?.["general.finetune"] || "")) caps.add("thinking-only");
+    }
+  } catch {
+    return caps; // Ollama down — don't cache the miss
+  }
+  _ollamaCaps.set(model, { caps, at: Date.now() });
+  return caps;
+}
+
+/** First installed model that can see images, or null. */
+async function ollamaVisionModel(url) {
+  try {
+    const r = await fetch(`${url}/api/tags`, { signal: AbortSignal.timeout(5000) });
+    const { models = [] } = await r.json();
+    for (const m of models) if ((await ollamaCaps(url, m.name)).has("vision")) return m.name;
+  } catch {}
+  return null;
+}
+
+/**
+ * The /api/chat body for one turn, with the two things a local model gets
+ * wrong on its own:
+ *   - Reasoning. A hybrid model (qwen3.5) now reasons natively only when
+ *     ARIA's own prompt asks for reasoning, and that prompt is dropped, since
+ *     asking for 15-20 thoughts on top of native reasoning doubles it. A
+ *     reasoning-only build always gets think:true, so its reasoning arrives
+ *     in its own field instead of leaking into the answer.
+ *   - Images. A text-only model answers an image with HTTP 400. Image turns
+ *     go to an installed vision model instead, or fail with a useful message.
+ * @returns {Promise<{model: string, body: object, note?: string}>}
+ */
+async function ollamaRequest(url, model, messages, { stream = false } = {}) {
+  let msgs = ollamaRelay.toOllamaMessages(messages);
+  let note;
+
+  if (msgs.some((m) => m.images?.length)) {
+    const caps = await ollamaCaps(url, model);
+    if (!caps.has("vision")) {
+      const vision = await ollamaVisionModel(url);
+      if (!vision)
+        throw new Error(
+          `${model} can't see images and no installed Ollama model can. ` +
+            "Pull one (e.g. `ollama pull qwen2.5vl`) or pick a cloud model for images.",
+        );
+      note = `${model} can't see images, so ${vision} read this one.`;
+      model = vision;
+    }
+  }
+
+  const caps = await ollamaCaps(url, model);
+  // Same default as aria-ollama-hook.js --ctx: ARIA's system prompt alone is
+  // ~3k tokens, and Ollama's own default (4k on most GPUs) truncates it.
+  const numCtx = Number(process.env.OLLAMA_NUM_CTX ?? 16384);
+  const body = { model, messages: msgs, stream, ...(numCtx > 0 ? { options: { num_ctx: numCtx } } : {}) };
+  if (caps.has("thinking")) {
+    const sys = msgs[0]?.role === "system" ? msgs[0] : null;
+    const wantsReasoning = !!sys?.content.includes(REASONING_PROMPT);
+    body.think = wantsReasoning || caps.has("thinking-only");
+    if (sys && wantsReasoning) {
+      msgs[0] = {
+        ...sys,
+        content: sys.content.replace(REASONING_PROMPT, "").replace(EXTENDED_REASONING_PROMPT, ""),
+      };
+    }
+  }
+  return { model, body, note };
+}
+
+/* ── Streaming sources for /api/chat ──
+   Each yields plain text deltas. A thinking model's reasoning arrives as
+   "<think>…</think>" text, which is what the page's live reasoning panel
+   already reads. */
+
+/** Newline-delimited JSON (Ollama) or SSE "data: " lines (OpenRouter). */
+async function* streamLines(body) {
+  const reader = body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split("\n");
+    buf = lines.pop() || "";
+    for (const line of lines) if (line.trim()) yield line;
+  }
+  if (buf.trim()) yield buf;
+}
+
+async function* openRouterDeltas(body) {
+  for await (const line of streamLines(body)) {
+    if (!line.startsWith("data: ")) continue;
+    const raw = line.slice(6).trim();
+    if (raw === "[DONE]") continue;
+    try {
+      const delta = JSON.parse(raw)?.choices?.[0]?.delta?.content || "";
+      if (delta) yield delta;
+    } catch {}
+  }
+}
+
+async function* ollamaDeltas(body) {
+  let thinking = false;
+  for await (const line of streamLines(body)) {
+    let obj;
+    try {
+      obj = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (obj.error) throw new Error(`Ollama: ${obj.error}`);
+    const t = obj.message?.thinking;
+    const c = obj.message?.content;
+    if (t) {
+      if (!thinking) yield "<think>";
+      thinking = true;
+      yield t;
+    }
+    if (c) {
+      if (thinking) yield "</think>\n";
+      thinking = false;
+      yield c;
+    }
+  }
+  if (thinking) yield "</think>\n";
+}
+
+/**
+ * Opens a streamed reply, or returns null when this provider doesn't stream
+ * (the caller then answers without streaming). Throws if the upstream refuses.
+ * @returns {Promise<{deltas: AsyncIterable<string>, note?: string} | null>}
+ */
+async function openChatStream(provider, messages, { hasImages, requestedModel }) {
+  if (provider === "openrouter" && process.env.OPENROUTER_API_KEY) {
+    const chosenModel = hasImages
+      ? "google/gemma-3-27b-it:free" // only free OR model in our list with vision support
+      : requestedModel && OR_FREE_MODELS.includes(requestedModel)
+        ? requestedModel
+        : "meta-llama/llama-3.3-70b-instruct:free";
+    const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://aria-69jr.onrender.com",
+        "X-Title": "ARIA",
+      },
+      body: JSON.stringify({ model: chosenModel, messages, max_tokens: 4096, stream: true }),
+    });
+    if (!r.ok) throw new Error(`OR HTTP ${r.status}`);
+    return { deltas: openRouterDeltas(r.body) };
+  }
+
+  // Straight to Ollama when it's reachable from here (local server, desktop
+  // app). Through the PC hook it stays non-streaming for now.
+  if (provider === "ollama" && !ollamaRelay.connected()) {
+    const url = process.env.OLLAMA_URL || "http://localhost:11434";
+    const model = requestedModel || process.env.OLLAMA_MODEL || "llama3";
+    const { body, note } = await ollamaRequest(url, model, messages, { stream: true });
+    const r = await fetch(`${url}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error(`Ollama HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    return { deltas: ollamaDeltas(r.body), note };
+  }
+  return null;
+}
+
 /* ============================================================
    AI DISPATCH — callAI()
    Providers: cloudflare | groq | openrouter | ollama | lmstudio
@@ -1727,16 +2013,13 @@ async function callAI(messages, provider, model, modeOpts = {}) {
       // Your PC's Ollama, through aria-ollama-hook.js — the only way a cloud
       // deploy can reach it. Without a hook, talk to OLLAMA_URL directly.
       if (ollamaRelay.connected()) return await ollamaRelay.chat(ollamaModel, messages);
+      const { body } = await ollamaRequest(ollamaUrl, ollamaModel, messages);
       const res = await fetch(`${ollamaUrl}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: ollamaModel,
-          messages: ollamaRelay.toOllamaMessages(messages),
-          stream: false,
-        }),
+        body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
+      if (!res.ok) throw new Error(`Ollama HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
       const data = await res.json();
       const reply = data?.message?.content?.trim();
       const thinking = data?.message?.thinking?.trim();
@@ -2284,30 +2567,7 @@ app.post("/api/chat", async (req, res) => {
   const shouldThink = !trivialMsg;
 
   if (shouldThink) {
-    sysPrompt += `
-
-[REASONING]
-Before answering, think inside <think>...</think> tags. Reason freely — no rigid structure.
-
-Use → to mark each distinct thought as you work through the problem:
-→ like this for each insight, question, or decision point
-
-Think like a smart person reasoning out loud. A good reasoning chain:
-- Questions what's actually being asked (not just the surface request)
-- Pulls in relevant context, memory, prior knowledge
-- Tries an approach, notices flaws, adjusts
-- Considers edge cases and failure modes
-- Asks "what am I missing?" and "where could I be wrong?"
-- Revises until genuinely confident
-
-Target 15-20 distinct → thoughts. More is fine. The depth of your reasoning directly determines the quality of your answer.
-
-Rules:
-- Zero text before <think>. Not even whitespace.
-- Think in first person, conversationally, honestly
-- The → markers are your thinking — don't repeat them in your answer
-- Your answer after </think> should be richer because you thought, not just longer
-- Short answers are fine when that's genuinely correct`;
+    sysPrompt += REASONING_PROMPT;
   }
 
   if (
@@ -2316,17 +2576,7 @@ Rules:
       message,
     )
   ) {
-    sysPrompt += `
-
-[EXTENDED REASONING]
-This is a complex request. Push further inside your <think> block:
-→ explore alternative approaches and why you're not taking them
-→ steelman the opposing view or a competing solution
-→ find the weakest point in your own answer and address it
-→ what would an expert in this specific domain add?
-→ what's the simplest possible correct answer, and is your answer unnecessarily complex?
-
-Aim for 25-30 → thoughts total. Your final response: comprehensive, well-structured, thorough.`;
+    sysPrompt += EXTENDED_REASONING_PROMPT;
   }
 
   if (musicTutorMode) {
@@ -2362,6 +2612,8 @@ Active GitHub repo: ${workspaceRepo}
 
   if (!auth.dangerousAllowed()) {
     sysPrompt += `\n\n[CLAW STATUS — DISABLED]\nPC control is switched off because this server is public and nobody has to log in. If asked, tell the user to set ARIA_OWNER_UID (Google sign-in) or ARIA_ACCESS_KEY, plus ARIA_RELAY_KEY, in the Render environment.`;
+  } else if (liveRelaysForPrompt.length === 0 && process.env.ARIA_DESKTOP) {
+    sysPrompt += `\n\n[CLAW STATUS — PC CONTROL OFF]\nThis is the ARIA desktop app, and PC control is switched off. DO NOT attempt any claw/ACTION commands.\nIf the user asks you to do something on their PC, tell them to turn on PC control: open the Claw panel and click "Turn on PC control".`;
   } else if (liveRelaysForPrompt.length === 0) {
     sysPrompt += `\n\n[CLAW STATUS — NO RELAY]\nNo relay is currently connected. DO NOT attempt any claw/ACTION commands.\nIf the user asks to control their PC, tell them:\n- For full PC control: run \`node claw-relay.js ${
       process.env.RENDER_EXTERNAL_URL || "https://aria-69jr.onrender.com"
@@ -2440,10 +2692,16 @@ Active GitHub repo: ${workspaceRepo}
   }
 
   const _lastMsg = cappedHistory[cappedHistory.length - 1];
+  // The page sends this turn inside `history` too. With an image attached its
+  // content is an array, which never === the message text, so the turn used
+  // to go out twice: once with the image and once without.
+  const _lastText = Array.isArray(_lastMsg?.content)
+    ? _lastMsg.content.filter((p) => p?.type === "text").map((p) => p.text).join("\n")
+    : _lastMsg?.content;
   const messages = [
     { role: "system", content: sysPrompt },
     ...cappedHistory,
-    ...(_lastMsg?.role === "user" && _lastMsg?.content === message
+    ...(_lastMsg?.role === "user" && _lastText === message
       ? []
       : [{ role: "user", content: message }]),
   ];
@@ -2455,7 +2713,8 @@ Active GitHub repo: ${workspaceRepo}
   );
   if (validImages.length) {
     const lastUserMsg = messages[messages.length - 1];
-    if (lastUserMsg?.role === "user") {
+    // Already an array: the history copy of this turn brought its images.
+    if (lastUserMsg?.role === "user" && !Array.isArray(lastUserMsg.content)) {
       lastUserMsg.content = [
         { type: "text", text: lastUserMsg.content },
         ...validImages.map((a) => ({
@@ -2466,70 +2725,45 @@ Active GitHub repo: ${workspaceRepo}
     }
   }
 
-  // ── SSE STREAMING for OpenRouter ──────────────────────────
-  if (provider === "openrouter" && !req.headers["x-no-stream"]) {
-    const key = process.env.OPENROUTER_API_KEY;
-    if (key) {
+  // ── SSE STREAMING (OpenRouter, and Ollama on this machine) ──
+  // The upstream request is opened BEFORE any headers go out, so if it fails
+  // (no key, Ollama down, a text-only model and an image) the turn falls
+  // through to the non-streaming path and its provider fallbacks instead of
+  // ending in an empty stream. Ollama used to have no stream at all: the page
+  // sat on one silent request for as long as the model reasoned.
+  let upstream = null;
+  if (!req.headers["x-no-stream"]) {
+    try {
+      upstream = await openChatStream(provider, messages, {
+        hasImages: validImages.length > 0,
+        requestedModel,
+      });
+    } catch (e) {
+      console.warn("[STREAM] Couldn't open, answering without streaming:", e.message);
+    }
+  }
+  if (upstream) {
+    {
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache, no-transform");
       res.setHeader("Connection", "keep-alive");
       res.setHeader("X-Accel-Buffering", "no");
       res.setHeader("X-Content-Type-Options", "nosniff");
-      // Flush headers immediately so the browser opens the SSE connection
-      // before the upstream request even starts — eliminates the "white screen" delay
       if (typeof res.flushHeaders === "function") res.flushHeaders();
+      let full = "";
       try {
-        const chosenModel = validImages.length
-          ? "google/gemma-3-27b-it:free" // only free OR model in our list with vision support
-          : requestedModel && OR_FREE_MODELS.includes(requestedModel)
-            ? requestedModel
-            : "meta-llama/llama-3.3-70b-instruct:free";
-        const upstreamRes = await fetch(
-          "https://openrouter.ai/api/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${key}`,
-              "Content-Type": "application/json",
-              "HTTP-Referer": "https://aria-69jr.onrender.com",
-              "X-Title": "ARIA",
-            },
-            body: JSON.stringify({
-              model: chosenModel,
-              messages,
-              max_tokens: 4096,
-              stream: true,
-            }),
-          },
-        );
-        if (!upstreamRes.ok) throw new Error(`OR HTTP ${upstreamRes.status}`);
         // Send a stream-start event immediately — client can show "receiving..." state
         res.write(`data: ${JSON.stringify({ stream_start: true })}\n\n`);
-        const reader = upstreamRes.body.getReader();
-        const dec = new TextDecoder();
-        let buf = "";
-        let full = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buf += dec.decode(value, { stream: true });
-          const lines = buf.split("\n");
-          buf = lines.pop() || "";
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const raw = line.slice(6).trim();
-            if (raw === "[DONE]") continue;
-            try {
-              const delta = JSON.parse(raw)?.choices?.[0]?.delta?.content || "";
-              if (delta) {
-                full += delta;
-                res.write(`data: ${JSON.stringify({ delta })}\n\n`);
-              }
-            } catch {}
-          }
+        if (upstream.note)
+          res.write(`data: ${JSON.stringify({ step: true, type: "tool_start", msg: upstream.note })}\n\n`);
+        for await (const delta of upstream.deltas) {
+          full += delta;
+          res.write(`data: ${JSON.stringify({ delta })}\n\n`);
         }
-        // Run post-processing (facts, tools, feedback) on full reply
-        detectFact(full);
+        // Run post-processing (facts, tools, feedback) on the answer, not the
+        // reasoning: a fact ARIA mulled over isn't one the user told it.
+        const answer = stripThinking(full);
+        detectFact(answer);
         const fb = detectFeedback(message);
         const lastAriaMsg =
           history.filter((m) => m.role === "assistant").pop()?.content || "";
@@ -2550,11 +2784,11 @@ Active GitHub repo: ${workspaceRepo}
             )
             .catch(() => {});
         }
-        if (full.length >= 30) {
+        if (answer.length >= 30) {
           rag
             .addEntry(
               "chat",
-              full,
+              answer,
               { chatId: _chatId, role: "assistant", timestamp: Date.now() },
               generateEmbedding,
             )
@@ -2562,7 +2796,7 @@ Active GitHub repo: ${workspaceRepo}
         }
         // If the streamed reply contains an ACTION, run the agentic pipeline
         // to resolve tool calls and stream the final result
-        const actionCheck = full.match(
+        const actionCheck = answer.match(
           /^\s*ACTION:\s*([^|\n]+?)\s*\|\s*(.*)$/im,
         );
         if (actionCheck) {
@@ -2625,8 +2859,13 @@ Active GitHub repo: ${workspaceRepo}
         res.end();
         return;
       } catch (streamErr) {
-        // Fall through to non-streaming path
-        console.warn("[STREAM] Error, falling back:", streamErr.message);
+        // Headers are gone by now, so the only way left to report is the stream.
+        console.warn("[STREAM] Error mid-stream:", streamErr.message);
+        try {
+          res.write(
+            `data: ${JSON.stringify({ done: true, full: (full ? full + "\n\n" : "") + "⚠ " + streamErr.message })}\n\n`,
+          );
+        } catch {}
         res.end();
         return;
       }

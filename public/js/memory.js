@@ -253,11 +253,17 @@ export function renderMemoryPanel() {
         <div class="memFactItem">
           <div class="memFactText">${escapeHtml(c.text.slice(0, 120))}${c.text.length > 120 ? "…" : ""}</div>
           <div class="memFactActions">
-            <button class="memBtn" onclick="navigator.clipboard.writeText(${JSON.stringify(c.text)})">Copy</button>
+            <button class="memBtn memClipCopy" data-clip="${i}">Copy</button>
           </div>
         </div>`,
         )
         .join("");
+    // Text inside an inline onclick broke out at its first quote.
+    container.querySelectorAll(".memClipCopy").forEach((b) =>
+      b.addEventListener("click", () =>
+        navigator.clipboard.writeText(clips[Number(b.dataset.clip)]?.text || ""),
+      ),
+    );
   }
 }
 

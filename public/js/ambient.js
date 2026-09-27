@@ -77,7 +77,9 @@ function resetIdleTimer() {
 function enterAmbient() {
   // Only activate when in the chat layout
   const layout = document.getElementById("layout");
-  if (!layout || layout.style.display === "none") {
+  // Not while ARIA is still answering: a model reasoning for a minute used to
+  // get dimmed behind "NEURAL NET IDLE" halfway through its reply.
+  if (!layout || layout.style.display === "none" || window.ARIA_isGenerating?.()) {
     resetIdleTimer();
     return;
   }

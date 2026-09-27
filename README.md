@@ -37,14 +37,27 @@ npm run dist      # build dist/ARIA-Setup-Mark-<mark>.<point>.exe
 The installer runs the full ARIA server on your PC and shows it in its own
 window (Electron, `desktop/main.js`). It's the same `server.js` as Render's.
 
-- **Keys:** `%APPDATA%\ARIA\.env`, created from `.env.example` on first run.
-  **ARIA ▸ Edit API keys**, save, then **ARIA ▸ Restart server**.
+- **Keys:** **Settings ▸ Keys**. They work from the next message, with no
+  restart. They're stored in `%APPDATA%\ARIA\.env`, created from
+  `.env.example` on first run. `npm start` reads `./.env` the same way
+  (`ARIA_ENV_FILE` to point elsewhere). On Render, set keys in the dashboard.
 - **Data:** `%APPDATA%\ARIA\data` (via `ARIA_DATA_DIR`). Updates and
   uninstalls leave it alone.
 - **Ollama:** no hook needed; the server is on the same PC, so your models
-  show up in the model switcher directly.
-- **Claw:** off until you tick **ARIA ▸ PC control**; it runs
-  `claw-relay.js` against the local server.
+  show up in the model switcher directly. Replies stream. Hybrid models
+  (qwen3.5) reason only on turns that need it; reasoning-only builds
+  (qwen3:30b "Thinking") keep their reasoning in the collapsible section.
+  An image sent to a text-only model is read by an installed vision model
+  instead. Context is 16k (`OLLAMA_NUM_CTX`).
+- **Claw:** off until you click **Turn on PC control** in the Claw panel (or
+  tick **ARIA ▸ PC control**). It runs `claw-relay.js` against the local
+  server.
+- **Voice input:** Electron can't use the browser's speech recognizer, so
+  the app records and transcribes instead: with Groq or OpenAI Whisper when
+  one of those keys is set, otherwise with a local Whisper model that
+  downloads once (about 80 MB).
+- `ARIA_USER_DATA=<dir>` runs a separate copy (own keys, data, lock), e.g. a
+  dev build next to the installed app.
 - The server listens on `127.0.0.1:3717` only. The local API has no login, so
   it stays off your network.
 - Logs: `%APPDATA%\ARIA\logs`. The installer isn't code-signed, so Windows

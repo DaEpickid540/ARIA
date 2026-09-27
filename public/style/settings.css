@@ -324,3 +324,84 @@
     border-bottom: none !important;
   }
 }
+
+/* ── Settings ▸ Keys (js/keysPanel.js) ── */
+.keysGroup + .keysGroup {
+  margin-top: 18px;
+}
+.keysGroupTitle {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+.keyRow {
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.keyHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.keyLabel {
+  font-weight: 600;
+  color: var(--text);
+}
+.keyStatus {
+  font-size: 0.72rem;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.keyStatus.keySet {
+  color: var(--success-text, #4ade80);
+  border-color: currentColor;
+}
+.keyGet {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-2);
+}
+.keyHint {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  margin-top: 3px;
+}
+.keyEdit {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.keyEdit .keyInput {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-inset);
+  color: var(--text);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.8rem;
+}
+.keyEdit .keyInput:focus {
+  outline: none;
+  border-color: var(--accent-text);
+}
+.keyEdit button {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+.keyMsg {
+  min-height: 0;
+  font-size: 0.75rem;
+  color: var(--danger-text);
+  margin-top: 4px;
+}
+.keyMsg:empty {
+  display: none;
+}

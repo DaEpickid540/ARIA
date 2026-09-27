@@ -620,7 +620,19 @@ function _startStatusPoll() {
           dot.className = "clawDotOff";
           dot.title = "No relay";
         }
-        if (nameEl)
+        if (nameEl && window.ariaDesktop) {
+          // The desktop app runs the relay itself; it only needs switching on.
+          if (!nameEl.querySelector(".clawDesktopOn")) {
+            nameEl.innerHTML =
+              'PC control is off — <button type="button" class="clawDesktopOn">Turn on PC control</button>';
+            nameEl.querySelector(".clawDesktopOn").addEventListener("click", async (e) => {
+              e.currentTarget.disabled = true;
+              e.currentTarget.textContent = "Starting…";
+              await window.ariaDesktop.setClaw(true);
+              setTimeout(poll, 1500); // the relay registers within a second or so
+            });
+          }
+        } else if (nameEl)
           nameEl.innerHTML =
             'No relay — <span class="clawSetupLinkInline" style="text-decoration:underline;cursor:pointer">setup guide</span>';
         if (platEl) platEl.textContent = "";

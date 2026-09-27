@@ -1551,9 +1551,7 @@ function renderMessages() {
     }</div>
         <div class="msgMeta">
           <span class="msgTimestamp">${time}</span>
-          <button class="msgActionBtn msgCopyBtn" title="Copy" onclick="window.ARIA_copyMessage(${JSON.stringify(
-            msg.content,
-          )})"><i class="bi bi-clipboard" aria-hidden="true"></i></button>
+          <button class="msgActionBtn msgCopyBtn" title="Copy"><i class="bi bi-clipboard" aria-hidden="true"></i></button>
           <button class="msgActionBtn msgStarBtn ${
             msg.starred ? "active" : ""
           }" title="${
@@ -1577,6 +1575,12 @@ function renderMessages() {
         </div>
       </div>
       <div class="msgBody">${bodyHTML}</div>`;
+    // Wired here, not as an inline onclick: the message text inside an HTML
+    // attribute broke out at its first quote and spilled onto the page.
+    // Copies the answer only, not the reasoning.
+    div.querySelector(".msgCopyBtn")?.addEventListener("click", () =>
+      copyMessage(String(msg.content || "").replace(/<think>[\s\S]*?<\/think>\s*/gi, "")),
+    );
     if (visualNode) div.querySelector(".msgBody").appendChild(visualNode);
     if (msg.sources?.length)
       div.querySelector(".msgBody").appendChild(createSourceList(msg.sources));
@@ -2713,6 +2717,12 @@ const HELP_TEXT = `**ARIA Commands**
 
 Open **🔧 Tools** in the sidebar for mode toggles and tool shortcuts.`;
 
+const STREAMING_PROVIDERS = new Set(["openrouter", "ollama"]);
+
+// Ambient mode (ambient.js) asks before dimming the screen: a long reply is
+// ARIA working, not the user being idle.
+window.ARIA_isGenerating = () => isGenerating;
+
 async function sendMessageContent(text, chat, attachments = []) {
   isGenerating = true;
   setSendState(true);
@@ -2780,6 +2790,9 @@ async function sendMessageContent(text, chat, attachments = []) {
     imageAttachments: attachments
       .filter((a) => a.type === "image" && a.base64)
       .map((a) => ({
+        // The server keeps only attachments typed "image"; without this
+        // every upload was dropped before any model saw it.
+        type: "image",
         base64: a.base64,
         mimeType: a.mimeType || "image/jpeg",
         name: a.name,
@@ -2787,8 +2800,10 @@ async function sendMessageContent(text, chat, attachments = []) {
   };
 
   try {
-    // ── STREAMING PATH (OpenRouter) ───────────────────────────
-    if ((currentSettings.provider || "openrouter") === "openrouter") {
+    // ── STREAMING PATH (OpenRouter, Ollama) ───────────────────
+    // Ollama streams too now: without it the page sat on one silent request
+    // for the whole of a long reasoning pass.
+    if (STREAMING_PROVIDERS.has(currentSettings.provider || "openrouter")) {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
