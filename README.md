@@ -116,6 +116,7 @@ At minimum you need one AI provider. See `.env.example` for the full list.
 | `OPENAI_KEY` | optional | DALL-E image generation |
 | `CLOUDFLARE_AI_API` + `CLOUDFLARE_ACCOUNT_ID` | optional | FLUX image gen |
 | `NEWSDATA_KEY` | optional | Live news headlines |
+| `TAVILY_API_KEY` | optional | Web research: search results come with page text, and pages that block ARIA are read through Tavily. Falls back to SerpAPI, DuckDuckGo, then Wikipedia |
 
 ## Access control
 

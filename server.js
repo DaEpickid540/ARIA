@@ -8,7 +8,7 @@ import * as skills from "./lib/skills.js";
 import * as cloud from "./lib/cloud-sync.js";
 import * as lifeContext from "./lib/life-context.js";
 import * as errorLog from "./lib/error-log.js";
-import { research, WEB_PAGES } from "./lib/research.js";
+import { research, searchWeb, WEB_PAGES } from "./lib/research.js";
 import { splitThinking, stripThinking } from "./lib/think.js";
 import { extractVisualBlock } from "./tools/visualize.js";
 import * as auth from "./lib/auth.js";
@@ -3001,42 +3001,9 @@ app.post("/api/search", async (req, res) => {
   const { query } = req.body;
   if (!query) return res.json({ error: "No query." });
   try {
-    const serpKey = process.env.SERPAPI_KEY;
-    if (serpKey) {
-      const r = await fetch(
-        `https://serpapi.com/search.json?q=${encodeURIComponent(
-          query,
-        )}&api_key=${serpKey}&num=5`,
-      );
-      const d = await r.json();
-      return res.json({
-        results: (d.organic_results || [])
-          .slice(0, 5)
-          .map((r) => ({ title: r.title, url: r.link, snippet: r.snippet })),
-      });
-    }
-    const r = await fetch(
-      `https://api.duckduckgo.com/?q=${encodeURIComponent(
-        query,
-      )}&format=json&no_html=1&skip_disambig=1`,
-    );
-    const d = await r.json();
-    const results = [];
-    if (d.AbstractText)
-      results.push({
-        title: d.Heading || query,
-        url: d.AbstractURL || "",
-        snippet: d.AbstractText,
-      });
-    (d.RelatedTopics || []).slice(0, 4).forEach((t) => {
-      if (t.Text)
-        results.push({
-          title: t.Text.split(" - ")[0],
-          url: t.FirstURL || "",
-          snippet: t.Text,
-        });
-    });
-    res.json({ results: results.slice(0, 5) });
+    // Same providers as research (Tavily, SerpAPI, DuckDuckGo, Wikipedia).
+    const { results, engine } = await searchWeb(query, { limit: 5 });
+    res.json({ engine, results: results.map(({ title, url, snippet }) => ({ title, url, snippet })) });
   } catch (e) {
     res.json({ error: e.message, results: [] });
   }
@@ -3512,6 +3479,7 @@ app.get("/api/config", async (_, res) => {
     hasCalendar: !!process.env.GOOGLE_CLIENT_ID,
     hasImageGen: hasCF || !!process.env.OPENAI_KEY,
     hasSerpApi: !!process.env.SERPAPI_KEY,
+    hasTavily: !!process.env.TAVILY_API_KEY,
 
     // Provider availability
     providers: {
