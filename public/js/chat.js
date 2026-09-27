@@ -6,6 +6,12 @@ import { runTool } from "./tools.js";
 /* ── STATE ── */
 let chats = [];
 let currentChatId = null;
+// Chat sync (see syncToServer): each chat as last agreed with the server,
+const _synced = new Map(); // chat id → chatSig
+const chatSig = ({ updatedAt, ...rest }) => JSON.stringify(rest);
+// and nothing is sent until the first pull, since a page with stale local
+// chats would otherwise stamp them all new and overwrite newer ones elsewhere.
+let _syncReady = null;
 let currentSettings = loadSettings();
 let isGenerating = false;
 let documentContext = "";
@@ -66,10 +72,11 @@ try {
 } catch {
   chats = [];
 }
+// The first pull starts before anything can sync (createNewChat does).
+_syncReady = loadFromServer({ first: true });
 if (!currentChatId) createNewChat();
 renderChatList();
 renderMessages();
-loadFromServer();
 
 /* ============================================================
    HALO EFFECTS
@@ -3474,7 +3481,31 @@ function renderMarkdown(text) {
 function saveChats() {
   localStorage.setItem("aria_chats", JSON.stringify(chats));
 }
+
+// Chats are merged on the server (and across servers, lib/chat-sync.js), not
+// overwritten: the newer copy of each chat wins. So this page has to say
+// which chats it changed (they get a fresh updatedAt) and which it deleted.
+// _synced / chatSig / _syncReady are declared at the top of this file: the
+// startup code there runs before this point.
 async function syncToServer() {
+  await _syncReady;
+  const now = Date.now();
+  const live = new Set();
+  for (const c of chats) {
+    live.add(c.id);
+    const sig = chatSig(c);
+    if (_synced.get(c.id) !== sig) {
+      c.updatedAt = now;
+      _synced.set(c.id, sig);
+    }
+  }
+  const deleted = [];
+  for (const id of [..._synced.keys()]) {
+    if (live.has(id)) continue;
+    deleted.push({ id, at: now });
+    _synced.delete(id);
+  }
+  saveChats();
   try {
     await fetch("/api/saveChats", {
       method: "POST",
@@ -3482,6 +3513,7 @@ async function syncToServer() {
       body: JSON.stringify({
         userId: window.ARIA_userId || "sarvin",
         chats,
+        deleted,
         sourceDeviceId: getDeviceId(),
       }),
     });
@@ -3662,23 +3694,55 @@ setInterval(loadVersionFromGitHub, 300_000); // refresh every 5 min
   });
 })();
 
-async function loadFromServer() {
+/**
+ * Pull the server's chats and merge them in: its copy of a chat replaces
+ * ours when it's newer, and chats it lists as deleted go. (This used to add
+ * only whole chats this page didn't have, and only when the server had more
+ * of them, so a new message from another device never showed up.)
+ * @param {{ first?: boolean }} opts  the pull at startup also records what
+ *        this page and the server already agree on.
+ */
+async function loadFromServer({ first = false } = {}) {
+  let data = null;
   try {
     const uid = window.ARIA_userId || "sarvin";
-    const res = await fetch(`/api/loadChats?userId=${uid}`);
-    const data = await res.json();
-    if (data.chats?.length > chats.length) {
-      const localIds = new Set(chats.map((c) => c.id));
-      chats = [
-        ...data.chats.filter((c) => !localIds.has(c.id)),
-        ...chats,
-      ].sort((a, b) => b.id.localeCompare(a.id));
-      currentChatId = chats[0].id;
-      saveChats();
-      renderChatList();
-      renderMessages();
-    }
+    data = await (await fetch(`/api/loadChats?userId=${encodeURIComponent(uid)}`)).json();
   } catch {}
+  if (!Array.isArray(data?.chats)) {
+    // Offline: count what we have as agreed, so only real edits get stamped.
+    if (first) for (const c of chats) _synced.set(c.id, chatSig(c));
+    return;
+  }
+
+  const byId = new Map(chats.map((c) => [c.id, c]));
+  let changed = false;
+  for (const id of data.deleted || []) {
+    if (byId.delete(id)) changed = true;
+    _synced.delete(id);
+  }
+  for (const sc of data.chats) {
+    const lc = byId.get(sc.id);
+    const lt = Number(lc?.updatedAt) || 0;
+    const st = Number(sc.updatedAt) || 0;
+    // Never swap out the chat a reply is streaming into.
+    const busy = isGenerating && sc.id === currentChatId;
+    if (!busy && (!lc || st > lt)) {
+      if (!lc || chatSig(lc) !== chatSig(sc)) changed = true;
+      byId.set(sc.id, sc);
+      _synced.set(sc.id, chatSig(sc));
+    } else if (st === lt && lc) {
+      _synced.set(sc.id, chatSig(lc)); // same version: in step
+    }
+    // Ours is newer: left out of _synced, so the next sync sends it.
+  }
+  if (!changed) return;
+
+  chats = [...byId.values()].sort((a, b) => String(b.id).localeCompare(String(a.id)));
+  if (!chats.some((c) => c.id === currentChatId)) currentChatId = chats[0]?.id || null;
+  saveChats();
+  renderChatList();
+  if (!isGenerating) renderMessages();
+  if (!currentChatId) createNewChat();
 }
 
 /* ════════════════════════════════════════════════════════════════

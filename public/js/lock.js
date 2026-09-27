@@ -253,8 +253,11 @@ window.addEventListener("DOMContentLoaded", () => {
     if (lockError) lockError.textContent = "";
     try {
       const { signInWithGoogle } = await import("./googleAuth.js");
-      const { email } = await signInWithGoogle();
-      await finishUnlock((email || "owner").split("@")[0]);
+      await signInWithGoogle();
+      // Every owner account (sarvinsukhe@, sarvin.sukhe@…) is the same person:
+      // one chat list, the one the app has always used. Filing chats under
+      // each email's name split them into separate histories.
+      await finishUnlock("sarvin");
     } catch (e) {
       if (!lockError) return;
       // Not uppercased: messages can carry a user ID, and those are

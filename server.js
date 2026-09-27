@@ -6,6 +6,7 @@ import * as rag from "./lib/rag.js";
 import * as taskEngine from "./lib/tasks.js";
 import * as skills from "./lib/skills.js";
 import * as cloud from "./lib/cloud-sync.js";
+import * as chatSync from "./lib/chat-sync.js";
 import * as lifeContext from "./lib/life-context.js";
 import * as errorLog from "./lib/error-log.js";
 import { research, searchWeb, WEB_PAGES } from "./lib/research.js";
@@ -41,7 +42,10 @@ app.use(auth.apiGuard);
 auth.mountAuthRoutes(app);
 auth.logAuthPosture();
 ollamaRelay.mountOllamaRelayRoutes(app);
-mountKeyRoutes(app);
+mountKeyRoutes(app, {
+  // Pasting the service account into Settings ▸ Keys starts chat sync now.
+  onChange: (name) => name === "FIREBASE_SERVICE_ACCOUNT" && startChatSyncNow(),
+});
 mountTtsRoutes(app);
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -182,7 +186,8 @@ process.on("SIGINT", () => {
 function flushPendingWrites() {
   for (const [, t] of _writeTimers) clearTimeout(t);
   try {
-    writeJSON(CHATS_FILE, userChats);
+    writeJSON(CHATS_FILE, chatsFileShape());
+    writeJSON(CHATS_DELETED_FILE, deletedFileShape());
   } catch {}
   try {
     writeJSON(MEM_FILE, ariaMemory);
@@ -211,7 +216,75 @@ const _lifeCtxTimer = setInterval(() => {
 }, 5 * 60 * 1000);
 _lifeCtxTimer.unref?.();
 
-let userChats = readJSON(CHATS_FILE, {});
+// Chats per user: { chats: [...], deleted: { chatId: deletedAt } }. Kept in
+// step with every other ARIA server through lib/chat-sync.js; the deletion
+// markers stop a device that still has a deleted chat from bringing it back.
+const CHATS_DELETED_FILE = path.join(DATA_DIR, "chats-deleted.json");
+const chatStores = {};
+{
+  const chats = readJSON(CHATS_FILE, {});
+  const deleted = readJSON(CHATS_DELETED_FILE, {});
+  for (const uid of new Set([...Object.keys(chats), ...Object.keys(deleted)]))
+    chatStores[uid] = { chats: Array.isArray(chats[uid]) ? chats[uid] : [], deleted: deleted[uid] || {} };
+}
+const chatsFileShape = () => Object.fromEntries(Object.entries(chatStores).map(([u, s]) => [u, s.chats]));
+const deletedFileShape = () => Object.fromEntries(Object.entries(chatStores).map(([u, s]) => [u, s.deleted]));
+function persistChats() {
+  writeJSONDebounced(CHATS_FILE, chatsFileShape());
+  writeJSONDebounced(CHATS_DELETED_FILE, deletedFileShape());
+}
+const chatStore = (userId) => (chatStores[userId] ||= { chats: [], deleted: {} });
+
+// Every owner account shares one chat list, filed under the name the app has
+// always used (public/js/lock.js signs Google accounts into the same one).
+const OWNER_CHAT_SPACE = "sarvin";
+
+/**
+ * One text exchange from aria-voice-hook.js, appended to that thread's chat
+ * (created on the first text). The hook's chatId is "sms-<thread>".
+ */
+function recordTextChat(hookChatId, userText, replyText) {
+  if (!hookChatId || !userText) return;
+  const store = chatStore(OWNER_CHAT_SPACE);
+  const now = Date.now();
+  const existing = store.chats.find((c) => c.smsThread === hookChatId);
+  const digits = String(hookChatId).replace(/\D/g, "");
+  const chat = existing
+    ? { ...existing, messages: [...(existing.messages || [])] }
+    : {
+        // "chat_<time>" like the app's own ids, so it sorts by recency.
+        id: `chat_${now}_sms`,
+        smsThread: hookChatId,
+        title: `Texts · …${digits.slice(-4) || "SMS"}`,
+        messages: [],
+      };
+  chat.messages.push(
+    { role: "user", content: userText, timestamp: now, channel: "sms" },
+    { role: "aria", content: replyText || "(no reply)", timestamp: now + 1, channel: "sms" },
+  );
+  chat.updatedAt = now + 1;
+  const changed = chatSync.mergeInto(store, [chat], []);
+  if (!changed.length) return;
+  persistChats();
+  chatSync.push(OWNER_CHAT_SPACE, changed);
+  broadcastChatSync(OWNER_CHAT_SPACE, "server");
+}
+
+// Not awaited: an unreachable Firestore must not hold up the server's boot.
+function startChatSyncNow() {
+  chatSync.stopChatSync();
+  chatSync
+    .startChatSync({
+      stores: () => chatStores,
+      onRemote: (userId) => {
+        persistChats();
+        broadcastChatSync(userId, "cloud");
+      },
+    })
+    .catch((e) => console.warn("[chat-sync] didn't start:", e.message));
+}
+startChatSyncNow();
+
 let ariaMemory = readJSON(MEM_FILE, { facts: [], sessions: [] });
 
 // What the client's model switcher last picked. Requests that don't name a
@@ -2907,6 +2980,15 @@ Active GitHub repo: ${workspaceRepo}
       confirm: result.confirm,
       toolCalls: publicToolCalls(result.steps),
     });
+    // A text conversation lands in the chat list like any other, and so on
+    // every server (lib/chat-sync.js).
+    if (channel === "sms") {
+      try {
+        recordTextChat(req.body.chatId, message, stripThinking(result.reply || ""));
+      } catch (e) {
+        console.warn("[chat] couldn't record text:", e.message);
+      }
+    }
     // Async feedback detection (don't block response)
     const fb2 = detectFeedback(message);
     const lastAriaMsg2 =
@@ -3324,18 +3406,25 @@ app.post("/api/memory", (req, res) => {
 /* ============================================================
    CHATS
    ============================================================ */
+// A page sends its chats (each stamped with updatedAt when it last changed)
+// and the ids it deleted. They're merged, not written over: the newer copy
+// of each chat wins, so two devices saving at once no longer erase each other.
 app.post("/api/saveChats", (req, res) => {
-  const { userId, chats, sourceDeviceId } = req.body;
-  if (userId) {
-    userChats[userId] = chats;
-    writeJSONDebounced(CHATS_FILE, userChats);
-    broadcastChatSync(userId, sourceDeviceId);
+  const { userId, chats, deleted, sourceDeviceId } = req.body;
+  if (userId && Array.isArray(chats)) {
+    const changed = chatSync.mergeInto(chatStore(userId), chats, Array.isArray(deleted) ? deleted : []);
+    if (changed.length) {
+      persistChats();
+      chatSync.push(userId, changed);
+      broadcastChatSync(userId, sourceDeviceId);
+    }
   }
   res.json({ success: true });
 });
-app.get("/api/loadChats", (req, res) =>
-  res.json({ chats: userChats[req.query.userId] || [] }),
-);
+app.get("/api/loadChats", (req, res) => {
+  const s = chatStores[req.query.userId];
+  res.json({ chats: s?.chats || [], deleted: Object.keys(s?.deleted || {}) });
+});
 
 // ── Cross-device chat sync via Server-Sent Events ──
 // Each connected device opens a long-lived SSE connection. When any device
@@ -4330,7 +4419,7 @@ app.get("/api/health", (_, res) => {
       facts: ariaMemory.facts?.length || 0,
       sessions: ariaMemory.sessions?.length || 0,
     },
-    chats: Object.keys(userChats).length,
+    chats: Object.keys(chatStores).length,
     pendingScreenshots: pendingScreenshotResolvers?.size || 0,
     node: process.version,
   });

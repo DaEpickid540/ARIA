@@ -4,7 +4,7 @@
 // Bump CACHE_VERSION when you ship breaking front-end changes — old caches
 // get auto-purged on activate.
 
-const CACHE_VERSION = "v7-2026-09-site";
+const CACHE_VERSION = "v8-2026-09-chatsync";
 const CACHE_NAME = `aria-${CACHE_VERSION}`;
 
 // Core shell to precache. Stylesheet paths must match what index.html links.

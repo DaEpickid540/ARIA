@@ -259,6 +259,30 @@ ARIA stores state in `data/`:
 
 All writes are atomic (temp file + rename) and debounced to avoid hammering disk.
 
+### One chat history everywhere
+
+With `FIREBASE_SERVICE_ACCOUNT` set on each server (Render's environment,
+and the desktop app's **Settings ▸ Keys ▸ Firebase service account**),
+chats are the same on your PC, on Render, and on every page and device
+using either.
+
+- **One Firestore document per chat** (`aria_chats`, `lib/chat-sync.js`).
+  Each server pushes the chats it changes and listens for the other's, and
+  open pages refresh live.
+- **Merged, not overwritten.** Pages stamp each chat they change with
+  `updatedAt`, and the newer copy wins. A deleted chat leaves a marker
+  (`data/chats-deleted.json`), so a device that still has it can't bring it
+  back.
+- **Texts become chats.** Conversations through the Google Voice hook appear
+  as chats named "Texts · …1234".
+- **One list for all logins.** Every owner account uses the same list.
+- **First run.** On first start with an empty `aria_chats` collection, the
+  old single-document backup (`aria_state/chats`) is imported.
+- **Other files.** Whole-file backup of memory, behaviour, tasks and model
+  choice now runs only on Render; it would clash between two servers.
+- **Testing.** `FIRESTORE_EMULATOR_HOST=127.0.0.1:8085` points everything
+  at a local Firestore emulator.
+
 ## Architecture notes
 
 **Agentic pipeline.** When ARIA needs a tool, the model emits `ACTION: toolname | input`. The pipeline parses this, runs the tool, injects the result back as a user message, and re-prompts up to 8 iterations.
