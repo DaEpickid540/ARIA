@@ -56,8 +56,24 @@ window (Electron, `desktop/main.js`). It's the same `server.js` as Render's.
   the app records and transcribes instead: with Groq or OpenAI Whisper when
   one of those keys is set, otherwise with a local Whisper model that
   downloads once (about 80 MB).
+- **ARIA's own voice:** Settings ▸ Voice ▸ *ARIA voice (runs on your PC)*.
+  It's Kokoro-82M on the CPU (`lib/tts.js`, about 90 MB downloaded on first
+  use), with no cloud and no key. Speech starts after the first sentence
+  and the rest is generated while it plays. The hosted website can use it
+  too when it's open on the PC running the desktop app: it calls
+  `http://127.0.0.1:3717/api/tts`, which only accepts requests from your
+  site's origin (`ARIA_WEB_ORIGINS`, default the Render URL). Off on
+  Render itself (`ARIA_TTS=on` to force it).
+- **Other websites can't use your local ARIA.** A request carrying another
+  site's `Origin` is refused, so a page you visit can't post a Claw command
+  to the local server.
 - `ARIA_USER_DATA=<dir>` runs a separate copy (own keys, data, lock), e.g. a
   dev build next to the installed app.
+- **Texting ARIA against the desktop app:**
+
+  ```bash
+  node --env-file="%APPDATA%\ARIA\.env" aria-voice-hook.js http://127.0.0.1:3717
+  ```
 - The server listens on `127.0.0.1:3717` only. The local API has no login, so
   it stays off your network.
 - Logs: `%APPDATA%\ARIA\logs`. The installer isn't code-signed, so Windows

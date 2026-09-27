@@ -4,6 +4,7 @@ import { loadSettings, saveSettings } from "./personality.js";
 import {
   setTTSEnabled,
   setVoiceMode,
+  voiceModeFor,
   setElevenLabsConfig,
   populateVoiceSelect,
   fetchElevenLabsVoices,
@@ -658,14 +659,8 @@ function wireAllControls() {
   document.getElementById("voiceSelect")?.addEventListener("change", (e) => {
     const val = e.target.value;
     currentSettings.voice = val;
-    if (val.startsWith("el:")) {
-      setVoiceMode("elevenlabs");
-      setElevenLabsConfig(currentSettings.elApiKey, val.slice(3));
-    } else if (val.startsWith("custom:")) {
-      setVoiceMode("custom");
-    } else {
-      setVoiceMode("browser");
-    }
+    setVoiceMode(voiceModeFor(val));
+    if (val.startsWith("el:")) setElevenLabsConfig(currentSettings.elApiKey, val.slice(3));
   });
 
   // ── Voice sliders ──
@@ -929,7 +924,7 @@ function filterVoicesByLanguage(lang) {
   const sel = document.getElementById("voiceSelect");
   if (!sel) return;
   Array.from(sel.querySelectorAll("optgroup")).forEach((grp) => {
-    if (grp.id === "elVoiceGroup" || grp.label.includes("Custom")) return;
+    if (grp.id === "elVoiceGroup" || grp.id === "localVoiceGroup" || grp.label.includes("Custom")) return;
     grp.style.display =
       !lang || lang === "all" || grp.label.includes(lang) ? "" : "none";
   });
@@ -946,14 +941,8 @@ export function initSettings() {
 
   // Set voice mode from saved value
   const savedVoice = currentSettings.voice || "";
-  if (savedVoice.startsWith("el:")) {
-    setVoiceMode("elevenlabs");
-    setElevenLabsConfig(currentSettings.elApiKey, savedVoice.slice(3));
-  } else if (savedVoice.startsWith("custom:")) {
-    setVoiceMode("custom");
-  } else {
-    setVoiceMode("browser");
-  }
+  setVoiceMode(voiceModeFor(savedVoice));
+  if (savedVoice.startsWith("el:")) setElevenLabsConfig(currentSettings.elApiKey, savedVoice.slice(3));
 
   // Apply VTT language
   if (currentSettings.vttLang)

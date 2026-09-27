@@ -14,6 +14,7 @@ import { extractVisualBlock } from "./tools/visualize.js";
 import * as auth from "./lib/auth.js";
 import * as ollamaRelay from "./lib/ollama-relay.js";
 import { mountKeyRoutes } from "./lib/keys.js";
+import { mountTtsRoutes } from "./lib/tts.js";
 import { DATA_DIR } from "./lib/paths.js";
 import express from "express";
 import path from "path";
@@ -35,11 +36,13 @@ const CHATS_MAX_SIZE = 5 * 1024 * 1024; // soft cap before truncating oldest cha
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 // Auth before any /api route — see lib/auth.js for why this exists.
+app.use(auth.crossSiteGuard);
 app.use(auth.apiGuard);
 auth.mountAuthRoutes(app);
 auth.logAuthPosture();
 ollamaRelay.mountOllamaRelayRoutes(app);
 mountKeyRoutes(app);
+mountTtsRoutes(app);
 app.use(express.static(path.join(__dirname, "public")));
 
 // ── Request logger ────────────────────────────────────────────

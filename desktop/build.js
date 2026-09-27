@@ -42,9 +42,18 @@ await build({
       "public/**",
       "!public/uploads/**",
       "!**/*.map",
+      // The local voice's runtime (lib/tts.js) ships binaries for every OS;
+      // this is an x64 Windows build.
+      "!node_modules/onnxruntime-node/bin/napi-v3/{darwin,linux}/**",
+      "!node_modules/onnxruntime-node/bin/napi-v3/win32/arm64/**",
     ],
-    // Native binaries can't be loaded from inside app.asar.
-    asarUnpack: ["node_modules/sharp/**", "node_modules/@img/**"],
+    // Native binaries (and the DLLs next to them) can't be loaded from
+    // inside app.asar.
+    asarUnpack: [
+      "node_modules/sharp/**",
+      "node_modules/@img/**",
+      "node_modules/onnxruntime-node/**",
+    ],
     win: {
       icon: "public/icons/icon-512.png",
       artifactName: `ARIA-Setup-Mark-${markName}.\${ext}`,

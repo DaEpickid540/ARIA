@@ -213,7 +213,13 @@ async function ensureSignedIn(page) {
     await shutdown("signed out");
   }
   console.log("[VOICE] Sign in to Google Voice in the browser window — waiting…");
-  await page.waitForURL((u) => isSignedIn(u.toString()), { timeout: 0 });
+  // Any tab counts: Google's sign-in can finish in a tab of its own, which
+  // used to leave this waiting forever on the first one. Once the profile
+  // has a session, reloading the inbox in this tab picks it up.
+  while (!isSignedIn(page.url())) {
+    await new Promise((r) => setTimeout(r, 2000));
+    if (context.pages().some((p) => p !== page && isSignedIn(p.url()))) await openInbox(page);
+  }
   console.log("[VOICE] Signed in ✓");
   if (!new URL(page.url()).pathname.includes("/messages")) await openInbox(page);
 }

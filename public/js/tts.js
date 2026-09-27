@@ -1,10 +1,11 @@
-// tts.js — Full rebuild: browser voices + ElevenLabs AI voices
+// tts.js — Full rebuild: browser voices + ElevenLabs AI voices + ARIA's own
+// local voice (Kokoro, generated on your PC by lib/tts.js)
 
 /* ============================================================
    STATE
    ============================================================ */
 export let ttsEnabled = false;
-let currentVoiceMode = "browser"; // "browser" | "elevenlabs" | "custom"
+let currentVoiceMode = "browser"; // "browser" | "elevenlabs" | "custom" | "local"
 let elevenLabsApiKey = "";
 let elevenLabsVoiceId = ""; // active ElevenLabs voice ID
 let currentAudioPlayer = null; // for ElevenLabs / custom audio
@@ -20,7 +21,15 @@ export function setTTSEnabled(enabled) {
 }
 
 export function setVoiceMode(mode) {
-  currentVoiceMode = mode; // "browser" | "elevenlabs" | "custom"
+  currentVoiceMode = mode; // "browser" | "elevenlabs" | "custom" | "local"
+}
+
+/** Which engine a #voiceSelect value belongs to. */
+export function voiceModeFor(value = "") {
+  if (value.startsWith("el:")) return "elevenlabs";
+  if (value.startsWith("custom:")) return "custom";
+  if (value.startsWith("local:")) return "local";
+  return "browser";
 }
 
 export function setElevenLabsConfig(apiKey, voiceId) {
@@ -32,6 +41,8 @@ function stopSpeaking() {
   if (window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
+  _localGen++; // abandons any local-voice reply still being read out
+  _endLocalClip?.();
   if (currentAudioPlayer) {
     currentAudioPlayer.pause();
     currentAudioPlayer = null;
@@ -75,9 +86,126 @@ export function speak(rawText) {
     speakElevenLabs(text);
   } else if (currentVoiceMode === "custom") {
     speakCustomVoice(text);
+  } else if (currentVoiceMode === "local") {
+    speakLocal(text);
   } else {
     speakBrowser(text);
   }
+}
+
+/* ============================================================
+   ENGINE 4: ARIA'S LOCAL VOICE (Kokoro on your PC, lib/tts.js)
+   Served by the ARIA server on this PC: the same origin when this page
+   comes from it (desktop app, npm start), or the desktop app at
+   127.0.0.1:3717 when this is the hosted website open on that PC.
+   ============================================================ */
+const DESKTOP_ORIGIN = "http://127.0.0.1:3717";
+let _localBase = null; // null = not probed, false = none, else base URL
+let _localVoices = [];
+let _localGen = 0;
+let _endLocalClip = null;
+
+/** Finds the local voice, once. */
+async function findLocalVoice() {
+  if (_localBase !== null) return _localBase;
+  const candidates = [""];
+  if (!["127.0.0.1", "localhost"].includes(location.hostname)) candidates.push(DESKTOP_ORIGIN);
+  for (const base of candidates) {
+    try {
+      const r = await fetch(`${base}/api/tts/status`, { signal: AbortSignal.timeout(2500) });
+      const d = r.ok ? await r.json() : null;
+      if (d?.available) {
+        _localVoices = d.voices || [];
+        return (_localBase = base);
+      }
+    } catch {
+      /* not there */
+    }
+  }
+  return (_localBase = false);
+}
+
+/**
+ * Sentences, merged up to ~220 chars so short ones don't sound choppy. The
+ * first chunk is always one sentence on its own: it decides how long you
+ * wait before ARIA starts talking (the CPU makes speech at about real time).
+ */
+function splitForSpeech(text) {
+  const out = [];
+  let cur = "";
+  for (const s of text.split(/(?<=[.!?…])\s+/)) {
+    if (cur && (out.length === 0 || (cur + " " + s).length > 220)) {
+      out.push(cur);
+      cur = s;
+    } else cur = cur ? `${cur} ${s}` : s;
+  }
+  if (cur) out.push(cur);
+  // A single run-on sentence still has to fit one request.
+  return out.flatMap((p) => (p.length <= 500 ? [p] : p.match(/.{1,480}(\s|$)/g) || [p]));
+}
+
+function playClip(blob, gen) {
+  return new Promise((resolve) => {
+    if (gen !== _localGen) return resolve();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    currentAudioPlayer = audio;
+    const volEl = document.getElementById("voiceVolume");
+    audio.volume = volEl ? parseFloat(volEl.value) || 1 : 1;
+    const done = () => {
+      _endLocalClip = null;
+      URL.revokeObjectURL(url);
+      if (currentAudioPlayer === audio) currentAudioPlayer = null;
+      resolve();
+    };
+    _endLocalClip = done; // stopSpeaking() ends the clip early
+    audio.onended = done;
+    audio.onerror = done;
+    audio.play().catch(done);
+  });
+}
+
+async function speakLocal(text) {
+  const gen = ++_localGen;
+  const base = await findLocalVoice();
+  if (base === false) {
+    _localBase = null; // try again next time (the desktop app may start)
+    showTTSError("ARIA's local voice isn't reachable. Is the desktop app running?");
+    return speakBrowser(text);
+  }
+  const sel = document.getElementById("voiceSelect");
+  const voice = sel?.value?.startsWith("local:") ? sel.value.slice(6) : "af_heart";
+  const rateEl = document.getElementById("voiceRate");
+  const speed = rateEl ? parseFloat(rateEl.value) || 1 : 1;
+  const fetchClip = (t) =>
+    fetch(`${base}/api/tts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: t, voice, speed }),
+    }).then(async (r) => {
+      if (r.ok) return r.blob();
+      const d = await r.json().catch(() => ({}));
+      throw new Error(d.error || `HTTP ${r.status}`);
+    });
+
+  const parts = splitForSpeech(text);
+  onSpeakStart();
+  // Generate sentence i+1 while sentence i plays.
+  let next = fetchClip(parts[0]);
+  for (let i = 0; i < parts.length; i++) {
+    let blob;
+    try {
+      blob = await next;
+    } catch (e) {
+      if (gen === _localGen) showTTSError(`Local voice: ${e.message}`);
+      break;
+    }
+    if (gen !== _localGen) return; // stopped, or a newer reply took over
+    if (i + 1 < parts.length) next = fetchClip(parts[i + 1]);
+    await playClip(blob, gen);
+    if (gen !== _localGen) return;
+  }
+  if (gen === _localGen) onSpeakEnd();
 }
 
 /* ============================================================
@@ -321,6 +449,20 @@ export function populateVoiceSelect() {
 
   sel.innerHTML = "";
 
+  // ── Group 0: ARIA's own voice, when this PC's server has it ──
+  if (_localVoices.length) {
+    const group = document.createElement("optgroup");
+    group.label = "🖥 ARIA voice (runs on your PC)";
+    group.id = "localVoiceGroup";
+    for (const v of _localVoices) {
+      const opt = document.createElement("option");
+      opt.value = "local:" + v.id;
+      opt.textContent = v.label;
+      group.appendChild(opt);
+    }
+    sel.appendChild(group);
+  }
+
   // ── Group 1: Browser voices by language ──
   const voices = window.speechSynthesis?.getVoices() || [];
   if (voices.length) {
@@ -474,6 +616,11 @@ if (window.speechSynthesis) {
   window.speechSynthesis.onvoiceschanged = populateVoiceSelect;
   if (window.speechSynthesis.getVoices().length > 0) populateVoiceSelect();
 }
+
+// The local voices join the list once this PC's server answers.
+findLocalVoice().then(() => {
+  if (_localVoices.length) populateVoiceSelect();
+});
 
 /* Try to load CUSTOM_VOICE key from server (Render env var) */
 export async function loadEnvVoiceKey() {
