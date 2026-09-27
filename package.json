@@ -8,7 +8,9 @@
   "scripts": {
     "start": "node server.js",
     "desktop": "electron .",
-    "dist": "node desktop/build.js"
+    "dist": "node desktop/build.js",
+    "build:web": "node scripts/build-web.js",
+    "deploy:web": "node scripts/build-web.js && firebase deploy --only hosting:aria"
   },
   "dependencies": {
     "cheerio": "^1.0.0",

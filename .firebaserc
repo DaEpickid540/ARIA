@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "default": "personal-suite-ca587"
+  },
+  "targets": {
+    "personal-suite-ca587": {
+      "hosting": {
+        "aria": ["personal-suite-aria"]
+      }
+    }
+  }
+}

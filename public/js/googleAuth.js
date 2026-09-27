@@ -14,6 +14,9 @@
 import { FIREBASE_CONFIG } from "./firebase-config.js";
 
 const SDK = "https://www.gstatic.com/firebasejs/10.12.5";
+// On the Firebase site (apiBase.js) the server is another origin: no cookie,
+// the ID token rides on every request instead.
+const SITE = !!window.ARIA_SITE;
 
 let _fb = null; // { auth, sdk }
 
@@ -32,8 +35,13 @@ async function firebase() {
   }
   await auth.authStateReady();
   _fb = { auth, sdk: authSdk };
+  // For apiBase.js. getIdToken() refreshes the token itself when it's due.
+  window.ARIA_getIdToken = () => auth.currentUser?.getIdToken() ?? null;
   return _fb;
 }
+
+/** Loads Firebase and restores a remembered sign-in (site mode needs it early). */
+export const initGoogle = () => firebase();
 
 /** The Google account Firebase already remembers here, or null. */
 export async function currentGoogleUser() {
@@ -43,11 +51,14 @@ export async function currentGoogleUser() {
 
 async function exchange(user) {
   const idToken = await user.getIdToken();
-  const r = await fetch("/api/auth/google", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ idToken }),
-  });
+  const r = SITE
+    ? // apiBase.js adds the token; this only asks whether it's accepted.
+      await fetch("/api/auth/me")
+    : await fetch("/api/auth/google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      });
   const d = await r.json().catch(() => ({}));
   if (r.ok && d.ok) return d;
   const err = new Error(describeServerError(r.status, d));
@@ -105,8 +116,12 @@ export async function signOutGoogle() {
 }
 
 function describeServerError(status, d) {
+  if (d.error === "owner_unset")
+    return `This PC doesn't know its owner yet. In the desktop app, open Settings ▸ Keys ▸ Owner and paste: ${d.uid}`;
   if (d.error === "not_owner")
     return `${d.email || "That account"} isn't ARIA's owner.`;
+  if (SITE && status === 404)
+    return "That ARIA server is older than this website. Update it (or pick the other brain).";
   if (d.error === "not_google") return "Sign in with a Google account.";
   if (d.error === "invalid_token") return "Google sign-in expired — try again.";
   if (d.error === "google_disabled") return "Google sign-in isn't set up on this server.";

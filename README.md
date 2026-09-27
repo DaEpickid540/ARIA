@@ -27,6 +27,32 @@ npm start
 
 Then open `http://localhost:3000`.
 
+## Website (Firebase Hosting)
+
+<https://personal-suite-aria.web.app> is the same UI as a static site, with
+no server of its own:
+
+```bash
+npm run deploy:web   # build dist-web/ and deploy to the personal-suite-aria site
+```
+
+- It picks a **brain**: your PC's desktop app (`127.0.0.1:3717`) when it
+  answers, otherwise Render. You can pin one from the lock screen.
+  `public/js/apiBase.js` sends every `/api` call there.
+- **Sign-in is Google only.** Every request carries your Firebase ID token
+  (a header, or `?access_token=` for live updates), since cookies don't
+  cross sites.
+- **Render** checks the token as usual (`ARIA_OWNER_UID`).
+- **Your PC** accepts the site only with a token for `ARIA_OWNER_UID`. Set
+  it once in the desktop app under **Settings ▸ Keys ▸ Owner**; the website
+  shows your ID the first time you sign in. Chrome also asks once whether
+  the site may reach devices on your local network.
+- **Allowed origins.** Both servers allow the site's origin through
+  `ARIA_WEB_ORIGINS` (it's in the default list).
+- **Don't let personal-suite overwrite it.** The `personal-suite` folder
+  still maps its `aria` target, a redirect to Render, to the same site.
+  Deploy that folder with `--only hosting:grind,hosting:hardware`.
+
 ## Desktop app (Windows)
 
 ```bash

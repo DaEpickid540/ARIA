@@ -28,3 +28,7 @@ npm-debug.log*
 
 # Desktop installer output
 dist/
+
+# Static site build for Firebase Hosting
+dist-web/
+.firebase/

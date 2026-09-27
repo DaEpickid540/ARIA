@@ -8,6 +8,11 @@
       content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content"
     />
 
+    <!-- Where the API lives. Must run before anything calls /api: on the
+         Firebase site it routes every call to your PC or to Render. -->
+    <script src="/js/site-config.js"></script>
+    <script src="/js/apiBase.js"></script>
+
     <!-- PWA manifest -->
     <link rel="manifest" href="/manifest.json" />
 
@@ -150,6 +155,12 @@
         <a id="googleSwitchAccount" class="lockSwitchAccount" href="#" hidden
           >Use a different Google account</a
         >
+        <!-- Firebase site only (apiBase.js): which ARIA server to use -->
+        <label id="brainPick" class="lockBrain" hidden>
+          Brain
+          <select id="brainSelect" aria-label="Which ARIA server to use"></select>
+          <span id="brainState"></span>
+        </label>
         <div id="lockKeyForm">
           <input
             id="userIdInput"

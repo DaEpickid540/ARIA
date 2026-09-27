@@ -244,19 +244,46 @@ window.addEventListener("DOMContentLoaded", () => {
     showGoogleAccount();
   });
 
-  // The server says which doors exist. Google only → hide the key form; key
-  // only (or nothing configured) → the lock screen stays as it always was.
-  fetch("/api/auth/status")
-    .then((r) => r.json())
-    .then((s) => {
-      _googleOn = !!s.methods?.google;
-      if (!_googleOn) return;
-      if (googleBtn) googleBtn.hidden = false;
-      if (keyForm && !s.methods.key) keyForm.hidden = true;
-      if (!s.methods.key) googleBtn?.focus();
-      showGoogleAccount();
-    })
-    .catch(() => {});
+  if (window.ARIA_SITE) {
+    // The Firebase site: Google is the only door (no cookie can cross to the
+    // server), and the brain picker says which server this page talks to.
+    _googleOn = true;
+    if (googleBtn) googleBtn.hidden = false;
+    if (keyForm) keyForm.hidden = true;
+    googleBtn?.focus();
+    import("./googleAuth.js").then((m) => m.initGoogle()).then(showGoogleAccount).catch(() => {});
+    wireBrainPicker();
+  } else {
+    // The server says which doors exist. Google only → hide the key form; key
+    // only (or nothing configured) → the lock screen stays as it always was.
+    fetch("/api/auth/status")
+      .then((r) => r.json())
+      .then((s) => {
+        _googleOn = !!s.methods?.google;
+        if (!_googleOn) return;
+        if (googleBtn) googleBtn.hidden = false;
+        if (keyForm && !s.methods.key) keyForm.hidden = true;
+        if (!s.methods.key) googleBtn?.focus();
+        showGoogleAccount();
+      })
+      .catch(() => {});
+  }
+
+  async function wireBrainPicker() {
+    const brain = window.ARIA_brain;
+    const wrap = document.getElementById("brainPick");
+    const sel = document.getElementById("brainSelect");
+    const state = document.getElementById("brainState");
+    if (!brain || !wrap || !sel) return;
+    sel.innerHTML =
+      `<option value="">Automatic</option>` +
+      brain.list.map((b) => `<option value="${b.url}">${b.label}</option>`).join("");
+    const cur = await brain.ready;
+    sel.value = brain.pinned ? cur.url : "";
+    if (state) state.textContent = brain.pinned ? "" : `→ ${cur.label}`;
+    wrap.hidden = false;
+    sel.addEventListener("change", () => brain.choose(sel.value || null));
+  }
 
   // The lock screen shows before the chat modules (which normally stamp it).
   import("./version.js").then((m) => m.applyVersion()).catch(() => {});
