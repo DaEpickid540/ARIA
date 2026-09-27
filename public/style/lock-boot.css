@@ -102,6 +102,33 @@
 .lockSwitchAccount:hover {
   color: var(--text);
 }
+/* The user ID to paste into the desktop app (lock.js showOwnerId) */
+.lockOwnerId {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  margin-top: 8px;
+}
+.lockOwnerId code {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-inset);
+  color: var(--text);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+  user-select: all;
+  text-align: left;
+}
+#lockBox .lockOwnerId button {
+  margin-top: 0;
+  width: auto;
+  padding: 6px 12px;
+}
+
 /* Firebase site: which ARIA server this page uses */
 .lockBrain {
   display: flex;
@@ -124,7 +151,9 @@
 #lockError {
   color: var(--danger-text);
   margin-top: 12px;
-  height: 18px;
+  /* Grows with the message: a fixed 18px let long ones run over the footer. */
+  min-height: 18px;
+  line-height: 1.45;
   font-size: 0.75rem;
   font-family: var(--font-sans);
   letter-spacing: 0;

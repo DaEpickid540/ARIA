@@ -222,6 +222,31 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // The ID to paste into the desktop app, in a box of its own with a copy
+  // button: reading it off the error text meant retyping 28 random chars.
+  function showOwnerId(uid) {
+    lockError.textContent = "This PC doesn't know its owner yet. Copy your ID into the desktop app: Settings ▸ Keys ▸ Owner.";
+    const row = document.createElement("div");
+    row.className = "lockOwnerId";
+    const code = document.createElement("code");
+    code.textContent = uid;
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.className = "secondaryBtn";
+    copy.textContent = "Copy";
+    copy.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(uid);
+        copy.textContent = "Copied";
+      } catch {
+        // No clipboard permission: select it so Ctrl+C works.
+        getSelection().selectAllChildren(code);
+      }
+    });
+    row.append(code, copy);
+    lockError.append(row);
+  }
+
   googleBtn?.addEventListener("click", async () => {
     googleBtn.disabled = true;
     if (lockError) lockError.textContent = "";
@@ -230,7 +255,11 @@ window.addEventListener("DOMContentLoaded", () => {
       const { email } = await signInWithGoogle();
       await finishUnlock((email || "owner").split("@")[0]);
     } catch (e) {
-      if (lockError) lockError.textContent = (e.message || "SIGN-IN FAILED").toUpperCase();
+      if (!lockError) return;
+      // Not uppercased: messages can carry a user ID, and those are
+      // case-sensitive (shouting it produced an ID that doesn't exist).
+      lockError.textContent = e.message || "Sign-in failed.";
+      if (e.code === "owner_unset" && e.detail?.uid) showOwnerId(e.detail.uid);
     } finally {
       googleBtn.disabled = false;
       showGoogleAccount();
