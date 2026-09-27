@@ -12,6 +12,7 @@ import { splitThinking, stripThinking } from "./lib/think.js";
 import { extractVisualBlock } from "./tools/visualize.js";
 import * as auth from "./lib/auth.js";
 import * as ollamaRelay from "./lib/ollama-relay.js";
+import { DATA_DIR } from "./lib/paths.js";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -75,11 +76,14 @@ try {
 } catch {}
 
 /* ── dirs + persistence ── */
-const DATA_DIR = path.join(__dirname, "data");
 const CHATS_FILE = path.join(DATA_DIR, "chats.json");
 const MEM_FILE = path.join(DATA_DIR, "memory.json");
 [DATA_DIR, path.join(__dirname, "public", "uploads")].forEach((d) => {
-  if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+  try {
+    if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+  } catch {
+    /* public/ is read-only inside the desktop app's package */
+  }
 });
 
 function readJSON(f, fallback) {
@@ -4452,7 +4456,10 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+// ARIA_HOST=127.0.0.1 keeps the server off the LAN. The desktop app sets it:
+// locally the API is unauthenticated (lib/auth.js), and that includes Claw.
+const listenArgs = process.env.ARIA_HOST ? [PORT, process.env.ARIA_HOST] : [PORT];
+app.listen(...listenArgs, () => {
   const banner = `
 ╔══════════════════════════════════════════════════════╗
 ║  ARIA v3.1 — Adaptive Reasoning Intelligence         ║

@@ -25,3 +25,6 @@ npm-debug.log*
 
 # Legacy / dead code (kept locally for reference)
 # brain.js — superseded by server.js, contains hardcoded keys
+
+# Desktop installer output
+dist/

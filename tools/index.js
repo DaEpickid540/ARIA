@@ -6,13 +6,13 @@ import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { runVisualize } from "./visualize.js";
 import { research, fetchReadable } from "../lib/research.js";
+import { DATA_DIR } from "../lib/paths.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /* ============================================================
    PERSISTENCE HELPERS — notes + todos survive restarts
    ============================================================ */
-const DATA_DIR = path.join(__dirname, "..", "data");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const NOTES_FILE = path.join(DATA_DIR, "notes.json");
