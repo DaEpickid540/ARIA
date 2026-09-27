@@ -142,22 +142,32 @@
         </div>
         <div class="lockDivider"></div>
         <p class="lockInstruct">AUTHENTICATION REQUIRED</p>
-        <input
-          id="userIdInput"
-          type="text"
-          placeholder="User ID"
-          autocomplete="off"
-          autocapitalize="none"
-        />
-        <input
-          id="passwordInput"
-          type="password"
-          placeholder="Enter access code"
-          autocomplete="off"
-        />
-        <button id="unlockBtn" class="primaryBtn glitch">
-          <i class="bi bi-shield-lock" aria-hidden="true"></i> AUTHENTICATE
+        <!-- Shown when the server has Google sign-in on (lock.js) -->
+        <button id="googleSignInBtn" class="primaryBtn" hidden>
+          <i class="bi bi-google" aria-hidden="true"></i>
+          <span id="googleSignInLabel">Sign in with Google</span>
         </button>
+        <a id="googleSwitchAccount" class="lockSwitchAccount" href="#" hidden
+          >Use a different Google account</a
+        >
+        <div id="lockKeyForm">
+          <input
+            id="userIdInput"
+            type="text"
+            placeholder="User ID"
+            autocomplete="off"
+            autocapitalize="none"
+          />
+          <input
+            id="passwordInput"
+            type="password"
+            placeholder="Enter access code"
+            autocomplete="off"
+          />
+          <button id="unlockBtn" class="primaryBtn glitch">
+            <i class="bi bi-shield-lock" aria-hidden="true"></i> AUTHENTICATE
+          </button>
+        </div>
         <p id="lockError"></p>
         <div class="lockFooter">
           SYSTEM LOCKED // UNAUTHORIZED ACCESS PROHIBITED

@@ -26,21 +26,35 @@ const USERS = [{ id: "sarvin", password: "727846" }];
 
 // ── Session expiry ───────────────────────────────────────────
 // Any /api call answered 401 means the server-side session is gone (key
-// rotated, cookie expired). Put the lock screen back up instead of letting
-// every panel fail silently.
+// rotated, cookie expired, server restarted). With a Google session still in
+// this browser, swap it for a new cookie and replay the request; otherwise
+// put the lock screen back up instead of letting every panel fail silently.
+let _googleOn = false; // set from /api/auth/status once the page loads
+let _renewing = null;
+function renewGoogleSession() {
+  _renewing ||= import("./googleAuth.js")
+    .then((m) => m.renewSession())
+    .catch(() => false)
+    .finally(() => setTimeout(() => (_renewing = null), 0));
+  return _renewing;
+}
+
 const _origFetch = window.fetch.bind(window);
 window.fetch = async (...args) => {
   const res = await _origFetch(...args);
   if (res.status === 401) {
     try {
       const url = String(args[0]?.url || args[0] || "");
-      if (url.includes("/api/") && !url.includes("/api/auth/")) relock();
+      if (url.includes("/api/") && !url.includes("/api/auth/")) {
+        if (_googleOn && (await renewGoogleSession())) return _origFetch(...args);
+        relock();
+      }
     } catch {}
   }
   return res;
 };
 
-function relock(msg = "SESSION EXPIRED — ENTER ACCESS CODE") {
+function relock(msg = "SESSION EXPIRED — SIGN IN AGAIN") {
   const lockScreen = document.getElementById("lockScreen");
   if (!lockScreen || lockScreen.style.display === "flex") return;
   lockScreen.style.display = "flex";
@@ -144,10 +158,14 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // ── SUCCESS ──
     failedAttempts = 0;
+    await finishUnlock(user.id);
+  }
+
+  // ── SUCCESS (either door) ──
+  async function finishUnlock(userId) {
     if (lockError) lockError.textContent = "";
-    window.ARIA_userId = user.id;
+    window.ARIA_userId = userId;
 
     if (lockScreen) lockScreen.style.display = "none";
     if (passwordInput) passwordInput.value = "";
@@ -186,6 +204,62 @@ window.addEventListener("DOMContentLoaded", () => {
   userIdInput?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") passwordInput?.focus();
   });
+
+  // ── Google door ──
+  const googleBtn = document.getElementById("googleSignInBtn");
+  const googleLabel = document.getElementById("googleSignInLabel");
+  const switchLink = document.getElementById("googleSwitchAccount");
+  const keyForm = document.getElementById("lockKeyForm");
+
+  async function showGoogleAccount() {
+    try {
+      const { currentGoogleUser } = await import("./googleAuth.js");
+      const u = await currentGoogleUser();
+      if (googleLabel) googleLabel.textContent = u?.email ? `Continue as ${u.email}` : "Sign in with Google";
+      if (switchLink) switchLink.hidden = !u;
+    } catch (e) {
+      console.warn("[ARIA] Google sign-in unavailable:", e);
+    }
+  }
+
+  googleBtn?.addEventListener("click", async () => {
+    googleBtn.disabled = true;
+    if (lockError) lockError.textContent = "";
+    try {
+      const { signInWithGoogle } = await import("./googleAuth.js");
+      const { email } = await signInWithGoogle();
+      await finishUnlock((email || "owner").split("@")[0]);
+    } catch (e) {
+      if (lockError) lockError.textContent = (e.message || "SIGN-IN FAILED").toUpperCase();
+    } finally {
+      googleBtn.disabled = false;
+      showGoogleAccount();
+    }
+  });
+
+  switchLink?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const { signOutGoogle } = await import("./googleAuth.js");
+    await signOutGoogle();
+    showGoogleAccount();
+  });
+
+  // The server says which doors exist. Google only → hide the key form; key
+  // only (or nothing configured) → the lock screen stays as it always was.
+  fetch("/api/auth/status")
+    .then((r) => r.json())
+    .then((s) => {
+      _googleOn = !!s.methods?.google;
+      if (!_googleOn) return;
+      if (googleBtn) googleBtn.hidden = false;
+      if (keyForm && !s.methods.key) keyForm.hidden = true;
+      if (!s.methods.key) googleBtn?.focus();
+      showGoogleAccount();
+    })
+    .catch(() => {});
+
+  // The lock screen shows before the chat modules (which normally stamp it).
+  import("./version.js").then((m) => m.applyVersion()).catch(() => {});
 
   // Auto-focus
   setTimeout(() => (userIdInput || passwordInput)?.focus(), 80);

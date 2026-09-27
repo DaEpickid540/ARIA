@@ -2361,7 +2361,7 @@ Active GitHub repo: ${workspaceRepo}
     : [];
 
   if (!auth.dangerousAllowed()) {
-    sysPrompt += `\n\n[CLAW STATUS — DISABLED]\nPC control is switched off because this server is public and has no ARIA_ACCESS_KEY. If asked, tell the user to set ARIA_ACCESS_KEY and ARIA_RELAY_KEY in the Render environment.`;
+    sysPrompt += `\n\n[CLAW STATUS — DISABLED]\nPC control is switched off because this server is public and nobody has to log in. If asked, tell the user to set ARIA_OWNER_UID (Google sign-in) or ARIA_ACCESS_KEY, plus ARIA_RELAY_KEY, in the Render environment.`;
   } else if (liveRelaysForPrompt.length === 0) {
     sysPrompt += `\n\n[CLAW STATUS — NO RELAY]\nNo relay is currently connected. DO NOT attempt any claw/ACTION commands.\nIf the user asks to control their PC, tell them:\n- For full PC control: run \`node claw-relay.js ${
       process.env.RENDER_EXTERNAL_URL || "https://aria-69jr.onrender.com"

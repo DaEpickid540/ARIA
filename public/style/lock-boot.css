@@ -79,6 +79,30 @@
   justify-content: center;
 }
 
+/* Google door: sits above the key form when both are on */
+#lockBox #googleSignInBtn {
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+#lockBox #googleSignInBtn:not([hidden]) + .lockSwitchAccount + #lockKeyForm:not([hidden]) {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+#lockBox [hidden] {
+  display: none !important;
+}
+.lockSwitchAccount {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: var(--text-3);
+  text-decoration: underline;
+}
+.lockSwitchAccount:hover {
+  color: var(--text);
+}
+
 #lockError {
   color: var(--danger-text);
   margin-top: 12px;

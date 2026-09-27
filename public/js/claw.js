@@ -595,7 +595,7 @@ function _startStatusPoll() {
           dot.title = "Disabled";
         }
         if (nameEl)
-          nameEl.textContent = "Disabled — set ARIA_ACCESS_KEY on the server";
+          nameEl.textContent = "Disabled — set ARIA_OWNER_UID or ARIA_ACCESS_KEY on the server";
         if (platEl) platEl.textContent = "";
       } else if (d.relays?.length) {
         const relay =

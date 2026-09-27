@@ -27,6 +27,29 @@ npm start
 
 Then open `http://localhost:3000`.
 
+## Desktop app (Windows)
+
+```bash
+npm run desktop   # run it from the checkout (uses this repo's .env)
+npm run dist      # build dist/ARIA-Setup-Mark-<mark>.<point>.exe
+```
+
+The installer runs the full ARIA server on your PC and shows it in its own
+window (Electron, `desktop/main.js`). It's the same `server.js` as Render's.
+
+- **Keys:** `%APPDATA%\ARIA\.env`, created from `.env.example` on first run.
+  **ARIA ▸ Edit API keys**, save, then **ARIA ▸ Restart server**.
+- **Data:** `%APPDATA%\ARIA\data` (via `ARIA_DATA_DIR`). Updates and
+  uninstalls leave it alone.
+- **Ollama:** no hook needed; the server is on the same PC, so your models
+  show up in the model switcher directly.
+- **Claw:** off until you tick **ARIA ▸ PC control**; it runs
+  `claw-relay.js` against the local server.
+- The server listens on `127.0.0.1:3717` only. The local API has no login, so
+  it stays off your network.
+- Logs: `%APPDATA%\ARIA\logs`. The installer isn't code-signed, so Windows
+  SmartScreen asks once (**More info ▸ Run anyway**).
+
 ## Required environment variables
 
 At minimum you need one AI provider. See `.env.example` for the full list.
@@ -41,11 +64,28 @@ At minimum you need one AI provider. See `.env.example` for the full list.
 
 ## Access control
 
-Set `ARIA_ACCESS_KEY` (and ideally `ARIA_RELAY_KEY`) in the Render environment.
-The lock screen sends what you type to `POST /api/auth/login`; a match sets an
-HttpOnly session cookie that every `/api` route checks. Relays authenticate with
-the relay key instead. With no key on a public deploy, the API stays open but
-Claw refuses to run. Locally (no `RENDER` env), everything is open as before.
+**Google sign-in (recommended).** Set `ARIA_OWNER_UID` on Render to your
+personal-suite Firebase user ID (the same one GRIND uses). The lock screen
+then shows **Sign in with Google**, and only that account gets in. The page
+signs in with Firebase Auth (`public/js/googleAuth.js`), and
+`POST /api/auth/google` checks the ID token (`lib/auth.js`) and sets an
+HttpOnly session cookie that every `/api` route checks. After the first
+popup it's one click, and if the cookie is lost the page renews it on its own.
+Non-browser callers can send `Authorization: Bearer <Firebase ID token>`.
+
+One-time setup: Firebase console ▸ Authentication ▸ Settings ▸ **Authorised
+domains** ▸ add your Render domain. If you sign in with the wrong account,
+the server log prints that account's `uid`, which helps if you don't know
+yours.
+
+**Access key.** `ARIA_ACCESS_KEY` still works, alongside Google or on its own
+(`POST /api/auth/login`), and it's what `aria-voice-hook.js` sends for now.
+
+**Relays** authenticate with `ARIA_RELAY_KEY` (or the access key). On a
+public deploy with neither, relays are refused. With no way to log in on a
+public deploy, the API stays open but Claw refuses to run. Locally (no
+`RENDER` env), everything is open as before; `ARIA_REQUIRE_LOGIN=true` turns
+Google sign-in on there too.
 
 ## Claw (remote PC control)
 
@@ -196,7 +236,7 @@ ACTION: spawn | [{"name":"for","prompt":"…","task":"…"},{"name":"against","p
 
 ## Version
 
-Current: **Mark 1.0** (`public/js/version.js` is the single source of truth — bump `mark` and `point` there).
+Current: **Mark 2.5** (`public/js/version.js` is the single source of truth — bump `mark` and `point` there).
 
 ## License
 
