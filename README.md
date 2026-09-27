@@ -208,10 +208,13 @@ The first run opens a browser window: sign in to Google Voice there. The login
 is kept in `data/gvoice-profile/` (your Google session, so keep it private);
 after that you can add `--headless`.
 
-**The lock.** Every conversation starts locked. Text the password to unlock it;
-until then nothing gets a reply and nothing is sent on to the ARIA server.
-After 5 minutes with no texts either way it locks again (`--idle=<min>`), and
-the next text gets one "locked" notice. Text `lock` to lock right away. Five
+**The lock.** Every conversation starts locked. Text the password to unlock it.
+Until then nothing is sent on to the ARIA server, and only the first text gets
+a reply ("ARIA is locked, text the password"). Later ones are ignored, so a
+stranger can't make the number text them over and over (`ARIA_SMS_SILENT=true`
+skips even that first reply). After 5 minutes with no texts either way it
+locks again (`--idle=<min>`) and says so on the next text. Text `lock` to lock
+right away. Five
 texts to a locked conversation that aren't the password mute it for 15
 minutes, password included. Restarting the hook locks everything.
 `--allow=+15551234567` limits unlocking to your own number(s).

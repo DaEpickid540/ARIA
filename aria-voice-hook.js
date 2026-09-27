@@ -113,7 +113,12 @@ if (!(IDLE_MIN > 0)) {
   process.exit(1);
 }
 
-const gate = createSmsGate({ password: PASSWORD, idleMs: IDLE_MIN * 60 * 1000 });
+const gate = createSmsGate({
+  password: PASSWORD,
+  idleMs: IDLE_MIN * 60 * 1000,
+  // ARIA_SMS_SILENT=true: a locked thread never replies, not even once.
+  silent: /^(1|true|yes)$/i.test(process.env.ARIA_SMS_SILENT || ""),
+});
 const IDLE_LABEL = `${IDLE_MIN} min`;
 
 let running = true;
@@ -468,7 +473,7 @@ async function handleThread(page, sig) {
     const prev = steps[steps.length - 1];
     if (g.action === "forward" && prev?.action === "forward" && !yesNo(prev.text) && !yesNo(m.text))
       prev.text += "\n" + m.text;
-    else steps.push({ action: g.action, text: m.text });
+    else steps.push({ action: g.action, reason: g.reason, text: m.text });
   }
 
   for (const step of steps) {
@@ -482,13 +487,17 @@ async function handleThread(page, sig) {
         parts = ["🔓 Already unlocked."];
         break;
       case "locked_notice":
-        console.log(`[VOICE] ${mask(id)}: locked (idle) — sent notice`);
-        parts = [`🔒 Locked after ${IDLE_LABEL} of quiet. Text the password to unlock.`];
+        console.log(`[VOICE] ${mask(id)}: locked (${step.reason}) — sent notice`);
+        parts = [
+          step.reason === "idle"
+            ? `🔒 Locked after ${IDLE_LABEL} of quiet. Text the password to unlock.`
+            : "🔒 ARIA is locked. Text the password to unlock, then send your message.",
+        ];
         s.pendingConfirm = null;
         break;
       case "locked":
         console.log(`[VOICE] ${mask(id)}: 🔒 locked on request`);
-        parts = ["🔒 Locked."];
+        parts = ["🔒 Locked. Text the password to unlock again."];
         s.pendingConfirm = null;
         break;
       case "forward": {
