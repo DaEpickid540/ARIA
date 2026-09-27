@@ -37,7 +37,8 @@ async function load() {
       )
       .join("");
 
-  list.querySelectorAll(".keyRow").forEach((el) => wire(el));
+  const byName = new Map((data.keys || []).map((k) => [k.name, k]));
+  list.querySelectorAll(".keyRow").forEach((el) => wire(el, byName.get(el.dataset.name)));
 }
 
 function row(k, editable) {
@@ -66,10 +67,13 @@ function row(k, editable) {
     </div>`;
 }
 
-function wire(el) {
+function wire(el, k) {
   const name = el.dataset.name;
   const input = el.querySelector(".keyInput");
   const msg = el.querySelector(".keyMsg");
+  // Plain settings (not secrets) start with their value, so adding a second
+  // owner ID means typing ",<id>", not retyping the first.
+  if (input && k && !k.secret && k.set) input.value = k.preview;
 
   const save = async (value) => {
     if (msg) msg.textContent = "Saving…";

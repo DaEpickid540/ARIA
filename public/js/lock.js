@@ -224,8 +224,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // The ID to paste into the desktop app, in a box of its own with a copy
   // button: reading it off the error text meant retyping 28 random chars.
-  function showOwnerId(uid) {
-    lockError.textContent = "This PC doesn't know its owner yet. Copy your ID into the desktop app: Settings ▸ Keys ▸ Owner.";
+  function showOwnerId(uid, message) {
+    lockError.textContent =
+      message || "This PC doesn't know its owner yet. Copy your ID into the desktop app: Settings ▸ Keys ▸ Owners.";
     const row = document.createElement("div");
     row.className = "lockOwnerId";
     const code = document.createElement("code");
@@ -260,6 +261,9 @@ window.addEventListener("DOMContentLoaded", () => {
       // case-sensitive (shouting it produced an ID that doesn't exist).
       lockError.textContent = e.message || "Sign-in failed.";
       if (e.code === "owner_unset" && e.detail?.uid) showOwnerId(e.detail.uid);
+      // A second account (or a mistyped ID) on this PC: same box, so it can be added.
+      else if (e.code === "not_owner" && e.detail?.uid && window.ARIA_SITE && !e.detail.publicServer)
+        showOwnerId(e.detail.uid, e.message);
     } finally {
       googleBtn.disabled = false;
       showGoogleAccount();
