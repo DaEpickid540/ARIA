@@ -235,9 +235,26 @@ function persistChats() {
 }
 const chatStore = (userId) => (chatStores[userId] ||= { chats: [], deleted: {} });
 
-// Every owner account shares one chat list, filed under the name the app has
-// always used (public/js/lock.js signs Google accounts into the same one).
+// ARIA has one owner, so it has one chat list, filed under the name the app
+// has always used. Pages used to name their own list, and got it wrong: the
+// PIN login said "sarvin", Google logins said "sarvinsukhe" / "sarvin.sukhe",
+// and each got a separate history that looked like sync failing. The server
+// now ignores the name a page sends, and folds any other list into this one.
 const OWNER_CHAT_SPACE = "sarvin";
+function foldChatLists() {
+  const owner = chatStore(OWNER_CHAT_SPACE);
+  const changed = [];
+  for (const uid of Object.keys(chatStores)) {
+    if (uid === OWNER_CHAT_SPACE) continue;
+    const s = chatStores[uid];
+    const tombs = Object.entries(s.deleted || {}).map(([id, at]) => ({ id, at }));
+    changed.push(...chatSync.mergeInto(owner, s.chats, tombs));
+    delete chatStores[uid];
+    console.log(`[chat] folded chat list "${uid}" (${s.chats.length} chats) into "${OWNER_CHAT_SPACE}"`);
+  }
+  return changed;
+}
+if (foldChatLists().length) persistChats();
 
 /**
  * One text exchange from aria-voice-hook.js, appended to that thread's chat
@@ -276,9 +293,11 @@ function startChatSyncNow() {
   chatSync
     .startChatSync({
       stores: () => chatStores,
-      onRemote: (userId) => {
+      // Chats another server filed under another name still land in ours.
+      userFor: () => OWNER_CHAT_SPACE,
+      onRemote: () => {
         persistChats();
-        broadcastChatSync(userId, "cloud");
+        broadcastChatSync(OWNER_CHAT_SPACE, "cloud");
       },
     })
     .catch((e) => console.warn("[chat-sync] didn't start:", e.message));
@@ -3410,8 +3429,9 @@ app.post("/api/memory", (req, res) => {
 // and the ids it deleted. They're merged, not written over: the newer copy
 // of each chat wins, so two devices saving at once no longer erase each other.
 app.post("/api/saveChats", (req, res) => {
-  const { userId, chats, deleted, sourceDeviceId } = req.body;
-  if (userId && Array.isArray(chats)) {
+  const { chats, deleted, sourceDeviceId } = req.body;
+  const userId = OWNER_CHAT_SPACE; // whatever the page calls it (see foldChatLists)
+  if (Array.isArray(chats)) {
     const changed = chatSync.mergeInto(chatStore(userId), chats, Array.isArray(deleted) ? deleted : []);
     if (changed.length) {
       persistChats();
@@ -3422,7 +3442,7 @@ app.post("/api/saveChats", (req, res) => {
   res.json({ success: true });
 });
 app.get("/api/loadChats", (req, res) => {
-  const s = chatStores[req.query.userId];
+  const s = chatStores[OWNER_CHAT_SPACE];
   res.json({ chats: s?.chats || [], deleted: Object.keys(s?.deleted || {}) });
 });
 
@@ -3450,7 +3470,8 @@ function broadcastChatSync(userId, sourceDeviceId) {
 }
 
 app.get("/api/sync/subscribe", (req, res) => {
-  const { userId = "sarvin", deviceId = "unknown" } = req.query;
+  const { deviceId = "unknown" } = req.query;
+  const userId = OWNER_CHAT_SPACE;
   res.set({
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache, no-transform",
