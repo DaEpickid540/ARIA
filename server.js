@@ -968,43 +968,48 @@ app.delete("/api/behaviour/rule/:idx", (req, res) => {
   }
 });
 
-function detectFact(text) {
-  const patterns = [
-    { re: /my name is ([a-z\s]+)/i, x: (m) => `User's name is ${m[1].trim()}` },
-    {
-      re: /i(?:'m| am) ([0-9]+) years old/i,
-      x: (m) => `User is ${m[1]} years old`,
-    },
-    { re: /i like ([^.!?\n]{4,40})/i, x: (m) => `User likes ${m[1].trim()}` },
-    { re: /i love ([^.!?\n]{4,40})/i, x: (m) => `User loves ${m[1].trim()}` },
-    {
-      re: /my favorite (.{4,30}) is (.{2,25})/i,
-      x: (m) => `User's favorite ${m[1]} is ${m[2].trim()}`,
-    },
-    {
-      re: /i(?:'m| am) from ([a-z\s,]+)/i,
-      x: (m) => `User is from ${m[1].trim()}`,
-    },
-    {
-      re: /i go to ([^.!?\n]{4,40})/i,
-      x: (m) => `User goes to ${m[1].trim()}`,
-    },
-    { re: /remember (?:that )?(.{8,100})/i, x: (m) => m[1].trim() },
-  ];
-  for (const p of patterns) {
-    const m = text.match(p.re);
-    if (m) {
-      const fact = p.x(m);
-      if (
-        !ariaMemory.facts.some((f) => f.toLowerCase() === fact.toLowerCase())
-      ) {
-        ariaMemory.facts.push(fact);
-        writeJSONDebounced(MEM_FILE, ariaMemory);
-        return fact;
-      }
-    }
+// Durable facts about the user, pulled out by the model after each user turn.
+// Fire-and-forget: never blocks or fails the reply.
+const FACT_SIGNAL =
+  /\b(i|i'm|im|i've|i'd|i'll|my|mine|me|we|we're|our|us)\b|\bremember\b/i;
+
+function detectFact(text, provider, model) {
+  if (!text || text.length < 6 || !FACT_SIGNAL.test(text)) return;
+  extractFacts(text, provider, model).catch(() => {});
+}
+
+async function extractFacts(text, provider, model) {
+  const known = ariaMemory.facts.slice(-40).map((f) => `- ${f}`).join("\n");
+  const prompt =
+    `Extract durable facts about the USER from their message that are worth remembering long-term ` +
+    `(name, age, location, school/job, relationships, preferences, projects, goals, things they ask you to remember). ` +
+    `Skip one-off requests, questions, moods and anything already known.\n\n` +
+    `Already known:\n${known || "(nothing)"}\n\n` +
+    `User message: """${text.slice(0, 1500)}"""\n\n` +
+    `Reply with ONLY a JSON array of short third-person strings, e.g. ["User's name is Sam"], or the word none.`;
+  const raw = await callAI([{ role: "user", content: prompt }], provider, model, {});
+  const out = stripThinking(String(raw || "")).trim();
+  if (!out || /^none\b/i.test(out)) return;
+  const m = out.match(/\[[\s\S]*\]/);
+  if (!m) return;
+  let facts;
+  try {
+    facts = JSON.parse(m[0]);
+  } catch {
+    return;
   }
-  return null;
+  const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const seen = new Set(ariaMemory.facts.map(norm));
+  let added = 0;
+  for (const f of Array.isArray(facts) ? facts : []) {
+    if (typeof f !== "string") continue;
+    const fact = f.trim().slice(0, 200);
+    if (fact.length < 4 || seen.has(norm(fact))) continue;
+    seen.add(norm(fact));
+    ariaMemory.facts.push(fact);
+    added++;
+  }
+  if (added) writeJSONDebounced(MEM_FILE, ariaMemory);
 }
 
 function detectFrustration(text) {
@@ -2631,7 +2636,7 @@ app.post("/api/chat", async (req, res) => {
 
   if (!message) return res.json({ reply: "No message received." });
 
-  detectFact(message);
+  detectFact(message, provider, requestedModel);
   const frustrated = detectFrustration(message);
 
   // Pick personality
@@ -2876,7 +2881,6 @@ Active GitHub repo: ${workspaceRepo}
         // Run post-processing (facts, tools, feedback) on the answer, not the
         // reasoning: a fact ARIA mulled over isn't one the user told it.
         const answer = stripThinking(full);
-        detectFact(answer);
         const fb = detectFeedback(message);
         const lastAriaMsg =
           history.filter((m) => m.role === "assistant").pop()?.content || "";
