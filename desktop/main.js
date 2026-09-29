@@ -16,7 +16,10 @@
 //     OLLAMA_URL (localhost:11434) directly and the model switcher lists them.
 //   - Claw (PC control) is off until you turn it on: in ARIA's Claw panel
 //     (through preload.cjs's window.ariaDesktop) or the ARIA menu. It runs
-//     claw-relay.js against this local server.
+//     claw-relay.js against this local server, and a second copy against
+//     Render (ARIA ▸ Reachable from anywhere) so ARIA opened on any other
+//     machine can still control this PC. That one signs in with this PC's
+//     own secret (machine.json), registered through lib/owners.js.
 //   - Keys saved in Settings ▸ Keys go to the same .env (ARIA_ENV_FILE).
 //   - The server binds 127.0.0.1 only. Locally the API has no login
 //     (lib/auth.js), so it must not be reachable from the LAN.
@@ -32,8 +35,10 @@ import {
   session,
   utilityProcess,
 } from "electron";
+import crypto from "crypto";
 import fs from "fs";
 import net from "net";
+import os from "os";
 import path from "path";
 import { parseEnv } from "util";
 import { fileURLToPath } from "url";
@@ -61,21 +66,43 @@ const START_TIMEOUT_MS = 60_000;
 let win = null;
 let server = null; // utility process running server.js
 let relay = null; // utility process running claw-relay.js
+let cloudRelay = null; // the same relay, connected to Render instead
 let origin = "";
+const DEFAULT_CLOUD_URL = "https://aria-69jr.onrender.com";
 let quitting = false;
 
 // ── Settings (desktop-only switches) ──────────────────────────────
+// claw: PC control on at all. remote: also reachable through Render, so
+// signing in to ARIA on any other machine can reach this PC.
 function loadSettings() {
   try {
-    return { claw: false, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")) };
+    return { claw: false, remote: true, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")) };
   } catch {
-    return { claw: false };
+    return { claw: false, remote: true };
   }
 }
 function saveSettings(s) {
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(s, null, 2));
 }
 let settings = loadSettings();
+
+// ── This PC's identity ────────────────────────────────────────────
+// A random id and secret, made once. The server registers the secret's hash
+// in Firestore (lib/owners.js); Render then accepts this PC's relay with no
+// relay key to configure anywhere.
+function machineIdentity() {
+  const file = path.join(USER_DIR, "machine.json");
+  try {
+    const m = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (m.id && m.secret) return m;
+  } catch {}
+  const m = {
+    id: `pc-${crypto.randomBytes(6).toString("hex")}`,
+    secret: crypto.randomBytes(32).toString("base64url"),
+  };
+  fs.writeFileSync(file, JSON.stringify(m, null, 2));
+  return m;
+}
 
 // ── First run ─────────────────────────────────────────────────────
 function prepareUserDir() {
@@ -173,6 +200,7 @@ function pipeToLog(child, name) {
 let serverLog = null;
 
 async function startServer() {
+  const machine = machineIdentity();
   const port = await pickPort();
   origin = `http://${HOST}:${port}`;
   const child = utilityProcess.fork(path.join(ROOT, "server.js"), [], {
@@ -188,6 +216,9 @@ async function startServer() {
       // `node claw-relay.js`, when PC control is off.
       ARIA_DESKTOP: "1",
       NODE_ENV: "production",
+      ARIA_MACHINE_ID: machine.id,
+      ARIA_MACHINE_SECRET: machine.secret,
+      ARIA_MACHINE_NAME: os.hostname(),
     }),
   });
   server = child;
@@ -223,24 +254,62 @@ function stopServer() {
 }
 
 function startRelay() {
-  if (relay || !origin) return;
-  relay = utilityProcess.fork(path.join(ROOT, "claw-relay.js"), [origin], {
-    serviceName: "ARIA Claw relay",
+  if (!origin) return;
+  if (!relay) {
+    relay = utilityProcess.fork(path.join(ROOT, "claw-relay.js"), [origin], {
+      serviceName: "ARIA Claw relay",
+      stdio: "pipe",
+      cwd: USER_DIR,
+      env: childEnv({}),
+    });
+    const child = relay;
+    pipeToLog(child, "claw-relay");
+    child.once("exit", () => {
+      if (relay === child) relay = null;
+    });
+  }
+  if (settings.remote) startCloudRelay();
+}
+
+// The second relay: Render queues commands for this PC when you use ARIA
+// from a machine that can't reach this one directly.
+function startCloudRelay() {
+  if (cloudRelay) return;
+  const cloudUrl = (readEnvFile().ARIA_CLOUD_URL || DEFAULT_CLOUD_URL).replace(/\/+$/, "");
+  cloudRelay = utilityProcess.fork(path.join(ROOT, "claw-relay.js"), [cloudUrl], {
+    serviceName: "ARIA Claw relay (cloud)",
     stdio: "pipe",
     cwd: USER_DIR,
-    env: childEnv({}),
+    env: childEnv({ ARIA_RELAY_KEY: machineIdentity().secret }),
   });
-  const child = relay;
-  pipeToLog(child, "claw-relay");
+  const child = cloudRelay;
+  pipeToLog(child, "claw-relay-cloud");
   child.once("exit", () => {
-    if (relay === child) relay = null;
+    if (cloudRelay !== child) return; // stopped on purpose
+    cloudRelay = null;
+    // Render sleeps when idle and may not know this PC for a few seconds
+    // after boot; the relay gives up in both cases, so try again later.
+    setTimeout(() => {
+      if (!quitting && settings.claw && settings.remote && relay) startCloudRelay();
+    }, 60_000);
   });
 }
 
 function stopRelay() {
-  const r = relay;
+  for (const r of [relay, cloudRelay]) r?.kill();
   relay = null;
-  r?.kill();
+  cloudRelay = null;
+}
+
+function setRemote(on) {
+  settings = { ...settings, remote: !!on };
+  saveSettings(settings);
+  if (!on) {
+    const r = cloudRelay;
+    cloudRelay = null;
+    r?.kill();
+  } else if (settings.claw) startCloudRelay();
+  buildMenu();
 }
 
 /** The one switch for PC control, from the page or the menu. */
@@ -373,6 +442,13 @@ function buildMenu() {
           type: "checkbox",
           checked: settings.claw,
           click: (item) => setClaw(item.checked),
+        },
+        {
+          label: "Reachable from anywhere (through Render)",
+          type: "checkbox",
+          checked: settings.remote,
+          enabled: settings.claw,
+          click: (item) => setRemote(item.checked),
         },
         { type: "separator" },
         { label: "Open in browser", click: () => origin && shell.openExternal(origin) },

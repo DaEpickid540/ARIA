@@ -13,6 +13,7 @@ import { research, searchWeb, WEB_PAGES } from "./lib/research.js";
 import { splitThinking, stripThinking } from "./lib/think.js";
 import { extractVisualBlock } from "./tools/visualize.js";
 import * as auth from "./lib/auth.js";
+import * as owners from "./lib/owners.js";
 import * as ollamaRelay from "./lib/ollama-relay.js";
 import { mountKeyRoutes } from "./lib/keys.js";
 import { mountTtsRoutes } from "./lib/tts.js";
@@ -206,6 +207,15 @@ function flushPendingWrites() {
 // await is fine here — this file is ESM ("type": "module").
 await cloud.hydrateAll();
 cloud.startAutoSync();
+
+// Paired Google accounts and PCs, shared through Firestore (lib/owners.js).
+// The desktop app passes this PC's identity so its relay can reach Render.
+owners.startOwners();
+owners.registerMachine({
+  id: process.env.ARIA_MACHINE_ID,
+  name: process.env.ARIA_MACHINE_NAME,
+  secret: process.env.ARIA_MACHINE_SECRET,
+});
 
 // GRIND/hardware-tracker context (see lib/life-context.js) — separate from
 // ARIA's own state sync above. No-ops until ARIA_OWNER_UID is set alongside

@@ -54,10 +54,11 @@ window.fetch = async (...args) => {
   return res;
 };
 
-function relock(msg = "SESSION EXPIRED — SIGN IN AGAIN") {
+function relock(msg = "Your session ended. Sign in again.") {
   const lockScreen = document.getElementById("lockScreen");
   if (!lockScreen || lockScreen.style.display === "flex") return;
   lockScreen.style.display = "flex";
+  showLockStep("signin");
   const hp = document.getElementById("homepageScreen");
   const lay = document.getElementById("layout");
   if (hp) hp.style.display = "none";
@@ -65,6 +66,15 @@ function relock(msg = "SESSION EXPIRED — SIGN IN AGAIN") {
   const err = document.getElementById("lockError");
   if (err) err.textContent = msg;
   document.getElementById("passwordInput")?.focus();
+}
+
+// The lock card has two steps: sign in, and pair a Google account that
+// isn't an owner yet (lib/owners.js).
+function showLockStep(step) {
+  const signIn = document.getElementById("lockStepSignIn");
+  const pair = document.getElementById("lockStepPair");
+  if (signIn) signIn.hidden = step !== "signin";
+  if (pair) pair.hidden = step !== "pair";
 }
 
 let _buttonsWired = false;
@@ -96,7 +106,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const now = Date.now();
     if (now < lockedUntil) {
       const secs = Math.ceil((lockedUntil - now) / 1000);
-      if (lockError) lockError.textContent = `LOCKED — retry in ${secs}s`;
+      if (lockError) lockError.textContent = `Too many tries. Wait ${secs}s.`;
       return;
     }
 
@@ -106,7 +116,8 @@ window.addEventListener("DOMContentLoaded", () => {
     const enteredPass = (passwordInput?.value || "").trim();
 
     if (!enteredPass) {
-      if (lockError) lockError.textContent = "ACCESS CODE REQUIRED";
+      if (lockError) lockError.textContent = "Enter your access code.";
+      passwordInput?.focus();
       return;
     }
 
@@ -124,14 +135,14 @@ window.addEventListener("DOMContentLoaded", () => {
       const d = await r.json().catch(() => ({}));
       if (r.status === 429) {
         if (lockError)
-          lockError.textContent = "TOO MANY ATTEMPTS — SERVER LOCKED 15 MIN";
+          lockError.textContent = "Too many tries. Sign-in is paused for 15 minutes.";
         return;
       }
       if (d.ok && !d.authDisabled) serverUser = { id: enteredId };
       else if (!d.ok) {
         failedAttempts++;
         if (lockError)
-          lockError.textContent = "INVALID ACCESS CODE — ACCESS DENIED";
+          lockError.textContent = "That access code isn't right.";
         if (passwordInput) passwordInput.value = "";
         checkLockout();
         return;
@@ -145,14 +156,14 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!user) {
       failedAttempts++;
       if (lockError)
-        lockError.textContent = `UNKNOWN USER: "${enteredId.toUpperCase()}"`;
+        lockError.textContent = `There's no user called "${enteredId}".`;
       checkLockout();
       return;
     }
     if (!serverUser && user.password !== enteredPass) {
       failedAttempts++;
       if (lockError)
-        lockError.textContent = "INVALID ACCESS CODE — ACCESS DENIED";
+        lockError.textContent = "That access code isn't right.";
       if (passwordInput) passwordInput.value = "";
       checkLockout();
       return;
@@ -193,7 +204,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (failedAttempts >= 5) {
       lockedUntil = Date.now() + 30_000;
       failedAttempts = 0;
-      if (lockError) lockError.textContent = "TOO MANY ATTEMPTS — LOCKED 30s";
+      if (lockError) lockError.textContent = "Too many tries. Wait 30s.";
     }
   }
 
@@ -211,41 +222,45 @@ window.addEventListener("DOMContentLoaded", () => {
   const switchLink = document.getElementById("googleSwitchAccount");
   const keyForm = document.getElementById("lockKeyForm");
 
+  const lockSub = document.getElementById("lockSub");
+  const pairInput = document.getElementById("lockPairInput");
+  const pairBtn = document.getElementById("lockPairBtn");
+  const pairEmail = document.getElementById("lockPairEmail");
+
+  // Which doors this server has decides the line under the heading.
+  function describeDoors(google, key) {
+    if (!lockSub) return;
+    lockSub.textContent = google && key
+      ? "Sign in with Google, or use your access code."
+      : google
+        ? "Sign in with any Google account paired to your ARIA."
+        : "Enter your access code to continue.";
+  }
+
   async function showGoogleAccount() {
     try {
       const { currentGoogleUser } = await import("./googleAuth.js");
       const u = await currentGoogleUser();
-      if (googleLabel) googleLabel.textContent = u?.email ? `Continue as ${u.email}` : "Sign in with Google";
+      if (googleLabel) googleLabel.textContent = u?.email ? `Continue as ${u.email}` : "Continue with Google";
       if (switchLink) switchLink.hidden = !u;
     } catch (e) {
       console.warn("[ARIA] Google sign-in unavailable:", e);
     }
   }
 
-  // The ID to paste into the desktop app, in a box of its own with a copy
-  // button: reading it off the error text meant retyping 28 random chars.
-  function showOwnerId(uid, message) {
-    lockError.textContent =
-      message || "This PC doesn't know its owner yet. Copy your ID into the desktop app: Settings ▸ Keys ▸ Owners.";
-    const row = document.createElement("div");
-    row.className = "lockOwnerId";
-    const code = document.createElement("code");
-    code.textContent = uid;
-    const copy = document.createElement("button");
-    copy.type = "button";
-    copy.className = "secondaryBtn";
-    copy.textContent = "Copy";
-    copy.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(uid);
-        copy.textContent = "Copied";
-      } catch {
-        // No clipboard permission: select it so Ctrl+C works.
-        getSelection().selectAllChildren(code);
-      }
-    });
-    row.append(code, copy);
-    lockError.append(row);
+  // Every owner account (sarvinsukhe@, sarvin.sukhe@…) is the same person:
+  // one chat list, the one the app has always used. Filing chats under each
+  // email's name split them into separate histories.
+  const enterAsOwner = () => finishUnlock("sarvin");
+
+  function askToPair(email) {
+    if (pairEmail) pairEmail.textContent = email || "This account";
+    if (lockError) lockError.textContent = "";
+    showLockStep("pair");
+    if (pairInput) {
+      pairInput.value = "";
+      pairInput.focus();
+    }
   }
 
   googleBtn?.addEventListener("click", async () => {
@@ -254,31 +269,69 @@ window.addEventListener("DOMContentLoaded", () => {
     try {
       const { signInWithGoogle } = await import("./googleAuth.js");
       await signInWithGoogle();
-      // Every owner account (sarvinsukhe@, sarvin.sukhe@…) is the same person:
-      // one chat list, the one the app has always used. Filing chats under
-      // each email's name split them into separate histories.
-      await finishUnlock("sarvin");
+      await enterAsOwner();
     } catch (e) {
-      if (!lockError) return;
-      // Not uppercased: messages can carry a user ID, and those are
-      // case-sensitive (shouting it produced an ID that doesn't exist).
-      lockError.textContent = e.message || "Sign-in failed.";
-      if (e.code === "owner_unset" && e.detail?.uid) showOwnerId(e.detail.uid);
-      // A second account (or a mistyped ID) on this PC: same box, so it can be added.
-      else if (e.code === "not_owner" && e.detail?.uid && window.ARIA_SITE && !e.detail.publicServer)
-        showOwnerId(e.detail.uid, e.message);
+      if (e.code === "not_owner" || e.code === "owner_unset") askToPair(e.detail?.email);
+      else if (lockError) lockError.textContent = e.message || "Sign-in failed.";
     } finally {
       googleBtn.disabled = false;
       showGoogleAccount();
     }
   });
 
-  switchLink?.addEventListener("click", async (e) => {
-    e.preventDefault();
+  // The code box: capitals, the look-alikes folded (O→Q, I/L/1→J, U→V, the
+  // same as lib/owners.js), and a dash after four.
+  const CODE_CHARS = "23456789ABCDEFGHJKMNPQRSTVWXYZ";
+  const cleanCode = (s) =>
+    String(s || "")
+      .toUpperCase()
+      .replace(/[IL1]/g, "J")
+      .replace(/[O0]/g, "Q")
+      .replace(/U/g, "V")
+      .split("")
+      .filter((c) => CODE_CHARS.includes(c))
+      .join("")
+      .slice(0, 8);
+  pairInput?.addEventListener("input", () => {
+    const c = cleanCode(pairInput.value);
+    pairInput.value = c.length > 4 ? `${c.slice(0, 4)}-${c.slice(4)}` : c;
+    if (pairBtn) pairBtn.disabled = c.length !== 8;
+  });
+  pairInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") pairBtn?.click();
+  });
+  if (pairBtn) pairBtn.disabled = true;
+
+  pairBtn?.addEventListener("click", async () => {
+    const code = cleanCode(pairInput?.value);
+    if (code.length !== 8) return;
+    pairBtn.disabled = true;
+    pairBtn.textContent = "Pairing…";
+    if (lockError) lockError.textContent = "";
+    try {
+      const { pairAccount } = await import("./googleAuth.js");
+      await pairAccount(code);
+      showLockStep("signin");
+      await enterAsOwner();
+    } catch (e) {
+      if (lockError) lockError.textContent = e.message || "Pairing failed.";
+      pairBtn.disabled = false;
+    } finally {
+      pairBtn.textContent = "Pair and continue";
+    }
+  });
+
+  async function useAnotherAccount(e) {
+    e?.preventDefault();
     const { signOutGoogle } = await import("./googleAuth.js");
     await signOutGoogle();
-    showGoogleAccount();
-  });
+    if (lockError) lockError.textContent = "";
+    showLockStep("signin");
+    await showGoogleAccount();
+    googleBtn?.focus();
+  }
+  switchLink?.addEventListener("click", useAnotherAccount);
+  document.getElementById("lockPairBack")?.addEventListener("click", useAnotherAccount);
 
   if (window.ARIA_SITE) {
     // The Firebase site: Google is the only door (no cookie can cross to the
@@ -286,6 +339,7 @@ window.addEventListener("DOMContentLoaded", () => {
     _googleOn = true;
     if (googleBtn) googleBtn.hidden = false;
     if (keyForm) keyForm.hidden = true;
+    describeDoors(true, false);
     googleBtn?.focus();
     import("./googleAuth.js").then((m) => m.initGoogle()).then(showGoogleAccount).catch(() => {});
     wireBrainPicker();
@@ -296,6 +350,7 @@ window.addEventListener("DOMContentLoaded", () => {
       .then((r) => r.json())
       .then((s) => {
         _googleOn = !!s.methods?.google;
+        describeDoors(_googleOn, !_googleOn || !!s.methods.key);
         if (!_googleOn) return;
         if (googleBtn) googleBtn.hidden = false;
         if (keyForm && !s.methods.key) keyForm.hidden = true;
@@ -316,7 +371,7 @@ window.addEventListener("DOMContentLoaded", () => {
       brain.list.map((b) => `<option value="${b.url}">${b.label}</option>`).join("");
     const cur = await brain.ready;
     sel.value = brain.pinned ? cur.url : "";
-    if (state) state.textContent = brain.pinned ? "" : `→ ${cur.label}`;
+    if (state) state.textContent = brain.pinned ? "" : `(${cur.label})`;
     wrap.hidden = false;
     sel.addEventListener("change", () => brain.choose(sel.value || null));
   }
@@ -325,6 +380,7 @@ window.addEventListener("DOMContentLoaded", () => {
   import("./version.js").then((m) => m.applyVersion()).catch(() => {});
   // Settings opens from the home screen too, before the chat modules load.
   import("./keysPanel.js").then((m) => m.initKeysPanel()).catch(() => {});
+  import("./accountsPanel.js").then((m) => m.initAccountsPanel()).catch(() => {});
 
   // Auto-focus
   setTimeout(() => (userIdInput || passwordInput)?.focus(), 80);
@@ -363,6 +419,7 @@ function wireConsoleButtons() {
     if (h) h.style.display = "none";
     const lkEl = lk();
     if (lkEl) lkEl.style.display = "flex";
+    showLockStep("signin");
     // Locking ends the server session too, so the lock screen is not just a curtain.
     fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
   });

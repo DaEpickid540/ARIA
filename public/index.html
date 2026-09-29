@@ -136,54 +136,66 @@
     <!--  LOCK SCREEN              -->
     <!-- ========================= -->
     <div id="lockScreen">
-      <div class="lockBg"></div>
-      <div id="lockBox" class="neon">
-        <div class="lockAriaHeader">
-          <div class="lockLogo">ARIA</div>
-          <div class="lockAcronymSmall">
-            Adaptive Reasoning Intelligence Architecture
+      <header class="lockBrand">
+        <span class="lockDot" aria-hidden="true"></span>
+        <span class="lockLogo">ARIA</span>
+      </header>
+
+      <div id="lockBox">
+        <!-- Step 1: sign in (lock.js) -->
+        <section id="lockStepSignIn">
+          <h1 class="lockTitle">Welcome back</h1>
+          <p class="lockSub" id="lockSub">Enter your access code to continue.</p>
+
+          <!-- Shown when Google sign-in is on -->
+          <button id="googleSignInBtn" class="lockGoogleBtn" type="button" hidden>
+            <svg viewBox="0 0 48 48" aria-hidden="true">
+              <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.6 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.2 5.3-4.7 6.9l7.3 5.7c4.3-3.9 6.8-9.8 6.8-17.1z"/>
+              <path fill="#FBBC05" d="M10.4 28.7a14.5 14.5 0 0 1 0-9.4l-7.8-6.1a24 24 0 0 0 0 21.6l7.8-6.1z"/>
+              <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.3-5.7c-2 1.4-4.7 2.3-8.6 2.3-6.4 0-11.7-3.7-13.6-9.1l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/>
+            </svg>
+            <span id="googleSignInLabel">Continue with Google</span>
+          </button>
+          <a id="googleSwitchAccount" class="lockLink" href="#" hidden>Use a different account</a>
+
+          <div id="lockKeyForm">
+            <div class="lockOr" aria-hidden="true">or use an access code</div>
+            <input id="userIdInput" class="lockInput" type="text" placeholder="User ID"
+              autocomplete="username" autocapitalize="none" spellcheck="false" />
+            <input id="passwordInput" class="lockInput" type="password" placeholder="Access code"
+              autocomplete="current-password" />
+            <button id="unlockBtn" class="lockPrimaryBtn" type="button">Unlock</button>
           </div>
-          <div class="lockVersion">M2.0 // SECURE NODE</div>
-        </div>
-        <div class="lockDivider"></div>
-        <p class="lockInstruct">AUTHENTICATION REQUIRED</p>
-        <!-- Shown when the server has Google sign-in on (lock.js) -->
-        <button id="googleSignInBtn" class="primaryBtn" hidden>
-          <i class="bi bi-google" aria-hidden="true"></i>
-          <span id="googleSignInLabel">Sign in with Google</span>
-        </button>
-        <a id="googleSwitchAccount" class="lockSwitchAccount" href="#" hidden
-          >Use a different Google account</a
-        >
+        </section>
+
+        <!-- Step 2: a Google account that isn't paired yet -->
+        <section id="lockStepPair" hidden>
+          <h1 class="lockTitle">Pair this account</h1>
+          <p class="lockSub">
+            <b id="lockPairEmail">This account</b> isn't paired with your ARIA yet.
+            In the ARIA app on your PC (or anywhere you're already signed in),
+            open <b>Settings ▸ Accounts</b>, make a pairing code and enter it here.
+          </p>
+          <input id="lockPairInput" class="lockInput lockCodeInput" type="text" inputmode="text"
+            placeholder="XXXX-XXXX" maxlength="9" autocomplete="one-time-code"
+            autocapitalize="characters" spellcheck="false" aria-label="Pairing code" />
+          <button id="lockPairBtn" class="lockPrimaryBtn" type="button">Pair and continue</button>
+          <a id="lockPairBack" class="lockLink" href="#">Use a different account</a>
+        </section>
+
+        <p id="lockError" role="alert"></p>
+      </div>
+
+      <footer class="lockFoot">
         <!-- Firebase site only (apiBase.js): which ARIA server to use -->
         <label id="brainPick" class="lockBrain" hidden>
           Brain
           <select id="brainSelect" aria-label="Which ARIA server to use"></select>
           <span id="brainState"></span>
         </label>
-        <div id="lockKeyForm">
-          <input
-            id="userIdInput"
-            type="text"
-            placeholder="User ID"
-            autocomplete="off"
-            autocapitalize="none"
-          />
-          <input
-            id="passwordInput"
-            type="password"
-            placeholder="Enter access code"
-            autocomplete="off"
-          />
-          <button id="unlockBtn" class="primaryBtn glitch">
-            <i class="bi bi-shield-lock" aria-hidden="true"></i> AUTHENTICATE
-          </button>
-        </div>
-        <p id="lockError"></p>
-        <div class="lockFooter">
-          SYSTEM LOCKED // UNAUTHORIZED ACCESS PROHIBITED
-        </div>
-      </div>
+        <span data-aria-version="full">Mark 2.5 ARIA</span>
+      </footer>
     </div>
 
     <!-- ========================= -->
@@ -523,6 +535,7 @@
           <button class="settingsTab" data-tab="memory"><i class="bi bi-hdd" aria-hidden="true"></i> Memory</button>
           <button class="settingsTab" data-tab="emotion"><i class="bi bi-heart" aria-hidden="true"></i> Emotion</button>
           <button class="settingsTab" data-tab="keys"><i class="bi bi-key" aria-hidden="true"></i> Keys</button>
+          <button class="settingsTab" data-tab="accounts"><i class="bi bi-people" aria-hidden="true"></i> Accounts</button>
           <button class="settingsTab" data-tab="system"><i class="bi bi-gear" aria-hidden="true"></i> System</button>
           <button class="settingsTab" data-tab="skills"><i class="bi bi-lightning-charge" aria-hidden="true"></i> Skills</button>
           <button class="settingsTab" data-tab="briefing"><i class="bi bi-sunrise" aria-hidden="true"></i> Briefing</button>
@@ -1255,6 +1268,26 @@
                 last four characters.
               </p>
               <div id="keysList">Loading…</div>
+            </section>
+          </div>
+
+          <div class="settingsTabPane" data-pane="accounts">
+            <section class="settingsSection">
+              <h3><i class="bi bi-link-45deg" aria-hidden="true"></i> Pair an account</h3>
+              <p class="settingsHint">
+                Make a code here, then sign in with Google on any device and
+                enter it. That account can use this ARIA (and reach this PC)
+                from anywhere from then on. Codes last 10 minutes and work once.
+              </p>
+              <div id="pairBox">
+                <button type="button" class="primaryBtn" id="pairNewBtn">
+                  <i class="bi bi-plus-lg" aria-hidden="true"></i> Make a pairing code
+                </button>
+              </div>
+            </section>
+            <section class="settingsSection">
+              <h3><i class="bi bi-people" aria-hidden="true"></i> Paired accounts</h3>
+              <div id="ownersList">Loading…</div>
             </section>
           </div>
 

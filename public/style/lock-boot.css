@@ -1,143 +1,251 @@
 /* ============================================================
    LOCK SCREEN
+   Same shape as proxvocx's sign-in: the wordmark above a single card
+   with an accent top edge, a serif heading, Google as the main door,
+   and the access-code form as the quieter second one.
    ============================================================ */
 #lockScreen {
   position: fixed;
   inset: 0;
-  background: var(--bg);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 40px 16px;
+  overflow-y: auto;
+  background:
+    radial-gradient(ellipse 60% 45% at 50% 0%, var(--accent-bg), transparent 70%),
+    var(--bg);
+}
+
+#lockScreen [hidden] {
+  display: none !important;
+}
+
+/* ── Wordmark ── */
+.lockBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  animation: lockFade 0.4s ease both;
+}
+.lockDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 60%, transparent);
+  flex-shrink: 0;
+}
+#lockScreen .lockLogo {
+  font-family: var(--font-display, var(--font-serif));
+  font-size: 1.35rem;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+/* ── Card ── */
+#lockBox {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 28px 26px 24px;
+  text-align: left;
+  animation: lockRise 0.32s 0.06s ease both;
+}
+
+@keyframes lockFade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes lockRise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+#lockScreen .lockTitle {
+  font-family: var(--font-display, var(--font-serif));
+  font-size: 1.6rem;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--text);
+  margin: 0 0 6px;
+}
+#lockScreen .lockSub {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-3);
+  margin: 0 0 20px;
+}
+#lockScreen .lockSub b {
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+/* ── Google ── */
+#lockScreen .lockGoogleBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
-  padding: 20px;
-}
-
-#lockBox {
-  background: var(--bg-card);
-  padding: 32px 28px;
-  text-align: center;
+  gap: 10px;
   width: 100%;
-  max-width: 360px;
+  padding: 11px 16px;
+  border-radius: var(--r);
   border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-lg);
-  position: relative;
-  animation: lockBoxEnter 0.35s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
-}
-
-@keyframes lockBoxEnter {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-#lockBox h2 {
-  font-family: var(--font-display, var(--font-serif));
-  font-size: 2rem;
-  font-weight: 400;
-  letter-spacing: 0;
+  background: var(--bg-inset);
   color: var(--text);
-  text-shadow: none;
-  margin-bottom: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color var(--tr), background var(--tr);
+}
+#lockScreen .lockGoogleBtn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+#lockScreen .lockGoogleBtn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+#lockScreen .lockGoogleBtn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
-#lockBox input {
+#lockScreen .lockLink {
+  display: block;
+  width: fit-content;
+  margin: 12px auto 0;
+  font-size: 0.75rem;
+  color: var(--text-3);
+  text-decoration: none;
+}
+#lockScreen .lockLink:hover {
+  color: var(--accent-text);
+}
+
+/* ── Access-code form ── */
+.lockOr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0 14px;
+  color: var(--text-3);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.lockOr::before,
+.lockOr::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+/* Alone (no Google on this server), the form needs no "or". */
+#googleSignInBtn[hidden] ~ #lockKeyForm .lockOr {
+  display: none;
+}
+
+#lockScreen .lockInput {
+  display: block;
   width: 100%;
+  margin: 0 0 10px;
   padding: 10px 12px;
-  margin-top: 0;
   border: 1px solid var(--border);
+  border-radius: 8px;
   background: var(--bg-inset);
   color: var(--text);
   font-family: var(--font-sans);
   font-size: 0.85rem;
-  letter-spacing: 0;
   outline: none;
   caret-color: var(--accent);
-  border-radius: var(--r-sm);
-  transition: border-color var(--tr);
+  transition: border-color var(--tr), box-shadow var(--tr);
 }
-
-#lockBox input::placeholder {
+#lockScreen .lockInput::placeholder {
   color: var(--text-3);
 }
-
-#lockBox input:focus {
-  border-color: var(--accent-text);
-  box-shadow: none;
-  background: var(--bg-inset);
+#lockScreen .lockInput:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
 }
 
-#lockBox button {
-  margin-top: 16px;
-  width: 100%;
-  padding: 11px;
-  justify-content: center;
-}
-
-/* Google door: sits above the key form when both are on */
-#lockBox #googleSignInBtn {
-  margin-top: 0;
-  margin-bottom: 4px;
-}
-#lockBox #googleSignInBtn:not([hidden]) + .lockSwitchAccount + #lockKeyForm:not([hidden]) {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-#lockBox [hidden] {
-  display: none !important;
-}
-.lockSwitchAccount {
-  display: inline-block;
-  margin-top: 8px;
-  font-size: 0.75rem;
-  color: var(--text-3);
-  text-decoration: underline;
-}
-.lockSwitchAccount:hover {
-  color: var(--text);
-}
-/* The user ID to paste into the desktop app (lock.js showOwnerId) */
-.lockOwnerId {
-  display: flex;
-  gap: 6px;
-  align-items: stretch;
-  margin-top: 8px;
-}
-.lockOwnerId code {
-  flex: 1;
-  min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  background: var(--bg-inset);
-  color: var(--text);
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.78rem;
-  overflow-wrap: anywhere;
-  user-select: all;
-  text-align: left;
-}
-#lockBox .lockOwnerId button {
-  margin-top: 0;
-  width: auto;
-  padding: 6px 12px;
-}
-
-/* Firebase site: which ARIA server this page uses */
-.lockBrain {
+#lockScreen .lockPrimaryBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  margin-top: 12px;
-  font-size: 0.72rem;
+  width: 100%;
+  margin-top: 6px;
+  padding: 11px 16px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-full, 999px);
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: opacity var(--tr), transform var(--tr);
+}
+#lockScreen .lockPrimaryBtn:hover:not(:disabled) {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+#lockScreen .lockPrimaryBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Pairing code ── */
+#lockScreen .lockCodeInput {
+  padding: 14px 12px;
+  text-align: center;
+  font-family: var(--font-mono-stack, ui-monospace, monospace);
+  font-size: 1.45rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+#lockScreen .lockCodeInput::placeholder {
+  letter-spacing: 0.22em;
+  opacity: 0.45;
+}
+
+/* ── Messages ── */
+#lockError {
+  margin: 14px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: var(--danger-text);
+}
+#lockError:empty {
+  display: none;
+}
+
+/* ── Footer ── */
+.lockFoot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: 0.7rem;
   color: var(--text-3);
+  animation: lockFade 0.4s 0.12s ease both;
+}
+.lockBrain {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
 }
 .lockBrain select {
   font: inherit;
@@ -145,27 +253,15 @@
   background: var(--bg-inset);
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  padding: 2px 6px;
+  padding: 3px 6px;
 }
 
-#lockError {
-  color: var(--danger-text);
-  margin-top: 12px;
-  /* Grows with the message: a fixed 18px let long ones run over the footer. */
-  min-height: 18px;
-  line-height: 1.45;
-  font-size: 0.75rem;
-  font-family: var(--font-sans);
-  letter-spacing: 0;
-  animation: errorFlash 0.5s ease;
-}
-
-@keyframes errorFlash {
-  0%,
-  100% {
-    opacity: 1;
+@media (max-width: 480px) {
+  #lockScreen {
+    justify-content: flex-start;
+    padding-top: 12vh;
   }
-  50% {
-    opacity: 0;
+  #lockBox {
+    padding: 24px 20px 20px;
   }
 }
