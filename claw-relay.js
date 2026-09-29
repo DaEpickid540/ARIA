@@ -804,10 +804,20 @@ Start-Sleep -Milliseconds 100
           );
         }
 
-        // ── Tier 2: Windows Search via Ctrl+Esc ───────────────
-        // Note: WScript.Shell SendKeys uses ^{ESC} for Ctrl+Esc (= Start menu).
-        // {LWIN} is NOT supported by WScript.Shell — Ctrl+Esc is the correct substitute.
-        console.log(`[RELAY] Using Windows Search for "${appRaw}"...`);
+        // ── Tier 2: resolve against the Start Menu (.lnk shortcuts + Store apps) ──
+        const hit = findStartMenuApp(appRaw);
+        if (hit) {
+          const target = hit.lnk
+            ? `Start-Process -FilePath '${hit.lnk.replace(/'/g, "''")}'`
+            : `Start-Process explorer.exe -ArgumentList 'shell:AppsFolder\\${hit.appId.replace(/'/g, "''")}'`;
+          const r = runPs1(target);
+          if (!r.startsWith("exit")) return `launched ${hit.name}`;
+          console.log(`[RELAY] Start Menu launch failed for "${hit.name}": ${r}`);
+        }
+
+        // ── Tier 3 (last resort): type the name into Start search ──
+        // WScript.Shell SendKeys uses ^{ESC} for Ctrl+Esc (= Start menu).
+        console.log(`[RELAY] No Start Menu match for "${appRaw}", using Windows Search...`);
         const searchText = appRaw.replace(/'/g, "''");
         run(
           `powershell -Command "$wsh = New-Object -ComObject WScript.Shell; $wsh.SendKeys('^{ESC}'); Start-Sleep -Milliseconds 900; $wsh.SendKeys('${searchText}'); Start-Sleep -Milliseconds 1400; $wsh.SendKeys('{ENTER}')"`,
@@ -849,6 +859,64 @@ function run(cmd) {
   } catch (e) {
     return `exit ${e.status}: ${e.stderr?.trim() || e.message}`;
   }
+}
+
+// Finds the Start Menu entry that best matches `query`: every .lnk under the
+// all-users and per-user Start Menu, plus Get-StartApps for Store/UWP apps.
+// The list is cached for a minute so repeated launches stay fast.
+let _startMenuCache = { at: 0, items: [] };
+function listStartMenuApps() {
+  if (Date.now() - _startMenuCache.at < 60000 && _startMenuCache.items.length)
+    return _startMenuCache.items;
+  const out = runPs1(`
+$ErrorActionPreference = 'SilentlyContinue'
+$items = @()
+foreach ($root in @("$env:ProgramData\\Microsoft\\Windows\\Start Menu\\Programs", "$env:AppData\\Microsoft\\Windows\\Start Menu\\Programs")) {
+  Get-ChildItem -Path $root -Recurse -Filter *.lnk | ForEach-Object {
+    $items += [pscustomobject]@{ name = $_.BaseName; lnk = $_.FullName; appId = $null }
+  }
+}
+Get-StartApps | ForEach-Object {
+  $items += [pscustomobject]@{ name = $_.Name; lnk = $null; appId = $_.AppID }
+}
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$items | ConvertTo-Json -Compress
+`);
+  let items = [];
+  try {
+    const parsed = JSON.parse(out);
+    items = Array.isArray(parsed) ? parsed : [parsed];
+  } catch {}
+  _startMenuCache = { at: Date.now(), items };
+  return items;
+}
+
+function findStartMenuApp(query) {
+  const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const q = norm(query);
+  if (!q) return null;
+  const qTokens = q.split(" ");
+  const junk = /\b(uninstall|readme|help|documentation|release notes|website|support)\b/;
+  let best = null;
+  for (const it of listStartMenuApps()) {
+    const n = norm(it.name);
+    if (!n || junk.test(n)) continue;
+    let score = 0;
+    if (n === q) score = 100;
+    else if (n.startsWith(q)) score = 80;
+    else if (n.split(" ").includes(q)) score = 70;
+    else if (n.includes(q)) score = 60;
+    else if (qTokens.every((t) => n.includes(t))) score = 50;
+    else {
+      const hits = qTokens.filter((t) => t.length > 2 && n.includes(t)).length;
+      if (hits) score = 20 + (30 * hits) / qTokens.length;
+    }
+    if (!score) continue;
+    score -= Math.min(n.length - q.length, 30) * 0.2; // prefer the tighter name
+    if (it.lnk) score += 1; // a real shortcut beats a Store alias of the same name
+    if (!best || score > best.score) best = { ...it, score };
+  }
+  return best && best.score >= 30 ? best : null;
 }
 
 // Writes a .ps1 file and runs it — avoids all quote-escaping issues
