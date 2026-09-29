@@ -546,13 +546,16 @@ ${posLine}
 
     // ── Drag ──
     case "drag": {
-      const { x1 = 0, y1 = 0, x2 = 0, y2 = 0 } = cmd;
+      const [x1, y1, x2, y2] = [cmd.x1, cmd.y1, cmd.x2, cmd.y2].map((v) => Math.round(Number(v) || 0));
       if (PLATFORM === "win32") {
+        // Button down, then ~20-40 interpolated moves, then up — a single
+        // jump from start to end doesn't register as a drag in most apps.
         runPs1(`
 Add-Type -TypeDefinition @"
 using System;
+using System.Threading;
 using System.Runtime.InteropServices;
-public class AriaDrag {
+public class AriaDrag2 {
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
     [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT {
         public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr dwExtraInfo;
@@ -561,19 +564,27 @@ public class AriaDrag {
         public uint type; public MOUSEINPUT mi;
     }
     [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint n, INPUT[] pInputs, int cbSize);
-    public static void MouseBtn(uint flag) {
+    static void Send(uint flag) {
         var inp = new INPUT[1]; inp[0].type = 0; inp[0].mi.dwFlags = flag;
-        SendInput(1, inp, System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT)));
+        SendInput(1, inp, Marshal.SizeOf(typeof(INPUT)));
+    }
+    public static void Drag(int x1, int y1, int x2, int y2) {
+        double dist = Math.Sqrt((double)(x2 - x1) * (x2 - x1) + (double)(y2 - y1) * (y2 - y1));
+        int steps = Math.Max(20, Math.Min(40, (int)(dist / 15)));
+        SetCursorPos(x1, y1); Thread.Sleep(60);
+        Send(0x0002); Thread.Sleep(60);            // LEFTDOWN
+        for (int i = 1; i <= steps; i++) {
+            double t = (double)i / steps;
+            SetCursorPos((int)Math.Round(x1 + (x2 - x1) * t), (int)Math.Round(y1 + (y2 - y1) * t));
+            Send(0x0001);                          // MOVE (0,0) so apps see a move event
+            Thread.Sleep(12);
+        }
+        Thread.Sleep(60);
+        Send(0x0004);                              // LEFTUP
     }
 }
 "@ -ErrorAction SilentlyContinue
-[AriaDrag]::SetCursorPos(${x1}, ${y1})
-Start-Sleep -Milliseconds 80
-[AriaDrag]::MouseBtn(0x0002)
-Start-Sleep -Milliseconds 50
-[AriaDrag]::SetCursorPos(${x2}, ${y2})
-Start-Sleep -Milliseconds 100
-[AriaDrag]::MouseBtn(0x0004)
+[AriaDrag2]::Drag(${x1}, ${y1}, ${x2}, ${y2})
 `);
       } else if (PLATFORM === "darwin") {
         run(
@@ -592,7 +603,7 @@ Start-Sleep -Milliseconds 100
         );
       } else {
         run(
-          `xdotool mousemove ${x1} ${y1} mousedown 1 mousemove ${x2} ${y2} mouseup 1`,
+          `xdotool mousemove ${x1} ${y1} mousedown 1 ${Array.from({ length: 20 }, (_, i) => `mousemove ${Math.round(x1 + ((x2 - x1) * (i + 1)) / 20)} ${Math.round(y1 + ((y2 - y1) * (i + 1)) / 20)} sleep 0.01`).join(" ")} mouseup 1`,
         );
       }
       return `dragged (${x1},${y1}) → (${x2},${y2})`;
