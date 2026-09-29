@@ -667,21 +667,25 @@ public class AriaDrag2 {
       const fname =
         cmd.path || os.tmpdir() + "/aria-claw-shot-" + Date.now() + ".png";
       const mIdx = cmd.monitor ?? monitorIdx; // -1=all, 0=primary, 1+=secondary
+      // Where the captured image sits on the desktop, in the same coordinates
+      // click:/drag: use — lets the POV panel map a click on the image back.
+      let bounds = null;
       if (PLATFORM === "win32") {
         if (mIdx === -1) {
           // Capture ALL monitors combined (virtual desktop)
-          run(
+          bounds = run(
             `powershell -Command "` +
               `Add-Type -AssemblyName System.Windows.Forms,System.Drawing; ` +
               `$vd=[System.Windows.Forms.SystemInformation]::VirtualScreen; ` +
               `$b=New-Object System.Drawing.Bitmap($vd.Width,$vd.Height); ` +
               `$g=[System.Drawing.Graphics]::FromImage($b); ` +
               `$g.CopyFromScreen($vd.Left,$vd.Top,0,0,$b.Size); ` +
-              `$b.Save('${fname}')"`,
+              `$b.Save('${fname}'); ` +
+              `Write-Output ('' + $vd.Left + ',' + $vd.Top + ',' + $vd.Width + ',' + $vd.Height)"`,
           );
         } else {
           // Specific monitor by index
-          run(
+          bounds = run(
             `powershell -Command "` +
               `Add-Type -AssemblyName System.Windows.Forms,System.Drawing; ` +
               `$screens=[System.Windows.Forms.Screen]::AllScreens; ` +
@@ -689,9 +693,12 @@ public class AriaDrag2 {
               `$b=New-Object System.Drawing.Bitmap($s.Bounds.Width,$s.Bounds.Height); ` +
               `$g=[System.Drawing.Graphics]::FromImage($b); ` +
               `$g.CopyFromScreen($s.Bounds.X,$s.Bounds.Y,0,0,$b.Size); ` +
-              `$b.Save('${fname}')"`,
+              `$b.Save('${fname}'); ` +
+              `Write-Output ('' + $s.Bounds.X + ',' + $s.Bounds.Y + ',' + $s.Bounds.Width + ',' + $s.Bounds.Height)"`,
           );
         }
+        const m = /(-?\d+),(-?\d+),(\d+),(\d+)\s*$/.exec(bounds || "");
+        bounds = m ? { x: +m[1], y: +m[2], w: +m[3], h: +m[4] } : null;
       } else if (PLATFORM === "darwin") {
         const mFlag = mIdx >= 0 ? `-D ${mIdx + 1}` : "";
         run(`screencapture -x ${mFlag} "${fname}"`);
@@ -707,6 +714,7 @@ public class AriaDrag2 {
           result: "screenshot_ok",
           screenshot: b64,
           fname,
+          bounds,
         });
         return `screenshot: ${fname}`;
       } catch {

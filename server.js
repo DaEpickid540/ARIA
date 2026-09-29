@@ -360,7 +360,7 @@ function _parseChatClawInput(s) {
   }
   if (s.startsWith("drag:")) {
     // drag: X1,Y1 to X2,Y2
-    const m = s.match(/drag:\s*(\d+)[, ]+(\d+)\s+to\s+(\d+)[, ]+(\d+)/i);
+    const m = s.match(/drag:\s*(-?\d+)[, ]+(-?\d+)\s+to\s+(-?\d+)[, ]+(-?\d+)/i);
     if (m)
       return { id, type: "drag", x1: +m[1], y1: +m[2], x2: +m[3], y2: +m[4] };
   }
@@ -4099,13 +4099,14 @@ app.post("/api/claw/relay/unregister", (req, res) => {
 const pendingScreenshotResolvers = new Map(); // cmdId → {resolve, timer}
 
 app.post("/api/claw/relay/result", (req, res) => {
-  const { screenshot, fname, deviceId, cmdId, result } = req.body;
+  const { screenshot, fname, bounds, deviceId, cmdId, result } = req.body;
   if (screenshot && deviceId) {
     // Store latest screenshot per device for POV feed
     if (!global.clawScreenshots) global.clawScreenshots = new Map();
     global.clawScreenshots.set(deviceId, {
       b64: screenshot,
       fname: fname || "",
+      bounds: bounds || null,
       ts: Date.now(),
     });
     // Resolve the pipeline waiting on this screenshot. The node relay names
@@ -4141,7 +4142,7 @@ app.get("/api/claw/screenshot", (req, res) => {
   for (const [, v] of shots) {
     if (!latest || v.ts > latest.ts) latest = v;
   }
-  res.json({ ok: true, b64: latest.b64, ts: latest.ts });
+  res.json({ ok: true, b64: latest.b64, ts: latest.ts, bounds: latest.bounds });
 });
 
 // Relay live config (pushed from claw panel sliders, returned in every queue poll)

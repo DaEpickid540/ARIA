@@ -144,7 +144,7 @@ function _buildPanel() {
         <span id="clawScreenIntervalVal">4s</span>
       </div>
       <div id="clawPovFrame">
-        <div id="clawPovEmpty">No screenshot yet<br><span>Click Snapshot or Start Watch</span></div>
+        <div id="clawPovEmpty">No screenshot yet<br><span>Click Snapshot or Start Watch, then click, drag or scroll on the picture to control the PC</span></div>
         <img id="clawPovImg" style="display:none" alt="ARIA POV"/>
         <div id="clawPovTimestamp"></div>
       </div>
@@ -386,20 +386,28 @@ function _buildPanel() {
       }
     });
 
+  _bindPovControls();
+
   _log("SYSTEM", "ARIA Claw ready. Connect relay → full PC control.", "info");
 }
 
 /* ═══════════════════════════════════════════════════════════
    SCREEN / POV TAB
 ═══════════════════════════════════════════════════════════ */
-async function _takeSnapshot() {
-  _setScreenStatus("Requesting snapshot...");
+async function _takeSnapshot({ quiet = false } = {}) {
+  if (!quiet) _setScreenStatus("Requesting snapshot...");
+  // Compare against the last frame's server timestamp, not the browser clock.
+  const since = _lastShotTs;
   try {
-    await fetch("/api/claw", {
+    const q = await fetch("/api/claw", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: "take a screenshot", mode: "ai" }),
-    });
+      body: JSON.stringify({ input: "now", mode: "screenshot" }),
+    }).then((r) => r.json());
+    if (q.error) {
+      _setScreenStatus(q.error);
+      return;
+    }
     // Poll for result
     let attempts = 0;
     const poll = setInterval(async () => {
@@ -407,10 +415,10 @@ async function _takeSnapshot() {
       const d = await fetch("/api/claw/screenshot")
         .then((r) => r.json())
         .catch(() => ({}));
-      if (d.ok && d.b64) {
+      if (d.ok && d.b64 && d.ts > since) {
         clearInterval(poll);
-        _showScreenshot(d.b64, d.ts);
-        _setScreenStatus("Snapshot taken");
+        _showScreenshot(d.b64, d.ts, d.bounds);
+        if (!quiet) _setScreenStatus("Snapshot taken");
       } else if (attempts > 10) {
         clearInterval(poll);
         _setScreenStatus("No response from relay");
@@ -434,14 +442,14 @@ function _startScreenWatch() {
     fetch("/api/claw/screenshot")
       .then((r) => r.json())
       .then((d) => {
-        if (d.ok && d.b64) _showScreenshot(d.b64, d.ts);
+        if (d.ok && d.b64) _showScreenshot(d.b64, d.ts, d.bounds);
       })
       .catch(() => {});
     // Also request a fresh one from relay
     fetch("/api/claw", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: "take a screenshot", mode: "ai" }),
+      body: JSON.stringify({ input: "now", mode: "screenshot" }),
     }).catch(() => {});
   }, _screenInterval);
 }
@@ -462,7 +470,9 @@ function _toggleScreenWatch() {
   _screenWatch ? _stopScreenWatch() : _startScreenWatch();
 }
 
-function _showScreenshot(b64, ts) {
+function _showScreenshot(b64, ts, bounds) {
+  _povBounds = bounds || null;
+  if (ts) _lastShotTs = ts;
   const img = document.getElementById("clawPovImg");
   const empty = document.getElementById("clawPovEmpty");
   const stamp = document.getElementById("clawPovTimestamp");
@@ -475,6 +485,133 @@ function _showScreenshot(b64, ts) {
     const d = new Date(ts);
     stamp.textContent = d.toLocaleTimeString();
   }
+}
+
+/* ── POV remote control ──────────────────────────────────────
+   The screenshot doubles as a trackpad for the PC: click, right-click,
+   double-click, drag and scroll on the image and it happens on the screen.
+   The relay reports where the capture sits on the desktop (bounds), so a
+   point on the image maps back to real click coordinates. */
+let _povBounds = null; // { x, y, w, h } of the captured area, or null
+let _lastShotTs = 0; // server timestamp of the frame on screen
+
+// Image point → desktop coordinates. object-fit: contain letterboxes the
+// image, so work out where the picture actually sits inside the element.
+function _povToScreen(img, clientX, clientY) {
+  const r = img.getBoundingClientRect();
+  const nw = img.naturalWidth, nh = img.naturalHeight;
+  if (!nw || !nh || !r.width || !r.height) return null;
+  const scale = Math.min(r.width / nw, r.height / nh);
+  const dw = nw * scale, dh = nh * scale;
+  const left = r.left + (r.width - dw) / 2, top = r.top + (r.height - dh) / 2;
+  const ix = (clientX - left) / scale, iy = (clientY - top) / scale;
+  if (ix < 0 || iy < 0 || ix > nw || iy > nh) return null;
+  const b = _povBounds || { x: 0, y: 0, w: nw, h: nh };
+  return {
+    x: Math.round(b.x + (ix * b.w) / nw),
+    y: Math.round(b.y + (iy * b.h) / nh),
+  };
+}
+
+// Sends one mouse command straight to the relay (no model in the loop).
+async function _povSend(input) {
+  if (!_clawEnabled) {
+    _log("BLOCKED", "Claw is OFF. Toggle ON to execute.", "error");
+    return;
+  }
+  _log("POV", input, "viz");
+  try {
+    const d = await fetch("/api/claw", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ input, mode: "mouse" }),
+    }).then((r) => r.json());
+    if (d.error) _log("ERROR", d.error, "error");
+  } catch (e) {
+    _log("ERROR", "Network: " + e.message, "error");
+  }
+}
+
+// After an action, grab a fresh frame so the view keeps up.
+let _povRefreshTimer = null;
+function _povRefreshSoon(ms = 700) {
+  clearTimeout(_povRefreshTimer);
+  _povRefreshTimer = setTimeout(() => _takeSnapshot({ quiet: true }), ms);
+}
+
+function _bindPovControls() {
+  const img = document.getElementById("clawPovImg");
+  if (!img) return;
+  img.draggable = false;
+  img.style.cursor = "crosshair";
+  img.title = "Click, drag, right-click or scroll to control the PC";
+
+  let down = null; // { x, y, sx, sy } while the button is held
+  let clickTimer = null;
+
+  img.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    const p = _povToScreen(img, e.clientX, e.clientY);
+    if (!p) return;
+    e.preventDefault();
+    img.setPointerCapture?.(e.pointerId);
+    down = { cx: e.clientX, cy: e.clientY, ...p };
+  });
+
+  img.addEventListener("pointerup", (e) => {
+    if (!down || e.button !== 0) return;
+    const start = down;
+    down = null;
+    const moved = Math.hypot(e.clientX - start.cx, e.clientY - start.cy) > 6;
+    if (moved) {
+      const end = _povToScreen(img, e.clientX, e.clientY);
+      if (!end) return;
+      _povSend(`drag ${start.x} ${start.y} to ${end.x} ${end.y}`).then(() => _povRefreshSoon(900));
+      return;
+    }
+    // Hold single clicks briefly so a double-click sends one double_click.
+    if (clickTimer) {
+      clearTimeout(clickTimer);
+      clickTimer = null;
+      _povSend(`double_click ${start.x} ${start.y}`).then(() => _povRefreshSoon());
+      return;
+    }
+    clickTimer = setTimeout(() => {
+      clickTimer = null;
+      _povSend(`click ${start.x} ${start.y}`).then(() => _povRefreshSoon());
+    }, 250);
+  });
+
+  img.addEventListener("pointercancel", () => (down = null));
+
+  img.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    const p = _povToScreen(img, e.clientX, e.clientY);
+    if (p) _povSend(`right_click ${p.x} ${p.y}`).then(() => _povRefreshSoon());
+  });
+
+  // Wheel: accumulate a burst, then move there and scroll once.
+  let wheelAcc = 0, wheelTimer = null, wheelAt = null;
+  img.addEventListener(
+    "wheel",
+    (e) => {
+      const p = _povToScreen(img, e.clientX, e.clientY);
+      if (!p) return;
+      e.preventDefault();
+      wheelAcc += e.deltaY;
+      wheelAt = p;
+      clearTimeout(wheelTimer);
+      wheelTimer = setTimeout(async () => {
+        const notches = Math.max(1, Math.min(15, Math.round(Math.abs(wheelAcc) / 100)));
+        const dir = wheelAcc < 0 ? "up" : "down";
+        wheelAcc = 0;
+        await _povSend(`move ${wheelAt.x} ${wheelAt.y}`);
+        await _povSend(`scroll ${dir} ${notches}`);
+        _povRefreshSoon();
+      }, 150);
+    },
+    { passive: false },
+  );
 }
 
 function _setScreenStatus(msg) {
