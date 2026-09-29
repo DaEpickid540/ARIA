@@ -119,7 +119,7 @@ function describeServerError(status, d) {
   if (d.error === "owner_unset")
     return `This PC doesn't know its owner yet. In the desktop app, open Settings ▸ Keys ▸ Owner and paste: ${d.uid}`;
   if (d.error === "not_owner" && SITE && !d.publicServer)
-    return `${d.email || "That account"} isn't an owner of this PC yet. Add its ID in the desktop app: Settings ▸ Keys ▸ Owners (separate several with commas).`;
+    return `${d.email || "That account"} isn't an owner of this PC yet. In the desktop app, add it under Settings ▸ Keys ▸ Owners (Google emails), or add this ID under Owners (Google user IDs):`;
   if (d.error === "not_owner")
     return `${d.email || "That account"} isn't ARIA's owner.`;
   if (SITE && status === 404)

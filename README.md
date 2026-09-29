@@ -134,6 +134,20 @@ domains** ▸ add your Render domain. If you sign in with the wrong account,
 the server log prints that account's `uid`, which helps if you don't know
 yours.
 
+**More than one account.** `ARIA_OWNER_UID` takes several IDs, separated
+by commas. `ARIA_OWNER_EMAILS` is the easier route: Google addresses
+(school accounts included), trusted only when Google has verified them.
+
+**Reasoning.** ARIA scales its thinking to the message (`reasoningEffort` in
+`server.js`):
+- **None** for chat and quick commands.
+- **Light** (a few steps) for ordinary questions.
+- **Deep** (work it through, try an alternative, check the result) for
+  maths, proofs, real bugs and design trade-offs.
+
+Saying "think hard" or "quick" overrides it, and texts stay light unless you
+ask for more.
+
 **Access key.** `ARIA_ACCESS_KEY` still works, alongside Google or on its own
 (`POST /api/auth/login`), and it's what `aria-voice-hook.js` sends for now.
 

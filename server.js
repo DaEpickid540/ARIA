@@ -1853,47 +1853,73 @@ async function generateEmbedding(text) {
   return data?.result?.data?.[0] ?? null;
 }
 
-/* ── Prompted reasoning ──
-   Appended to the system prompt for non-trivial turns. Kept as constants so
-   a model that reasons natively (Ollama "thinking" models) can have them
-   taken back out: asked for 15-20 thoughts on top of its own reasoning, it
-   reasons twice. See ollamaRequest(). */
-const REASONING_PROMPT = `
+/* ── Prompted reasoning, scaled to the question ──
+   Every turn used to get the same "target 15-20 thoughts" block (25-30 for
+   long ones), so "hi" and "prove this theorem" cost about the same, and
+   replies were slow. Now reasoningEffort() picks a level per turn:
+     none   chat, thanks, quick commands: answer straight away
+     light  ordinary questions: a few steps, stop once sure
+     deep   genuinely hard ones: work it, try an alternative, check the answer
+   Kept as constants so a model that reasons natively (Ollama "thinking"
+   models) can have them taken back out; see ollamaRequest(). */
+const LIGHT_REASONING_PROMPT = `
 
-[REASONING]
-Before answering, think inside <think>...</think> tags. Reason freely — no rigid structure.
+[REASONING: LIGHT]
+Think briefly inside <think>...</think> first. Use → for each step, and only as many as this needs (usually 2-5):
+→ what is actually being asked
+→ the key fact, step or risk
+→ anything to check before answering
+Stop as soon as you're sure. Nothing before <think>. After </think>, answer directly, without repeating the → lines.`;
 
-Use → to mark each distinct thought as you work through the problem:
-→ like this for each insight, question, or decision point
+const DEEP_REASONING_PROMPT = `
 
-Think like a smart person reasoning out loud. A good reasoning chain:
-- Questions what's actually being asked (not just the surface request)
-- Pulls in relevant context, memory, prior knowledge
-- Tries an approach, notices flaws, adjusts
-- Considers edge cases and failure modes
-- Asks "what am I missing?" and "where could I be wrong?"
-- Revises until genuinely confident
+[REASONING: DEEP]
+This is a genuinely hard one. Take the time to get it right: think it through inside <think>...</think> before answering, with → for each distinct step.
+→ Restate the real problem, and what a correct answer has to satisfy.
+→ Work it step by step. Write down intermediate results (numbers, code paths, assumptions), not just conclusions.
+→ Try at least one other approach, or the case most likely to break yours, and say why you chose as you did.
+→ Check the result: recompute it, run it against an example, or look for a counterexample. If it fails, fix it and check again.
+→ Stop when the answer holds up, not at a number of thoughts.
+Nothing before <think>. After </think>: a clean, complete answer that doesn't repeat the → lines, and says how sure you are when that matters.`;
 
-Target 15-20 distinct → thoughts. More is fine. The depth of your reasoning directly determines the quality of your answer.
+const ALL_REASONING_PROMPTS = [LIGHT_REASONING_PROMPT, DEEP_REASONING_PROMPT];
 
-Rules:
-- Zero text before <think>. Not even whitespace.
-- Think in first person, conversationally, honestly
-- The → markers are your thinking — don't repeat them in your answer
-- Your answer after </think> should be richer because you thought, not just longer
-- Short answers are fine when that's genuinely correct`;
+/**
+ * How hard to think about one message: "none" | "light" | "deep".
+ * Explicit asks win ("think hard", "quick"); then the mode; then what the
+ * message looks like. Texts lean fast: someone waiting on a phone wants the
+ * answer, so they only go deep when asked.
+ */
+function reasoningEffort(message, { mathMode = false, programmingMode = false, channel = "web", hasImages = false } = {}) {
+  const m = String(message || "").trim();
+  const words = m.split(/\s+/).filter(Boolean).length;
+  const askedDeep =
+    /\b(think (hard|harder|carefully|it through|deeply)|take your time|step[- ]by[- ]step|in[- ]depth|thorough(ly)?|rigorous(ly)?|double[- ]check|prove|derive)\b/i.test(m);
+  const askedQuick =
+    /\b(quick(ly)?|brief(ly)?|tl;?dr|short answer|one[- ]word|in a sentence|just (tell|give) me|yes or no)\b/i.test(m);
+  if (askedDeep) return "deep";
+  if (askedQuick) return "none";
+  if (mathMode || programmingMode) return "deep";
 
-const EXTENDED_REASONING_PROMPT = `
+  const smallTalk =
+    /^(hi+|hey+|hello|yo|sup|gm|gn|good (morning|night|evening)|thanks?( you)?|thx|ty|ok(ay)?|cool|nice|lol|lmao|bye|np|sure|yep|nope|yes|no)\b[\s!.?]*$/i.test(m);
+  const needsThought = /\b(explain|why|how|compare|solve|calc|debug|fix|plan|analy[sz]e|review|design|should i)\b/i.test(m);
+  if (smallTalk || (words <= 6 && !needsThought && !hasImages)) return "none";
 
-[EXTENDED REASONING]
-This is a complex request. Push further inside your <think> block:
-→ explore alternative approaches and why you're not taking them
-→ steelman the opposing view or a competing solution
-→ find the weakest point in your own answer and address it
-→ what would an expert in this specific domain add?
-→ what's the simplest possible correct answer, and is your answer unnecessarily complex?
-
-Aim for 25-30 → thoughts total. Your final response: comprehensive, well-structured, thorough.`;
+  // Maths and proofs are hard on their own; a bug or a design choice is hard
+  // once it's described in any detail.
+  const math =
+    /\b(prove|proof|derive|theorem|integral|integrate|derivative|differentiate|limit of|recurrence|big[- ]o|complexity of|probability|expected value|system of equations)\b/i.test(m);
+  const debug =
+    /\b(debug|stack ?trace|traceback|exception|segfault|crash(es|ed|ing)?|race condition|deadlock|memory leak|doesn'?t work|not working|bug|ECONN\w*|undefined is not|null pointer)\b/i.test(m);
+  const design =
+    /\b(trade-?offs?|pros and cons|architecture|system design|design (a|an|the)|strategy|plan (for|out)|should i (use|pick|choose|go with))\b/i.test(m);
+  const code = /```|\bline \d+\b|\b(error|errno)\b/i.test(m);
+  const hard =
+    words > 80 || math || (debug && words >= 8) || (design && words >= 10) || (code && words >= 15);
+  if (channel === "sms") return "light";
+  return hard ? "deep" : "light";
+}
 
 /* ── Ollama: what each local model can do ──
    /api/show lists a model's capabilities ("vision", "thinking", "tools").
@@ -1938,11 +1964,11 @@ async function ollamaVisionModel(url) {
 /**
  * The /api/chat body for one turn, with the two things a local model gets
  * wrong on its own:
- *   - Reasoning. A hybrid model (qwen3.5) now reasons natively only when
- *     ARIA's own prompt asks for reasoning, and that prompt is dropped, since
- *     asking for 15-20 thoughts on top of native reasoning doubles it. A
- *     reasoning-only build always gets think:true, so its reasoning arrives
- *     in its own field instead of leaking into the answer.
+ *   - Reasoning. A hybrid model (qwen3.5) reasons natively only on "deep"
+ *     turns (reasoningEffort), and ARIA's prompted reasoning is dropped then,
+ *     since both at once would reason twice. A reasoning-only build always
+ *     gets think:true, so its reasoning arrives in its own field instead of
+ *     leaking into the answer.
  *   - Images. A text-only model answers an image with HTTP 400. Image turns
  *     go to an installed vision model instead, or fail with a useful message.
  * @returns {Promise<{model: string, body: object, note?: string}>}
@@ -1971,14 +1997,17 @@ async function ollamaRequest(url, model, messages, { stream = false } = {}) {
   const numCtx = Number(process.env.OLLAMA_NUM_CTX ?? 16384);
   const body = { model, messages: msgs, stream, ...(numCtx > 0 ? { options: { num_ctx: numCtx } } : {}) };
   if (caps.has("thinking")) {
+    // Native reasoning replaces ARIA's prompt for it: on for "deep" turns,
+    // off otherwise, so a hybrid model answers light questions straight away.
+    // A reasoning-only build can't switch off, so it's always on there (it
+    // would otherwise leak its reasoning into the answer).
     const sys = msgs[0]?.role === "system" ? msgs[0] : null;
-    const wantsReasoning = !!sys?.content.includes(REASONING_PROMPT);
-    body.think = wantsReasoning || caps.has("thinking-only");
-    if (sys && wantsReasoning) {
-      msgs[0] = {
-        ...sys,
-        content: sys.content.replace(REASONING_PROMPT, "").replace(EXTENDED_REASONING_PROMPT, ""),
-      };
+    const deep = !!sys?.content.includes(DEEP_REASONING_PROMPT);
+    body.think = deep || caps.has("thinking-only");
+    if (sys) {
+      let content = sys.content;
+      for (const p of ALL_REASONING_PROMPTS) content = content.replace(p, "");
+      if (content !== sys.content) msgs[0] = { ...sys, content };
     }
   }
   return { model, body, note };
@@ -2652,27 +2681,16 @@ app.post("/api/chat", async (req, res) => {
       8000,
     )}\n]`;
 
-  // Auto-decide thinking: explicit toggle OR auto-detected complex message
-  // Skip thinking for very short/simple conversational turns — no need to reason through "hi"
-  const trivialMsg =
-    message.trim().split(/\s+/).length <= 5 &&
-    !/code|write|explain|fix|debug|build|create|how|why|what|help|calc|solve|analyze|review|compare|list|plan|summarize|translate|generate/i.test(
-      message,
-    );
-  const shouldThink = !trivialMsg;
-
-  if (shouldThink) {
-    sysPrompt += REASONING_PROMPT;
-  }
-
-  if (
-    message.split(/\s+/).length > 30 ||
-    /\b(deeply|thoroughly|comprehensive|in depth|step by step|think through|explain everything)\b/i.test(
-      message,
-    )
-  ) {
-    sysPrompt += EXTENDED_REASONING_PROMPT;
-  }
+  // How hard to think about this one (see reasoningEffort): nothing for
+  // chat, a few steps for ordinary questions, a checked chain for hard ones.
+  const effort = reasoningEffort(message, {
+    mathMode,
+    programmingMode,
+    channel,
+    hasImages: (imageAttachments || []).length > 0,
+  });
+  if (effort === "light") sysPrompt += LIGHT_REASONING_PROMPT;
+  if (effort === "deep") sysPrompt += DEEP_REASONING_PROMPT;
 
   if (musicTutorMode) {
     sysPrompt += `
