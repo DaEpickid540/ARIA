@@ -3064,7 +3064,15 @@ Active GitHub repo: ${workspaceRepo}
     }
   } catch (err) {
     console.error("[AI]", err.message);
+    if (res.headersSent) return;
     res.json({ reply: `⚠ ${err.message}` });
+    // The hook still texts this back, so the thread should show it too —
+    // otherwise an incoming text vanishes whenever the model is down.
+    if (channel === "sms") {
+      try {
+        recordTextChat(req.body.chatId, message, `⚠ ${err.message}`);
+      } catch {}
+    }
   }
 });
 
