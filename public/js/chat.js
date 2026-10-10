@@ -987,11 +987,11 @@ function renderAttachPreviews() {
   row.innerHTML = pendingFiles
     .map(
       (f, i) => `
-    <div class="attachThumb" title="${f.name}">
+    <div class="attachThumb" title="${escapeHtml(f.name)}">
       ${
         f.type === "image"
-          ? `<img src="${f.base64}" alt="${f.name}">`
-          : `<span>${f.name.slice(0, 8)}</span>`
+          ? `<img src="${escapeHtml(safeImageUrl(f.base64))}" alt="${escapeHtml(f.name)}">`
+          : `<span>${escapeHtml(f.name.slice(0, 8))}</span>`
       }
       <span class="attachRemove" onclick="window.ARIA_removeAttach(${i})">✕</span>
     </div>`,
@@ -1491,21 +1491,27 @@ function renderMessages() {
       bodyHTML = msg.content ? renderMarkdown(msg.content) : "";
       visualNode = createVisual(msg.visual);
     } else if (msg.type === "image" && msg.imageUrl) {
-      bodyHTML = `<div class="msgImageWrap">
-        <img src="${msg.imageUrl}" alt="Generated" class="msgImage" onclick="window.open('${msg.imageUrl}','_blank')">
+      // imageUrl comes from the image tool (or a synced chat), so it is
+      // scheme-checked and escaped; the old inline onclick put it inside a
+      // JS string, where a quote broke out. A plain link opens it instead.
+      const img = escapeHtml(safeImageUrl(msg.imageUrl));
+      bodyHTML = img
+        ? `<div class="msgImageWrap">
+        <a href="${img}" target="_blank" rel="noopener noreferrer"><img src="${img}" alt="Generated" class="msgImage"></a>
         <div class="imgActions">
-          <a href="${msg.imageUrl}" download="aria-image.png" class="fileDownloadBtn">⬇ Download Image</a>
+          <a href="${img}" download="aria-image.png" class="fileDownloadBtn">⬇ Download Image</a>
         </div>
-      </div>`;
+      </div>`
+        : renderMarkdown(msg.content || "");
     } else if (msg.role === "user") {
       const thumbs = (msg.attachments || [])
         .map((a) =>
           a.type === "image"
-            ? `<div class="msgAttachThumb"><img src="${a.base64}" alt="${a.name}"></div>`
-            : `<div class="msgAttachThumb docThumb">${a.name.slice(
+            ? `<div class="msgAttachThumb"><img src="${escapeHtml(safeImageUrl(a.base64))}" alt="${escapeHtml(a.name || "")}"></div>`
+            : `<div class="msgAttachThumb docThumb">${escapeHtml(String(a.name || "").slice(
                 0,
                 10,
-              )}</div>`,
+              ))}</div>`,
         )
         .join("");
       bodyHTML = `${thumbs ? `<div class="msgAttachments">${thumbs}</div>` : ""}
@@ -2994,10 +3000,10 @@ async function sendMessageContent(text, chat, attachments = []) {
                 pill.className =
                   "clawStepPill clawStepIn" +
                   (evt.type === "tool_done" ? " clawStepDone" : "");
-                if (evt.type === "source" && evt.url) {
+                if (evt.type === "source" && safeLinkUrl(evt.url)) {
                   pill.innerHTML = `<span class="clawStepIcon">\uD83C\uDF10</span><a href="${escapeHtml(
                     evt.url,
-                  )}" target="_blank" class="clawStepLink">${escapeHtml(
+                  )}" target="_blank" rel="noopener noreferrer" class="clawStepLink">${escapeHtml(
                     (evt.title || evt.url).slice(0, 100),
                   )}</a>`;
                 } else {
@@ -3297,11 +3303,37 @@ function updateTypingIndicatorTask(id, task, detail = "") {
 /* ============================================================
    MARKDOWN
    ============================================================ */
+// Quotes are escaped too: several callers put the result inside attribute
+// values (href, alt, src), where an unescaped " ends the attribute.
 function escapeHtml(t) {
   return String(t)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// URL allowlists for anything model- or web-supplied that lands in href/src.
+// Model output can be steered by any page, file or search result ARIA reads,
+// so a `javascript:` link or an off-scheme image is treated as hostile.
+// Whitespace/control characters are refused outright: browsers strip them
+// from URLs, which would turn "java\tscript:" back into "javascript:".
+function safeLinkUrl(u) {
+  const s = String(u ?? "").trim();
+  if (!s || /[\u0000- \u007f]/.test(s)) return "";
+  if (/^(https?:\/\/|mailto:)/i.test(s)) return s;
+  if (/^\/(?!\/)/.test(s) || s.startsWith("#")) return s; // same-origin path
+  return "";
+}
+function safeImageUrl(u) {
+  const s = String(u ?? "").trim();
+  // Any image/* data URL (attachments may be HEIC, AVIF, SVG…). Scripts in an
+  // SVG don't run when it's loaded through <img>.
+  if (/^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=\s]+$/i.test(s)) return s.replace(/\s+/g, "");
+  if (/[\u0000- \u007f]/.test(s)) return "";
+  if (/^https?:\/\//i.test(s) || /^\/(?!\/)/.test(s) || /^blob:/i.test(s)) return s;
+  return "";
 }
 
 function renderMarkdown(text) {
@@ -3409,6 +3441,34 @@ function renderMarkdown(text) {
   // ── STEP 4: escapeHtml the remaining text (safe, no code or think) ──
   let h = escapeHtml(text);
 
+  // ── STEP 4b: images and links → placeholders, BEFORE inline formatting ──
+  // The text is already escaped (quotes included), so a URL can't break out
+  // of its attribute. Pulling them out first also stops the emphasis/code
+  // passes below from inserting tags inside an href. Only allow-listed
+  // schemes survive; anything else is shown as plain text.
+  const linkPlaceholders = [];
+  // Images are block-level (never wrapped in <p>), links inline.
+  const stashLink = (html, kind = "LINK") => {
+    linkPlaceholders.push(html);
+    return `\x00${kind}${linkPlaceholders.length - 1}\x00`;
+  };
+  const unescapeUrl = (s) =>
+    s.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  h = h.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (m, alt, src) => {
+    const url = safeImageUrl(unescapeUrl(src));
+    if (!url) return m;
+    const u = escapeHtml(url);
+    return stashLink(
+      `<div class="msgImageWrap"><img src="${u}" alt="${alt}" class="msgImage"><div class="imgActions"><a href="${u}" download class="fileDownloadBtn">⬇ Download</a></div></div>`,
+      "IMG",
+    );
+  });
+  h = h.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, label, href) => {
+    const url = safeLinkUrl(unescapeUrl(href));
+    if (!url) return m;
+    return stashLink(`<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="mdLink">${label}</a>`);
+  });
+
   // ── STEP 5: Apply markdown formatting on escaped text ──
   h = h.replace(/`([^`\n]+)`/g, '<code class="inlineCode">$1</code>');
   h = h.replace(/^### (.+)$/gm, '<h3 class="mdH3">$1</h3>');
@@ -3418,15 +3478,6 @@ function renderMarkdown(text) {
   h = h.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
   h = h.replace(/\*\*(.+?)\*\*/g, '<strong class="mdBold">$1</strong>');
   h = h.replace(/\*(.+?)\*/g, '<em class="mdItalic">$1</em>');
-  h = h.replace(
-    /!\[([^\]]*)\]\(([^)]+)\)/g,
-    (_, alt, src) =>
-      `<div class="msgImageWrap"><img src="${src}" alt="${alt}" class="msgImage"><div class="imgActions"><a href="${src}" download class="fileDownloadBtn">⬇ Download</a></div></div>`,
-  );
-  h = h.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener" class="mdLink">$1</a>',
-  );
   // Bullet lists
   h = h.replace(
     /((?:^[*\-] .+\n?)+)/gm,
@@ -3452,12 +3503,13 @@ function renderMarkdown(text) {
     .split(/\n{2,}/)
     .map((b) => {
       const t = b.trim();
-      if (!t || /^<(h[1-3]|ul|ol|div|details|pre|hr|\x00)/.test(t)) return t;
+      if (!t || /^<(h[1-3]|ul|ol|div|details|pre|hr|\x00)/.test(t) || /^\x00IMG\d+\x00$/.test(t)) return t;
       return `<p class="mdPara">${t.replace(/\n/g, "<br/>")}</p>`;
     })
     .join("\n");
 
-  // ── STEP 6: Restore code and think placeholders ──
+  // ── STEP 6: Restore link, code and think placeholders ──
+  h = h.replace(/\x00(?:LINK|IMG)(\d+)\x00/g, (_, i) => linkPlaceholders[parseInt(i)] || "");
   h = h.replace(
     /\x00CODE(\d+)\x00/g,
     (_, i) => codePlaceholders[parseInt(i)] || "",
