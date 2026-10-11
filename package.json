@@ -6,6 +6,7 @@
   "type": "module",
   "main": "desktop/main.js",
   "scripts": {
+    "test": "node --test \"tests/**/*.test.mjs\"",
     "start": "node server.js",
     "desktop": "electron .",
     "dist": "node desktop/build.js",
