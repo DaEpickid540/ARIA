@@ -3320,11 +3320,6 @@ function updateTypingIndicatorTask(id, task, detail = "") {
    ============================================================ */
 // Quotes are escaped too: several callers put the result inside attribute
 // values (href, alt, src), where an unescaped " ends the attribute.
-/** An id that is safe inside a quoted inline-handler string. */
-function jsSafeId(id) {
-  return String(id ?? "").replace(/[^w.-]/g, "");
-}
-
 function escapeHtml(t) {
   return String(t)
     .replace(/&/g, "&amp;")
@@ -3332,6 +3327,11 @@ function escapeHtml(t) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+/** An id that is safe inside a quoted inline-handler string. */
+function jsSafeId(id) {
+  return String(id ?? "").replace(/[^\w.-]/g, "");
 }
 
 // URL allowlists for anything model- or web-supplied that lands in href/src.
