@@ -275,7 +275,31 @@
           </div>
         </div>
 
-        <!-- SCROLL ROW 3 — utilities (homeTools.js, Mark 1.2) -->
+        <!-- SCROLL ROW 3 — memory, activity and devices (homeTools.js) -->
+        <div class="scrollRow">
+          <div class="homeCard scrollCard">
+            <div class="homeLabel"><i class="bi bi-hdd" aria-hidden="true"></i> MEMORY</div>
+            <div id="homeMemoryFacts" class="homeValue"></div>
+          </div>
+          <div class="homeCard scrollCard">
+            <div class="homeLabel"><i class="bi bi-gear-wide-connected" aria-hidden="true"></i> BACKGROUND TASKS</div>
+            <div id="homeBgTasks" class="homeValue"></div>
+          </div>
+          <div class="homeCard scrollCard">
+            <div class="homeLabel"><i class="bi bi-wifi" aria-hidden="true"></i> NETWORK</div>
+            <div id="homeNetworkInfo" class="homeValue"></div>
+          </div>
+          <div class="homeCard scrollCard">
+            <div class="homeLabel"><i class="bi bi-usb-symbol" aria-hidden="true"></i> USB DEVICES</div>
+            <div id="homeUSBDevices" class="homeValue"></div>
+          </div>
+          <div class="homeCard scrollCard">
+            <div class="homeLabel"><i class="bi bi-bluetooth" aria-hidden="true"></i> BLUETOOTH</div>
+            <div id="homeBluetooth" class="homeValue"></div>
+          </div>
+        </div>
+
+        <!-- SCROLL ROW 4 — utilities (homeTools.js, Mark 1.2) -->
         <div class="scrollRow">
           <div class="homeCard scrollCard pomodoroCard">
             <div class="homeLabel"><i class="bi bi-stopwatch" aria-hidden="true"></i> POMODORO</div>
@@ -378,6 +402,9 @@
       </div>
     </div>
 
+    <!-- Centre-screen notice for mode switches (chat.js showChatNotification) -->
+    <div id="chatNotification" role="status" aria-live="polite"></div>
+
     <!-- LINK MODE — device mesh + file relay (js/linkMode.js). Outside
          #layout so it also opens from the home screen. -->
     <div id="linkModeOverlay" style="display: none" role="dialog" aria-modal="true" aria-labelledby="linkModeTitle">
@@ -432,6 +459,14 @@
             <button id="goLockBtn" class="secondaryBtn glitch"><i class="bi bi-lock" aria-hidden="true"></i> Lock</button>
           </div>
 
+          <!-- Full-screen pages (js/pages.js) -->
+          <div class="sidebarGroup sidebarGroupRow sidebarPagesRow">
+            <button id="openWeatherPageBtn" class="secondaryBtn" title="Weather" aria-label="Weather"><i class="bi bi-cloud-sun" aria-hidden="true"></i></button>
+            <button id="openNewsPageBtn" class="secondaryBtn" title="News" aria-label="News"><i class="bi bi-newspaper" aria-hidden="true"></i></button>
+            <button id="openSystemPageBtn" class="secondaryBtn" title="System" aria-label="System"><i class="bi bi-pc-display" aria-hidden="true"></i></button>
+            <button id="openToolsPageBtn" class="secondaryBtn" title="Commands" aria-label="Commands"><i class="bi bi-terminal" aria-hidden="true"></i></button>
+          </div>
+
           <div id="toolsDropdownWrap">
             <button id="toolsDropdownBtn" class="secondaryBtn glitch">
               <i class="bi bi-tools" aria-hidden="true"></i> Tools <i class="bi bi-chevron-down" aria-hidden="true"></i>
@@ -444,6 +479,12 @@
               </button>
               <button class="toolDropItem" id="tool_think">
                 <i class="bi bi-lightbulb" aria-hidden="true"></i> Thinking Mode
+              </button>
+              <button class="toolDropItem" id="tool_music">
+                <i class="bi bi-music-note-beamed" aria-hidden="true"></i> Music Tutor
+              </button>
+              <button class="toolDropItem" id="tool_workspace">
+                <i class="bi bi-github" aria-hidden="true"></i> Workspace (repo)
               </button>
               <div class="toolDropDivider"></div>
               <button class="toolDropItem" id="tool_search">
@@ -634,6 +675,36 @@
           </div>
         </div>
       </main>
+
+      <!-- Full-screen pages: take #chatWindow's place while open (js/pages.js) -->
+      <section id="weatherPage" class="ariaPage" style="display: none" aria-labelledby="weatherPageTitle">
+        <header class="ariaPageHeader">
+          <button class="secondaryBtn" data-page-back><i class="bi bi-arrow-left" aria-hidden="true"></i> Chat</button>
+          <h2 id="weatherPageTitle"><i class="bi bi-cloud-sun" aria-hidden="true"></i> Weather</h2>
+        </header>
+        <div id="weatherPageContent" class="ariaPageBody"></div>
+      </section>
+      <section id="newsPage" class="ariaPage" style="display: none" aria-labelledby="newsPageTitle">
+        <header class="ariaPageHeader">
+          <button class="secondaryBtn" data-page-back><i class="bi bi-arrow-left" aria-hidden="true"></i> Chat</button>
+          <h2 id="newsPageTitle"><i class="bi bi-newspaper" aria-hidden="true"></i> News</h2>
+        </header>
+        <div id="newsPageContent" class="ariaPageBody"></div>
+      </section>
+      <section id="systemPage" class="ariaPage" style="display: none" aria-labelledby="systemPageTitle">
+        <header class="ariaPageHeader">
+          <button class="secondaryBtn" data-page-back><i class="bi bi-arrow-left" aria-hidden="true"></i> Chat</button>
+          <h2 id="systemPageTitle"><i class="bi bi-pc-display" aria-hidden="true"></i> System</h2>
+        </header>
+        <div id="systemPageContent" class="ariaPageBody"></div>
+      </section>
+      <section id="toolsPage" class="ariaPage" style="display: none" aria-labelledby="toolsPageTitle">
+        <header class="ariaPageHeader">
+          <button class="secondaryBtn" data-page-back><i class="bi bi-arrow-left" aria-hidden="true"></i> Chat</button>
+          <h2 id="toolsPageTitle"><i class="bi bi-terminal" aria-hidden="true"></i> Commands</h2>
+        </header>
+        <div id="toolsPageContent" class="ariaPageBody"></div>
+      </section>
     </div>
 
     <!-- ========================= -->
@@ -660,6 +731,7 @@
           <button class="settingsTab" data-tab="emotion"><i class="bi bi-heart" aria-hidden="true"></i> Emotion</button>
           <button class="settingsTab" data-tab="keys"><i class="bi bi-key" aria-hidden="true"></i> Keys</button>
           <button class="settingsTab" data-tab="accounts"><i class="bi bi-people" aria-hidden="true"></i> Accounts</button>
+          <button class="settingsTab" data-tab="devices"><i class="bi bi-cpu" aria-hidden="true"></i> Devices</button>
           <button class="settingsTab" data-tab="system"><i class="bi bi-gear" aria-hidden="true"></i> System</button>
           <button class="settingsTab" data-tab="skills"><i class="bi bi-lightning-charge" aria-hidden="true"></i> Skills</button>
           <button class="settingsTab" data-tab="briefing"><i class="bi bi-sunrise" aria-hidden="true"></i> Briefing</button>
@@ -1067,10 +1139,7 @@
                   class="settingsTextInput"
                 />
                 <div class="filePickRow">
-                  <button
-                    class="secondaryBtn"
-                    onclick="document.getElementById('customVoiceFile').click()"
-                  >
+                  <button id="customVoiceFileBtn" class="secondaryBtn">
                     <i class="bi bi-folder2-open" aria-hidden="true"></i> Choose File
                   </button>
                   <span id="customVoiceFileName" class="fileNameDisplay"
@@ -1315,6 +1384,12 @@
                 Pinned memories are always included in ARIA's context. Unpin to
                 deprioritize.
               </p>
+              <div class="memFilterRow">
+                <select id="memFilterCat" aria-label="Filter memories by category">
+                  <option value="all">All categories</option>
+                </select>
+                <input id="memSearchInput" type="search" class="settingsTextInput" placeholder="Search memories…" aria-label="Search memories" />
+              </div>
               <div id="memoryFactsList"></div>
             </section>
 
@@ -1412,6 +1487,25 @@
             <section class="settingsSection">
               <h3><i class="bi bi-people" aria-hidden="true"></i> Paired accounts</h3>
               <div id="ownersList">Loading…</div>
+            </section>
+          </div>
+
+          <!-- Devices (js/settings.js: startDevicesTab) -->
+          <div class="settingsTabPane" data-pane="devices">
+            <section class="settingsSection">
+              <h3><i class="bi bi-mouse" aria-hidden="true"></i> Claw relays</h3>
+              <p class="settingsHint">
+                What can drive a keyboard and mouse for ARIA right now.
+              </p>
+              <div id="clawRelayList" class="esp32DeviceList">Loading…</div>
+            </section>
+            <section class="settingsSection">
+              <h3><i class="bi bi-cpu" aria-hidden="true"></i> ESP32 devices</h3>
+              <p class="settingsHint">
+                Boards running <code>templates/ARIA_IoT_Template.ino</code>
+                register here by themselves.
+              </p>
+              <div id="esp32DeviceList" class="esp32DeviceList">Loading…</div>
             </section>
           </div>
 

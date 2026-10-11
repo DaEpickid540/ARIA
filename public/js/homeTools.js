@@ -11,6 +11,34 @@ import {
 import { measureLatency, measureDownload, formatMbps } from "./netTest.js";
 import { createSpeedGauge } from "./speedGauge.js";
 
+// Mason, OH — the home screen's and the Weather page's forecast.
+export const HOME_COORDS = { lat: 39.3601, lon: -84.3097 };
+
+// Open-Meteo's WMO weather codes, the ones it actually sends.
+export const WMO = {
+  0: "Clear ☀",
+  1: "Mainly Clear",
+  2: "Partly Cloudy ⛅",
+  3: "Overcast ☁",
+  45: "Foggy 🌫",
+  48: "Freezing Fog 🌫",
+  51: "Light Drizzle",
+  53: "Drizzle",
+  55: "Heavy Drizzle",
+  61: "Light Rain 🌧",
+  63: "Rain 🌧",
+  65: "Heavy Rain",
+  71: "Light Snow 🌨",
+  73: "Snow ❄",
+  75: "Heavy Snow ❄",
+  80: "Showers",
+  81: "Showers",
+  82: "Heavy Showers",
+  95: "Thunderstorm ⛈",
+  96: "Thunderstorm, hail ⛈",
+  99: "Thunderstorm, hail ⛈",
+};
+
 // Anything not written in this file (chat titles, memory facts the model
 // extracted, outside APIs, device names) goes into innerHTML through this.
 const escHtml = (s) =>
@@ -167,24 +195,9 @@ export async function initWeather() {
   const mainEl = document.getElementById("homeWeatherMain");
   const detailEl = document.getElementById("homeWeatherDetails");
   if (!mainEl) return;
-  const WMO = {
-    0: "Clear ☀",
-    1: "Mainly Clear",
-    2: "Partly Cloudy ⛅",
-    3: "Overcast ☁",
-    45: "Foggy 🌫",
-    51: "Light Drizzle",
-    61: "Light Rain 🌧",
-    63: "Rain 🌧",
-    65: "Heavy Rain",
-    71: "Light Snow 🌨",
-    73: "Snow ❄",
-    80: "Showers",
-    95: "Thunderstorm ⛈",
-  };
   try {
     mainEl.textContent = "Loading…";
-    const res = await fetch("/api/weather?lat=39.3601&lon=-84.3097");
+    const res = await fetch(`/api/weather?lat=${HOME_COORDS.lat}&lon=${HOME_COORDS.lon}`);
     const { weather: w } = await res.json();
     if (!w) {
       mainEl.textContent = "Unavailable";
@@ -325,10 +338,10 @@ export async function initRecentChats() {
       )
       .join("");
     el.querySelectorAll(".hwListClickable[data-chat-id]").forEach((item) => {
-      item.addEventListener("click", () => {
-        const id = item.dataset.chatId;
-        if (id && window.ARIA_loadChat) window.ARIA_loadChat(id);
-        else window.ARIA_enterConsole?.();
+      item.addEventListener("click", async () => {
+        // enterConsole loads chat.js, which defines ARIA_loadChat.
+        await window.ARIA_enterConsole?.();
+        if (item.dataset.chatId) window.ARIA_loadChat?.(item.dataset.chatId);
       });
     });
   } catch {
@@ -738,8 +751,12 @@ export async function initUSBDevices() {
     }
   };
   refresh();
-  navigator.usb.addEventListener("connect", refresh);
-  navigator.usb.addEventListener("disconnect", refresh);
+  // Runs on every home visit; listen once.
+  if (!initUSBDevices.listening) {
+    initUSBDevices.listening = true;
+    navigator.usb.addEventListener("connect", refresh);
+    navigator.usb.addEventListener("disconnect", refresh);
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -754,7 +771,7 @@ export function initNetworkInfo() {
     navigator.webkitConnection;
   const update = () => {
     const lines = [
-      `<div class="hwListItem">Status: <b style="color:${navigator.onLine ? "#4cff4c" : "#ff4444"}">${navigator.onLine ? "Online" : "Offline"}</b></div>`,
+      `<div class="hwListItem">Status: <b style="color:${navigator.onLine ? "var(--success)" : "var(--danger)"}">${navigator.onLine ? "Online" : "Offline"}</b></div>`,
     ];
     if (conn) {
       if (conn.effectiveType)

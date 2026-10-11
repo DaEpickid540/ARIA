@@ -19,6 +19,7 @@ let documentContext = "";
 let mathMode = false;
 let programmingMode = false;
 let studyMode = false;
+let thinkMode = false; // Tools ▸ Thinking Mode: always reason in depth
 let pendingFiles = [];
 let musicTutorMode = false;
 let previewActive = false;
@@ -410,6 +411,9 @@ document
 document
   .getElementById("tool_study")
   ?.addEventListener("click", () => toolAction("studyModeBtn"));
+document
+  .getElementById("tool_think")
+  ?.addEventListener("click", () => toolAction("thinkingBtn"));
 document.getElementById("tool_commands")?.addEventListener("click", () => {
   toolAction("commandsBtn");
 });
@@ -495,6 +499,17 @@ function toggleStudy() {
   }
 }
 toggleStudy.isOn = () => studyMode;
+// Not exclusive with the others: thinking hard goes with any of them.
+function toggleThink() {
+  thinkMode = !thinkMode;
+}
+toggleThink.isOn = () => thinkMode;
+wireMode(
+  "thinkingBtn",
+  toggleThink,
+  "💡 **Thinking mode ON**: I'll reason carefully through every answer, even short ones.",
+  "Thinking mode off: I'll think as hard as each question needs.",
+);
 wireMode(
   "mathModeBtn",
   toggleMath,
@@ -530,8 +545,15 @@ document.getElementById("tool_music")?.addEventListener("click", () => {
 document.getElementById("tool_workspace")?.addEventListener("click", () => {
   if (toolsDropMenu) toolsDropMenu.style.display = "none";
   const url = prompt(
-    "Enter GitHub repo URL (e.g. https://github.com/user/repo):",
+    "GitHub repo URL (e.g. https://github.com/user/repo). Leave empty to leave Workspace mode:",
+    workspaceRepoUrl,
   );
+  if (url === null) return; // cancelled
+  if (!url.trim()) {
+    if (workspaceRepoUrl) showChatNotification("🗂 Workspace off");
+    workspaceRepoUrl = "";
+    return;
+  }
   if (url?.trim()) {
     workspaceRepoUrl = url.trim();
     showChatNotification(
@@ -1244,6 +1266,15 @@ function renderEmptyState() {
   });
 }
 
+/** Show a chat by id. For other modules: the home screen's recent chats. */
+window.ARIA_loadChat = (id) => {
+  if (!chats.some((c) => c.id === id)) return false;
+  currentChatId = id;
+  renderChatList();
+  renderMessages();
+  return true;
+};
+
 function renderChatList() {
   if (!chatList) return;
   chatList.innerHTML = "";
@@ -1281,6 +1312,9 @@ function renderChatList() {
     row.appendChild(dBtn);
     chatList.appendChild(row);
   });
+  // The split pane's chat changes too (new messages, other devices). Checked
+  // by element: this also runs at startup, before the split-pane state exists.
+  if (document.getElementById("chatPane2")) _renderPane2();
 }
 
 /* ============================================================
@@ -2812,6 +2846,7 @@ async function sendMessageContent(text, chat, attachments = []) {
     mathMode,
     programmingMode,
     studyMode,
+    deepThink: thinkMode,
     musicTutorMode,
     workspaceRepo: workspaceRepoUrl || undefined,
     documentContext: docCtx,
@@ -4102,10 +4137,10 @@ let _splitChat2Id = null;
 
 window.ARIA_toggleSplitPane = function () {
   _splitPaneActive = !_splitPaneActive;
-  const appLayout =
-    document.getElementById("appLayout") ||
-    document.getElementById("chatLayout") ||
-    document.querySelector(".appLayout");
+  // #layout is the flex row holding the sidebar and #chatWindow; the second
+  // pane joins it as another column. (This looked for an #appLayout the
+  // page never had, so the Split button only ever said "not available".)
+  const appLayout = document.getElementById("layout");
   if (!appLayout) {
     showToast("Split pane layout not available", "✗");
     _splitPaneActive = false;

@@ -483,3 +483,19 @@
 .ownerScope {
   margin-top: 10px;
 }
+
+/* Settings ▸ Memory filter row (memory.js renderMemoryPanel) */
+.memFilterRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.memFilterRow select {
+  flex: 0 0 auto;
+  max-width: 45%;
+}
+.memFilterRow input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}

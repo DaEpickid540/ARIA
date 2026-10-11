@@ -453,6 +453,7 @@ async function loadChatModules() {
     for (const m of optionals) {
       try {
         const mod = await import(m);
+        if (m.includes("pages") && mod.initPages) mod.initPages();
         if (m.includes("callEngine") && mod.initCallEngine)
           mod.initCallEngine();
         if (m.includes("voiceControls") && mod.initVoiceControls)

@@ -197,3 +197,97 @@
   position: relative;
   z-index: 1;
 }
+
+/* ===========================
+   FULL-SCREEN PAGES (js/pages.js) — in #chatWindow's place
+   =========================== */
+.sidebarPagesRow {
+  grid-template-columns: repeat(4, 1fr);
+}
+/* Outranks the phone layout's #chatWindow { display: flex !important } */
+#layout.pageOpen #chatWindow {
+  display: none !important;
+}
+.ariaPage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg);
+  position: relative;
+  z-index: 1;
+}
+.ariaPageHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.ariaPageHeader h2 {
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: 1rem;
+  color: var(--text);
+}
+.ariaPageBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  max-width: 760px;
+  width: 100%;
+  color: var(--text-2);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.ariaPageHero {
+  font-size: 2.6rem;
+  font-weight: 300;
+  color: var(--text);
+}
+.ariaPageLead {
+  font-size: 1rem;
+  color: var(--text);
+  margin: 4px 0 16px;
+}
+.ariaPageSub {
+  margin: 18px 0 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+.ariaPageFacts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+.ariaPageFacts dt {
+  color: var(--text-3);
+}
+.ariaPageFacts dd {
+  margin: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.ariaNewsList,
+.ariaToolList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ariaNewsList li,
+.ariaToolList li {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+.ariaNewsList a {
+  color: var(--text);
+  text-decoration: none;
+}
+.ariaNewsList a:hover {
+  color: var(--accent-text);
+  text-decoration: underline;
+}

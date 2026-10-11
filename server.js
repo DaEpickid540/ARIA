@@ -1970,7 +1970,9 @@ const ALL_REASONING_PROMPTS = [LIGHT_REASONING_PROMPT, DEEP_REASONING_PROMPT];
  * message looks like. Texts lean fast: someone waiting on a phone wants the
  * answer, so they only go deep when asked.
  */
-function reasoningEffort(message, { mathMode = false, programmingMode = false, channel = "web", hasImages = false } = {}) {
+function reasoningEffort(message, { mathMode = false, programmingMode = false, deepThink = false, channel = "web", hasImages = false } = {}) {
+  // Tools ▸ Thinking Mode: the user asked for depth on everything.
+  if (deepThink) return "deep";
   const m = String(message || "").trim();
   const words = m.split(/\s+/).filter(Boolean).length;
   const askedDeep =
@@ -2698,6 +2700,7 @@ app.post("/api/chat", async (req, res) => {
     mathMode = false,
     programmingMode = false,
     studyMode = false,
+    deepThink = false,
     documentContext = "",
     musicTutorMode = false,
     workspaceRepo = "",
@@ -2769,6 +2772,7 @@ app.post("/api/chat", async (req, res) => {
   const effort = reasoningEffort(message, {
     mathMode,
     programmingMode,
+    deepThink: deepThink === true,
     channel,
     hasImages: (imageAttachments || []).length > 0,
   });

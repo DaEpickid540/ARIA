@@ -73,13 +73,10 @@
   100% { background: transparent; }
 }
 
-/* ── Split pane ── */
-.splitPaneActive {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-  gap: 0 !important;
-}
+/* ── Split pane ── second column of #layout, next to #chatWindow */
 .chatPaneSecondary {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   border-left: 2px solid var(--red-core);
@@ -123,9 +120,6 @@
   padding: 8px;
 }
 @media (max-width: 800px) {
-  .splitPaneActive {
-    grid-template-columns: 1fr !important;
-  }
   .chatPaneSecondary { display: none; }
 }
 
