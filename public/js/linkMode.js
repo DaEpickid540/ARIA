@@ -56,6 +56,17 @@ window.ARIA_closeLinkMode = closeLinkMode;
 document
   .getElementById("linkModeCloseBtn")
   ?.addEventListener("click", closeLinkMode);
+document.getElementById("linkModeOverlay")?.addEventListener("click", (e) => {
+  if (e.target.id === "linkModeOverlay") closeLinkMode();
+});
+document.addEventListener("keydown", (e) => {
+  const overlay = document.getElementById("linkModeOverlay");
+  if (e.key === "Escape" && overlay && overlay.style.display !== "none") closeLinkMode();
+});
+
+// Device names and ids come from whatever other client registered them.
+const esc = (s) =>
+  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 /* ─────────────────────────────────────────────
    CANVAS GRAPH (SmartThings-style)
@@ -153,7 +164,7 @@ function drawGraph() {
     ctx.font = `${isSelf ? 9 : 8}px 'JetBrains Mono', ui-monospace, monospace`;
     ctx.textAlign = "center";
     ctx.fillText(
-      d.name?.slice(0, 12) || "Device",
+      d.name?.slice(0, 16) || "Device",
       pos.x,
       pos.y + (isSelf ? 30 : 25),
     );
@@ -182,6 +193,9 @@ async function registerWithServer() {
 }
 
 async function pollDevices() {
+  // The server forgets a device 30s after it last registered, so keep
+  // re-registering while the panel is open (also survives a server restart).
+  registerWithServer();
   try {
     const res = await fetch("/api/link/devices");
     const data = await res.json();
@@ -191,6 +205,7 @@ async function pollDevices() {
 }
 
 function startServerPoll() {
+  if (serverPollTimer) clearInterval(serverPollTimer);
   pollDevices();
   serverPollTimer = setInterval(pollDevices, 4000);
 }
@@ -205,20 +220,27 @@ function renderDeviceList() {
   list.innerHTML = devices
     .map(
       (d) => `
-    <div class="linkDeviceItem" data-id="${d.id}">
+    <div class="linkDeviceItem" data-id="${esc(d.id)}">
       <div class="linkDeviceIcon">${d.ua?.includes("Mobile") || d.ua?.includes("Android") ? "📱" : "💻"}</div>
       <div class="linkDeviceInfo">
-        <div class="linkDeviceName">${d.name || "Device"}</div>
-        <div class="linkDeviceMeta">${d.id}</div>
+        <div class="linkDeviceName">${esc(d.name || "Device")}</div>
+        <div class="linkDeviceMeta">${esc(d.id)}</div>
       </div>
       <div class="linkDeviceActions">
-        <button class="linkDevBtn" onclick="window.ARIA_sendFileToDevice('${d.id}')">📤 Send</button>
-        <button class="linkDevBtn" onclick="window.ARIA_requestFiles('${d.id}')">📥 Pull</button>
+        <button class="linkDevBtn" data-act="send" data-id="${esc(d.id)}">📤 Send</button>
+        <button class="linkDevBtn" data-act="pull" data-id="${esc(d.id)}">📥 Pull</button>
       </div>
     </div>`,
     )
     .join("");
 }
+
+document.getElementById("linkModeDevices")?.addEventListener("click", (e) => {
+  const btn = e.target.closest(".linkDevBtn");
+  if (!btn) return;
+  if (btn.dataset.act === "send") sendFileViaServer(btn.dataset.id);
+  if (btn.dataset.act === "pull") window.ARIA_requestFiles(btn.dataset.id);
+});
 
 /* ─────────────────────────────────────────────
    FILE TRANSFER — Via Server Relay
@@ -372,7 +394,7 @@ export function showHomeToolsInSidebar() {
   panel.id = "homeToolsSidebar";
   panel.innerHTML = `
     <div id="homeToolsSidebarHeader">
-      <span>\xf0\x9f\x8f\xa0 HOME TOOLS</span>
+      <span>🏠 HOME TOOLS</span>
       <button onclick="document.getElementById('homeToolsSidebar').remove()">✕</button>
     </div>
     <div id="homeToolsSidebarBody">
@@ -381,11 +403,11 @@ export function showHomeToolsInSidebar() {
       <div class="htWidget"><div class="htWidgetLabel">System</div><div id="ht_system" class="htWidgetValue">—</div></div>
       <div class="htWidget"><div class="htWidgetLabel">Network</div><div id="ht_network" class="htWidgetValue">—</div></div>
       <div class="htWidget" style="cursor:pointer" onclick="window.ARIA_openLinkMode?.()">
-        <div class="htWidgetLabel">\xf0\x9f\x94\x97 Link Mode</div>
+        <div class="htWidgetLabel">🔗 Link Mode</div>
         <div id="ht_link" class="htWidgetValue">${devices.length} device${devices.length !== 1 ? "s" : ""} nearby</div>
       </div>
       <div class="htWidget">
-        <div class="htWidgetLabel">\xf0\x9f\x93\xb5 Bluetooth</div>
+        <div class="htWidgetLabel">📶 Bluetooth</div>
         <div class="htWidgetValue"><button class="homeToolBtn" onclick="window.ARIA_scanBluetooth?.()">Scan</button></div>
       </div>
     </div>`;

@@ -1,7 +1,13 @@
 // server.js — ARIA v3.1 (Link Mode, Music Tutor, Workspace, Math v2, Code v2,
 // visualize tool, drop-in tools, error log)
 import "./lib/load-env.js"; // first: .env into process.env for everything below
-import { runToolServer, TOOL_DEFINITIONS, allTools } from "./tools/index.js";
+import {
+  runToolServer,
+  TOOL_DEFINITIONS,
+  allTools,
+  getCalendarEvents,
+  CALENDAR_NOT_CONFIGURED,
+} from "./tools/index.js";
 import * as rag from "./lib/rag.js";
 import * as taskEngine from "./lib/tasks.js";
 import * as skills from "./lib/skills.js";
@@ -9,7 +15,7 @@ import * as cloud from "./lib/cloud-sync.js";
 import * as chatSync from "./lib/chat-sync.js";
 import * as lifeContext from "./lib/life-context.js";
 import * as errorLog from "./lib/error-log.js";
-import { research, searchWeb, WEB_PAGES } from "./lib/research.js";
+import { research, searchWeb, fetchReadable, WEB_PAGES } from "./lib/research.js";
 import { splitThinking, stripThinking } from "./lib/think.js";
 import { extractVisualBlock } from "./tools/visualize.js";
 import * as auth from "./lib/auth.js";
@@ -3565,6 +3571,30 @@ app.get("/api/news", async (req, res) => {
   } catch {
     res.json({ articles: [] });
   }
+});
+
+/* ============================================================
+   CALENDAR + CRAWL — the chat's calendar button and the scraper's
+   "built-in crawler" engine (public/js/chat.js)
+   ============================================================ */
+app.get("/api/calendar/events", async (_req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID) return res.json({ error: CALENDAR_NOT_CONFIGURED });
+  try {
+    res.json({ events: await getCalendarEvents() });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
+
+// One page as text, plus its links. fetchReadable refuses private and
+// loopback hosts, so this can't be pointed at the PC's own services.
+app.post("/api/crawl", async (req, res) => {
+  let url = String(req.body?.url || "").trim();
+  if (!url) return res.json({ error: "No URL." });
+  if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+  const page = await fetchReadable(url, { maxChars: 8000, links: !!req.body?.extractLinks });
+  if (!page.ok && !page.text) return res.json({ error: page.error || "Could not read that page." });
+  res.json({ url: page.url, title: page.title, text: page.text, links: page.links || [] });
 });
 
 /* ============================================================
