@@ -11,6 +11,11 @@ import {
 import { measureLatency, measureDownload, formatMbps } from "./netTest.js";
 import { createSpeedGauge } from "./speedGauge.js";
 
+// Anything not written in this file (chat titles, memory facts the model
+// extracted, outside APIs, device names) goes into innerHTML through this.
+const escHtml = (s) =>
+  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
 const QUOTES = [
   "Discipline beats motivation.",
   "Small steps compound into impossible results.",
@@ -281,7 +286,7 @@ export function initTasksPreview() {
         (t, i) =>
           `<div class="hwListItem" style="display:flex;align-items:center;gap:6px">
         <input type="checkbox" data-task-index="${i}" style="accent-color:var(--red-core)">
-        <span>${t}</span>
+        <span>${escHtml(t)}</span>
       </div>`,
       )
       .join("");
@@ -316,7 +321,7 @@ export async function initRecentChats() {
       .slice(0, 5)
       .map(
         (c) =>
-          `<div class="hwListItem hwListClickable" data-chat-id="${c.id || ""}" style="cursor:pointer">▸ ${c.title || "Untitled"}</div>`,
+          `<div class="hwListItem hwListClickable" data-chat-id="${escHtml(c.id || "")}" style="cursor:pointer">▸ ${escHtml(c.title || "Untitled")}</div>`,
       )
       .join("");
     el.querySelectorAll(".hwListClickable[data-chat-id]").forEach((item) => {
@@ -724,7 +729,7 @@ export async function initUSBDevices() {
         ? devs
             .map(
               (d) =>
-                `<div class="hwListItem">🔌 ${d.productName || "Unknown"} <span style="color:var(--text-muted)">(${d.manufacturerName || "?"})</span></div>`,
+                `<div class="hwListItem">🔌 ${escHtml(d.productName || "Unknown")} <span style="color:var(--text-muted)">(${escHtml(d.manufacturerName || "?")})</span></div>`,
             )
             .join("")
         : `<span class="hwEmpty">No USB devices detected.</span>`;
@@ -796,8 +801,8 @@ export async function initBgTasksPreview() {
         ? display.map(t => `
           <div class="hwListItem">
             <span style="color:${STATUS_DOT[t.status] || "#888"}">●</span>
-            ${(t.title || t.description || "").slice(0, 36)}${(t.title || "").length > 36 ? "…" : ""}
-            <span style="color:var(--text-muted);font-size:9px">${t.status}</span>
+            ${escHtml((t.title || t.description || "").slice(0, 36))}${(t.title || "").length > 36 ? "…" : ""}
+            <span style="color:var(--text-muted);font-size:9px">${escHtml(t.status)}</span>
             ${t.steps?.length ? `<span style="color:var(--text-dim);font-size:9px">${t.steps.filter(s=>s.status==="done").length}/${t.steps.length}</span>` : ""}
           </div>`).join("")
         : `<span class="hwEmpty">No active tasks.</span>`;
@@ -824,7 +829,7 @@ export async function initMemoryFacts() {
           .slice(0, 5)
           .map(
             (f) =>
-              `<div class="hwListItem">▸ <span style="color:var(--text-muted);font-size:9px">[${f.category || "note"}]</span> ${f.text || f}</div>`,
+              `<div class="hwListItem">▸ <span style="color:var(--text-muted);font-size:9px">[${escHtml(f.category || "note")}]</span> ${escHtml(f.text || f)}</div>`,
           )
           .join("")
       : `<span class="hwEmpty">No memories yet.</span>`;
@@ -851,10 +856,11 @@ export function initBluetooth() {
         const device = await navigator.bluetooth.requestDevice({
           acceptAllDevices: true,
         });
-        el.innerHTML = `<div class="hwListItem">📱 ${device.name || "Unknown"} <span style="color:#4cff4c">Connected</span></div>`;
+        // Any nearby device picks its own name, markup included.
+        el.innerHTML = `<div class="hwListItem">📱 ${escHtml(device.name || "Unknown")} <span style="color:var(--success)">Connected</span></div>`;
         window.ARIA_btDevice = device;
       } catch (e) {
-        el.innerHTML = `<span class="hwEmpty">${e.message}</span>`;
+        el.innerHTML = `<span class="hwEmpty">${escHtml(e.message)}</span>`;
       }
     });
 }
@@ -862,10 +868,6 @@ export function initBluetooth() {
 /* ════════════════════════════════════════════════════════════════
    NEW HOMETOOLS — added in Mark 1.2
    ════════════════════════════════════════════════════════════════ */
-
-// Text from outside APIs goes into innerHTML templates through this.
-const escHtml = (s) =>
-  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 // homepage.js re-runs the live tools on every visit to the home screen;
 // these keep each one to a single polling loop.
@@ -1111,7 +1113,7 @@ export function initWorldClocks() {
         const diff = remoteHour - localHour;
         const diffStr = diff === 0 ? "same" : `${diff > 0 ? "+" : ""}${diff}h`;
         return `<div class="worldClockRow">
-          <span class="worldClockCity">${z.city}</span>
+          <span class="worldClockCity">${escHtml(z.city)}</span>
           <span class="worldClockTime">${t}</span>
           <span class="worldClockDiff">${diffStr}</span>
         </div>`;

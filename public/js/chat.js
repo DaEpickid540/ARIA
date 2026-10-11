@@ -699,7 +699,7 @@ function _pickScrapeEngine(url) {
     el.innerHTML = `
       <div id="searchEngineBox">
         <div id="searchEngineTitle">🕷 SCRAPE ENGINE</div>
-        <div id="searchEngineDesc" style="word-break:break-all;opacity:.6;font-size:10px;margin-bottom:12px">${url}</div>
+        <div id="searchEngineDesc" style="word-break:break-all;opacity:.6;font-size:10px;margin-bottom:12px">${escapeHtml(url)}</div>
         <div id="searchEngineBtns">
           <button class="searchEngineBtn" data-engine="crawler">
             <span>🕷 Built-in Crawler</span>
@@ -1476,6 +1476,10 @@ function renderMessages() {
   messages.innerHTML = "";
   const chat = getCurrentChat();
   if (!chat) return;
+  // Goes inside inline onclick strings below, where HTML escaping doesn't
+  // help ('&#39;' is a quote again by the time the JS runs). Chat ids are
+  // always chat_<time>[_suffix]; the server refuses others (chat-sync.js).
+  const chatIdJs = jsSafeId(chat.id);
 
   // ── Empty state: show welcome + suggestions when chat has no messages ──
   if (chat.messages.length === 0) {
@@ -1574,21 +1578,21 @@ function renderMessages() {
             msg.starred ? "active" : ""
           }" title="${
       msg.starred ? "Unstar" : "Star"
-    }" onclick="window.ARIA_starMessage('${chat.id}',${idx})">${
+    }" onclick="window.ARIA_starMessage('${chatIdJs}',${idx})">${
       msg.starred ? '<i class="bi bi-star-fill" aria-hidden="true"></i>' : '<i class="bi bi-star" aria-hidden="true"></i>'
     }</button>
           <button class="msgActionBtn msgPinBtn ${
             msg.pinned ? "active" : ""
           }" title="${
       msg.pinned ? "Unpin" : "Pin"
-    }" onclick="window.ARIA_pinMessage('${chat.id}',${idx})"><i class="bi bi-pin-angle" aria-hidden="true"></i></button>
+    }" onclick="window.ARIA_pinMessage('${chatIdJs}',${idx})"><i class="bi bi-pin-angle" aria-hidden="true"></i></button>
           ${
             isAria
-              ? `<button class="msgActionBtn msgRegenBtn" title="Regenerate" onclick="window.ARIA_regenerateMsg('${chat.id}',${idx})"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>`
+              ? `<button class="msgActionBtn msgRegenBtn" title="Regenerate" onclick="window.ARIA_regenerateMsg('${chatIdJs}',${idx})"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>`
               : ""
           }
           <button class="msgActionBtn msgDeleteBtn" title="Delete" onclick="window.ARIA_deleteMessage('${
-            chat.id
+            chatIdJs
           }',${idx})"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
       </div>
@@ -1635,7 +1639,11 @@ function showToast(msg, icon = "✓") {
     el.id = "ariaToast";
     document.body.appendChild(el);
   }
-  el.innerHTML = `<span class="ariaToastIcon">${icon}</span><span>${msg}</span>`;
+  // Plain text: callers pass error messages and model-chosen file names.
+  el.replaceChildren(
+    Object.assign(document.createElement("span"), { className: "ariaToastIcon", textContent: icon }),
+    Object.assign(document.createElement("span"), { textContent: msg }),
+  );
   el.classList.remove("ariaToastOut");
   el.classList.add("ariaToastIn");
   clearTimeout(_toastTimer);
@@ -3312,6 +3320,11 @@ function updateTypingIndicatorTask(id, task, detail = "") {
    ============================================================ */
 // Quotes are escaped too: several callers put the result inside attribute
 // values (href, alt, src), where an unescaped " ends the attribute.
+/** An id that is safe inside a quoted inline-handler string. */
+function jsSafeId(id) {
+  return String(id ?? "").replace(/[^w.-]/g, "");
+}
+
 function escapeHtml(t) {
   return String(t)
     .replace(/&/g, "&amp;")
@@ -3901,12 +3914,12 @@ window.ARIA_showStarred = function () {
     .map(
       (m, i) =>
         `<div style="padding:8px 0;border-bottom:1px solid var(--border-cut)">
-      <div style="font-size:10px;color:var(--text-muted)">${m.role.toUpperCase()} ${
+      <div style="font-size:10px;color:var(--text-muted)">${escapeHtml(String(m.role).toUpperCase())} ${
           m.starred ? "⭐" : ""
         } ${m.pinned ? "📌" : ""}</div>
-      <div style="font-size:12px;margin-top:4px;color:var(--text-blaze)">${String(
+      <div style="font-size:12px;margin-top:4px;color:var(--text-blaze)">${escapeHtml(String(
         m.content,
-      ).slice(0, 200)}${m.content.length > 200 ? "…" : ""}</div>
+      ).slice(0, 200))}${m.content.length > 200 ? "…" : ""}</div>
     </div>`,
     )
     .join("");
@@ -3929,7 +3942,11 @@ function _buildSearchBar() {
     <button id="chatSearchNext" title="Next">↓</button>
     <button id="chatSearchClose" title="Close">✕</button>
   `;
-  document.getElementById("chatArea")?.prepend(bar);
+  // Above the message list. (It used to go into a #chatArea the page never
+  // had, so search couldn't open at all.)
+  const list = document.getElementById("messages");
+  if (!list) return;
+  list.before(bar);
   document.getElementById("chatSearchClose").onclick = _closeSearch;
   document.getElementById("chatSearchPrev").onclick = () => _navigateSearch(-1);
   document.getElementById("chatSearchNext").onclick = () => _navigateSearch(1);
@@ -3948,16 +3965,48 @@ function _openSearch() {
   _searchActive = true;
   _buildSearchBar();
   const bar = document.getElementById("chatSearchBar");
+  if (!bar) return;
   bar.classList.add("open");
   document.getElementById("chatSearchInput").focus();
+}
+// Highlighting works on text nodes only. The old version ran a regex over
+// the message's HTML (so a search for "div" or "class" wrapped <mark> around
+// tag names) and cleared with outerHTML = textContent, which turned any
+// code a message showed as text back into live HTML.
+function _highlightText(root, q) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const hits = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode())
+    if (n.nodeValue.toLowerCase().includes(q)) hits.push(n);
+  for (const node of hits) {
+    const text = node.nodeValue;
+    const lower = text.toLowerCase();
+    const frag = document.createDocumentFragment();
+    let at = 0;
+    for (let i = lower.indexOf(q); i !== -1; i = lower.indexOf(q, at)) {
+      if (i > at) frag.append(text.slice(at, i));
+      const mark = document.createElement("mark");
+      mark.className = "msgSearchHighlight";
+      mark.textContent = text.slice(i, i + q.length);
+      frag.append(mark);
+      at = i + q.length;
+    }
+    if (at < text.length) frag.append(text.slice(at));
+    node.replaceWith(frag);
+  }
+}
+function _clearSearchHighlights() {
+  document.querySelectorAll(".msgSearchHighlight").forEach((el) => {
+    const parent = el.parentNode;
+    el.replaceWith(document.createTextNode(el.textContent));
+    parent?.normalize();
+  });
 }
 function _closeSearch() {
   _searchActive = false;
   const bar = document.getElementById("chatSearchBar");
   bar?.classList.remove("open");
-  document.querySelectorAll(".msgSearchHighlight").forEach((el) => {
-    el.outerHTML = el.textContent;
-  });
+  _clearSearchHighlights();
   document
     .querySelectorAll(".msg.searchMatch")
     .forEach((el) => el.classList.remove("searchMatch", "searchActive"));
@@ -3968,9 +4017,7 @@ function _runSearch() {
     .getElementById("chatSearchInput")
     ?.value.trim()
     .toLowerCase();
-  document.querySelectorAll(".msgSearchHighlight").forEach((el) => {
-    el.outerHTML = el.textContent;
-  });
+  _clearSearchHighlights();
   document
     .querySelectorAll(".msg.searchMatch")
     .forEach((el) => el.classList.remove("searchMatch", "searchActive"));
@@ -3988,11 +4035,7 @@ function _runSearch() {
       const msgEl = body.closest(".msg");
       msgEl.classList.add("searchMatch");
       _searchMatches.push(msgEl);
-      // Highlight
-      body.innerHTML = body.innerHTML.replace(
-        new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"),
-        (m) => `<mark class="msgSearchHighlight">${m}</mark>`,
-      );
+      _highlightText(body, q);
     }
   });
   const count = document.getElementById("chatSearchCount");
@@ -4023,8 +4066,9 @@ function _highlightMatch(idx) {
 // Wire Ctrl+F / Cmd+F
 document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === "f") {
-    const chatArea = document.getElementById("chatArea");
-    if (!chatArea || chatArea.style.display === "none") return;
+    // Only while the chat is on screen; elsewhere Ctrl+F stays the browser's.
+    const layout = document.getElementById("layout");
+    if (!layout || layout.style.display === "none") return;
     e.preventDefault();
     _openSearch();
   }
@@ -4098,7 +4142,7 @@ function _renderPane2ChatList() {
   const sel = document.getElementById("pane2ChatSelect");
   if (!sel) return;
   sel.innerHTML = chats
-    .map((c) => `<option value="${c.id}">${c.title || "Chat"}</option>`)
+    .map((c) => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.title || "Chat")}</option>`)
     .join("");
   sel.value = chats[1]?.id || chats[0]?.id || "";
   _splitChat2Id = sel.value;
@@ -4304,12 +4348,12 @@ window.ARIA_showSkillsUI = async function () {
             (s) => `
         <div class="skillRow ${s.active ? "active" : ""}">
           <div class="skillMeta">
-            <div class="skillName">${s.name}${
+            <div class="skillName">${escapeHtml(s.name)}${
               s.version !== "1.0"
-                ? ` <span style="font-size:9px;color:var(--text-muted)">v${s.version}</span>`
+                ? ` <span style="font-size:9px;color:var(--text-muted)">v${escapeHtml(s.version)}</span>`
                 : ""
             }</div>
-            <div class="skillDesc">${String(s.description).slice(0, 120)}</div>
+            <div class="skillDesc">${escapeHtml(String(s.description).slice(0, 120))}</div>
             ${
               s.hasTriggers
                 ? '<div class="skillTriggerBadge">auto-triggers</div>'
@@ -4319,12 +4363,12 @@ window.ARIA_showSkillsUI = async function () {
           <div class="skillActions">
             <button class="skillToggleBtn ${
               s.active ? "on" : "off"
-            }" onclick="window.ARIA_toggleSkill('${s.id}')">${
+            }" onclick="window.ARIA_toggleSkill('${jsSafeId(s.id)}')">${
               s.active ? "ON" : "OFF"
             }</button>
             ${
               s.location === "user"
-                ? `<button class="skillEditBtn" onclick="window.ARIA_editSkill('${s.id}')">Edit</button>`
+                ? `<button class="skillEditBtn" onclick="window.ARIA_editSkill('${jsSafeId(s.id)}')">Edit</button>`
                 : ""
             }
           </div>

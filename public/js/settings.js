@@ -1,6 +1,11 @@
 // settings.js — fixed: all DOM access deferred to DOMContentLoaded
 
 import { loadSettings, saveSettings } from "./personality.js";
+
+// Voice names (ElevenLabs' shared library lets anyone name one), device
+// names and skill text are not ours; they go into innerHTML through this.
+const esc = (v) =>
+  String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 import {
   setTTSEnabled,
   setVoiceMode,
@@ -279,11 +284,11 @@ function renderCustomVoiceList() {
         <div class="cviLeft">
           <span class="cviType">${v.elVoiceId ? "⚡ EL" : "🎙 FILE"}</span>
           <div>
-            <div class="cviName">${v.name}</div>
+            <div class="cviName">${esc(v.name)}</div>
             <div class="cviDesc">${
               v.elVoiceId
-                ? "ElevenLabs: " + v.elVoiceId
-                : v.fileName || "audio file"
+                ? "ElevenLabs: " + esc(v.elVoiceId)
+                : esc(v.fileName || "audio file")
             }</div>
           </div>
         </div>
@@ -368,8 +373,8 @@ async function validateAndLoadElevenLabs() {
     elSelEl.innerHTML = voices
       .map(
         (v) =>
-          `<option value="${v.id}">${v.name}${
-            v.category ? " — " + v.category : ""
+          `<option value="${esc(v.id)}">${esc(v.name)}${
+            v.category ? " — " + esc(v.category) : ""
           }</option>`,
       )
       .join("");
@@ -815,8 +820,8 @@ function wireAllControls() {
       elSelEl.innerHTML = currentSettings.elVoices
         .map(
           (v) =>
-            `<option value="${v.id}">${v.name}${
-              v.category ? " — " + v.category : ""
+            `<option value="${esc(v.id)}">${esc(v.name)}${
+              v.category ? " — " + esc(v.category) : ""
             }</option>`,
         )
         .join("");
@@ -1117,16 +1122,16 @@ async function initEsp32DeviceList() {
         <div class="esp32DeviceCard">
           <span class="esp32StatusDot ${d.online ? "online" : ""}"></span>
           <div>
-            <div class="esp32DeviceName">${d.name}</div>
+            <div class="esp32DeviceName">${esc(d.name)}</div>
             <div class="esp32DeviceMeta">
-              ${d.type}${d.project ? " · " + d.project : ""} ·
+              ${esc(d.type)}${d.project ? " · " + esc(d.project) : ""} ·
               ${d.online ? "online" : "offline " + relTime(d.lastSeen)} ·
-              ${d.capabilities.length} capabilities
+              ${Number(d.capabilities?.length) || 0} capabilities
               ${d.telemetry?.rssi ? " · " + d.telemetry.rssi + "dBm" : ""}
               ${d.telemetry?.freeHeap ? " · " + Math.round(d.telemetry.freeHeap / 1024) + "KB free" : ""}
             </div>
           </div>
-          <button class="esp32SendCmdBtn" data-device="${d.deviceId}">Send Cmd</button>
+          <button class="esp32SendCmdBtn" data-device="${esc(d.deviceId)}">Send Cmd</button>
         </div>
       `,
         )
@@ -1194,12 +1199,12 @@ async function initSettingsSkillsList() {
       <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-cut)">
         <div style="flex:1">
           <div style="font-size:13px;color:${s.active ? "var(--red-core)" : "var(--text-blaze)"}">
-            ${s.name} <span style="font-size:9px;color:var(--text-muted)">${s.location}</span>
+            ${esc(s.name)} <span style="font-size:9px;color:var(--text-muted)">${esc(s.location)}</span>
           </div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${String(s.description).slice(0,90)}</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${esc(String(s.description).slice(0,90))}</div>
         </div>
         <button
-          onclick="fetch('/api/skills/${s.id}/toggle',{method:'POST'}).then(()=>initSettingsSkillsList())"
+          onclick="fetch('/api/skills/${String(s.id).replace(/[^\w.-]/g, "")}/toggle',{method:'POST'}).then(()=>initSettingsSkillsList())"
           style="padding:4px 10px;background:${s.active ? "var(--red-core)" : "transparent"};border:1px solid ${s.active ? "var(--red-core)" : "var(--border-cut)"};border-radius:var(--radius-sm);color:${s.active ? "var(--bg-void)" : "var(--text-muted)"};font-size:10px;cursor:pointer;font-family:var(--font-mono)">
           ${s.active ? "ON" : "OFF"}
         </button>

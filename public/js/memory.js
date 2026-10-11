@@ -227,16 +227,16 @@ export function renderMemoryPanel() {
   container.innerHTML = visible
     .map(
       (f) => `
-    <div class="memFactItem" data-id="${f.id}">
+    <div class="memFactItem" data-id="${escapeHtml(f.id)}">
       <div class="memFactMeta">
-        <span class="memFactCat">${f.category}</span>
+        <span class="memFactCat">${escapeHtml(f.category)}</span>
         <span class="memFactSrc">${f.source === "auto" ? "auto" : "manual"}</span>
         <span class="memFactDate">${new Date(f.createdAt).toLocaleDateString()}</span>
       </div>
-      <div class="memFactText" id="memText_${f.id}">${escapeHtml(f.text)}</div>
+      <div class="memFactText" id="memText_${Number(f.id)}">${escapeHtml(f.text)}</div>
       <div class="memFactActions">
-        <button class="memBtn memEditBtn" onclick="window.ARIA_editMemFact(${f.id})">✎ Edit</button>
-        <button class="memBtn memDelBtn"  onclick="window.ARIA_deleteMemFact(${f.id})">✕ Delete</button>
+        <button class="memBtn memEditBtn" onclick="window.ARIA_editMemFact(${Number(f.id)})">✎ Edit</button>
+        <button class="memBtn memDelBtn"  onclick="window.ARIA_deleteMemFact(${Number(f.id)})">✕ Delete</button>
       </div>
     </div>`,
     )
