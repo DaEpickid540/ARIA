@@ -629,8 +629,8 @@ async function discoverTools() {
     // Check for the marker in the source before importing, the way AGI parsed
     // its header comments without executing anything. Importing every sibling
     // just to look for an export would run each module's top-level code at
-    // startup — and it tripped over tools/websearch.js, which has an unmet
-    // dependency and is not a drop-in tool at all.
+    // startup, and a sibling that isn't a drop-in tool (an old one once had
+    // an unmet dependency) would take startup down with it.
     try {
       if (!fs.readFileSync(full, "utf8").includes("TOOL_META")) continue;
     } catch {

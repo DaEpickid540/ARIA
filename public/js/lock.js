@@ -80,8 +80,7 @@ function showLockStep(step) {
 let _buttonsWired = false;
 let _modulesLoaded = false;
 
-/* ── expose early so main.js can call after its boot sequence ── */
-window.ARIA_wireConsoleButtons = wireConsoleButtons;
+/* ── expose early: homepage widgets and settings call these before unlock ── */
 window.ARIA_loadChatModules = loadChatModules;
 window.ARIA_enterConsole = enterConsole; // used by homepage quick-mode buttons
 
