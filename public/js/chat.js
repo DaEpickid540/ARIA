@@ -3623,7 +3623,10 @@ async function syncToServer() {
     live.add(c.id);
     const sig = chatSig(c);
     if (_synced.get(c.id) !== sig) {
-      c.updatedAt = now;
+      // Strictly newer than the copy before it: the server keeps a chat only
+      // when updatedAt goes up, and two saves in one millisecond (a reply
+      // landing as several bubbles) would otherwise tie and drop the second.
+      c.updatedAt = Math.max(now, (Number(c.updatedAt) || 0) + 1);
       _synced.set(c.id, sig);
       sending.set(c.id, sig);
     }
