@@ -1,7 +1,13 @@
 // server.js — ARIA v3.1 (Link Mode, Music Tutor, Workspace, Math v2, Code v2,
 // visualize tool, drop-in tools, error log)
 import "./lib/load-env.js"; // first: .env into process.env for everything below
-import { runToolServer, TOOL_DEFINITIONS, allTools } from "./tools/index.js";
+import {
+  runToolServer,
+  TOOL_DEFINITIONS,
+  allTools,
+  getCalendarEvents,
+  CALENDAR_NOT_CONFIGURED,
+} from "./tools/index.js";
 import * as rag from "./lib/rag.js";
 import * as taskEngine from "./lib/tasks.js";
 import * as skills from "./lib/skills.js";
@@ -9,7 +15,7 @@ import * as cloud from "./lib/cloud-sync.js";
 import * as chatSync from "./lib/chat-sync.js";
 import * as lifeContext from "./lib/life-context.js";
 import * as errorLog from "./lib/error-log.js";
-import { research, searchWeb, WEB_PAGES } from "./lib/research.js";
+import { research, searchWeb, fetchReadable, WEB_PAGES } from "./lib/research.js";
 import { splitThinking, stripThinking } from "./lib/think.js";
 import { extractVisualBlock } from "./tools/visualize.js";
 import * as auth from "./lib/auth.js";
@@ -290,16 +296,71 @@ function recordTextChat(hookChatId, userText, replyText) {
     { role: "aria", content: replyText || "(no reply)", timestamp: now + 1, channel: "sms" },
   );
   chat.updatedAt = now + 1;
-  const changed = chatSync.mergeInto(store, [chat], []);
+  saveServerChat(chat);
+}
+
+/** A chat the server changed itself: merge, save, sync, tell the pages. */
+function saveServerChat(chat) {
+  const changed = chatSync.mergeInto(chatStore(OWNER_CHAT_SPACE), [chat], []);
   if (!changed.length) return;
   persistChats();
   chatSync.push(OWNER_CHAT_SPACE, changed);
   broadcastChatSync(OWNER_CHAT_SPACE, "server");
 }
 
+/**
+ * The conversation so far in a text thread's chat, as /api/chat history.
+ * The chat is the record every server and page shares, so it outlives the
+ * hook's in-memory history (lost when the hook restarts) and includes
+ * anything added to the thread from the app. null before the first text.
+ */
+function textChatHistory(hookChatId, max = 20) {
+  if (!hookChatId) return null;
+  const chat = chatStore(OWNER_CHAT_SPACE).chats.find((c) => c.smsThread === hookChatId);
+  if (!chat?.messages?.length) return null;
+  return chat.messages
+    .filter((m) => typeof m.content === "string" && m.content)
+    .slice(-max)
+    .map((m) => ({ role: m.role === "aria" ? "assistant" : "user", content: m.content }));
+}
+
+/**
+ * Files a morning briefing in one shared "Daily briefings" chat, so it
+ * reaches every page and server once, instead of each open page adding it
+ * to whatever chat it had open (and nowhere when none was open).
+ */
+const BRIEFING_CHAT_ID = "chat_briefings";
+function recordBriefing(text, at = Date.now()) {
+  const store = chatStore(OWNER_CHAT_SPACE);
+  const existing = store.chats.find((c) => c.id === BRIEFING_CHAT_ID);
+  const chat = existing
+    ? { ...existing, messages: [...(existing.messages || [])] }
+    : { id: BRIEFING_CHAT_ID, briefings: true, title: "🌅 Daily briefings", messages: [] };
+  chat.messages.push({
+    role: "aria",
+    content: "🌅 **Good morning! Here's your daily briefing:**\n\n" + text,
+    timestamp: at,
+    channel: "briefing",
+  });
+  chat.updatedAt = at;
+  saveServerChat(chat);
+}
+
+/** True when some server already filed a briefing in the last `hours`. */
+function briefingFiledWithin(hours) {
+  const chat = chatStore(OWNER_CHAT_SPACE).chats.find((c) => c.id === BRIEFING_CHAT_ID);
+  const last = chat?.messages?.at(-1)?.timestamp || 0;
+  return Date.now() - last < hours * 3600_000;
+}
+
+// Whether this server's chats reach the others, for /api/health: "off" (no
+// FIREBASE_SERVICE_ACCOUNT, or it didn't connect), "starting" or "on".
+let chatSyncState = "off";
+
 // Not awaited: an unreachable Firestore must not hold up the server's boot.
 function startChatSyncNow() {
   chatSync.stopChatSync();
+  chatSyncState = "starting";
   chatSync
     .startChatSync({
       stores: () => chatStores,
@@ -310,7 +371,11 @@ function startChatSyncNow() {
         broadcastChatSync(OWNER_CHAT_SPACE, "cloud");
       },
     })
-    .catch((e) => console.warn("[chat-sync] didn't start:", e.message));
+    .then((ok) => (chatSyncState = ok ? "on" : "off"))
+    .catch((e) => {
+      chatSyncState = "off";
+      console.warn("[chat-sync] didn't start:", e.message);
+    });
 }
 startChatSyncNow();
 
@@ -2626,7 +2691,7 @@ function needsThinking(msg) {
 app.post("/api/chat", async (req, res) => {
   const {
     message,
-    history = [],
+    history: sentHistory = [],
     provider: askedProvider,
     personality = "hacker",
     model: askedModel,
@@ -2640,6 +2705,9 @@ app.post("/api/chat", async (req, res) => {
     imageAttachments = [],
     channel = "web",
   } = req.body;
+  // A text thread's history is its chat (see textChatHistory), not the
+  // hook's own copy, so the thread remembers what was said from the app.
+  const history = (channel === "sms" && textChatHistory(req.body.chatId)) || sentHistory;
   // A request that doesn't choose gets the model switcher's pick.
   const provider = askedProvider || activeModel.provider || "openrouter";
   const requestedModel = askedProvider ? askedModel : askedModel || activeModel.model || undefined;
@@ -3568,6 +3636,30 @@ app.get("/api/news", async (req, res) => {
 });
 
 /* ============================================================
+   CALENDAR + CRAWL — the chat's calendar button and the scraper's
+   "built-in crawler" engine (public/js/chat.js)
+   ============================================================ */
+app.get("/api/calendar/events", async (_req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID) return res.json({ error: CALENDAR_NOT_CONFIGURED });
+  try {
+    res.json({ events: await getCalendarEvents() });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
+
+// One page as text, plus its links. fetchReadable refuses private and
+// loopback hosts, so this can't be pointed at the PC's own services.
+app.post("/api/crawl", async (req, res) => {
+  let url = String(req.body?.url || "").trim();
+  if (!url) return res.json({ error: "No URL." });
+  if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+  const page = await fetchReadable(url, { maxChars: 8000, links: !!req.body?.extractLinks });
+  if (!page.ok && !page.text) return res.json({ error: page.error || "Could not read that page." });
+  res.json({ url: page.url, title: page.title, text: page.text, links: page.links || [] });
+});
+
+/* ============================================================
    TOOLS + CONFIG
    ============================================================ */
 app.get("/api/tools", async (_, res) => {
@@ -4482,6 +4574,8 @@ app.get("/api/health", (_, res) => {
       sessions: ariaMemory.sessions?.length || 0,
     },
     chats: Object.keys(chatStores).length,
+    // "off" means this server's chats stay here: set FIREBASE_SERVICE_ACCOUNT.
+    chatSync: chatSyncState,
     pendingScreenshots: pendingScreenshotResolvers?.size || 0,
     node: process.version,
   });
@@ -4739,22 +4833,29 @@ Today is ${new Date().toLocaleDateString("en-US", {
 Deliver a sharp morning briefing. Cover: weather in one sentence, key news items briefly, any open todos for today, any running ARIA tasks. End with one actionable suggestion or motivational note. Max 250 words. Speak directly to Sarvin.`;
 
     const sysPrompt = BASE_PROMPTS.hacker + buildMemoryContext();
-    const result = await callAI(
+    const raw = await callAI(
       [
         { role: "system", content: sysPrompt },
         { role: "user", content: prompt },
       ],
-      "openrouter",
-      null,
+      // The model switcher's pick, as texts use: a PC with only Ollama has
+      // no OpenRouter key, and the briefing failed there every morning.
+      activeModel.provider || "openrouter",
+      activeModel.model || null,
       {},
     );
+    const result = stripThinking(raw || "").trim(); // reasoning models
     if (!result) throw new Error("AI returned empty briefing");
 
-    global._lastBriefing = { text: result, generatedAt: Date.now() };
+    const generatedAt = Date.now();
+    global._lastBriefing = { text: result, generatedAt };
+    recordBriefing(result, generatedAt);
+    // filed: pages just announce it; the chat arrives through chat sync.
     const payload = JSON.stringify({
       type: "briefing",
       text: result,
-      generatedAt: Date.now(),
+      generatedAt,
+      filed: true,
     });
     for (const sub of briefingSubscribers) {
       try {
@@ -4783,7 +4884,10 @@ if (BRIEFING_ENABLED) {
       _briefingDeliveredToday !== todayKey
     ) {
       _briefingDeliveredToday = todayKey;
-      generateBriefing().catch(() => {});
+      // The PC and Render both run this, hours apart (Render's clock is
+      // UTC). The briefings chat is shared, so the second one stands down.
+      if (briefingFiledWithin(12)) console.log("[BRIEFING] Another server already sent today's");
+      else generateBriefing().catch(() => {});
     }
   }, 60_000);
   console.log(`[BRIEFING] Scheduled for ${BRIEFING_HOUR}:00 daily`);

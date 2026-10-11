@@ -12,6 +12,7 @@ const chatSig = ({ updatedAt, ...rest }) => JSON.stringify(rest);
 // and nothing is sent until the first pull, since a page with stale local
 // chats would otherwise stamp them all new and overwrite newer ones elsewhere.
 let _syncReady = null;
+const PENDING_DELETES_KEY = "aria_chat_pending_deletes"; // see syncToServer
 let currentSettings = loadSettings();
 let isGenerating = false;
 let documentContext = "";
@@ -74,6 +75,9 @@ try {
 }
 // The first pull starts before anything can sync (createNewChat does).
 _syncReady = loadFromServer({ first: true });
+// Then send whatever this page changed while it couldn't reach the server
+// (edits and deletions from an offline session included).
+_syncReady.then(() => syncToServer());
 if (!currentChatId) createNewChat();
 renderChatList();
 renderMessages();
@@ -1052,6 +1056,7 @@ export function deleteMessage(chatId, idx) {
   if (!chat?.messages[idx]) return;
   chat.messages.splice(idx, 1);
   saveChats();
+  syncToServer();
   renderMessages();
 }
 export function copyMessage(content) {
@@ -2557,6 +2562,7 @@ function addSystemMessage(content) {
   if (!chat) return;
   chat.messages.push({ role: "aria", content, timestamp: Date.now() });
   saveChats();
+  syncToServer();
   renderMessages();
 }
 
@@ -2627,6 +2633,7 @@ async function renderChatResponse(data, userText = "") {
       timestamp: Date.now(),
     });
     saveChats();
+    syncToServer();
     renderMessages();
     if (data.reply) addAIMessage(data.reply);
     return;
@@ -3539,27 +3546,51 @@ function saveChats() {
 // which chats it changed (they get a fresh updatedAt) and which it deleted.
 // _synced / chatSig / _syncReady are declared at the top of this file: the
 // startup code there runs before this point.
+//
+// Nothing counts as synced until the server says so: a save that fails
+// (offline, server asleep or restarting) is sent again on the next sync,
+// which also runs when the connection comes back (see resyncChats).
+// Deletions wait in localStorage, so one made offline survives a reload
+// and the server's copy can't bring the chat back meanwhile.
+function pendingDeletes() {
+  try {
+    const list = JSON.parse(localStorage.getItem(PENDING_DELETES_KEY) || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+function setPendingDeletes(list) {
+  try {
+    localStorage.setItem(PENDING_DELETES_KEY, JSON.stringify(list));
+  } catch {}
+}
+
 async function syncToServer() {
   await _syncReady;
   const now = Date.now();
   const live = new Set();
+  const sending = new Map(); // chat id → chatSig of the copy being sent
   for (const c of chats) {
     live.add(c.id);
     const sig = chatSig(c);
     if (_synced.get(c.id) !== sig) {
       c.updatedAt = now;
       _synced.set(c.id, sig);
+      sending.set(c.id, sig);
     }
   }
-  const deleted = [];
+  const deleted = pendingDeletes();
   for (const id of [..._synced.keys()]) {
     if (live.has(id)) continue;
     deleted.push({ id, at: now });
     _synced.delete(id);
   }
+  setPendingDeletes(deleted);
   saveChats();
+  if (!sending.size && !deleted.length) return;
   try {
-    await fetch("/api/saveChats", {
+    const res = await fetch("/api/saveChats", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -3569,8 +3600,37 @@ async function syncToServer() {
         sourceDeviceId: getDeviceId(),
       }),
     });
-  } catch {}
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const sent = new Set(deleted.map((d) => d.id));
+    setPendingDeletes(pendingDeletes().filter((d) => !sent.has(d.id)));
+  } catch {
+    // Unsent: drop the "agreed" mark (unless the chat changed again since),
+    // so the next sync stamps and sends it once more.
+    for (const [id, sig] of sending) if (_synced.get(id) === sig) _synced.delete(id);
+  }
 }
+
+// Catch up after time away: pull what changed elsewhere, then send what
+// changed here. Runs when the live connection comes back, when the network
+// does, and when the tab is shown again (phones suspend background tabs,
+// and a laptop's connection dies while it sleeps).
+let _resyncing = null;
+function resyncChats() {
+  _resyncing ||= (async () => {
+    try {
+      await _syncReady;
+      await loadFromServer();
+      await syncToServer();
+    } finally {
+      _resyncing = null;
+    }
+  })();
+  return _resyncing;
+}
+window.addEventListener("online", () => resyncChats());
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") resyncChats();
+});
 
 /* ── DEVICE ID + CROSS-DEVICE LIVE SYNC ── */
 function getDeviceId() {
@@ -3596,6 +3656,8 @@ function startChatSyncSubscription() {
     )}&deviceId=${encodeURIComponent(did)}`,
   );
   _syncEventSource.onopen = () => {
+    // Back after a drop: nothing was announced while we were away.
+    if (_syncReconnectDelay > 1000) resyncChats();
     _syncReconnectDelay = 1000;
     console.log("[SYNC] Connected — chats now sync live across devices.");
   };
@@ -3614,6 +3676,7 @@ function startChatSyncSubscription() {
     } catch {}
     _syncEventSource = null;
     setTimeout(startChatSyncSubscription, _syncReconnectDelay);
+    // Also marks the next onopen as a reconnect (it's > 1000 from here on).
     _syncReconnectDelay = Math.min(_syncReconnectDelay * 1.5, 30000);
   };
 }
@@ -3772,7 +3835,10 @@ async function loadFromServer({ first = false } = {}) {
     if (byId.delete(id)) changed = true;
     _synced.delete(id);
   }
+  // Deleted here, but the server hasn't heard yet (syncToServer retries).
+  const deletingHere = new Set(pendingDeletes().map((d) => d.id));
   for (const sc of data.chats) {
+    if (deletingHere.has(sc.id)) continue;
     const lc = byId.get(sc.id);
     const lt = Number(lc?.updatedAt) || 0;
     const st = Number(sc.updatedAt) || 0;
@@ -4392,8 +4458,15 @@ window.ARIA_showMacros = function () {
   es.onmessage = (e) => {
     try {
       const data = JSON.parse(e.data);
+      // Newer servers file it in the shared "Daily briefings" chat, which
+      // reaches this page through chat sync: just announce it.
+      if (data.type === "briefing" && data.filed) {
+        resyncChats();
+        showToast("Morning briefing ready", "🌅");
+        return;
+      }
       if (data.type === "briefing" && data.text) {
-        // Add the briefing as an ARIA message in the current chat
+        // Older servers: add the briefing as an ARIA message in the current chat
         const chat = getCurrentChat();
         if (chat) {
           const briefMsg = {

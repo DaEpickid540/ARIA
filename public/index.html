@@ -275,10 +275,128 @@
           </div>
         </div>
 
+        <!-- SCROLL ROW 3 — utilities (homeTools.js, Mark 1.2) -->
+        <div class="scrollRow">
+          <div class="homeCard scrollCard pomodoroCard">
+            <div class="homeLabel"><i class="bi bi-stopwatch" aria-hidden="true"></i> POMODORO</div>
+            <div id="pomodoroDisplay" class="pomodoroDisplay">25:00</div>
+            <div class="pomodoroMeta">
+              <span id="pomodoroPhase">FOCUS</span>
+              <span id="pomodoroCount">0 done</span>
+            </div>
+            <div class="hwBtnRow">
+              <button id="pomodoroStart" class="hwToolBtn">▶ Start</button>
+              <button id="pomodoroReset" class="hwToolBtn">⟳ Reset</button>
+            </div>
+          </div>
+          <div class="homeCard scrollCard scratchpadCard">
+            <div class="homeLabel">
+              <i class="bi bi-pencil-square" aria-hidden="true"></i> SCRATCHPAD
+              <span id="scratchpadCount" class="hwLabelAside">0 chars</span>
+            </div>
+            <textarea id="scratchpadText" class="hwField" rows="4" placeholder="Quick notes, ideas, anything…" aria-label="Scratchpad"></textarea>
+            <div class="hwBtnRow">
+              <button id="scratchpadCopy" class="hwToolBtn">Copy</button>
+              <button id="scratchpadClear" class="hwToolBtn">Clear</button>
+            </div>
+          </div>
+          <div class="homeCard scrollCard latencyCard">
+            <div class="homeLabel"><i class="bi bi-reception-4" aria-hidden="true"></i> SERVER LATENCY</div>
+            <div class="latencyMain">
+              <span id="latencyValue" class="latencyValue">—</span>
+              <span id="latencyAvg" class="hwSub">avg —</span>
+            </div>
+            <div id="latencySpark" class="latencySpark"></div>
+          </div>
+          <div class="homeCard scrollCard cryptoCard">
+            <div class="homeLabel"><i class="bi bi-currency-bitcoin" aria-hidden="true"></i> CRYPTO</div>
+            <div id="cryptoList"><span class="hwEmpty">Loading…</span></div>
+          </div>
+          <div class="homeCard scrollCard worldClockCard">
+            <div class="homeLabel"><i class="bi bi-globe2" aria-hidden="true"></i> WORLD CLOCKS</div>
+            <div id="worldClockList"></div>
+          </div>
+          <div class="homeCard scrollCard dictCard">
+            <div class="homeLabel"><i class="bi bi-book" aria-hidden="true"></i> DEFINE</div>
+            <input id="dictInput" class="hwField" type="text" placeholder="Type a word…" aria-label="Word to define" />
+            <div id="dictResult"></div>
+          </div>
+          <div class="homeCard scrollCard clipboardCard">
+            <div class="homeLabel">
+              <i class="bi bi-clipboard" aria-hidden="true"></i> CLIPBOARD
+              <button id="clipboardSaveBtn" class="hwToolBtn hwLabelAside">+ Save current</button>
+            </div>
+            <div id="clipboardHistoryList"></div>
+          </div>
+          <div class="homeCard scrollCard colorPickerCard">
+            <div class="homeLabel"><i class="bi bi-palette" aria-hidden="true"></i> COLOR PICKER</div>
+            <div class="colorPickerBody">
+              <input id="colorInput" class="colorInput" type="color" value="#ff2040" aria-label="Pick a color" />
+              <div id="colorSwatch" hidden></div>
+              <div class="colorValues">
+                <div><span class="hwSub">HEX</span> <span id="colorHex"></span></div>
+                <div><span class="hwSub">RGB</span> <span id="colorRgb"></span></div>
+                <div><span class="hwSub">HSL</span> <span id="colorHsl"></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="homeCard scrollCard textStatsCard">
+            <div class="homeLabel"><i class="bi bi-bar-chart" aria-hidden="true"></i> TEXT STATS</div>
+            <textarea id="textStatsInput" class="hwField" rows="3" placeholder="Paste text to analyze…" aria-label="Text to analyze"></textarea>
+            <div class="textStatsGrid">
+              <div><span id="textStatsChars">0</span> chars</div>
+              <div><span id="textStatsWords">0</span> words</div>
+              <div><span id="textStatsLines">0</span> lines</div>
+              <div id="textStatsRead">—</div>
+            </div>
+          </div>
+          <div class="homeCard scrollCard passwordGenCard">
+            <div class="homeLabel"><i class="bi bi-key" aria-hidden="true"></i> PASSWORD GENERATOR</div>
+            <input id="pwOutput" class="hwField hwMono" type="text" readonly aria-label="Generated password" />
+            <div class="pwOpts">
+              <label><input type="checkbox" id="pwUpper" checked /> A-Z</label>
+              <label><input type="checkbox" id="pwLower" checked /> a-z</label>
+              <label><input type="checkbox" id="pwDigits" checked /> 0-9</label>
+              <label><input type="checkbox" id="pwSymbols" /> !@#$</label>
+            </div>
+            <div class="pwLengthRow">
+              <input type="range" id="pwLength" min="6" max="48" value="16" aria-label="Password length" />
+              <span id="pwLengthLabel" class="hwSub">16 chars</span>
+            </div>
+            <div class="hwBtnRow">
+              <button id="pwGen" class="hwToolBtn">⟳ Generate</button>
+              <button id="pwCopy" class="hwToolBtn">Copy</button>
+            </div>
+          </div>
+        </div>
+
         <div id="homeButtons">
           <button id="enterConsoleBtn" class="primaryBtn glitch wideBtn">
             <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> ENTER ARIA CONSOLE
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LINK MODE — device mesh + file relay (js/linkMode.js). Outside
+         #layout so it also opens from the home screen. -->
+    <div id="linkModeOverlay" style="display: none" role="dialog" aria-modal="true" aria-labelledby="linkModeTitle">
+      <div id="linkModePanel">
+        <div id="linkModeHeader">
+          <span id="linkModeTitle"><i class="bi bi-link-45deg" aria-hidden="true"></i> LINK MODE</span>
+          <button id="linkModeCloseBtn" title="Close" aria-label="Close Link Mode">✕</button>
+        </div>
+        <div id="linkModeBody">
+          <canvas id="linkModeCanvas" height="260"></canvas>
+          <div id="linkModeDevices">
+            <div class="linkDeviceEmpty">Looking for devices…</div>
+          </div>
+        </div>
+        <div id="linkModeActions">
+          <button id="linkSendFileBtn" class="linkBtn"><i class="bi bi-upload" aria-hidden="true"></i> Send file</button>
+          <button id="linkServerBtn" class="linkBtn"><i class="bi bi-hdd-network" aria-hidden="true"></i> Send to first device</button>
+          <button id="linkBtScanBtn" class="linkBtn"><i class="bi bi-bluetooth" aria-hidden="true"></i> Scan Bluetooth</button>
+          <button id="linkWifiBtn" class="linkBtn"><i class="bi bi-wifi" aria-hidden="true"></i> My device ID</button>
         </div>
       </div>
     </div>
@@ -339,6 +457,12 @@
               </button>
               <button class="toolDropItem" id="tool_bg">
                 <i class="bi bi-gear-wide-connected" aria-hidden="true"></i> Background Task
+              </button>
+              <button class="toolDropItem" id="tool_link">
+                <i class="bi bi-link-45deg" aria-hidden="true"></i> Link Mode
+              </button>
+              <button class="toolDropItem" id="tool_bluetooth">
+                <i class="bi bi-bluetooth" aria-hidden="true"></i> Bluetooth Scan
               </button>
               <div class="toolDropDivider"></div>
               <button class="toolDropItem" id="tool_commands">

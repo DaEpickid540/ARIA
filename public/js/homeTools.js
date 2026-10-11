@@ -632,7 +632,7 @@ export function initQuickTools() {
         }
         settings.switchSettingsTab?.("memory");
       }
-      if (a === "link") window.ARIA_openLinkMode?.();
+      if (a === "link") import("./linkMode.js").then((m) => m.openLinkMode());
     };
   });
 }
@@ -863,6 +863,15 @@ export function initBluetooth() {
    NEW HOMETOOLS — added in Mark 1.2
    ════════════════════════════════════════════════════════════════ */
 
+// Text from outside APIs goes into innerHTML templates through this.
+const escHtml = (s) =>
+  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+// homepage.js re-runs the live tools on every visit to the home screen;
+// these keep each one to a single polling loop.
+let _latencyTimer = null;
+let _cryptoTimer = null;
+
 /* ── POMODORO TIMER ───────────────────────────────────────────
    25-min focus / 5-min break cycles. State persists in localStorage. */
 export function initPomodoro() {
@@ -922,7 +931,8 @@ export function initPomodoro() {
   startBtn.addEventListener("click", () => {
     state.running = !state.running;
     if (state.running) {
-      if (Notification.permission === "default") Notification.requestPermission();
+      if (typeof Notification !== "undefined" && Notification.permission === "default")
+        Notification.requestPermission();
       tickTimer = setInterval(tick, 1000);
     } else {
       clearInterval(tickTimer);
@@ -990,7 +1000,7 @@ export function initLatencyMonitor() {
   const valueEl = document.getElementById("latencyValue");
   const avgEl = document.getElementById("latencyAvg");
   const sparkEl = document.getElementById("latencySpark");
-  if (!valueEl) return;
+  if (!valueEl || _latencyTimer) return;
 
   const samples = [];
   const MAX_SAMPLES = 30;
@@ -1003,7 +1013,7 @@ export function initLatencyMonitor() {
       samples.push(ms);
       if (samples.length > MAX_SAMPLES) samples.shift();
       valueEl.textContent = `${ms}ms`;
-      valueEl.style.color = ms < 100 ? "#4cff4c" : ms < 300 ? "#ffc107" : "#ff4444";
+      valueEl.style.color = ms < 100 ? "var(--success)" : ms < 300 ? "var(--warning)" : "var(--danger)";
       if (avgEl) {
         const avg = Math.round(samples.reduce((a, b) => a + b, 0) / samples.length);
         avgEl.textContent = `avg ${avg}ms`;
@@ -1011,7 +1021,7 @@ export function initLatencyMonitor() {
       drawSpark();
     } catch {
       valueEl.textContent = "offline";
-      valueEl.style.color = "#ff4444";
+      valueEl.style.color = "var(--danger)";
     }
   }
   function drawSpark() {
@@ -1026,18 +1036,18 @@ export function initLatencyMonitor() {
         return `${x},${y}`;
       })
       .join(" ");
-    sparkEl.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}"><polyline points="${points}" fill="none" stroke="#ff2040" stroke-width="1.5"/></svg>`;
+    sparkEl.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}"><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`;
   }
 
   ping();
-  setInterval(ping, 5000);
+  _latencyTimer = setInterval(ping, 5000);
 }
 
 /* ── CRYPTO PRICES ──────────────────────────────────────────
    Live BTC/ETH/SOL prices from CoinGecko (free, no key). */
 export async function initCryptoPrices() {
   const el = document.getElementById("cryptoList");
-  if (!el) return;
+  if (!el || _cryptoTimer) return;
   el.innerHTML = '<span class="hwEmpty">Loading…</span>';
   async function refresh() {
     try {
@@ -1067,7 +1077,7 @@ export async function initCryptoPrices() {
     }
   }
   refresh();
-  setInterval(refresh, 60_000);
+  _cryptoTimer = setInterval(refresh, 60_000);
 }
 
 /* ── WORLD CLOCKS ────────────────────────────────────────────
@@ -1139,9 +1149,9 @@ export function initDictionary() {
         const first = data[0];
         const meanings = first.meanings.slice(0, 2).map((m) => {
           const def = m.definitions[0]?.definition || "";
-          return `<div class="dictMeaning"><span class="dictPos">${m.partOfSpeech}</span> ${def}</div>`;
+          return `<div class="dictMeaning"><span class="dictPos">${escHtml(m.partOfSpeech)}</span> ${escHtml(def)}</div>`;
         });
-        result.innerHTML = `<div class="dictWord">${first.word}</div>${meanings.join("")}`;
+        result.innerHTML = `<div class="dictWord">${escHtml(first.word)}</div>${meanings.join("")}`;
       } catch {
         result.innerHTML = '<span class="hwEmpty">Lookup failed.</span>';
       }
