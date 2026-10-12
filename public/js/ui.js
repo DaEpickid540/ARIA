@@ -106,9 +106,6 @@ document
 document
   .getElementById("ariaSettingsBtn")
   ?.addEventListener("click", _openSettingsOverlay);
-document
-  .getElementById("mobilSettingsBtn")
-  ?.addEventListener("click", _openSettingsOverlay);
 
 // Wire close button + backdrop
 document

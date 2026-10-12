@@ -147,6 +147,9 @@ async function register() {
         hostname: os.hostname(),
         arch: os.arch(),
         browser: DEFAULT_BROWSER,
+        // The desktop app sets "electron", so the Claw panel shows where the
+        // relay runs. Unset, the server infers it from the device id.
+        relayType: process.env.CLAW_RELAY_TYPE || undefined,
       });
       if (r?.error === "bad_relay_key" || r?.error === "claw_disabled") {
         // Retrying cannot fix either of these.
@@ -546,13 +549,16 @@ ${posLine}
 
     // ── Drag ──
     case "drag": {
-      const { x1 = 0, y1 = 0, x2 = 0, y2 = 0 } = cmd;
+      const [x1, y1, x2, y2] = [cmd.x1, cmd.y1, cmd.x2, cmd.y2].map((v) => Math.round(Number(v) || 0));
       if (PLATFORM === "win32") {
+        // Button down, then ~20-40 interpolated moves, then up — a single
+        // jump from start to end doesn't register as a drag in most apps.
         runPs1(`
 Add-Type -TypeDefinition @"
 using System;
+using System.Threading;
 using System.Runtime.InteropServices;
-public class AriaDrag {
+public class AriaDrag2 {
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
     [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT {
         public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr dwExtraInfo;
@@ -561,19 +567,27 @@ public class AriaDrag {
         public uint type; public MOUSEINPUT mi;
     }
     [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint n, INPUT[] pInputs, int cbSize);
-    public static void MouseBtn(uint flag) {
+    static void Send(uint flag) {
         var inp = new INPUT[1]; inp[0].type = 0; inp[0].mi.dwFlags = flag;
-        SendInput(1, inp, System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT)));
+        SendInput(1, inp, Marshal.SizeOf(typeof(INPUT)));
+    }
+    public static void Drag(int x1, int y1, int x2, int y2) {
+        double dist = Math.Sqrt((double)(x2 - x1) * (x2 - x1) + (double)(y2 - y1) * (y2 - y1));
+        int steps = Math.Max(20, Math.Min(40, (int)(dist / 15)));
+        SetCursorPos(x1, y1); Thread.Sleep(60);
+        Send(0x0002); Thread.Sleep(60);            // LEFTDOWN
+        for (int i = 1; i <= steps; i++) {
+            double t = (double)i / steps;
+            SetCursorPos((int)Math.Round(x1 + (x2 - x1) * t), (int)Math.Round(y1 + (y2 - y1) * t));
+            Send(0x0001);                          // MOVE (0,0) so apps see a move event
+            Thread.Sleep(12);
+        }
+        Thread.Sleep(60);
+        Send(0x0004);                              // LEFTUP
     }
 }
 "@ -ErrorAction SilentlyContinue
-[AriaDrag]::SetCursorPos(${x1}, ${y1})
-Start-Sleep -Milliseconds 80
-[AriaDrag]::MouseBtn(0x0002)
-Start-Sleep -Milliseconds 50
-[AriaDrag]::SetCursorPos(${x2}, ${y2})
-Start-Sleep -Milliseconds 100
-[AriaDrag]::MouseBtn(0x0004)
+[AriaDrag2]::Drag(${x1}, ${y1}, ${x2}, ${y2})
 `);
       } else if (PLATFORM === "darwin") {
         run(
@@ -592,7 +606,7 @@ Start-Sleep -Milliseconds 100
         );
       } else {
         run(
-          `xdotool mousemove ${x1} ${y1} mousedown 1 mousemove ${x2} ${y2} mouseup 1`,
+          `xdotool mousemove ${x1} ${y1} mousedown 1 ${Array.from({ length: 20 }, (_, i) => `mousemove ${Math.round(x1 + ((x2 - x1) * (i + 1)) / 20)} ${Math.round(y1 + ((y2 - y1) * (i + 1)) / 20)} sleep 0.01`).join(" ")} mouseup 1`,
         );
       }
       return `dragged (${x1},${y1}) → (${x2},${y2})`;
@@ -656,21 +670,25 @@ Start-Sleep -Milliseconds 100
       const fname =
         cmd.path || os.tmpdir() + "/aria-claw-shot-" + Date.now() + ".png";
       const mIdx = cmd.monitor ?? monitorIdx; // -1=all, 0=primary, 1+=secondary
+      // Where the captured image sits on the desktop, in the same coordinates
+      // click:/drag: use — lets the POV panel map a click on the image back.
+      let bounds = null;
       if (PLATFORM === "win32") {
         if (mIdx === -1) {
           // Capture ALL monitors combined (virtual desktop)
-          run(
+          bounds = run(
             `powershell -Command "` +
               `Add-Type -AssemblyName System.Windows.Forms,System.Drawing; ` +
               `$vd=[System.Windows.Forms.SystemInformation]::VirtualScreen; ` +
               `$b=New-Object System.Drawing.Bitmap($vd.Width,$vd.Height); ` +
               `$g=[System.Drawing.Graphics]::FromImage($b); ` +
               `$g.CopyFromScreen($vd.Left,$vd.Top,0,0,$b.Size); ` +
-              `$b.Save('${fname}')"`,
+              `$b.Save('${fname}'); ` +
+              `Write-Output ('' + $vd.Left + ',' + $vd.Top + ',' + $vd.Width + ',' + $vd.Height)"`,
           );
         } else {
           // Specific monitor by index
-          run(
+          bounds = run(
             `powershell -Command "` +
               `Add-Type -AssemblyName System.Windows.Forms,System.Drawing; ` +
               `$screens=[System.Windows.Forms.Screen]::AllScreens; ` +
@@ -678,9 +696,12 @@ Start-Sleep -Milliseconds 100
               `$b=New-Object System.Drawing.Bitmap($s.Bounds.Width,$s.Bounds.Height); ` +
               `$g=[System.Drawing.Graphics]::FromImage($b); ` +
               `$g.CopyFromScreen($s.Bounds.X,$s.Bounds.Y,0,0,$b.Size); ` +
-              `$b.Save('${fname}')"`,
+              `$b.Save('${fname}'); ` +
+              `Write-Output ('' + $s.Bounds.X + ',' + $s.Bounds.Y + ',' + $s.Bounds.Width + ',' + $s.Bounds.Height)"`,
           );
         }
+        const m = /(-?\d+),(-?\d+),(\d+),(\d+)\s*$/.exec(bounds || "");
+        bounds = m ? { x: +m[1], y: +m[2], w: +m[3], h: +m[4] } : null;
       } else if (PLATFORM === "darwin") {
         const mFlag = mIdx >= 0 ? `-D ${mIdx + 1}` : "";
         run(`screencapture -x ${mFlag} "${fname}"`);
@@ -696,6 +717,7 @@ Start-Sleep -Milliseconds 100
           result: "screenshot_ok",
           screenshot: b64,
           fname,
+          bounds,
         });
         return `screenshot: ${fname}`;
       } catch {
@@ -804,10 +826,20 @@ Start-Sleep -Milliseconds 100
           );
         }
 
-        // ── Tier 2: Windows Search via Ctrl+Esc ───────────────
-        // Note: WScript.Shell SendKeys uses ^{ESC} for Ctrl+Esc (= Start menu).
-        // {LWIN} is NOT supported by WScript.Shell — Ctrl+Esc is the correct substitute.
-        console.log(`[RELAY] Using Windows Search for "${appRaw}"...`);
+        // ── Tier 2: resolve against the Start Menu (.lnk shortcuts + Store apps) ──
+        const hit = findStartMenuApp(appRaw);
+        if (hit) {
+          const target = hit.lnk
+            ? `Start-Process -FilePath '${hit.lnk.replace(/'/g, "''")}'`
+            : `Start-Process explorer.exe -ArgumentList 'shell:AppsFolder\\${hit.appId.replace(/'/g, "''")}'`;
+          const r = runPs1(target);
+          if (!r.startsWith("exit")) return `launched ${hit.name}`;
+          console.log(`[RELAY] Start Menu launch failed for "${hit.name}": ${r}`);
+        }
+
+        // ── Tier 3 (last resort): type the name into Start search ──
+        // WScript.Shell SendKeys uses ^{ESC} for Ctrl+Esc (= Start menu).
+        console.log(`[RELAY] No Start Menu match for "${appRaw}", using Windows Search...`);
         const searchText = appRaw.replace(/'/g, "''");
         run(
           `powershell -Command "$wsh = New-Object -ComObject WScript.Shell; $wsh.SendKeys('^{ESC}'); Start-Sleep -Milliseconds 900; $wsh.SendKeys('${searchText}'); Start-Sleep -Milliseconds 1400; $wsh.SendKeys('{ENTER}')"`,
@@ -849,6 +881,64 @@ function run(cmd) {
   } catch (e) {
     return `exit ${e.status}: ${e.stderr?.trim() || e.message}`;
   }
+}
+
+// Finds the Start Menu entry that best matches `query`: every .lnk under the
+// all-users and per-user Start Menu, plus Get-StartApps for Store/UWP apps.
+// The list is cached for a minute so repeated launches stay fast.
+let _startMenuCache = { at: 0, items: [] };
+function listStartMenuApps() {
+  if (Date.now() - _startMenuCache.at < 60000 && _startMenuCache.items.length)
+    return _startMenuCache.items;
+  const out = runPs1(`
+$ErrorActionPreference = 'SilentlyContinue'
+$items = @()
+foreach ($root in @("$env:ProgramData\\Microsoft\\Windows\\Start Menu\\Programs", "$env:AppData\\Microsoft\\Windows\\Start Menu\\Programs")) {
+  Get-ChildItem -Path $root -Recurse -Filter *.lnk | ForEach-Object {
+    $items += [pscustomobject]@{ name = $_.BaseName; lnk = $_.FullName; appId = $null }
+  }
+}
+Get-StartApps | ForEach-Object {
+  $items += [pscustomobject]@{ name = $_.Name; lnk = $null; appId = $_.AppID }
+}
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$items | ConvertTo-Json -Compress
+`);
+  let items = [];
+  try {
+    const parsed = JSON.parse(out);
+    items = Array.isArray(parsed) ? parsed : [parsed];
+  } catch {}
+  _startMenuCache = { at: Date.now(), items };
+  return items;
+}
+
+function findStartMenuApp(query) {
+  const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const q = norm(query);
+  if (!q) return null;
+  const qTokens = q.split(" ");
+  const junk = /\b(uninstall|readme|help|documentation|release notes|website|support)\b/;
+  let best = null;
+  for (const it of listStartMenuApps()) {
+    const n = norm(it.name);
+    if (!n || junk.test(n)) continue;
+    let score = 0;
+    if (n === q) score = 100;
+    else if (n.startsWith(q)) score = 80;
+    else if (n.split(" ").includes(q)) score = 70;
+    else if (n.includes(q)) score = 60;
+    else if (qTokens.every((t) => n.includes(t))) score = 50;
+    else {
+      const hits = qTokens.filter((t) => t.length > 2 && n.includes(t)).length;
+      if (hits) score = 20 + (30 * hits) / qTokens.length;
+    }
+    if (!score) continue;
+    score -= Math.min(n.length - q.length, 30) * 0.2; // prefer the tighter name
+    if (it.lnk) score += 1; // a real shortcut beats a Store alias of the same name
+    if (!best || score > best.score) best = { ...it, score };
+  }
+  return best && best.score >= 30 ? best : null;
 }
 
 // Writes a .ps1 file and runs it — avoids all quote-escaping issues

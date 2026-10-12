@@ -339,3 +339,8 @@
   border-radius: var(--r-sm);
   color: var(--text-2);
 }
+
+/* Settings ▸ Show timestamps off (settings.js applyTimestamps) */
+body.hideTimestamps .msgTimestamp {
+  display: none;
+}

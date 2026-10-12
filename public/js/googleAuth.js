@@ -88,11 +88,49 @@ export async function signInWithGoogle() {
   try {
     return await exchange(user);
   } catch (e) {
-    // The wrong account stays signed in otherwise, and the next click would
-    // try it again without offering the account chooser.
-    if (e.code === "not_owner" || e.code === "not_google") await sdk.signOut(auth);
+    // A non-Google login can never get in, so offer the chooser next time.
+    // An account that isn't an owner stays signed in: the lock screen asks
+    // it for a pairing code (pairAccount below).
+    if (e.code === "not_google") await sdk.signOut(auth);
     throw e;
   }
+}
+
+/**
+ * Makes the signed-in Google account an owner with a pairing code from
+ * Settings ▸ Accounts (lib/owners.js), then signs in as usual.
+ */
+export async function pairAccount(code) {
+  const { auth } = await firebase();
+  const user = auth.currentUser;
+  if (!user) throw new Error("Sign in with Google first.");
+  const r = await fetch("/api/auth/pair", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, idToken: await user.getIdToken() }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || !d.ok) {
+    const err = new Error(describePairError(r.status, d));
+    err.code = d.error || `http_${r.status}`;
+    throw err;
+  }
+  return exchange(user);
+}
+
+function describePairError(status, d) {
+  const map = {
+    malformed: "A pairing code is 8 characters.",
+    unknown: "That code doesn't exist. Check it, or make a new one.",
+    used: "That code has already been used. Make a new one.",
+    expired: "That code has expired. Make a new one.",
+    locked: "Too many wrong codes. Try again in 15 minutes.",
+    invalid_token: "Your Google sign-in expired. Use a different account, then sign in again.",
+    not_google: "Sign in with a Google account.",
+  };
+  if (map[d.error]) return map[d.error];
+  if (SITE && status === 404) return "That ARIA server is older than this website. Update it (or pick the other brain).";
+  return "Pairing failed.";
 }
 
 /**
@@ -116,12 +154,9 @@ export async function signOutGoogle() {
 }
 
 function describeServerError(status, d) {
-  if (d.error === "owner_unset")
-    return `This PC doesn't know its owner yet. In the desktop app, open Settings ▸ Keys ▸ Owner and paste: ${d.uid}`;
-  if (d.error === "not_owner" && SITE && !d.publicServer)
-    return `${d.email || "That account"} isn't an owner of this PC yet. In the desktop app, add it under Settings ▸ Keys ▸ Owners (Google emails), or add this ID under Owners (Google user IDs):`;
-  if (d.error === "not_owner")
-    return `${d.email || "That account"} isn't ARIA's owner.`;
+  // The lock screen answers these two with the pairing step.
+  if (d.error === "owner_unset" || d.error === "not_owner")
+    return `${d.email || "That account"} isn't paired with ARIA yet.`;
   if (SITE && status === 404)
     return "That ARIA server is older than this website. Update it (or pick the other brain).";
   if (d.error === "not_google") return "Sign in with a Google account.";

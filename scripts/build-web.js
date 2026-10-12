@@ -25,8 +25,8 @@ const brains = [
 fs.rmSync(OUT, { recursive: true, force: true });
 fs.cpSync(SRC, OUT, {
   recursive: true,
-  // Uploads belong to a server; the old stylesheet isn't linked anywhere.
-  filter: (src) => !/[\\/]public[\\/](uploads|style-old\.css)/.test(src),
+  // Uploads belong to a server.
+  filter: (src) => !/[\\/]public[\\/]uploads/.test(src),
 });
 
 fs.writeFileSync(

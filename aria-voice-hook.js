@@ -61,7 +61,9 @@ const PLATFORM = os.platform();
 const BROWSER = flag("browser") || (PLATFORM === "win32" ? "msedge" : "chrome");
 const BROWSER_PATH = flag("browser-path") || "";
 const HEADLESS = flag("headless") === true;
-const DATA_DIR = path.join(__dirname, "data");
+// The desktop app runs this hook out of app.asar, which can't be written to,
+// so it passes the server's data folder (lib/paths.js reads the same var).
+const DATA_DIR = process.env.ARIA_DATA_DIR || path.join(__dirname, "data");
 const PROFILE_DIR = path.resolve(flag("profile") || path.join(DATA_DIR, "gvoice-profile"));
 const SEEN_FILE = path.join(DATA_DIR, "gvoice-seen.json");
 // Only ever changed to point at a mock page when testing.

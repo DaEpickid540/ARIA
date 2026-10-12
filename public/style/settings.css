@@ -405,3 +405,97 @@
 .keyMsg:empty {
   display: none;
 }
+
+/* ============================================================
+   SETTINGS ▸ ACCOUNTS — pairing codes (accountsPanel.js)
+   ============================================================ */
+.pairCode {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--r-lg);
+  background: var(--accent-bg);
+}
+.pairCodeValue {
+  font-family: var(--font-mono-stack, ui-monospace, monospace);
+  font-size: 2rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-align: center;
+  color: var(--text);
+  user-select: all;
+}
+.pairCodeMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: var(--text-3);
+}
+.pairCodeMeta span {
+  margin-right: auto;
+  font-variant-numeric: tabular-nums;
+}
+.pairCode .settingsHint {
+  margin: 0;
+  text-align: center;
+}
+.pairDone {
+  color: var(--success-text, var(--success));
+  font-size: 0.85rem;
+  margin: 0;
+}
+.pairErr {
+  color: var(--danger-text);
+}
+
+.ownerRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg-inset);
+  margin-bottom: 8px;
+}
+.ownerRow > .bi {
+  font-size: 1.2rem;
+  color: var(--text-3);
+}
+.ownerWho {
+  flex: 1;
+  min-width: 0;
+}
+.ownerEmail {
+  font-size: 0.85rem;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.ownerMeta {
+  font-size: 0.7rem;
+  color: var(--text-3);
+}
+.ownerScope {
+  margin-top: 10px;
+}
+
+/* Settings ▸ Memory filter row (memory.js renderMemoryPanel) */
+.memFilterRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.memFilterRow select {
+  flex: 0 0 auto;
+  max-width: 45%;
+}
+.memFilterRow input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}

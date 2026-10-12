@@ -1,6 +1,11 @@
 // settings.js — fixed: all DOM access deferred to DOMContentLoaded
 
 import { loadSettings, saveSettings } from "./personality.js";
+
+// Voice names (ElevenLabs' shared library lets anyone name one), device
+// names and skill text are not ours; they go into innerHTML through this.
+const esc = (v) =>
+  String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 import {
   setTTSEnabled,
   setVoiceMode,
@@ -87,6 +92,7 @@ export function switchSettingsTab(tabName) {
   if (tabName === "emotion") renderEmotionSummary();
   if (tabName === "memory") renderMemoryPanel();
   if (tabName === "voice") populateVoiceSelect();
+  if (tabName === "devices") startDevicesTab();
 }
 window.ARIA_switchSettingsTab = switchSettingsTab;
 
@@ -279,11 +285,11 @@ function renderCustomVoiceList() {
         <div class="cviLeft">
           <span class="cviType">${v.elVoiceId ? "⚡ EL" : "🎙 FILE"}</span>
           <div>
-            <div class="cviName">${v.name}</div>
+            <div class="cviName">${esc(v.name)}</div>
             <div class="cviDesc">${
               v.elVoiceId
-                ? "ElevenLabs: " + v.elVoiceId
-                : v.fileName || "audio file"
+                ? "ElevenLabs: " + esc(v.elVoiceId)
+                : esc(v.fileName || "audio file")
             }</div>
           </div>
         </div>
@@ -368,8 +374,8 @@ async function validateAndLoadElevenLabs() {
     elSelEl.innerHTML = voices
       .map(
         (v) =>
-          `<option value="${v.id}">${v.name}${
-            v.category ? " — " + v.category : ""
+          `<option value="${esc(v.id)}">${esc(v.name)}${
+            v.category ? " — " + esc(v.category) : ""
           }</option>`,
       )
       .join("");
@@ -474,6 +480,11 @@ function openSettings() {
 }
 function closeSettings() {
   document.getElementById("settingsOverlay")?.classList.remove("active");
+}
+
+/** Settings ▸ Show timestamps: CSS hides them, so open chats update too. */
+function applyTimestamps(s = currentSettings) {
+  document.body.classList.toggle("hideTimestamps", s.showTimestamps === false);
 }
 window.ARIA_openSettings = openSettings;
 window.ARIA_closeSettings = closeSettings;
@@ -771,6 +782,8 @@ function wireAllControls() {
     document.getElementById("toggle_" + key)?.addEventListener("click", () => {
       currentSettings[key] = currentSettings[key] === false ? true : false;
       syncToggle("toggle_" + key, currentSettings[key]);
+      // Shown at once, like the toggle itself; kept across reloads by Save.
+      if (key === "showTimestamps") applyTimestamps();
     });
   });
 
@@ -815,8 +828,8 @@ function wireAllControls() {
       elSelEl.innerHTML = currentSettings.elVoices
         .map(
           (v) =>
-            `<option value="${v.id}">${v.name}${
-              v.category ? " — " + v.category : ""
+            `<option value="${esc(v.id)}">${esc(v.name)}${
+              v.category ? " — " + esc(v.category) : ""
             }</option>`,
         )
         .join("");
@@ -938,6 +951,7 @@ export function initSettings() {
   setTTSEnabled(currentSettings.ttsEnabled);
   setVTTEnabled(currentSettings.vttEnabled);
   applyBrightness(currentSettings.brightness ?? 1);
+  applyTimestamps();
 
   // Set voice mode from saved value
   const savedVoice = currentSettings.voice || "";
@@ -1093,12 +1107,66 @@ async function initThemeSystemV2(settings) {
 }
 
 /* ════════════════════════════════════════════════════════════
-   ESP32 DEVICE LIST — Settings → Devices
+   DEVICES TAB — ESP32 devices and Claw relays (Settings → Devices)
+   Refreshed every 5s, but only while the tab is the one showing.
    ════════════════════════════════════════════════════════════ */
-async function initEsp32DeviceList() {
+let _devicesTimer = null;
+function startDevicesTab() {
+  const pane = document.querySelector('.settingsTabPane[data-pane="devices"]');
+  if (!pane) return;
+  const tick = () => {
+    const overlay = document.getElementById("settingsOverlay");
+    const showing = pane.classList.contains("active") && (!overlay || overlay.classList.contains("active"));
+    if (!showing) {
+      clearInterval(_devicesTimer);
+      _devicesTimer = null;
+      return;
+    }
+    refreshEsp32Devices();
+    refreshClawRelays();
+  };
+  tick();
+  if (!_devicesTimer) _devicesTimer = setInterval(tick, 5000);
+}
+
+async function refreshClawRelays() {
+  const listEl = document.getElementById("clawRelayList");
+  if (!listEl) return;
+  const TYPE = { esp32: "📟 ESP32", electron: "🖥 Desktop app", node: "⬡ Node relay" };
+  try {
+    const data = await (await fetch("/api/claw/status")).json();
+    if (!data.relays?.length) {
+      listEl.innerHTML = `
+        <div class="esp32AddDeviceHint">
+          No relay connected. Turn on <b>PC control</b> in the Claw panel, run
+          <code>node claw-relay.js &lt;ARIA url&gt;</code> on a computer, or
+          flash the ESP32 BLE HID sketch.
+        </div>`;
+      return;
+    }
+    listEl.innerHTML = data.relays
+      .map(
+        (r) => `
+        <div class="esp32DeviceCard">
+          <span class="esp32StatusDot online"></span>
+          <div>
+            <div class="esp32DeviceName">${esc(r.hostname || r.id)}</div>
+            <div class="esp32DeviceMeta">${TYPE[r.relayType] || TYPE.node} · ${esc(r.platform || "unknown OS")}${
+              r.browser ? " · " + esc(r.browser) : ""
+            }</div>
+          </div>
+        </div>`,
+      )
+      .join("");
+  } catch {
+    listEl.innerHTML = '<div class="esp32AddDeviceHint">Could not reach the server.</div>';
+  }
+}
+
+async function refreshEsp32Devices() {
   const listEl = document.getElementById("esp32DeviceList");
   if (!listEl) return;
-  async function refresh() {
+  {
     try {
       const res = await fetch("/api/devices/list");
       const data = await res.json();
@@ -1117,16 +1185,16 @@ async function initEsp32DeviceList() {
         <div class="esp32DeviceCard">
           <span class="esp32StatusDot ${d.online ? "online" : ""}"></span>
           <div>
-            <div class="esp32DeviceName">${d.name}</div>
+            <div class="esp32DeviceName">${esc(d.name)}</div>
             <div class="esp32DeviceMeta">
-              ${d.type}${d.project ? " · " + d.project : ""} ·
+              ${esc(d.type)}${d.project ? " · " + esc(d.project) : ""} ·
               ${d.online ? "online" : "offline " + relTime(d.lastSeen)} ·
-              ${d.capabilities.length} capabilities
+              ${Number(d.capabilities?.length) || 0} capabilities
               ${d.telemetry?.rssi ? " · " + d.telemetry.rssi + "dBm" : ""}
               ${d.telemetry?.freeHeap ? " · " + Math.round(d.telemetry.freeHeap / 1024) + "KB free" : ""}
             </div>
           </div>
-          <button class="esp32SendCmdBtn" data-device="${d.deviceId}">Send Cmd</button>
+          <button class="esp32SendCmdBtn" data-device="${esc(d.deviceId)}">Send Cmd</button>
         </div>
       `,
         )
@@ -1162,15 +1230,7 @@ async function initEsp32DeviceList() {
     if (s < 3600) return Math.floor(s / 60) + "m ago";
     return Math.floor(s / 3600) + "h ago";
   }
-  refresh();
-  setInterval(refresh, 5000);
 }
-
-// Auto-init device list when settings panel opens
-window.addEventListener("DOMContentLoaded", () => {
-  // Try once after a short delay (settings tab may be rendered later)
-  setTimeout(initEsp32DeviceList, 1500);
-});
 
 // Apply persisted theme on every load
 window.addEventListener("DOMContentLoaded", async () => {
@@ -1194,12 +1254,12 @@ async function initSettingsSkillsList() {
       <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-cut)">
         <div style="flex:1">
           <div style="font-size:13px;color:${s.active ? "var(--red-core)" : "var(--text-blaze)"}">
-            ${s.name} <span style="font-size:9px;color:var(--text-muted)">${s.location}</span>
+            ${esc(s.name)} <span style="font-size:9px;color:var(--text-muted)">${esc(s.location)}</span>
           </div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${String(s.description).slice(0,90)}</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${esc(String(s.description).slice(0,90))}</div>
         </div>
         <button
-          onclick="fetch('/api/skills/${s.id}/toggle',{method:'POST'}).then(()=>initSettingsSkillsList())"
+          onclick="fetch('/api/skills/${String(s.id).replace(/[^\w.-]/g, "")}/toggle',{method:'POST'}).then(()=>initSettingsSkillsList())"
           style="padding:4px 10px;background:${s.active ? "var(--red-core)" : "transparent"};border:1px solid ${s.active ? "var(--red-core)" : "var(--border-cut)"};border-radius:var(--radius-sm);color:${s.active ? "var(--bg-void)" : "var(--text-muted)"};font-size:10px;cursor:pointer;font-family:var(--font-mono)">
           ${s.active ? "ON" : "OFF"}
         </button>

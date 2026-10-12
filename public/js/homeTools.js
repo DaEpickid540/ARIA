@@ -11,6 +11,39 @@ import {
 import { measureLatency, measureDownload, formatMbps } from "./netTest.js";
 import { createSpeedGauge } from "./speedGauge.js";
 
+// Mason, OH — the home screen's and the Weather page's forecast.
+export const HOME_COORDS = { lat: 39.3601, lon: -84.3097 };
+
+// Open-Meteo's WMO weather codes, the ones it actually sends.
+export const WMO = {
+  0: "Clear ☀",
+  1: "Mainly Clear",
+  2: "Partly Cloudy ⛅",
+  3: "Overcast ☁",
+  45: "Foggy 🌫",
+  48: "Freezing Fog 🌫",
+  51: "Light Drizzle",
+  53: "Drizzle",
+  55: "Heavy Drizzle",
+  61: "Light Rain 🌧",
+  63: "Rain 🌧",
+  65: "Heavy Rain",
+  71: "Light Snow 🌨",
+  73: "Snow ❄",
+  75: "Heavy Snow ❄",
+  80: "Showers",
+  81: "Showers",
+  82: "Heavy Showers",
+  95: "Thunderstorm ⛈",
+  96: "Thunderstorm, hail ⛈",
+  99: "Thunderstorm, hail ⛈",
+};
+
+// Anything not written in this file (chat titles, memory facts the model
+// extracted, outside APIs, device names) goes into innerHTML through this.
+const escHtml = (s) =>
+  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
 const QUOTES = [
   "Discipline beats motivation.",
   "Small steps compound into impossible results.",
@@ -162,24 +195,9 @@ export async function initWeather() {
   const mainEl = document.getElementById("homeWeatherMain");
   const detailEl = document.getElementById("homeWeatherDetails");
   if (!mainEl) return;
-  const WMO = {
-    0: "Clear ☀",
-    1: "Mainly Clear",
-    2: "Partly Cloudy ⛅",
-    3: "Overcast ☁",
-    45: "Foggy 🌫",
-    51: "Light Drizzle",
-    61: "Light Rain 🌧",
-    63: "Rain 🌧",
-    65: "Heavy Rain",
-    71: "Light Snow 🌨",
-    73: "Snow ❄",
-    80: "Showers",
-    95: "Thunderstorm ⛈",
-  };
   try {
     mainEl.textContent = "Loading…";
-    const res = await fetch("/api/weather?lat=39.3601&lon=-84.3097");
+    const res = await fetch(`/api/weather?lat=${HOME_COORDS.lat}&lon=${HOME_COORDS.lon}`);
     const { weather: w } = await res.json();
     if (!w) {
       mainEl.textContent = "Unavailable";
@@ -281,7 +299,7 @@ export function initTasksPreview() {
         (t, i) =>
           `<div class="hwListItem" style="display:flex;align-items:center;gap:6px">
         <input type="checkbox" data-task-index="${i}" style="accent-color:var(--red-core)">
-        <span>${t}</span>
+        <span>${escHtml(t)}</span>
       </div>`,
       )
       .join("");
@@ -316,14 +334,14 @@ export async function initRecentChats() {
       .slice(0, 5)
       .map(
         (c) =>
-          `<div class="hwListItem hwListClickable" data-chat-id="${c.id || ""}" style="cursor:pointer">▸ ${c.title || "Untitled"}</div>`,
+          `<div class="hwListItem hwListClickable" data-chat-id="${escHtml(c.id || "")}" style="cursor:pointer">▸ ${escHtml(c.title || "Untitled")}</div>`,
       )
       .join("");
     el.querySelectorAll(".hwListClickable[data-chat-id]").forEach((item) => {
-      item.addEventListener("click", () => {
-        const id = item.dataset.chatId;
-        if (id && window.ARIA_loadChat) window.ARIA_loadChat(id);
-        else window.ARIA_enterConsole?.();
+      item.addEventListener("click", async () => {
+        // enterConsole loads chat.js, which defines ARIA_loadChat.
+        await window.ARIA_enterConsole?.();
+        if (item.dataset.chatId) window.ARIA_loadChat?.(item.dataset.chatId);
       });
     });
   } catch {
@@ -632,7 +650,7 @@ export function initQuickTools() {
         }
         settings.switchSettingsTab?.("memory");
       }
-      if (a === "link") window.ARIA_openLinkMode?.();
+      if (a === "link") import("./linkMode.js").then((m) => m.openLinkMode());
     };
   });
 }
@@ -724,7 +742,7 @@ export async function initUSBDevices() {
         ? devs
             .map(
               (d) =>
-                `<div class="hwListItem">🔌 ${d.productName || "Unknown"} <span style="color:var(--text-muted)">(${d.manufacturerName || "?"})</span></div>`,
+                `<div class="hwListItem">🔌 ${escHtml(d.productName || "Unknown")} <span style="color:var(--text-muted)">(${escHtml(d.manufacturerName || "?")})</span></div>`,
             )
             .join("")
         : `<span class="hwEmpty">No USB devices detected.</span>`;
@@ -733,8 +751,12 @@ export async function initUSBDevices() {
     }
   };
   refresh();
-  navigator.usb.addEventListener("connect", refresh);
-  navigator.usb.addEventListener("disconnect", refresh);
+  // Runs on every home visit; listen once.
+  if (!initUSBDevices.listening) {
+    initUSBDevices.listening = true;
+    navigator.usb.addEventListener("connect", refresh);
+    navigator.usb.addEventListener("disconnect", refresh);
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -749,7 +771,7 @@ export function initNetworkInfo() {
     navigator.webkitConnection;
   const update = () => {
     const lines = [
-      `<div class="hwListItem">Status: <b style="color:${navigator.onLine ? "#4cff4c" : "#ff4444"}">${navigator.onLine ? "Online" : "Offline"}</b></div>`,
+      `<div class="hwListItem">Status: <b style="color:${navigator.onLine ? "var(--success)" : "var(--danger)"}">${navigator.onLine ? "Online" : "Offline"}</b></div>`,
     ];
     if (conn) {
       if (conn.effectiveType)
@@ -796,8 +818,8 @@ export async function initBgTasksPreview() {
         ? display.map(t => `
           <div class="hwListItem">
             <span style="color:${STATUS_DOT[t.status] || "#888"}">●</span>
-            ${(t.title || t.description || "").slice(0, 36)}${(t.title || "").length > 36 ? "…" : ""}
-            <span style="color:var(--text-muted);font-size:9px">${t.status}</span>
+            ${escHtml((t.title || t.description || "").slice(0, 36))}${(t.title || "").length > 36 ? "…" : ""}
+            <span style="color:var(--text-muted);font-size:9px">${escHtml(t.status)}</span>
             ${t.steps?.length ? `<span style="color:var(--text-dim);font-size:9px">${t.steps.filter(s=>s.status==="done").length}/${t.steps.length}</span>` : ""}
           </div>`).join("")
         : `<span class="hwEmpty">No active tasks.</span>`;
@@ -824,7 +846,7 @@ export async function initMemoryFacts() {
           .slice(0, 5)
           .map(
             (f) =>
-              `<div class="hwListItem">▸ <span style="color:var(--text-muted);font-size:9px">[${f.category || "note"}]</span> ${f.text || f}</div>`,
+              `<div class="hwListItem">▸ <span style="color:var(--text-muted);font-size:9px">[${escHtml(f.category || "note")}]</span> ${escHtml(f.text || f)}</div>`,
           )
           .join("")
       : `<span class="hwEmpty">No memories yet.</span>`;
@@ -851,10 +873,11 @@ export function initBluetooth() {
         const device = await navigator.bluetooth.requestDevice({
           acceptAllDevices: true,
         });
-        el.innerHTML = `<div class="hwListItem">📱 ${device.name || "Unknown"} <span style="color:#4cff4c">Connected</span></div>`;
+        // Any nearby device picks its own name, markup included.
+        el.innerHTML = `<div class="hwListItem">📱 ${escHtml(device.name || "Unknown")} <span style="color:var(--success)">Connected</span></div>`;
         window.ARIA_btDevice = device;
       } catch (e) {
-        el.innerHTML = `<span class="hwEmpty">${e.message}</span>`;
+        el.innerHTML = `<span class="hwEmpty">${escHtml(e.message)}</span>`;
       }
     });
 }
@@ -862,6 +885,11 @@ export function initBluetooth() {
 /* ════════════════════════════════════════════════════════════════
    NEW HOMETOOLS — added in Mark 1.2
    ════════════════════════════════════════════════════════════════ */
+
+// homepage.js re-runs the live tools on every visit to the home screen;
+// these keep each one to a single polling loop.
+let _latencyTimer = null;
+let _cryptoTimer = null;
 
 /* ── POMODORO TIMER ───────────────────────────────────────────
    25-min focus / 5-min break cycles. State persists in localStorage. */
@@ -922,7 +950,8 @@ export function initPomodoro() {
   startBtn.addEventListener("click", () => {
     state.running = !state.running;
     if (state.running) {
-      if (Notification.permission === "default") Notification.requestPermission();
+      if (typeof Notification !== "undefined" && Notification.permission === "default")
+        Notification.requestPermission();
       tickTimer = setInterval(tick, 1000);
     } else {
       clearInterval(tickTimer);
@@ -990,7 +1019,7 @@ export function initLatencyMonitor() {
   const valueEl = document.getElementById("latencyValue");
   const avgEl = document.getElementById("latencyAvg");
   const sparkEl = document.getElementById("latencySpark");
-  if (!valueEl) return;
+  if (!valueEl || _latencyTimer) return;
 
   const samples = [];
   const MAX_SAMPLES = 30;
@@ -1003,7 +1032,7 @@ export function initLatencyMonitor() {
       samples.push(ms);
       if (samples.length > MAX_SAMPLES) samples.shift();
       valueEl.textContent = `${ms}ms`;
-      valueEl.style.color = ms < 100 ? "#4cff4c" : ms < 300 ? "#ffc107" : "#ff4444";
+      valueEl.style.color = ms < 100 ? "var(--success)" : ms < 300 ? "var(--warning)" : "var(--danger)";
       if (avgEl) {
         const avg = Math.round(samples.reduce((a, b) => a + b, 0) / samples.length);
         avgEl.textContent = `avg ${avg}ms`;
@@ -1011,7 +1040,7 @@ export function initLatencyMonitor() {
       drawSpark();
     } catch {
       valueEl.textContent = "offline";
-      valueEl.style.color = "#ff4444";
+      valueEl.style.color = "var(--danger)";
     }
   }
   function drawSpark() {
@@ -1026,18 +1055,18 @@ export function initLatencyMonitor() {
         return `${x},${y}`;
       })
       .join(" ");
-    sparkEl.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}"><polyline points="${points}" fill="none" stroke="#ff2040" stroke-width="1.5"/></svg>`;
+    sparkEl.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}"><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`;
   }
 
   ping();
-  setInterval(ping, 5000);
+  _latencyTimer = setInterval(ping, 5000);
 }
 
 /* ── CRYPTO PRICES ──────────────────────────────────────────
    Live BTC/ETH/SOL prices from CoinGecko (free, no key). */
 export async function initCryptoPrices() {
   const el = document.getElementById("cryptoList");
-  if (!el) return;
+  if (!el || _cryptoTimer) return;
   el.innerHTML = '<span class="hwEmpty">Loading…</span>';
   async function refresh() {
     try {
@@ -1067,7 +1096,7 @@ export async function initCryptoPrices() {
     }
   }
   refresh();
-  setInterval(refresh, 60_000);
+  _cryptoTimer = setInterval(refresh, 60_000);
 }
 
 /* ── WORLD CLOCKS ────────────────────────────────────────────
@@ -1101,7 +1130,7 @@ export function initWorldClocks() {
         const diff = remoteHour - localHour;
         const diffStr = diff === 0 ? "same" : `${diff > 0 ? "+" : ""}${diff}h`;
         return `<div class="worldClockRow">
-          <span class="worldClockCity">${z.city}</span>
+          <span class="worldClockCity">${escHtml(z.city)}</span>
           <span class="worldClockTime">${t}</span>
           <span class="worldClockDiff">${diffStr}</span>
         </div>`;
@@ -1139,9 +1168,9 @@ export function initDictionary() {
         const first = data[0];
         const meanings = first.meanings.slice(0, 2).map((m) => {
           const def = m.definitions[0]?.definition || "";
-          return `<div class="dictMeaning"><span class="dictPos">${m.partOfSpeech}</span> ${def}</div>`;
+          return `<div class="dictMeaning"><span class="dictPos">${escHtml(m.partOfSpeech)}</span> ${escHtml(def)}</div>`;
         });
-        result.innerHTML = `<div class="dictWord">${first.word}</div>${meanings.join("")}`;
+        result.innerHTML = `<div class="dictWord">${escHtml(first.word)}</div>${meanings.join("")}`;
       } catch {
         result.innerHTML = '<span class="hwEmpty">Lookup failed.</span>';
       }

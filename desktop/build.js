@@ -33,6 +33,7 @@ await build({
       "package.json",
       "server.js",
       "claw-relay.js",
+      "aria-voice-hook.js",
       ".env.example",
       "desktop/main.js",
       "desktop/preload.cjs",

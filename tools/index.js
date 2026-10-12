@@ -348,24 +348,45 @@ async function getCalendarToken() {
   return d.access_token;
 }
 
+export const CALENDAR_NOT_CONFIGURED =
+  "Google Calendar not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN in Render.";
+
+/**
+ * The next 7 days of the primary calendar, as plain objects. Shared by the
+ * /calendar tool and GET /api/calendar/events (the chat's calendar button).
+ * Throws when Google refuses the refresh token or the events request.
+ * @returns {Promise<{title,start,end,location,allDay}[]>}
+ */
+export async function getCalendarEvents() {
+  const token = await getCalendarToken();
+  if (!token) throw new Error("Google refused the refresh token");
+  const now = new Date().toISOString(),
+    future = new Date(Date.now() + 7 * 86400000).toISOString();
+  const resp = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&timeMax=${future}&singleEvents=true&orderBy=startTime&maxResults=10`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const data = await resp.json();
+  if (data.error) throw new Error(data.error.message || `HTTP ${resp.status}`);
+  return (data.items || []).map((e) => ({
+    title: e.summary || "Untitled",
+    start: e.start?.dateTime || e.start?.date,
+    end: e.end?.dateTime || e.end?.date,
+    location: e.location || "",
+    allDay: !e.start?.dateTime,
+  }));
+}
+
 async function runCalendarGet() {
-  if (!process.env.GOOGLE_CLIENT_ID)
-    return "Google Calendar not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN in Render.";
+  if (!process.env.GOOGLE_CLIENT_ID) return CALENDAR_NOT_CONFIGURED;
   try {
-    const token = await getCalendarToken();
-    const now = new Date().toISOString(),
-      future = new Date(Date.now() + 7 * 86400000).toISOString();
-    const resp = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&timeMax=${future}&singleEvents=true&orderBy=startTime&maxResults=10`,
-      { headers: { Authorization: `Bearer ${token}` } },
-    );
-    const data = await resp.json();
-    if (!data.items?.length) return "No upcoming events.";
+    const events = await getCalendarEvents();
+    if (!events.length) return "No upcoming events.";
     return (
       "**Upcoming events:**\n" +
-      data.items
+      events
         .map((e) => {
-          const d = new Date(e.start?.dateTime || e.start?.date).toLocaleString(
+          const d = new Date(e.start).toLocaleString(
             "en-US",
             {
               weekday: "short",
@@ -375,7 +396,7 @@ async function runCalendarGet() {
               minute: "2-digit",
             },
           );
-          return `📅 **${e.summary || "Untitled"}** — ${d}${e.location ? ` @ ${e.location}` : ""}`;
+          return `📅 **${e.title}** — ${d}${e.location ? ` @ ${e.location}` : ""}`;
         })
         .join("\n")
     );
@@ -608,8 +629,8 @@ async function discoverTools() {
     // Check for the marker in the source before importing, the way AGI parsed
     // its header comments without executing anything. Importing every sibling
     // just to look for an export would run each module's top-level code at
-    // startup — and it tripped over tools/websearch.js, which has an unmet
-    // dependency and is not a drop-in tool at all.
+    // startup, and a sibling that isn't a drop-in tool (an old one once had
+    // an unmet dependency) would take startup down with it.
     try {
       if (!fs.readFileSync(full, "utf8").includes("TOOL_META")) continue;
     } catch {

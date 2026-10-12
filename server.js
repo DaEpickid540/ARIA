@@ -1,7 +1,13 @@
 // server.js — ARIA v3.1 (Link Mode, Music Tutor, Workspace, Math v2, Code v2,
 // visualize tool, drop-in tools, error log)
 import "./lib/load-env.js"; // first: .env into process.env for everything below
-import { runToolServer, TOOL_DEFINITIONS, allTools } from "./tools/index.js";
+import {
+  runToolServer,
+  TOOL_DEFINITIONS,
+  allTools,
+  getCalendarEvents,
+  CALENDAR_NOT_CONFIGURED,
+} from "./tools/index.js";
 import * as rag from "./lib/rag.js";
 import * as taskEngine from "./lib/tasks.js";
 import * as skills from "./lib/skills.js";
@@ -9,10 +15,11 @@ import * as cloud from "./lib/cloud-sync.js";
 import * as chatSync from "./lib/chat-sync.js";
 import * as lifeContext from "./lib/life-context.js";
 import * as errorLog from "./lib/error-log.js";
-import { research, searchWeb, WEB_PAGES } from "./lib/research.js";
+import { research, searchWeb, fetchReadable, WEB_PAGES } from "./lib/research.js";
 import { splitThinking, stripThinking } from "./lib/think.js";
 import { extractVisualBlock } from "./tools/visualize.js";
 import * as auth from "./lib/auth.js";
+import * as owners from "./lib/owners.js";
 import * as ollamaRelay from "./lib/ollama-relay.js";
 import { mountKeyRoutes } from "./lib/keys.js";
 import { mountTtsRoutes } from "./lib/tts.js";
@@ -207,6 +214,15 @@ function flushPendingWrites() {
 await cloud.hydrateAll();
 cloud.startAutoSync();
 
+// Paired Google accounts and PCs, shared through Firestore (lib/owners.js).
+// The desktop app passes this PC's identity so its relay can reach Render.
+owners.startOwners();
+owners.registerMachine({
+  id: process.env.ARIA_MACHINE_ID,
+  name: process.env.ARIA_MACHINE_NAME,
+  secret: process.env.ARIA_MACHINE_SECRET,
+});
+
 // GRIND/hardware-tracker context (see lib/life-context.js) — separate from
 // ARIA's own state sync above. No-ops until ARIA_OWNER_UID is set alongside
 // FIREBASE_SERVICE_ACCOUNT.
@@ -280,16 +296,71 @@ function recordTextChat(hookChatId, userText, replyText) {
     { role: "aria", content: replyText || "(no reply)", timestamp: now + 1, channel: "sms" },
   );
   chat.updatedAt = now + 1;
-  const changed = chatSync.mergeInto(store, [chat], []);
+  saveServerChat(chat);
+}
+
+/** A chat the server changed itself: merge, save, sync, tell the pages. */
+function saveServerChat(chat) {
+  const changed = chatSync.mergeInto(chatStore(OWNER_CHAT_SPACE), [chat], []);
   if (!changed.length) return;
   persistChats();
   chatSync.push(OWNER_CHAT_SPACE, changed);
   broadcastChatSync(OWNER_CHAT_SPACE, "server");
 }
 
+/**
+ * The conversation so far in a text thread's chat, as /api/chat history.
+ * The chat is the record every server and page shares, so it outlives the
+ * hook's in-memory history (lost when the hook restarts) and includes
+ * anything added to the thread from the app. null before the first text.
+ */
+function textChatHistory(hookChatId, max = 20) {
+  if (!hookChatId) return null;
+  const chat = chatStore(OWNER_CHAT_SPACE).chats.find((c) => c.smsThread === hookChatId);
+  if (!chat?.messages?.length) return null;
+  return chat.messages
+    .filter((m) => typeof m.content === "string" && m.content)
+    .slice(-max)
+    .map((m) => ({ role: m.role === "aria" ? "assistant" : "user", content: m.content }));
+}
+
+/**
+ * Files a morning briefing in one shared "Daily briefings" chat, so it
+ * reaches every page and server once, instead of each open page adding it
+ * to whatever chat it had open (and nowhere when none was open).
+ */
+const BRIEFING_CHAT_ID = "chat_briefings";
+function recordBriefing(text, at = Date.now()) {
+  const store = chatStore(OWNER_CHAT_SPACE);
+  const existing = store.chats.find((c) => c.id === BRIEFING_CHAT_ID);
+  const chat = existing
+    ? { ...existing, messages: [...(existing.messages || [])] }
+    : { id: BRIEFING_CHAT_ID, briefings: true, title: "🌅 Daily briefings", messages: [] };
+  chat.messages.push({
+    role: "aria",
+    content: "🌅 **Good morning! Here's your daily briefing:**\n\n" + text,
+    timestamp: at,
+    channel: "briefing",
+  });
+  chat.updatedAt = at;
+  saveServerChat(chat);
+}
+
+/** True when some server already filed a briefing in the last `hours`. */
+function briefingFiledWithin(hours) {
+  const chat = chatStore(OWNER_CHAT_SPACE).chats.find((c) => c.id === BRIEFING_CHAT_ID);
+  const last = chat?.messages?.at(-1)?.timestamp || 0;
+  return Date.now() - last < hours * 3600_000;
+}
+
+// Whether this server's chats reach the others, for /api/health: "off" (no
+// FIREBASE_SERVICE_ACCOUNT, or it didn't connect), "starting" or "on".
+let chatSyncState = "off";
+
 // Not awaited: an unreachable Firestore must not hold up the server's boot.
 function startChatSyncNow() {
   chatSync.stopChatSync();
+  chatSyncState = "starting";
   chatSync
     .startChatSync({
       stores: () => chatStores,
@@ -300,7 +371,11 @@ function startChatSyncNow() {
         broadcastChatSync(OWNER_CHAT_SPACE, "cloud");
       },
     })
-    .catch((e) => console.warn("[chat-sync] didn't start:", e.message));
+    .then((ok) => (chatSyncState = ok ? "on" : "off"))
+    .catch((e) => {
+      chatSyncState = "off";
+      console.warn("[chat-sync] didn't start:", e.message);
+    });
 }
 startChatSyncNow();
 
@@ -360,7 +435,7 @@ function _parseChatClawInput(s) {
   }
   if (s.startsWith("drag:")) {
     // drag: X1,Y1 to X2,Y2
-    const m = s.match(/drag:\s*(\d+)[, ]+(\d+)\s+to\s+(\d+)[, ]+(\d+)/i);
+    const m = s.match(/drag:\s*(-?\d+)[, ]+(-?\d+)\s+to\s+(-?\d+)[, ]+(-?\d+)/i);
     if (m)
       return { id, type: "drag", x1: +m[1], y1: +m[2], x2: +m[3], y2: +m[4] };
   }
@@ -968,43 +1043,48 @@ app.delete("/api/behaviour/rule/:idx", (req, res) => {
   }
 });
 
-function detectFact(text) {
-  const patterns = [
-    { re: /my name is ([a-z\s]+)/i, x: (m) => `User's name is ${m[1].trim()}` },
-    {
-      re: /i(?:'m| am) ([0-9]+) years old/i,
-      x: (m) => `User is ${m[1]} years old`,
-    },
-    { re: /i like ([^.!?\n]{4,40})/i, x: (m) => `User likes ${m[1].trim()}` },
-    { re: /i love ([^.!?\n]{4,40})/i, x: (m) => `User loves ${m[1].trim()}` },
-    {
-      re: /my favorite (.{4,30}) is (.{2,25})/i,
-      x: (m) => `User's favorite ${m[1]} is ${m[2].trim()}`,
-    },
-    {
-      re: /i(?:'m| am) from ([a-z\s,]+)/i,
-      x: (m) => `User is from ${m[1].trim()}`,
-    },
-    {
-      re: /i go to ([^.!?\n]{4,40})/i,
-      x: (m) => `User goes to ${m[1].trim()}`,
-    },
-    { re: /remember (?:that )?(.{8,100})/i, x: (m) => m[1].trim() },
-  ];
-  for (const p of patterns) {
-    const m = text.match(p.re);
-    if (m) {
-      const fact = p.x(m);
-      if (
-        !ariaMemory.facts.some((f) => f.toLowerCase() === fact.toLowerCase())
-      ) {
-        ariaMemory.facts.push(fact);
-        writeJSONDebounced(MEM_FILE, ariaMemory);
-        return fact;
-      }
-    }
+// Durable facts about the user, pulled out by the model after each user turn.
+// Fire-and-forget: never blocks or fails the reply.
+const FACT_SIGNAL =
+  /\b(i|i'm|im|i've|i'd|i'll|my|mine|me|we|we're|our|us)\b|\bremember\b/i;
+
+function detectFact(text, provider, model) {
+  if (!text || text.length < 6 || !FACT_SIGNAL.test(text)) return;
+  extractFacts(text, provider, model).catch(() => {});
+}
+
+async function extractFacts(text, provider, model) {
+  const known = ariaMemory.facts.slice(-40).map((f) => `- ${f}`).join("\n");
+  const prompt =
+    `Extract durable facts about the USER from their message that are worth remembering long-term ` +
+    `(name, age, location, school/job, relationships, preferences, projects, goals, things they ask you to remember). ` +
+    `Skip one-off requests, questions, moods and anything already known.\n\n` +
+    `Already known:\n${known || "(nothing)"}\n\n` +
+    `User message: """${text.slice(0, 1500)}"""\n\n` +
+    `Reply with ONLY a JSON array of short third-person strings, e.g. ["User's name is Sam"], or the word none.`;
+  const raw = await callAI([{ role: "user", content: prompt }], provider, model, {});
+  const out = stripThinking(String(raw || "")).trim();
+  if (!out || /^none\b/i.test(out)) return;
+  const m = out.match(/\[[\s\S]*\]/);
+  if (!m) return;
+  let facts;
+  try {
+    facts = JSON.parse(m[0]);
+  } catch {
+    return;
   }
-  return null;
+  const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const seen = new Set(ariaMemory.facts.map(norm));
+  let added = 0;
+  for (const f of Array.isArray(facts) ? facts : []) {
+    if (typeof f !== "string") continue;
+    const fact = f.trim().slice(0, 200);
+    if (fact.length < 4 || seen.has(norm(fact))) continue;
+    seen.add(norm(fact));
+    ariaMemory.facts.push(fact);
+    added++;
+  }
+  if (added) writeJSONDebounced(MEM_FILE, ariaMemory);
 }
 
 function detectFrustration(text) {
@@ -1890,7 +1970,9 @@ const ALL_REASONING_PROMPTS = [LIGHT_REASONING_PROMPT, DEEP_REASONING_PROMPT];
  * message looks like. Texts lean fast: someone waiting on a phone wants the
  * answer, so they only go deep when asked.
  */
-function reasoningEffort(message, { mathMode = false, programmingMode = false, channel = "web", hasImages = false } = {}) {
+function reasoningEffort(message, { mathMode = false, programmingMode = false, deepThink = false, channel = "web", hasImages = false } = {}) {
+  // Tools ▸ Thinking Mode: the user asked for depth on everything.
+  if (deepThink) return "deep";
   const m = String(message || "").trim();
   const words = m.split(/\s+/).filter(Boolean).length;
   const askedDeep =
@@ -2611,13 +2693,14 @@ function needsThinking(msg) {
 app.post("/api/chat", async (req, res) => {
   const {
     message,
-    history = [],
+    history: sentHistory = [],
     provider: askedProvider,
     personality = "hacker",
     model: askedModel,
     mathMode = false,
     programmingMode = false,
     studyMode = false,
+    deepThink = false,
     documentContext = "",
     musicTutorMode = false,
     workspaceRepo = "",
@@ -2625,13 +2708,16 @@ app.post("/api/chat", async (req, res) => {
     imageAttachments = [],
     channel = "web",
   } = req.body;
+  // A text thread's history is its chat (see textChatHistory), not the
+  // hook's own copy, so the thread remembers what was said from the app.
+  const history = (channel === "sms" && textChatHistory(req.body.chatId)) || sentHistory;
   // A request that doesn't choose gets the model switcher's pick.
   const provider = askedProvider || activeModel.provider || "openrouter";
   const requestedModel = askedProvider ? askedModel : askedModel || activeModel.model || undefined;
 
   if (!message) return res.json({ reply: "No message received." });
 
-  detectFact(message);
+  detectFact(message, provider, requestedModel);
   const frustrated = detectFrustration(message);
 
   // Pick personality
@@ -2686,6 +2772,7 @@ app.post("/api/chat", async (req, res) => {
   const effort = reasoningEffort(message, {
     mathMode,
     programmingMode,
+    deepThink: deepThink === true,
     channel,
     hasImages: (imageAttachments || []).length > 0,
   });
@@ -2876,7 +2963,6 @@ Active GitHub repo: ${workspaceRepo}
         // Run post-processing (facts, tools, feedback) on the answer, not the
         // reasoning: a fact ARIA mulled over isn't one the user told it.
         const answer = stripThinking(full);
-        detectFact(answer);
         const fb = detectFeedback(message);
         const lastAriaMsg =
           history.filter((m) => m.role === "assistant").pop()?.content || "";
@@ -3060,7 +3146,15 @@ Active GitHub repo: ${workspaceRepo}
     }
   } catch (err) {
     console.error("[AI]", err.message);
+    if (res.headersSent) return;
     res.json({ reply: `⚠ ${err.message}` });
+    // The hook still texts this back, so the thread should show it too —
+    // otherwise an incoming text vanishes whenever the model is down.
+    if (channel === "sms") {
+      try {
+        recordTextChat(req.body.chatId, message, `⚠ ${err.message}`);
+      } catch {}
+    }
   }
 });
 
@@ -3543,6 +3637,30 @@ app.get("/api/news", async (req, res) => {
   } catch {
     res.json({ articles: [] });
   }
+});
+
+/* ============================================================
+   CALENDAR + CRAWL — the chat's calendar button and the scraper's
+   "built-in crawler" engine (public/js/chat.js)
+   ============================================================ */
+app.get("/api/calendar/events", async (_req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID) return res.json({ error: CALENDAR_NOT_CONFIGURED });
+  try {
+    res.json({ events: await getCalendarEvents() });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
+
+// One page as text, plus its links. fetchReadable refuses private and
+// loopback hosts, so this can't be pointed at the PC's own services.
+app.post("/api/crawl", async (req, res) => {
+  let url = String(req.body?.url || "").trim();
+  if (!url) return res.json({ error: "No URL." });
+  if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+  const page = await fetchReadable(url, { maxChars: 8000, links: !!req.body?.extractLinks });
+  if (!page.ok && !page.text) return res.json({ error: page.error || "Could not read that page." });
+  res.json({ url: page.url, title: page.title, text: page.text, links: page.links || [] });
 });
 
 /* ============================================================
@@ -4095,13 +4213,14 @@ app.post("/api/claw/relay/unregister", (req, res) => {
 const pendingScreenshotResolvers = new Map(); // cmdId → {resolve, timer}
 
 app.post("/api/claw/relay/result", (req, res) => {
-  const { screenshot, fname, deviceId, cmdId, result } = req.body;
+  const { screenshot, fname, bounds, deviceId, cmdId, result } = req.body;
   if (screenshot && deviceId) {
     // Store latest screenshot per device for POV feed
     if (!global.clawScreenshots) global.clawScreenshots = new Map();
     global.clawScreenshots.set(deviceId, {
       b64: screenshot,
       fname: fname || "",
+      bounds: bounds || null,
       ts: Date.now(),
     });
     // Resolve the pipeline waiting on this screenshot. The node relay names
@@ -4137,7 +4256,7 @@ app.get("/api/claw/screenshot", (req, res) => {
   for (const [, v] of shots) {
     if (!latest || v.ts > latest.ts) latest = v;
   }
-  res.json({ ok: true, b64: latest.b64, ts: latest.ts });
+  res.json({ ok: true, b64: latest.b64, ts: latest.ts, bounds: latest.bounds });
 });
 
 // Relay live config (pushed from claw panel sliders, returned in every queue poll)
@@ -4459,6 +4578,8 @@ app.get("/api/health", (_, res) => {
       sessions: ariaMemory.sessions?.length || 0,
     },
     chats: Object.keys(chatStores).length,
+    // "off" means this server's chats stay here: set FIREBASE_SERVICE_ACCOUNT.
+    chatSync: chatSyncState,
     pendingScreenshots: pendingScreenshotResolvers?.size || 0,
     node: process.version,
   });
@@ -4716,22 +4837,29 @@ Today is ${new Date().toLocaleDateString("en-US", {
 Deliver a sharp morning briefing. Cover: weather in one sentence, key news items briefly, any open todos for today, any running ARIA tasks. End with one actionable suggestion or motivational note. Max 250 words. Speak directly to Sarvin.`;
 
     const sysPrompt = BASE_PROMPTS.hacker + buildMemoryContext();
-    const result = await callAI(
+    const raw = await callAI(
       [
         { role: "system", content: sysPrompt },
         { role: "user", content: prompt },
       ],
-      "openrouter",
-      null,
+      // The model switcher's pick, as texts use: a PC with only Ollama has
+      // no OpenRouter key, and the briefing failed there every morning.
+      activeModel.provider || "openrouter",
+      activeModel.model || null,
       {},
     );
+    const result = stripThinking(raw || "").trim(); // reasoning models
     if (!result) throw new Error("AI returned empty briefing");
 
-    global._lastBriefing = { text: result, generatedAt: Date.now() };
+    const generatedAt = Date.now();
+    global._lastBriefing = { text: result, generatedAt };
+    recordBriefing(result, generatedAt);
+    // filed: pages just announce it; the chat arrives through chat sync.
     const payload = JSON.stringify({
       type: "briefing",
       text: result,
-      generatedAt: Date.now(),
+      generatedAt,
+      filed: true,
     });
     for (const sub of briefingSubscribers) {
       try {
@@ -4760,7 +4888,10 @@ if (BRIEFING_ENABLED) {
       _briefingDeliveredToday !== todayKey
     ) {
       _briefingDeliveredToday = todayKey;
-      generateBriefing().catch(() => {});
+      // The PC and Render both run this, hours apart (Render's clock is
+      // UTC). The briefings chat is shared, so the second one stands down.
+      if (briefingFiledWithin(12)) console.log("[BRIEFING] Another server already sent today's");
+      else generateBriefing().catch(() => {});
     }
   }, 60_000);
   console.log(`[BRIEFING] Scheduled for ${BRIEFING_HOUR}:00 daily`);

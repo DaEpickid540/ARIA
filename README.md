@@ -77,7 +77,17 @@ window (Electron, `desktop/main.js`). It's the same `server.js` as Render's.
   instead. Context is 16k (`OLLAMA_NUM_CTX`).
 - **Claw:** off until you click **Turn on PC control** in the Claw panel (or
   tick **ARIA ▸ PC control**). It runs `claw-relay.js` against the local
-  server.
+  server and restarts it if it drops. The Claw panel shows it as
+  **🖥 Electron**.
+- **Texting:** tick **ARIA ▸ Texting (Google Voice)**. It runs
+  `aria-voice-hook.js` against the local server, so texts can use Claw
+  like the chat can. It needs `ARIA_SMS_PASSWORD` (8+ characters) in the keys
+  file. The first time, sign in to Google Voice in the browser window it
+  opens.
+- **Tray:** with PC control or texting on, closing the window leaves ARIA in
+  the tray. The dot on the icon is green when connected, amber while
+  connecting or waiting for a sign-in, and red while reconnecting. Quit from
+  the tray. **ARIA ▸ Claw and texting log** shows both live.
 - **Voice input:** Electron can't use the browser's speech recognizer, so
   the app records and transcribes instead: with Groq or OpenAI Whisper when
   one of those keys is set, otherwise with a local Whisper model that
@@ -95,7 +105,8 @@ window (Electron, `desktop/main.js`). It's the same `server.js` as Render's.
   to the local server.
 - `ARIA_USER_DATA=<dir>` runs a separate copy (own keys, data, lock), e.g. a
   dev build next to the installed app.
-- **Texting ARIA against the desktop app:**
+- **Texting by hand** (instead of the menu switch). Don't run both at once,
+  or every text gets two answers:
 
   ```bash
   node --env-file="%APPDATA%\ARIA\.env" aria-voice-hook.js http://127.0.0.1:3717

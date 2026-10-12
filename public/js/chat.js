@@ -12,12 +12,14 @@ const chatSig = ({ updatedAt, ...rest }) => JSON.stringify(rest);
 // and nothing is sent until the first pull, since a page with stale local
 // chats would otherwise stamp them all new and overwrite newer ones elsewhere.
 let _syncReady = null;
+const PENDING_DELETES_KEY = "aria_chat_pending_deletes"; // see syncToServer
 let currentSettings = loadSettings();
 let isGenerating = false;
 let documentContext = "";
 let mathMode = false;
 let programmingMode = false;
 let studyMode = false;
+let thinkMode = false; // Tools ▸ Thinking Mode: always reason in depth
 let pendingFiles = [];
 let musicTutorMode = false;
 let previewActive = false;
@@ -74,6 +76,9 @@ try {
 }
 // The first pull starts before anything can sync (createNewChat does).
 _syncReady = loadFromServer({ first: true });
+// Then send whatever this page changed while it couldn't reach the server
+// (edits and deletions from an offline session included).
+_syncReady.then(() => syncToServer());
 if (!currentChatId) createNewChat();
 renderChatList();
 renderMessages();
@@ -406,6 +411,9 @@ document
 document
   .getElementById("tool_study")
   ?.addEventListener("click", () => toolAction("studyModeBtn"));
+document
+  .getElementById("tool_think")
+  ?.addEventListener("click", () => toolAction("thinkingBtn"));
 document.getElementById("tool_commands")?.addEventListener("click", () => {
   toolAction("commandsBtn");
 });
@@ -491,6 +499,17 @@ function toggleStudy() {
   }
 }
 toggleStudy.isOn = () => studyMode;
+// Not exclusive with the others: thinking hard goes with any of them.
+function toggleThink() {
+  thinkMode = !thinkMode;
+}
+toggleThink.isOn = () => thinkMode;
+wireMode(
+  "thinkingBtn",
+  toggleThink,
+  "💡 **Thinking mode ON**: I'll reason carefully through every answer, even short ones.",
+  "Thinking mode off: I'll think as hard as each question needs.",
+);
 wireMode(
   "mathModeBtn",
   toggleMath,
@@ -526,8 +545,15 @@ document.getElementById("tool_music")?.addEventListener("click", () => {
 document.getElementById("tool_workspace")?.addEventListener("click", () => {
   if (toolsDropMenu) toolsDropMenu.style.display = "none";
   const url = prompt(
-    "Enter GitHub repo URL (e.g. https://github.com/user/repo):",
+    "GitHub repo URL (e.g. https://github.com/user/repo). Leave empty to leave Workspace mode:",
+    workspaceRepoUrl,
   );
+  if (url === null) return; // cancelled
+  if (!url.trim()) {
+    if (workspaceRepoUrl) showChatNotification("🗂 Workspace off");
+    workspaceRepoUrl = "";
+    return;
+  }
   if (url?.trim()) {
     workspaceRepoUrl = url.trim();
     showChatNotification(
@@ -695,7 +721,7 @@ function _pickScrapeEngine(url) {
     el.innerHTML = `
       <div id="searchEngineBox">
         <div id="searchEngineTitle">🕷 SCRAPE ENGINE</div>
-        <div id="searchEngineDesc" style="word-break:break-all;opacity:.6;font-size:10px;margin-bottom:12px">${url}</div>
+        <div id="searchEngineDesc" style="word-break:break-all;opacity:.6;font-size:10px;margin-bottom:12px">${escapeHtml(url)}</div>
         <div id="searchEngineBtns">
           <button class="searchEngineBtn" data-engine="crawler">
             <span>🕷 Built-in Crawler</span>
@@ -987,11 +1013,11 @@ function renderAttachPreviews() {
   row.innerHTML = pendingFiles
     .map(
       (f, i) => `
-    <div class="attachThumb" title="${f.name}">
+    <div class="attachThumb" title="${escapeHtml(f.name)}">
       ${
         f.type === "image"
-          ? `<img src="${f.base64}" alt="${f.name}">`
-          : `<span>${f.name.slice(0, 8)}</span>`
+          ? `<img src="${escapeHtml(safeImageUrl(f.base64))}" alt="${escapeHtml(f.name)}">`
+          : `<span>${escapeHtml(f.name.slice(0, 8))}</span>`
       }
       <span class="attachRemove" onclick="window.ARIA_removeAttach(${i})">✕</span>
     </div>`,
@@ -1052,6 +1078,7 @@ export function deleteMessage(chatId, idx) {
   if (!chat?.messages[idx]) return;
   chat.messages.splice(idx, 1);
   saveChats();
+  syncToServer();
   renderMessages();
 }
 export function copyMessage(content) {
@@ -1239,6 +1266,15 @@ function renderEmptyState() {
   });
 }
 
+/** Show a chat by id. For other modules: the home screen's recent chats. */
+window.ARIA_loadChat = (id) => {
+  if (!chats.some((c) => c.id === id)) return false;
+  currentChatId = id;
+  renderChatList();
+  renderMessages();
+  return true;
+};
+
 function renderChatList() {
   if (!chatList) return;
   chatList.innerHTML = "";
@@ -1276,6 +1312,9 @@ function renderChatList() {
     row.appendChild(dBtn);
     chatList.appendChild(row);
   });
+  // The split pane's chat changes too (new messages, other devices). Checked
+  // by element: this also runs at startup, before the split-pane state exists.
+  if (document.getElementById("chatPane2")) _renderPane2();
 }
 
 /* ============================================================
@@ -1471,6 +1510,10 @@ function renderMessages() {
   messages.innerHTML = "";
   const chat = getCurrentChat();
   if (!chat) return;
+  // Goes inside inline onclick strings below, where HTML escaping doesn't
+  // help ('&#39;' is a quote again by the time the JS runs). Chat ids are
+  // always chat_<time>[_suffix]; the server refuses others (chat-sync.js).
+  const chatIdJs = jsSafeId(chat.id);
 
   // ── Empty state: show welcome + suggestions when chat has no messages ──
   if (chat.messages.length === 0) {
@@ -1491,21 +1534,27 @@ function renderMessages() {
       bodyHTML = msg.content ? renderMarkdown(msg.content) : "";
       visualNode = createVisual(msg.visual);
     } else if (msg.type === "image" && msg.imageUrl) {
-      bodyHTML = `<div class="msgImageWrap">
-        <img src="${msg.imageUrl}" alt="Generated" class="msgImage" onclick="window.open('${msg.imageUrl}','_blank')">
+      // imageUrl comes from the image tool (or a synced chat), so it is
+      // scheme-checked and escaped; the old inline onclick put it inside a
+      // JS string, where a quote broke out. A plain link opens it instead.
+      const img = escapeHtml(safeImageUrl(msg.imageUrl));
+      bodyHTML = img
+        ? `<div class="msgImageWrap">
+        <a href="${img}" target="_blank" rel="noopener noreferrer"><img src="${img}" alt="Generated" class="msgImage"></a>
         <div class="imgActions">
-          <a href="${msg.imageUrl}" download="aria-image.png" class="fileDownloadBtn">⬇ Download Image</a>
+          <a href="${img}" download="aria-image.png" class="fileDownloadBtn">⬇ Download Image</a>
         </div>
-      </div>`;
+      </div>`
+        : renderMarkdown(msg.content || "");
     } else if (msg.role === "user") {
       const thumbs = (msg.attachments || [])
         .map((a) =>
           a.type === "image"
-            ? `<div class="msgAttachThumb"><img src="${a.base64}" alt="${a.name}"></div>`
-            : `<div class="msgAttachThumb docThumb">${a.name.slice(
+            ? `<div class="msgAttachThumb"><img src="${escapeHtml(safeImageUrl(a.base64))}" alt="${escapeHtml(a.name || "")}"></div>`
+            : `<div class="msgAttachThumb docThumb">${escapeHtml(String(a.name || "").slice(
                 0,
                 10,
-              )}</div>`,
+              ))}</div>`,
         )
         .join("");
       bodyHTML = `${thumbs ? `<div class="msgAttachments">${thumbs}</div>` : ""}
@@ -1563,21 +1612,21 @@ function renderMessages() {
             msg.starred ? "active" : ""
           }" title="${
       msg.starred ? "Unstar" : "Star"
-    }" onclick="window.ARIA_starMessage('${chat.id}',${idx})">${
+    }" onclick="window.ARIA_starMessage('${chatIdJs}',${idx})">${
       msg.starred ? '<i class="bi bi-star-fill" aria-hidden="true"></i>' : '<i class="bi bi-star" aria-hidden="true"></i>'
     }</button>
           <button class="msgActionBtn msgPinBtn ${
             msg.pinned ? "active" : ""
           }" title="${
       msg.pinned ? "Unpin" : "Pin"
-    }" onclick="window.ARIA_pinMessage('${chat.id}',${idx})"><i class="bi bi-pin-angle" aria-hidden="true"></i></button>
+    }" onclick="window.ARIA_pinMessage('${chatIdJs}',${idx})"><i class="bi bi-pin-angle" aria-hidden="true"></i></button>
           ${
             isAria
-              ? `<button class="msgActionBtn msgRegenBtn" title="Regenerate" onclick="window.ARIA_regenerateMsg('${chat.id}',${idx})"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>`
+              ? `<button class="msgActionBtn msgRegenBtn" title="Regenerate" onclick="window.ARIA_regenerateMsg('${chatIdJs}',${idx})"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>`
               : ""
           }
           <button class="msgActionBtn msgDeleteBtn" title="Delete" onclick="window.ARIA_deleteMessage('${
-            chat.id
+            chatIdJs
           }',${idx})"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
       </div>
@@ -1624,7 +1673,11 @@ function showToast(msg, icon = "✓") {
     el.id = "ariaToast";
     document.body.appendChild(el);
   }
-  el.innerHTML = `<span class="ariaToastIcon">${icon}</span><span>${msg}</span>`;
+  // Plain text: callers pass error messages and model-chosen file names.
+  el.replaceChildren(
+    Object.assign(document.createElement("span"), { className: "ariaToastIcon", textContent: icon }),
+    Object.assign(document.createElement("span"), { textContent: msg }),
+  );
   el.classList.remove("ariaToastOut");
   el.classList.add("ariaToastIn");
   clearTimeout(_toastTimer);
@@ -2551,6 +2604,7 @@ function addSystemMessage(content) {
   if (!chat) return;
   chat.messages.push({ role: "aria", content, timestamp: Date.now() });
   saveChats();
+  syncToServer();
   renderMessages();
 }
 
@@ -2621,6 +2675,7 @@ async function renderChatResponse(data, userText = "") {
       timestamp: Date.now(),
     });
     saveChats();
+    syncToServer();
     renderMessages();
     if (data.reply) addAIMessage(data.reply);
     return;
@@ -2791,6 +2846,7 @@ async function sendMessageContent(text, chat, attachments = []) {
     mathMode,
     programmingMode,
     studyMode,
+    deepThink: thinkMode,
     musicTutorMode,
     workspaceRepo: workspaceRepoUrl || undefined,
     documentContext: docCtx,
@@ -2994,10 +3050,10 @@ async function sendMessageContent(text, chat, attachments = []) {
                 pill.className =
                   "clawStepPill clawStepIn" +
                   (evt.type === "tool_done" ? " clawStepDone" : "");
-                if (evt.type === "source" && evt.url) {
+                if (evt.type === "source" && safeLinkUrl(evt.url)) {
                   pill.innerHTML = `<span class="clawStepIcon">\uD83C\uDF10</span><a href="${escapeHtml(
                     evt.url,
-                  )}" target="_blank" class="clawStepLink">${escapeHtml(
+                  )}" target="_blank" rel="noopener noreferrer" class="clawStepLink">${escapeHtml(
                     (evt.title || evt.url).slice(0, 100),
                   )}</a>`;
                 } else {
@@ -3297,11 +3353,42 @@ function updateTypingIndicatorTask(id, task, detail = "") {
 /* ============================================================
    MARKDOWN
    ============================================================ */
+// Quotes are escaped too: several callers put the result inside attribute
+// values (href, alt, src), where an unescaped " ends the attribute.
 function escapeHtml(t) {
   return String(t)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** An id that is safe inside a quoted inline-handler string. */
+function jsSafeId(id) {
+  return String(id ?? "").replace(/[^\w.-]/g, "");
+}
+
+// URL allowlists for anything model- or web-supplied that lands in href/src.
+// Model output can be steered by any page, file or search result ARIA reads,
+// so a `javascript:` link or an off-scheme image is treated as hostile.
+// Whitespace/control characters are refused outright: browsers strip them
+// from URLs, which would turn "java\tscript:" back into "javascript:".
+function safeLinkUrl(u) {
+  const s = String(u ?? "").trim();
+  if (!s || /[\u0000- \u007f]/.test(s)) return "";
+  if (/^(https?:\/\/|mailto:)/i.test(s)) return s;
+  if (/^\/(?!\/)/.test(s) || s.startsWith("#")) return s; // same-origin path
+  return "";
+}
+function safeImageUrl(u) {
+  const s = String(u ?? "").trim();
+  // Any image/* data URL (attachments may be HEIC, AVIF, SVG…). Scripts in an
+  // SVG don't run when it's loaded through <img>.
+  if (/^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=\s]+$/i.test(s)) return s.replace(/\s+/g, "");
+  if (/[\u0000- \u007f]/.test(s)) return "";
+  if (/^https?:\/\//i.test(s) || /^\/(?!\/)/.test(s) || /^blob:/i.test(s)) return s;
+  return "";
 }
 
 function renderMarkdown(text) {
@@ -3409,6 +3496,34 @@ function renderMarkdown(text) {
   // ── STEP 4: escapeHtml the remaining text (safe, no code or think) ──
   let h = escapeHtml(text);
 
+  // ── STEP 4b: images and links → placeholders, BEFORE inline formatting ──
+  // The text is already escaped (quotes included), so a URL can't break out
+  // of its attribute. Pulling them out first also stops the emphasis/code
+  // passes below from inserting tags inside an href. Only allow-listed
+  // schemes survive; anything else is shown as plain text.
+  const linkPlaceholders = [];
+  // Images are block-level (never wrapped in <p>), links inline.
+  const stashLink = (html, kind = "LINK") => {
+    linkPlaceholders.push(html);
+    return `\x00${kind}${linkPlaceholders.length - 1}\x00`;
+  };
+  const unescapeUrl = (s) =>
+    s.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  h = h.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (m, alt, src) => {
+    const url = safeImageUrl(unescapeUrl(src));
+    if (!url) return m;
+    const u = escapeHtml(url);
+    return stashLink(
+      `<div class="msgImageWrap"><img src="${u}" alt="${alt}" class="msgImage"><div class="imgActions"><a href="${u}" download class="fileDownloadBtn">⬇ Download</a></div></div>`,
+      "IMG",
+    );
+  });
+  h = h.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, label, href) => {
+    const url = safeLinkUrl(unescapeUrl(href));
+    if (!url) return m;
+    return stashLink(`<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="mdLink">${label}</a>`);
+  });
+
   // ── STEP 5: Apply markdown formatting on escaped text ──
   h = h.replace(/`([^`\n]+)`/g, '<code class="inlineCode">$1</code>');
   h = h.replace(/^### (.+)$/gm, '<h3 class="mdH3">$1</h3>');
@@ -3418,15 +3533,6 @@ function renderMarkdown(text) {
   h = h.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
   h = h.replace(/\*\*(.+?)\*\*/g, '<strong class="mdBold">$1</strong>');
   h = h.replace(/\*(.+?)\*/g, '<em class="mdItalic">$1</em>');
-  h = h.replace(
-    /!\[([^\]]*)\]\(([^)]+)\)/g,
-    (_, alt, src) =>
-      `<div class="msgImageWrap"><img src="${src}" alt="${alt}" class="msgImage"><div class="imgActions"><a href="${src}" download class="fileDownloadBtn">⬇ Download</a></div></div>`,
-  );
-  h = h.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener" class="mdLink">$1</a>',
-  );
   // Bullet lists
   h = h.replace(
     /((?:^[*\-] .+\n?)+)/gm,
@@ -3452,12 +3558,13 @@ function renderMarkdown(text) {
     .split(/\n{2,}/)
     .map((b) => {
       const t = b.trim();
-      if (!t || /^<(h[1-3]|ul|ol|div|details|pre|hr|\x00)/.test(t)) return t;
+      if (!t || /^<(h[1-3]|ul|ol|div|details|pre|hr|\x00)/.test(t) || /^\x00IMG\d+\x00$/.test(t)) return t;
       return `<p class="mdPara">${t.replace(/\n/g, "<br/>")}</p>`;
     })
     .join("\n");
 
-  // ── STEP 6: Restore code and think placeholders ──
+  // ── STEP 6: Restore link, code and think placeholders ──
+  h = h.replace(/\x00(?:LINK|IMG)(\d+)\x00/g, (_, i) => linkPlaceholders[parseInt(i)] || "");
   h = h.replace(
     /\x00CODE(\d+)\x00/g,
     (_, i) => codePlaceholders[parseInt(i)] || "",
@@ -3487,27 +3594,54 @@ function saveChats() {
 // which chats it changed (they get a fresh updatedAt) and which it deleted.
 // _synced / chatSig / _syncReady are declared at the top of this file: the
 // startup code there runs before this point.
+//
+// Nothing counts as synced until the server says so: a save that fails
+// (offline, server asleep or restarting) is sent again on the next sync,
+// which also runs when the connection comes back (see resyncChats).
+// Deletions wait in localStorage, so one made offline survives a reload
+// and the server's copy can't bring the chat back meanwhile.
+function pendingDeletes() {
+  try {
+    const list = JSON.parse(localStorage.getItem(PENDING_DELETES_KEY) || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+function setPendingDeletes(list) {
+  try {
+    localStorage.setItem(PENDING_DELETES_KEY, JSON.stringify(list));
+  } catch {}
+}
+
 async function syncToServer() {
   await _syncReady;
   const now = Date.now();
   const live = new Set();
+  const sending = new Map(); // chat id → chatSig of the copy being sent
   for (const c of chats) {
     live.add(c.id);
     const sig = chatSig(c);
     if (_synced.get(c.id) !== sig) {
-      c.updatedAt = now;
+      // Strictly newer than the copy before it: the server keeps a chat only
+      // when updatedAt goes up, and two saves in one millisecond (a reply
+      // landing as several bubbles) would otherwise tie and drop the second.
+      c.updatedAt = Math.max(now, (Number(c.updatedAt) || 0) + 1);
       _synced.set(c.id, sig);
+      sending.set(c.id, sig);
     }
   }
-  const deleted = [];
+  const deleted = pendingDeletes();
   for (const id of [..._synced.keys()]) {
     if (live.has(id)) continue;
     deleted.push({ id, at: now });
     _synced.delete(id);
   }
+  setPendingDeletes(deleted);
   saveChats();
+  if (!sending.size && !deleted.length) return;
   try {
-    await fetch("/api/saveChats", {
+    const res = await fetch("/api/saveChats", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -3517,8 +3651,37 @@ async function syncToServer() {
         sourceDeviceId: getDeviceId(),
       }),
     });
-  } catch {}
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const sent = new Set(deleted.map((d) => d.id));
+    setPendingDeletes(pendingDeletes().filter((d) => !sent.has(d.id)));
+  } catch {
+    // Unsent: drop the "agreed" mark (unless the chat changed again since),
+    // so the next sync stamps and sends it once more.
+    for (const [id, sig] of sending) if (_synced.get(id) === sig) _synced.delete(id);
+  }
 }
+
+// Catch up after time away: pull what changed elsewhere, then send what
+// changed here. Runs when the live connection comes back, when the network
+// does, and when the tab is shown again (phones suspend background tabs,
+// and a laptop's connection dies while it sleeps).
+let _resyncing = null;
+function resyncChats() {
+  _resyncing ||= (async () => {
+    try {
+      await _syncReady;
+      await loadFromServer();
+      await syncToServer();
+    } finally {
+      _resyncing = null;
+    }
+  })();
+  return _resyncing;
+}
+window.addEventListener("online", () => resyncChats());
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") resyncChats();
+});
 
 /* ── DEVICE ID + CROSS-DEVICE LIVE SYNC ── */
 function getDeviceId() {
@@ -3544,6 +3707,8 @@ function startChatSyncSubscription() {
     )}&deviceId=${encodeURIComponent(did)}`,
   );
   _syncEventSource.onopen = () => {
+    // Back after a drop: nothing was announced while we were away.
+    if (_syncReconnectDelay > 1000) resyncChats();
     _syncReconnectDelay = 1000;
     console.log("[SYNC] Connected — chats now sync live across devices.");
   };
@@ -3562,6 +3727,7 @@ function startChatSyncSubscription() {
     } catch {}
     _syncEventSource = null;
     setTimeout(startChatSyncSubscription, _syncReconnectDelay);
+    // Also marks the next onopen as a reconnect (it's > 1000 from here on).
     _syncReconnectDelay = Math.min(_syncReconnectDelay * 1.5, 30000);
   };
 }
@@ -3720,7 +3886,10 @@ async function loadFromServer({ first = false } = {}) {
     if (byId.delete(id)) changed = true;
     _synced.delete(id);
   }
+  // Deleted here, but the server hasn't heard yet (syncToServer retries).
+  const deletingHere = new Set(pendingDeletes().map((d) => d.id));
   for (const sc of data.chats) {
+    if (deletingHere.has(sc.id)) continue;
     const lc = byId.get(sc.id);
     const lt = Number(lc?.updatedAt) || 0;
     const st = Number(sc.updatedAt) || 0;
@@ -3783,12 +3952,12 @@ window.ARIA_showStarred = function () {
     .map(
       (m, i) =>
         `<div style="padding:8px 0;border-bottom:1px solid var(--border-cut)">
-      <div style="font-size:10px;color:var(--text-muted)">${m.role.toUpperCase()} ${
+      <div style="font-size:10px;color:var(--text-muted)">${escapeHtml(String(m.role).toUpperCase())} ${
           m.starred ? "⭐" : ""
         } ${m.pinned ? "📌" : ""}</div>
-      <div style="font-size:12px;margin-top:4px;color:var(--text-blaze)">${String(
+      <div style="font-size:12px;margin-top:4px;color:var(--text-blaze)">${escapeHtml(String(
         m.content,
-      ).slice(0, 200)}${m.content.length > 200 ? "…" : ""}</div>
+      ).slice(0, 200))}${m.content.length > 200 ? "…" : ""}</div>
     </div>`,
     )
     .join("");
@@ -3811,7 +3980,11 @@ function _buildSearchBar() {
     <button id="chatSearchNext" title="Next">↓</button>
     <button id="chatSearchClose" title="Close">✕</button>
   `;
-  document.getElementById("chatArea")?.prepend(bar);
+  // Above the message list. (It used to go into a #chatArea the page never
+  // had, so search couldn't open at all.)
+  const list = document.getElementById("messages");
+  if (!list) return;
+  list.before(bar);
   document.getElementById("chatSearchClose").onclick = _closeSearch;
   document.getElementById("chatSearchPrev").onclick = () => _navigateSearch(-1);
   document.getElementById("chatSearchNext").onclick = () => _navigateSearch(1);
@@ -3830,16 +4003,48 @@ function _openSearch() {
   _searchActive = true;
   _buildSearchBar();
   const bar = document.getElementById("chatSearchBar");
+  if (!bar) return;
   bar.classList.add("open");
   document.getElementById("chatSearchInput").focus();
+}
+// Highlighting works on text nodes only. The old version ran a regex over
+// the message's HTML (so a search for "div" or "class" wrapped <mark> around
+// tag names) and cleared with outerHTML = textContent, which turned any
+// code a message showed as text back into live HTML.
+function _highlightText(root, q) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const hits = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode())
+    if (n.nodeValue.toLowerCase().includes(q)) hits.push(n);
+  for (const node of hits) {
+    const text = node.nodeValue;
+    const lower = text.toLowerCase();
+    const frag = document.createDocumentFragment();
+    let at = 0;
+    for (let i = lower.indexOf(q); i !== -1; i = lower.indexOf(q, at)) {
+      if (i > at) frag.append(text.slice(at, i));
+      const mark = document.createElement("mark");
+      mark.className = "msgSearchHighlight";
+      mark.textContent = text.slice(i, i + q.length);
+      frag.append(mark);
+      at = i + q.length;
+    }
+    if (at < text.length) frag.append(text.slice(at));
+    node.replaceWith(frag);
+  }
+}
+function _clearSearchHighlights() {
+  document.querySelectorAll(".msgSearchHighlight").forEach((el) => {
+    const parent = el.parentNode;
+    el.replaceWith(document.createTextNode(el.textContent));
+    parent?.normalize();
+  });
 }
 function _closeSearch() {
   _searchActive = false;
   const bar = document.getElementById("chatSearchBar");
   bar?.classList.remove("open");
-  document.querySelectorAll(".msgSearchHighlight").forEach((el) => {
-    el.outerHTML = el.textContent;
-  });
+  _clearSearchHighlights();
   document
     .querySelectorAll(".msg.searchMatch")
     .forEach((el) => el.classList.remove("searchMatch", "searchActive"));
@@ -3850,9 +4055,7 @@ function _runSearch() {
     .getElementById("chatSearchInput")
     ?.value.trim()
     .toLowerCase();
-  document.querySelectorAll(".msgSearchHighlight").forEach((el) => {
-    el.outerHTML = el.textContent;
-  });
+  _clearSearchHighlights();
   document
     .querySelectorAll(".msg.searchMatch")
     .forEach((el) => el.classList.remove("searchMatch", "searchActive"));
@@ -3870,11 +4073,7 @@ function _runSearch() {
       const msgEl = body.closest(".msg");
       msgEl.classList.add("searchMatch");
       _searchMatches.push(msgEl);
-      // Highlight
-      body.innerHTML = body.innerHTML.replace(
-        new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"),
-        (m) => `<mark class="msgSearchHighlight">${m}</mark>`,
-      );
+      _highlightText(body, q);
     }
   });
   const count = document.getElementById("chatSearchCount");
@@ -3905,8 +4104,9 @@ function _highlightMatch(idx) {
 // Wire Ctrl+F / Cmd+F
 document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === "f") {
-    const chatArea = document.getElementById("chatArea");
-    if (!chatArea || chatArea.style.display === "none") return;
+    // Only while the chat is on screen; elsewhere Ctrl+F stays the browser's.
+    const layout = document.getElementById("layout");
+    if (!layout || layout.style.display === "none") return;
     e.preventDefault();
     _openSearch();
   }
@@ -3940,10 +4140,10 @@ let _splitChat2Id = null;
 
 window.ARIA_toggleSplitPane = function () {
   _splitPaneActive = !_splitPaneActive;
-  const appLayout =
-    document.getElementById("appLayout") ||
-    document.getElementById("chatLayout") ||
-    document.querySelector(".appLayout");
+  // #layout is the flex row holding the sidebar and #chatWindow; the second
+  // pane joins it as another column. (This looked for an #appLayout the
+  // page never had, so the Split button only ever said "not available".)
+  const appLayout = document.getElementById("layout");
   if (!appLayout) {
     showToast("Split pane layout not available", "✗");
     _splitPaneActive = false;
@@ -3980,7 +4180,7 @@ function _renderPane2ChatList() {
   const sel = document.getElementById("pane2ChatSelect");
   if (!sel) return;
   sel.innerHTML = chats
-    .map((c) => `<option value="${c.id}">${c.title || "Chat"}</option>`)
+    .map((c) => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.title || "Chat")}</option>`)
     .join("");
   sel.value = chats[1]?.id || chats[0]?.id || "";
   _splitChat2Id = sel.value;
@@ -4186,12 +4386,12 @@ window.ARIA_showSkillsUI = async function () {
             (s) => `
         <div class="skillRow ${s.active ? "active" : ""}">
           <div class="skillMeta">
-            <div class="skillName">${s.name}${
+            <div class="skillName">${escapeHtml(s.name)}${
               s.version !== "1.0"
-                ? ` <span style="font-size:9px;color:var(--text-muted)">v${s.version}</span>`
+                ? ` <span style="font-size:9px;color:var(--text-muted)">v${escapeHtml(s.version)}</span>`
                 : ""
             }</div>
-            <div class="skillDesc">${String(s.description).slice(0, 120)}</div>
+            <div class="skillDesc">${escapeHtml(String(s.description).slice(0, 120))}</div>
             ${
               s.hasTriggers
                 ? '<div class="skillTriggerBadge">auto-triggers</div>'
@@ -4201,12 +4401,12 @@ window.ARIA_showSkillsUI = async function () {
           <div class="skillActions">
             <button class="skillToggleBtn ${
               s.active ? "on" : "off"
-            }" onclick="window.ARIA_toggleSkill('${s.id}')">${
+            }" onclick="window.ARIA_toggleSkill('${jsSafeId(s.id)}')">${
               s.active ? "ON" : "OFF"
             }</button>
             ${
               s.location === "user"
-                ? `<button class="skillEditBtn" onclick="window.ARIA_editSkill('${s.id}')">Edit</button>`
+                ? `<button class="skillEditBtn" onclick="window.ARIA_editSkill('${jsSafeId(s.id)}')">Edit</button>`
                 : ""
             }
           </div>
@@ -4340,8 +4540,15 @@ window.ARIA_showMacros = function () {
   es.onmessage = (e) => {
     try {
       const data = JSON.parse(e.data);
+      // Newer servers file it in the shared "Daily briefings" chat, which
+      // reaches this page through chat sync: just announce it.
+      if (data.type === "briefing" && data.filed) {
+        resyncChats();
+        showToast("Morning briefing ready", "🌅");
+        return;
+      }
       if (data.type === "briefing" && data.text) {
-        // Add the briefing as an ARIA message in the current chat
+        // Older servers: add the briefing as an ARIA message in the current chat
         const chat = getCurrentChat();
         if (chat) {
           const briefMsg = {

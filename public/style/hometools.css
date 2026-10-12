@@ -410,7 +410,152 @@ body.mathPanelOpen #chatWindow {
 
 /* ============================================================
    HOME TOOLS — fixed values, proper layout
+   Row 3 of the homepage (pomodoro … password generator). Rows,
+   buttons and empty states come from bookware.css; this is the rest.
    ============================================================ */
+.hwBtnRow {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.hwBtnRow .hwToolBtn {
+  flex: 1;
+  justify-content: center;
+}
+.hwLabelAside {
+  float: right;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-3);
+}
+.homeLabel .hwToolBtn.hwLabelAside {
+  min-height: 0;
+  padding: 2px 8px;
+  margin-top: -3px;
+}
+.hwField {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  resize: vertical;
+}
+.hwField:focus {
+  outline: none;
+  border-color: var(--accent-border);
+}
+.hwMono,
+.pomodoroDisplay,
+.latencyValue,
+.colorValues {
+  font-family: var(--font-mono-stack);
+}
+
+.pomodoroDisplay {
+  font-size: 2.2rem;
+  font-weight: 300;
+  text-align: center;
+  color: var(--accent-text);
+  margin: 4px 0;
+}
+.pomodoroMeta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+}
+
+.latencyMain {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.latencyValue {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.latencySpark {
+  color: var(--accent);
+}
+
+.cryptoChg {
+  font-family: var(--font-mono-stack);
+  font-size: 0.7rem;
+}
+.cryptoUp {
+  color: var(--success-text, var(--success));
+}
+.cryptoDown {
+  color: var(--danger-text, var(--danger));
+}
+
+#dictResult {
+  margin-top: 6px;
+}
+
+.colorPickerBody {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.colorInput {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: transparent;
+  cursor: pointer;
+}
+.colorValues {
+  font-size: 0.74rem;
+  color: var(--text);
+  line-height: 1.7;
+}
+
+.textStatsGrid,
+.pwOpts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: var(--text-2);
+}
+.textStatsGrid span {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.pwOpts label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.pwLengthRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.pwLengthRow input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+#pwLengthLabel {
+  min-width: 56px;
+  text-align: right;
+}
 
 /* ============================================================
    LINK MODE OVERLAY — SmartThings-style device mesh

@@ -199,16 +199,18 @@ export function renderMemoryPanel() {
   const container = document.getElementById("memoryFactsList");
   if (!container) return;
 
-  const cats = [
-    "all",
-    "note",
-    "preference",
-    "skill",
-    "project",
-    "auto",
-    "reminder",
-  ];
-  const filter = document.getElementById("memFilterCat")?.value || "all";
+  // The filter offers the categories facts actually have (manual ones come
+  // from the Add form, automatic ones from the model).
+  const sel = document.getElementById("memFilterCat");
+  if (sel) {
+    const was = sel.value || "all";
+    const want = ["all", ...new Set(ariaMemory.facts.map((f) => f.category).filter(Boolean))];
+    if (want.join() !== [...sel.options].map((o) => o.value).join()) {
+      sel.replaceChildren(...want.map((c) => new Option(c === "all" ? "All categories" : c, c)));
+      sel.value = want.includes(was) ? was : "all";
+    }
+  }
+  const filter = sel?.value || "all";
   const search = (
     document.getElementById("memSearchInput")?.value || ""
   ).toLowerCase();
@@ -227,16 +229,16 @@ export function renderMemoryPanel() {
   container.innerHTML = visible
     .map(
       (f) => `
-    <div class="memFactItem" data-id="${f.id}">
+    <div class="memFactItem" data-id="${escapeHtml(f.id)}">
       <div class="memFactMeta">
-        <span class="memFactCat">${f.category}</span>
+        <span class="memFactCat">${escapeHtml(f.category)}</span>
         <span class="memFactSrc">${f.source === "auto" ? "auto" : "manual"}</span>
         <span class="memFactDate">${new Date(f.createdAt).toLocaleDateString()}</span>
       </div>
-      <div class="memFactText" id="memText_${f.id}">${escapeHtml(f.text)}</div>
+      <div class="memFactText" id="memText_${Number(f.id)}">${escapeHtml(f.text)}</div>
       <div class="memFactActions">
-        <button class="memBtn memEditBtn" onclick="window.ARIA_editMemFact(${f.id})">✎ Edit</button>
-        <button class="memBtn memDelBtn"  onclick="window.ARIA_deleteMemFact(${f.id})">✕ Delete</button>
+        <button class="memBtn memEditBtn" onclick="window.ARIA_editMemFact(${Number(f.id)})">✎ Edit</button>
+        <button class="memBtn memDelBtn"  onclick="window.ARIA_deleteMemFact(${Number(f.id)})">✕ Delete</button>
       </div>
     </div>`,
     )
@@ -284,3 +286,11 @@ window.ARIA_editMemFact = (id) => {
 window.ARIA_deleteMemFact = (id) => {
   if (confirm("Delete this memory?")) deleteMemoryFact(id);
 };
+
+// Settings ▸ Memory: the category filter and the search box re-render the list.
+document.addEventListener("change", (e) => {
+  if (e.target.id === "memFilterCat") renderMemoryPanel();
+});
+document.addEventListener("input", (e) => {
+  if (e.target.id === "memSearchInput") renderMemoryPanel();
+});
