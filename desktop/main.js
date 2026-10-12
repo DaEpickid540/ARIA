@@ -19,7 +19,14 @@
 //     claw-relay.js against this local server, and a second copy against
 //     Render (ARIA ▸ Reachable from anywhere) so ARIA opened on any other
 //     machine can still control this PC. That one signs in with this PC's
-//     own secret (machine.json), registered through lib/owners.js.
+//     own secret (machine.json), registered through lib/owners.js. A relay
+//     that drops is restarted, backing off up to a minute.
+//   - Texting (ARIA ▸ Texting) runs aria-voice-hook.js against this local
+//     server, so texts reach the same server the Claw relay serves and can
+//     use PC control. Needs ARIA_SMS_PASSWORD in the .env.
+//   - With PC control or texting on, closing the window leaves ARIA in the
+//     tray; the tray icon's dot is their state. Quit from the tray or menu.
+//     ARIA ▸ Claw & texting log shows both live.
 //   - Keys saved in Settings ▸ Keys go to the same .env (ARIA_ENV_FILE).
 //   - The server binds 127.0.0.1 only. Locally the API has no login
 //     (lib/auth.js), so it must not be reachable from the LAN.
@@ -29,8 +36,11 @@ import {
   app,
   BrowserWindow,
   Menu,
+  Notification,
+  Tray,
   dialog,
   ipcMain,
+  nativeImage,
   shell,
   session,
   utilityProcess,
@@ -57,6 +67,8 @@ const REPO_ENV = path.join(ROOT, ".env");
 const ENV_FILE =
   !app.isPackaged && fs.existsSync(REPO_ENV) ? REPO_ENV : path.join(USER_DIR, ".env");
 
+const APP_ICON = path.join(ROOT, "public", "icons", "icon-512.png");
+
 const HOST = "127.0.0.1";
 // Fixed, so the origin (and with it localStorage: theme, lock state…) stays
 // the same between launches. Only moves if something else holds it.
@@ -67,18 +79,23 @@ let win = null;
 let server = null; // utility process running server.js
 let relay = null; // utility process running claw-relay.js
 let cloudRelay = null; // the same relay, connected to Render instead
+let voice = null; // utility process running aria-voice-hook.js (texting)
+let tray = null;
+let logWin = null;
 let origin = "";
 const DEFAULT_CLOUD_URL = "https://aria-69jr.onrender.com";
 let quitting = false;
 
 // ── Settings (desktop-only switches) ──────────────────────────────
 // claw: PC control on at all. remote: also reachable through Render, so
-// signing in to ARIA on any other machine can reach this PC.
+// signing in to ARIA on any other machine can reach this PC. texting: run the
+// Google Voice hook. trayTold: the "still running in the tray" notice showed.
+const DEFAULT_SETTINGS = { claw: false, remote: true, texting: false, trayTold: false };
 function loadSettings() {
   try {
-    return { claw: false, remote: true, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")) };
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")) };
   } catch {
-    return { claw: false, remote: true };
+    return { ...DEFAULT_SETTINGS };
   }
 }
 function saveSettings(s) {
@@ -182,13 +199,22 @@ function childEnv(extra) {
   return env;
 }
 
-function pipeToLog(child, name) {
+// Writes a child's output to logs/<name>.log and keeps the last lines for
+// error dialogs. onLine sees each complete line (a chunk can end mid-line).
+function pipeToLog(child, name, onLine) {
   const file = path.join(LOG_DIR, `${name}.log`);
   const out = fs.createWriteStream(file, { flags: "w" });
   const tail = [];
+  let partial = "";
   const onData = (buf) => {
     out.write(buf);
-    tail.push(...buf.toString().split(/\r?\n/).filter(Boolean));
+    const lines = (partial + buf.toString()).split(/\r?\n/);
+    partial = lines.pop();
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      tail.push(line);
+      onLine?.(line);
+    }
     if (tail.length > 40) tail.splice(0, tail.length - 40);
   };
   child.stdout?.on("data", onData);
@@ -253,62 +279,129 @@ function stopServer() {
   s?.kill();
 }
 
+// ── Claw and texting: state, log ──────────────────────────────────
+// Each child's state, for the tray, the menu and the log window:
+// stopped | starting | running | sign-in (texting) | retrying
+const status = { relay: "stopped", cloud: "stopped", texting: "stopped" };
+const LOG_LINES = 500;
+const activity = []; // { at, source, line }, newest last
+
+function setStatus(key, value) {
+  if (status[key] === value) return;
+  status[key] = value;
+  updateTray();
+  buildMenu();
+}
+
+function pushLog(source, line) {
+  const entry = { at: Date.now(), source, line };
+  activity.push(entry);
+  if (activity.length > LOG_LINES) activity.splice(0, activity.length - LOG_LINES);
+  // While it loads, the page gets the whole backlog on did-finish-load.
+  if (logWin && !logWin.isDestroyed() && !logWin.webContents.isLoading())
+    logWin.webContents.executeJavaScript(`add(${JSON.stringify([entry])})`).catch(() => {});
+}
+
+function notify(title, body) {
+  if (Notification.isSupported()) new Notification({ title, body, icon: APP_ICON }).show();
+}
+
+// ── Claw relays ───────────────────────────────────────────────────
+const RELAY_ENV = { CLAW_RELAY_TYPE: "electron" }; // the Claw panel says "Electron"
+let relayTimer = null;
+let relayRetries = 0;
+let cloudTimer = null;
+
 function startRelay() {
   if (!origin) return;
-  if (!relay) {
-    relay = utilityProcess.fork(path.join(ROOT, "claw-relay.js"), [origin], {
-      serviceName: "ARIA Claw relay",
-      stdio: "pipe",
-      cwd: USER_DIR,
-      env: childEnv({}),
-    });
-    const child = relay;
-    pipeToLog(child, "claw-relay");
-    child.once("exit", () => {
-      if (relay === child) relay = null;
-    });
-  }
+  startLocalRelay();
   if (settings.remote) startCloudRelay();
+}
+
+function startLocalRelay() {
+  if (relay || !origin) return;
+  clearTimeout(relayTimer);
+  setStatus("relay", "starting");
+  const child = utilityProcess.fork(path.join(ROOT, "claw-relay.js"), [origin], {
+    serviceName: "ARIA Claw relay",
+    stdio: "pipe",
+    cwd: USER_DIR,
+    env: childEnv(RELAY_ENV),
+  });
+  relay = child;
+  pipeToLog(child, "claw-relay", (line) => {
+    pushLog("claw", line);
+    if (line.includes("Registered with ARIA server")) {
+      relayRetries = 0;
+      setStatus("relay", "running");
+    }
+  });
+  child.once("exit", (code) => {
+    if (relay !== child) return; // stopped on purpose
+    relay = null;
+    if (quitting || !settings.claw) return setStatus("relay", "stopped");
+    // It gives up after 10 failed registrations, and a crash ends it too.
+    // Back off so one that can't start doesn't spin.
+    const wait = Math.min(3000 * 2 ** relayRetries++, 60_000);
+    setStatus("relay", "retrying");
+    pushLog("app", `Claw relay stopped (exit code ${code}); restarting in ${wait / 1000}s.`);
+    relayTimer = setTimeout(startLocalRelay, wait);
+  });
 }
 
 // The second relay: Render queues commands for this PC when you use ARIA
 // from a machine that can't reach this one directly.
 function startCloudRelay() {
   if (cloudRelay) return;
+  clearTimeout(cloudTimer);
   const cloudUrl = (readEnvFile().ARIA_CLOUD_URL || DEFAULT_CLOUD_URL).replace(/\/+$/, "");
+  setStatus("cloud", "starting");
   cloudRelay = utilityProcess.fork(path.join(ROOT, "claw-relay.js"), [cloudUrl], {
     serviceName: "ARIA Claw relay (cloud)",
     stdio: "pipe",
     cwd: USER_DIR,
-    env: childEnv({ ARIA_RELAY_KEY: machineIdentity().secret }),
+    env: childEnv({ ...RELAY_ENV, ARIA_RELAY_KEY: machineIdentity().secret }),
   });
   const child = cloudRelay;
-  pipeToLog(child, "claw-relay-cloud");
+  pipeToLog(child, "claw-relay-cloud", (line) => {
+    pushLog("claw-cloud", line);
+    if (line.includes("Registered with ARIA server")) setStatus("cloud", "running");
+  });
   child.once("exit", () => {
     if (cloudRelay !== child) return; // stopped on purpose
     cloudRelay = null;
+    setStatus("cloud", "retrying");
     // Render sleeps when idle and may not know this PC for a few seconds
     // after boot; the relay gives up in both cases, so try again later.
-    setTimeout(() => {
-      if (!quitting && settings.claw && settings.remote && relay) startCloudRelay();
+    cloudTimer = setTimeout(() => {
+      if (!quitting && settings.claw && settings.remote && origin) startCloudRelay();
     }, 60_000);
   });
 }
 
-function stopRelay() {
-  for (const r of [relay, cloudRelay]) r?.kill();
-  relay = null;
+function stopCloudRelay() {
+  clearTimeout(cloudTimer);
+  const r = cloudRelay;
   cloudRelay = null;
+  r?.kill();
+  setStatus("cloud", "stopped");
+}
+
+function stopRelay() {
+  clearTimeout(relayTimer);
+  const r = relay;
+  relay = null;
+  r?.kill();
+  relayRetries = 0;
+  setStatus("relay", "stopped");
+  stopCloudRelay();
 }
 
 function setRemote(on) {
   settings = { ...settings, remote: !!on };
   saveSettings(settings);
-  if (!on) {
-    const r = cloudRelay;
-    cloudRelay = null;
-    r?.kill();
-  } else if (settings.claw) startCloudRelay();
+  if (!on) stopCloudRelay();
+  else if (settings.claw) startCloudRelay();
   buildMenu();
 }
 
@@ -325,8 +418,87 @@ function setClaw(on) {
 ipcMain.handle("aria:getClaw", () => settings.claw);
 ipcMain.handle("aria:setClaw", (_e, on) => setClaw(on));
 
+// ── Texting (Google Voice) ────────────────────────────────────────
+// aria-voice-hook.js against this server, so a text reaches the server the
+// Claw relay is attached to and can use PC control like the chat can.
+function smsPasswordProblem() {
+  const pw = (readEnvFile().ARIA_SMS_PASSWORD || "").trim();
+  if (!pw) return "ARIA_SMS_PASSWORD isn't set.";
+  if (pw.length < 8) return "ARIA_SMS_PASSWORD is shorter than 8 characters.";
+  return null;
+}
+
+function startTexting() {
+  if (voice || !origin) return;
+  setStatus("texting", "starting");
+  const child = utilityProcess.fork(path.join(ROOT, "aria-voice-hook.js"), [origin], {
+    serviceName: "ARIA texting (Google Voice)",
+    stdio: "pipe",
+    cwd: USER_DIR,
+    // The hook's own data/ would be inside app.asar.
+    env: childEnv({ ARIA_DATA_DIR: DATA_DIR }),
+  });
+  voice = child;
+  pipeToLog(child, "voice-hook", (line) => {
+    pushLog("texts", line);
+    if (/Watching .* for new texts/.test(line)) setStatus("texting", "running");
+    else if (line.includes("Sign in to Google Voice")) {
+      setStatus("texting", "sign-in");
+      notify("ARIA texting", "Sign in to Google Voice in the browser window that just opened.");
+    }
+  });
+  child.once("exit", (code) => {
+    if (voice !== child) return; // stopped on purpose
+    voice = null;
+    if (quitting) return;
+    // Not restarted: every start opens a browser window, and what ends it
+    // (the window closed, signed out of Google, a missing package) needs
+    // you. The switch goes off so the menu says what's actually running.
+    settings = { ...settings, texting: false };
+    saveSettings(settings);
+    setStatus("texting", "stopped");
+    pushLog("app", `Texting stopped (exit code ${code}).`);
+    if (code !== 0) notify("ARIA texting stopped", "ARIA ▸ Claw and texting log says why.");
+  });
+}
+
+function stopTexting() {
+  const v = voice;
+  voice = null;
+  v?.kill();
+  setStatus("texting", "stopped");
+}
+
+async function setTexting(on) {
+  const problem = on && smsPasswordProblem();
+  if (problem) {
+    buildMenu(); // untick the box again
+    const { response } = await dialog.showMessageBox(win, {
+      type: "info",
+      title: "ARIA",
+      message: "Texting needs a password first.",
+      detail:
+        `${problem}\n\nAdd ARIA_SMS_PASSWORD=<8+ characters> to your keys file. ` +
+        "It's what you text ARIA's number to unlock it; anyone else who texts it gets nothing. " +
+        "ARIA_SMS_ALLOW=+1555… limits which numbers can unlock it at all.\n\n" +
+        "Then turn texting on again. No restart needed.",
+      buttons: ["Open keys file", "Cancel"],
+      cancelId: 1,
+    });
+    if (response === 0) shell.openPath(ENV_FILE);
+    return false;
+  }
+  settings = { ...settings, texting: !!on };
+  saveSettings(settings);
+  if (on) startTexting();
+  else stopTexting();
+  buildMenu();
+  return settings.texting;
+}
+
 async function restartAll() {
   stopRelay();
+  stopTexting();
   stopServer();
   await sleep(600);
   await boot();
@@ -340,6 +512,8 @@ function lastLogLines() {
 async function showServerDied(code) {
   if (!win || win.isDestroyed()) return;
   stopRelay();
+  stopTexting();
+  win.show(); // it may be in the tray
   const { response } = await dialog.showMessageBox(win, {
     type: "error",
     title: "ARIA",
@@ -376,7 +550,7 @@ function createWindow() {
     minHeight: 520,
     backgroundColor: "#1a1a1e",
     title: "ARIA",
-    icon: path.join(ROOT, "public", "icons", "icon-512.png"),
+    icon: APP_ICON,
     autoHideMenuBar: true,
     show: false,
     webPreferences: {
@@ -399,6 +573,18 @@ function createWindow() {
     if (/^https?:/i.test(url)) shell.openExternal(url);
   });
 
+  // PC control and texting only work while the app runs, so with either on,
+  // closing the window keeps ARIA in the tray instead of quitting.
+  win.on("close", (e) => {
+    if (quitting || !(settings.claw || settings.texting)) return;
+    e.preventDefault();
+    win.hide();
+    if (!settings.trayTold) {
+      settings = { ...settings, trayTold: true };
+      saveSettings(settings);
+      notify("ARIA is still running", "PC control and texting keep working. Quit from the tray icon.");
+    }
+  });
   win.on("closed", () => {
     win = null;
   });
@@ -416,6 +602,176 @@ function setPermissions() {
     // Electron may pass the origin with or without a trailing slash.
     return isLocal(requestingOrigin) && allowed.has(permission);
   });
+}
+
+function showWindow() {
+  if (!win) return;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+}
+
+// ── Claw & texting log window ─────────────────────────────────────
+// A plain page with no preload; lines arrive through executeJavaScript as
+// JSON and go in as text, never HTML.
+const LOG_PAGE = `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>
+<html><head><title>ARIA — Claw &amp; texting log</title><style>
+  html,body{margin:0;background:#1a1a1e;color:#cfcfd6;
+    font:12px/1.5 ui-monospace,Consolas,monospace}
+  #log{padding:10px 14px;white-space:pre-wrap;word-break:break-word}
+  .t{color:#6e7681}
+  .s{display:inline-block;min-width:11ch;color:#8b8bff}
+  .s.texts{color:#d29922} .s.app{color:#f85149}
+  #empty{color:#6e7681;font:14px system-ui,sans-serif;padding:24px 14px}
+</style></head><body>
+<div id="empty">Nothing yet. Turn on PC control or texting in the ARIA menu.</div>
+<div id="log"></div>
+<script>
+const log = document.getElementById("log");
+function add(entries) {
+  if (entries.length) document.getElementById("empty")?.remove();
+  const atEnd = innerHeight + scrollY >= document.body.scrollHeight - 24;
+  for (const e of entries) {
+    const row = document.createElement("div");
+    const t = document.createElement("span");
+    t.className = "t";
+    t.textContent = new Date(e.at).toLocaleTimeString() + "  ";
+    const s = document.createElement("span");
+    s.className = "s " + e.source;
+    s.textContent = e.source;
+    row.append(t, s, document.createTextNode(e.line));
+    log.append(row);
+  }
+  while (log.childElementCount > 1000) log.firstChild.remove();
+  if (atEnd) scrollTo(0, document.body.scrollHeight);
+}
+</script></body></html>`)}`;
+
+function openLogWindow() {
+  if (logWin && !logWin.isDestroyed()) {
+    logWin.show();
+    logWin.focus();
+    return;
+  }
+  logWin = new BrowserWindow({
+    width: 860,
+    height: 520,
+    minWidth: 420,
+    minHeight: 240,
+    backgroundColor: "#1a1a1e",
+    icon: APP_ICON,
+    autoHideMenuBar: true,
+    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
+  });
+  logWin.setMenu(null);
+  logWin.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  logWin.webContents.on("will-navigate", (e) => e.preventDefault());
+  logWin.webContents.on("did-finish-load", () => {
+    logWin?.webContents.executeJavaScript(`add(${JSON.stringify(activity)})`).catch(() => {});
+  });
+  logWin.on("closed", () => {
+    logWin = null;
+  });
+  logWin.loadURL(LOG_PAGE);
+}
+
+// ── Tray ──────────────────────────────────────────────────────────
+// ARIA's icon with a dot for PC control and texting: green when everything
+// that's on is connected, amber while something connects or waits for a
+// Google sign-in, red while a relay is reconnecting. No dot when both are off.
+const DOT = { green: [0x3f, 0xb9, 0x50], amber: [0xd2, 0x99, 0x22], red: [0xf8, 0x51, 0x49] };
+
+function trayState() {
+  const on = [];
+  if (settings.claw) on.push(status.relay);
+  if (settings.texting) on.push(status.texting);
+  if (!on.length) return null;
+  if (on.includes("retrying")) return "red";
+  return on.every((s) => s === "running") ? "green" : "amber";
+}
+
+function trayImage() {
+  const base = nativeImage.createFromPath(path.join(ROOT, "public", "icons", "icon-32.png"));
+  const state = trayState();
+  if (!state || base.isEmpty()) return base;
+  // Drawn into the raw pixels (BGRA) so no extra image files ship.
+  const { width, height } = base.getSize();
+  const px = base.toBitmap();
+  const [r, g, b] = DOT[state];
+  const cx = width * 0.75, cy = height * 0.75, radius = width * 0.22;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+      if (d > radius + 1.5) continue;
+      const i = (y * width + x) * 4;
+      const [cr, cg, cb] = d <= radius ? [r, g, b] : [0x1a, 0x1a, 0x1e]; // dark ring
+      px[i] = cb;
+      px[i + 1] = cg;
+      px[i + 2] = cr;
+      px[i + 3] = 0xff;
+    }
+  }
+  return nativeImage.createFromBitmap(px, { width, height, scaleFactor: width / 16 });
+}
+
+const STATE_WORDS = {
+  stopped: "off",
+  starting: "connecting…",
+  running: "on",
+  "sign-in": "sign in to Google Voice",
+  retrying: "reconnecting…",
+};
+const stateLabel = (on, key) => (on ? STATE_WORDS[status[key]] || status[key] : "off");
+
+// The PC control and texting switches, shared by the tray and the ARIA menu.
+function clawMenuItems() {
+  return [
+    {
+      label: `PC control (Claw) — ${stateLabel(settings.claw, "relay")}`,
+      type: "checkbox",
+      checked: settings.claw,
+      click: (item) => setClaw(item.checked),
+    },
+    {
+      label: `Reachable from anywhere (through Render)${
+        settings.claw && settings.remote ? ` — ${stateLabel(true, "cloud")}` : ""
+      }`,
+      type: "checkbox",
+      checked: settings.remote,
+      enabled: settings.claw,
+      click: (item) => setRemote(item.checked),
+    },
+    {
+      label: `Texting (Google Voice) — ${stateLabel(settings.texting, "texting")}`,
+      type: "checkbox",
+      checked: settings.texting,
+      click: (item) => setTexting(item.checked),
+    },
+    { label: "Claw and texting log…", click: openLogWindow },
+  ];
+}
+
+function updateTray() {
+  if (!tray || tray.isDestroyed()) return;
+  tray.setImage(trayImage());
+  tray.setToolTip(
+    `ARIA\nPC control: ${stateLabel(settings.claw, "relay")}\nTexting: ${stateLabel(settings.texting, "texting")}`,
+  );
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: "Open ARIA", click: showWindow },
+      { type: "separator" },
+      ...clawMenuItems(),
+      { type: "separator" },
+      { label: "Quit ARIA", click: () => app.quit() },
+    ]),
+  );
+}
+
+function createTray() {
+  tray = new Tray(trayImage());
+  tray.on("click", showWindow);
+  updateTray();
 }
 
 // ── Menu ──────────────────────────────────────────────────────────
@@ -437,19 +793,7 @@ function buildMenu() {
         },
         { label: "Restart server", accelerator: "CmdOrCtrl+Shift+R", click: () => restartAll() },
         { type: "separator" },
-        {
-          label: "PC control (Claw relay)",
-          type: "checkbox",
-          checked: settings.claw,
-          click: (item) => setClaw(item.checked),
-        },
-        {
-          label: "Reachable from anywhere (through Render)",
-          type: "checkbox",
-          checked: settings.remote,
-          enabled: settings.claw,
-          click: (item) => setRemote(item.checked),
-        },
+        ...clawMenuItems(),
         { type: "separator" },
         { label: "Open in browser", click: () => origin && shell.openExternal(origin) },
         { label: "Open data folder", click: () => shell.openPath(DATA_DIR) },
@@ -474,6 +818,7 @@ function buildMenu() {
     },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  updateTray(); // the tray shows the same switches
 }
 
 // ── Boot ──────────────────────────────────────────────────────────
@@ -493,21 +838,22 @@ async function boot() {
     return;
   }
   if (settings.claw) startRelay();
+  if (settings.texting) {
+    if (smsPasswordProblem()) setTexting(false); // the password was taken out of .env
+    else startTexting();
+  }
   await win?.loadURL(origin);
 }
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
-    if (!win) return;
-    if (win.isMinimized()) win.restore();
-    win.focus();
-  });
+  app.on("second-instance", showWindow);
 
   app.whenReady().then(async () => {
     prepareUserDir();
     setPermissions();
+    createTray();
     buildMenu();
     createWindow();
 
@@ -537,6 +883,7 @@ if (!app.requestSingleInstanceLock()) {
     quitting = true;
     e.preventDefault();
     stopRelay();
+    stopTexting();
     setTimeout(() => {
       stopServer();
       app.quit();

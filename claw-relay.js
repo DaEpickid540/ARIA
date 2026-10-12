@@ -147,6 +147,9 @@ async function register() {
         hostname: os.hostname(),
         arch: os.arch(),
         browser: DEFAULT_BROWSER,
+        // The desktop app sets "electron", so the Claw panel shows where the
+        // relay runs. Unset, the server infers it from the device id.
+        relayType: process.env.CLAW_RELAY_TYPE || undefined,
       });
       if (r?.error === "bad_relay_key" || r?.error === "claw_disabled") {
         // Retrying cannot fix either of these.
