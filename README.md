@@ -256,6 +256,46 @@ low (it only answers unlocked conversations, and mutes a thread that gets 8+
 replies in a minute), but that is a risk to your number. Use a Google account you can live
 without.
 
+## Things ARIA can do for you
+
+Each one works from chat in plain words; most also have a panel.
+
+| Feature | Where | Ask it like | Saved in |
+|---|---|---|---|
+| **Watchers**: checks a page, price or feed and alerts you when it changes | Sidebar ▸ Watchers | "watch this page for the PS5 restock" | `watchers.json` |
+| **Evening debrief**: the day's facts, what got done, tomorrow's plan | Tools ▸ Evening debrief | "debrief me" | the Daily briefings chat |
+| **Triggers**: when you open an app, or at a time, ARIA does something | Sidebar ▸ Triggers | "when I open VS Code, show my open PRs" | `triggers.json` |
+| **Routines**: PC steps ARIA learned, with blanks you fill in each time | Sidebar ▸ Routines | "teach a routine: open Spotify and play {song}" | `routines.json` |
+| **Fix my screen**: a screenshot of your PC, what's wrong and how to fix it | Tools ▸ Fix my screen | "fix my screen" | — |
+| **Text commands**: `screen`, `status`, `fix`, `run <routine>`, `lock`, `help` by text | Google Voice texting | text "status" | — |
+| **Grades**: weighted averages, what you need on the next test, study plans | Tools ▸ Grades | "what do I need on the chem final for an A?" | `grades.json` |
+| **Practice coach**: tuner, metronome, tempo check, practice log and streak | Tools ▸ Practice | "log 30 min of scales" | `practice.json` |
+| **Flashcards**: spaced repetition (SM-2), made from your notes or a chat | Tools ▸ Flashcards | "make flashcards from this" | `flashcards.json` |
+| **Hey ARIA**: wake word on this device; Ctrl+Shift+Space push-to-talk in the desktop app | Tools ▸ Hey ARIA, tray menu | say "Hey ARIA" | browser storage |
+| **Memory timeline**: everything ARIA learned, when and from which chat; edit or forget | Sidebar ▸ Memory ▸ Timeline | "what do you know about me?" | `memory.json` |
+| **Arena**: 2–3 models answer, push back on each other, and a judge scores them | Tools ▸ Arena | "arena: is 0.999… equal to 1?" | `arena.json` |
+| **Check ARIA**: tests each provider, the relays, storage, sync, jobs and recent errors | Tools ▸ Check ARIA | "check yourself" (or "…and run the tests") | — |
+| **Skill tools**: a skill can bring its own `ACTION:` tool (see below) | Settings ▸ Skills | `/chord chords in D major` | `skill-data/<skill>/` |
+
+### Skill tools
+
+A skill folder (`skills/user/<id>/`, or `<data folder>/skills/<id>/` in the
+desktop app) can include a `tool.js` beside its `SKILL.md`:
+
+```js
+export const TOOL_META = { name: "mytool", desc: "What it does", args: "<input>", local: true };
+export async function run(input, { skill, dataDir }) { return "the answer"; }
+```
+
+- **When ARIA can use it:** only while the skill is switched on, or when the message contains one of the skill's triggers.
+- **Running it yourself:** type `/mytool …` in chat, which always works.
+- **Names:** it can't take a built-in tool's name. If two skills want the same name, the one that had it first keeps it.
+- **Limits:** it gets 30 s and its own `dataDir`. Edits to `tool.js` are picked up without a restart.
+- **Outside text:** its answer counts as outside text unless it sets `local: true`. That means PC actions later in the same chat need your OK, the same as after a web page.
+- **Problems:** a broken `tool.js` is shown under the skill in Settings ▸ Skills.
+
+The bundled `skills/public/music-theory` skill is the example. Its `chord` tool spells chords, scales and the chords in a key, letter by letter.
+
 ## API endpoints (selected)
 
 | Endpoint | Use |

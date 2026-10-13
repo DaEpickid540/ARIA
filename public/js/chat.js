@@ -16,14 +16,8 @@ const PENDING_DELETES_KEY = "aria_chat_pending_deletes"; // see syncToServer
 let currentSettings = loadSettings();
 let isGenerating = false;
 let documentContext = "";
-let mathMode = false;
-let programmingMode = false;
-let studyMode = false;
-let thinkMode = false; // Tools ▸ Thinking Mode: always reason in depth
 let pendingFiles = [];
-let musicTutorMode = false;
 let previewActive = false;
-let workspaceRepoUrl = "";
 
 const newChatBtn = document.getElementById("newChatBtn");
 const sendBtn = document.getElementById("sendBtn");
@@ -61,8 +55,35 @@ messages?.addEventListener("click", (e) => {
       decodeURIComponent(dlBtn.dataset.code),
       dlBtn.dataset.filename,
     );
+    return;
   }
+  const plotBtn = e.target.closest(".mathPlotBtn");
+  if (plotBtn) plotFromReply(plotBtn.dataset.expr);
 });
+
+/** A reply's GRAPH: line, plotted in the math panel. */
+function plotFromReply(raw) {
+  // "y = x^2", "f(x) = x^2" → "x^2"
+  const expr = String(raw || "")
+    .replace(/^\s*(y|f\s*\(\s*x\s*\))\s*=\s*/i, "")
+    .replace(/[.;]+$/, "")
+    .trim();
+  // _safeEval compiles the text: plain maths only (see mathOnly).
+  if (!mathOnly(expr)) {
+    showToast("That can't be plotted", "✗");
+    return;
+  }
+  showMathPanel();
+  // The plot lives on the panel's Visualize tab, whose canvas is set up
+  // when that tab is shown, so switch to it before drawing.
+  window._switchMathTab?.("viz");
+  const input = document.getElementById("mathVizExpr");
+  if (!input) return;
+  input.value = expr;
+  const type = document.getElementById("mathVizType");
+  if (type) type.value = "2d";
+  window._renderMathViz();
+}
 
 /* ── LOAD ── */
 try {
@@ -396,175 +417,35 @@ document.addEventListener("click", () => {
   toolsDropBtn?.classList.remove("active");
 });
 
-// Tool dropdown item actions — trigger the hidden buttons
-function toolAction(id) {
-  document.getElementById(id)?.click();
+/* ── TOOLS MENU ──
+   No modes here any more. Maths, code, study, music, images, web search and
+   repos are worked out per message (server: lib/intent.js and ARIA's own
+   tools), so the menu only opens panels and side features. */
+function closeToolsMenu() {
   if (toolsDropMenu) toolsDropMenu.style.display = "none";
   toolsDropBtn?.classList.remove("active");
 }
-document
-  .getElementById("tool_math")
-  ?.addEventListener("click", () => toolAction("mathModeBtn"));
-document
-  .getElementById("tool_code")
-  ?.addEventListener("click", () => toolAction("codeAssistBtn"));
-document
-  .getElementById("tool_study")
-  ?.addEventListener("click", () => toolAction("studyModeBtn"));
-document
-  .getElementById("tool_think")
-  ?.addEventListener("click", () => toolAction("thinkingBtn"));
 document.getElementById("tool_commands")?.addEventListener("click", () => {
-  toolAction("commandsBtn");
+  closeToolsMenu();
+  document.getElementById("commandsBtn")?.click();
 });
 
-// Web search — prompt user in the textarea
-document.getElementById("tool_search")?.addEventListener("click", () => {
-  if (toolsDropMenu) toolsDropMenu.style.display = "none";
-  promptToolInput(
-    "🔍 Web Search — type your query in the box and press Send to search:",
-  );
+// The keyboards are input aids: they open and close, they don't change how
+// ARIA answers.
+document.getElementById("tool_math")?.addEventListener("click", () => {
+  closeToolsMenu();
+  if (document.getElementById("mathPanel")?.classList.contains("open")) hideMathPanel();
+  else showMathPanel();
 });
-
-// Image generation — prompt user
-document.getElementById("tool_imagine")?.addEventListener("click", () => {
-  if (toolsDropMenu) toolsDropMenu.style.display = "none";
-  promptToolInput(
-    "🎨 Image Generation — describe the image you want and press Send:",
-  );
-});
-
-// Calendar
-document
-  .getElementById("tool_calendar")
-  ?.addEventListener("click", async () => {
-    if (toolsDropMenu) toolsDropMenu.style.display = "none";
-    await fetchAndShowCalendar();
-  });
-
-// Background task
-document.getElementById("tool_bg")?.addEventListener("click", () => {
-  if (toolsDropMenu) toolsDropMenu.style.display = "none";
-  promptToolInput(
-    "⚙ Background Task — describe what you want ARIA to do in the background:",
-  );
-});
-
-function promptToolInput(hint) {
-  setInputHint(hint);
-  userInput?.focus();
-}
-
-function setInputHint(text) {
-  if (!userInput) return;
-  userInput.placeholder = text;
-  setTimeout(() => {
-    userInput.placeholder = "Message ARIA...";
-  }, 8000);
-}
-
-/* ── MODE TOGGLE BUTTONS (hidden, triggered from dropdown) ── */
-function wireMode(btnId, flagSetter, onMsg, offMsg) {
-  document.getElementById(btnId)?.addEventListener("click", () => {
-    flagSetter();
-    renderChatList(); // update active indicator
-    const isOn = flagSetter.isOn();
-    addSystemMessage(isOn ? onMsg : offMsg);
-    triggerHalo("pulse", 700);
-  });
-}
-
-// Mode toggle logic — mutual exclusion for main modes
-function toggleMath() {
-  mathMode = !mathMode;
-  if (mathMode) {
-    programmingMode = false;
-    studyMode = false;
-  }
-}
-toggleMath.isOn = () => mathMode;
-function toggleCode() {
-  programmingMode = !programmingMode;
-  if (programmingMode) {
-    mathMode = false;
-    studyMode = false;
-  }
-}
-toggleCode.isOn = () => programmingMode;
-function toggleStudy() {
-  studyMode = !studyMode;
-  if (studyMode) {
-    mathMode = false;
-    programmingMode = false;
-  }
-}
-toggleStudy.isOn = () => studyMode;
-// Not exclusive with the others: thinking hard goes with any of them.
-function toggleThink() {
-  thinkMode = !thinkMode;
-}
-toggleThink.isOn = () => thinkMode;
-wireMode(
-  "thinkingBtn",
-  toggleThink,
-  "💡 **Thinking mode ON**: I'll reason carefully through every answer, even short ones.",
-  "Thinking mode off: I'll think as hard as each question needs.",
-);
-wireMode(
-  "mathModeBtn",
-  toggleMath,
-  "📐 **Math mode ON** — step-by-step working for every problem.",
-  "Math mode off.",
-);
-wireMode(
-  "codeAssistBtn",
-  toggleCode,
-  "💻 **Programming mode ON** — full runnable code with comments.",
-  "Programming mode off.",
-);
-wireMode(
-  "studyModeBtn",
-  toggleStudy,
-  "📚 **Study mode ON** — upload notes and I'll quiz you.",
-  "Study mode off.",
-);
-// ── Music Tutor ──
 document.getElementById("tool_music")?.addEventListener("click", () => {
-  musicTutorMode = !musicTutorMode;
-  if (toolsDropMenu) toolsDropMenu.style.display = "none";
-  toolsDropBtn?.classList.remove("active");
-  showChatNotification(
-    musicTutorMode ? "🎵 Music Tutor ON" : "Music Tutor off",
-  );
-  if (musicTutorMode) showMusicPanel();
-  else hideMusicPanel();
-  triggerHalo("pulse", 800);
+  closeToolsMenu();
+  if (document.getElementById("musicPanel")?.classList.contains("open")) hideMusicPanel();
+  else showMusicPanel();
 });
 
-// ── Workspace / Repo ──
-document.getElementById("tool_workspace")?.addEventListener("click", () => {
-  if (toolsDropMenu) toolsDropMenu.style.display = "none";
-  const url = prompt(
-    "GitHub repo URL (e.g. https://github.com/user/repo). Leave empty to leave Workspace mode:",
-    workspaceRepoUrl,
-  );
-  if (url === null) return; // cancelled
-  if (!url.trim()) {
-    if (workspaceRepoUrl) showChatNotification("🗂 Workspace off");
-    workspaceRepoUrl = "";
-    return;
-  }
-  if (url?.trim()) {
-    workspaceRepoUrl = url.trim();
-    showChatNotification(
-      "🗂 Workspace: " + workspaceRepoUrl.split("/").slice(-1)[0],
-    );
-    addSystemMessage(
-      "🗂 **Workspace mode** — repo loaded: `" +
-        workspaceRepoUrl +
-        "`. Ask me to read files, suggest improvements, or generate new ones.",
-    );
-  }
+document.getElementById("tool_calendar")?.addEventListener("click", async () => {
+  closeToolsMenu();
+  await fetchAndShowCalendar();
 });
 
 /* doWebSearch — called by AI ACTION:search and slash commands */
@@ -750,12 +631,6 @@ function _pickScrapeEngine(url) {
   });
 }
 
-/* ── IMAGE GEN button (hidden) ── */
-document.getElementById("imagineBtn")?.addEventListener("click", async () => {
-  const prompt = userInput?.value.trim();
-  if (!prompt) return;
-  await doImagine(prompt);
-});
 
 async function doImagine(prompt) {
   const chat = getCurrentChat();
@@ -801,9 +676,6 @@ async function doImagine(prompt) {
 }
 
 /* ── CALENDAR ── */
-document
-  .getElementById("calendarBtn")
-  ?.addEventListener("click", fetchAndShowCalendar);
 
 async function fetchAndShowCalendar() {
   const chat = getCurrentChat();
@@ -844,61 +716,7 @@ async function fetchAndShowCalendar() {
   }
 }
 
-/* ── BG TASK ── */
-document.getElementById("bgTaskBtn")?.addEventListener("click", async () => {
-  const task = userInput?.value.trim();
-  if (!task) return;
-  await doBgTask(task);
-});
 
-async function doBgTask(task) {
-  const chat = getCurrentChat();
-  if (!chat) return;
-  chat.messages.push({
-    role: "user",
-    content: `⚙ Background task: ${task}`,
-    timestamp: Date.now(),
-  });
-  userInput.value = "";
-  userInput.style.height = "auto";
-  saveChats();
-  renderMessages();
-  try {
-    const cs = loadSettings();
-    const res = await fetch("/api/background", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        task,
-        provider: cs.provider || "openrouter",
-        personality: cs.personality || "hacker",
-      }),
-    });
-    const data = await res.json();
-    if (data.error) {
-      addAIMessage(`BG error: ${data.error}`);
-      return;
-    }
-    addAIMessage(
-      `⚙ Task \`${data.id}\` started — running in background. I'll show the result here when done.`,
-    );
-    const poll = setInterval(async () => {
-      try {
-        const r = await fetch(`/api/background/${data.id}`);
-        const d = await r.json();
-        if (d.status === "done") {
-          clearInterval(poll);
-          addAIMessage(`✅ **Task complete:**\n\n${d.result}`);
-        } else if (d.status === "error") {
-          clearInterval(poll);
-          addAIMessage(`❌ Task failed: ${d.result}`);
-        }
-      } catch {}
-    }, 3000);
-  } catch (e) {
-    addAIMessage(`BG error: ${e.message}`);
-  }
-}
 
 /* ── COMMANDS MODAL ── */
 document
@@ -930,14 +748,15 @@ async function openCommandsModal() {
     { name: "/calendar", desc: "View Google Calendar events" },
     { name: "/gdoc <doc-id>", desc: "Read a Google Doc" },
     { name: "/help", desc: "Show this list in chat" },
-    { name: "∑ Math Mode", desc: "Step-by-step homework solver" },
-    { name: "💻 Code Mode", desc: "Full runnable code with comments" },
-    { name: "📚 Study Mode", desc: "Quiz from uploaded documents" },
-    { name: "🧠 Thinking Mode", desc: "ARIA shows reasoning before answering" },
-    { name: "🔍 Web Search", desc: "Type query → ARIA searches the web" },
-    { name: "🎨 Generate Image", desc: "Type description → image generated" },
-    { name: "📅 Calendar", desc: "Show upcoming events" },
-    { name: "⚙ Background Task", desc: "Long tasks run in background" },
+    // No modes to switch on: these just work from an ordinary message.
+    { name: "∑ “solve 3x + 2 = 11”", desc: "Maths: numbered steps, LaTeX, a Plot button for functions" },
+    { name: "💻 “fix this function…”", desc: "Code: complete runnable files, what changed and why" },
+    { name: "📚 “quiz me on this”", desc: "Study: questions from your attached notes" },
+    { name: "🎨 “draw a fox in the snow”", desc: "Images: generated straight away" },
+    { name: "🔍 “look up…” / “latest on…”", desc: "Web research with sources" },
+    { name: "🧠 “think it through carefully”", desc: "Deeper reasoning on request" },
+    { name: "⚙ “in the background, …”", desc: "Long jobs run as background tasks" },
+    { name: "🎵 “explain the circle of fifths”", desc: "Music: RCM-style piano and violin teaching" },
   ];
   list.innerHTML = cmds
     .map(
@@ -1108,6 +927,8 @@ window.ARIA_deleteMessage = deleteMessage;
 window.ARIA_copyMessage = copyMessage;
 window.ARIA_regenerateMsg = regenerateMessage;
 window.ARIA_renderChatList = renderChatList;
+// The chat's markdown (code, maths, tables), for panels that show model text (arena.js).
+window.ARIA_renderMarkdown = (t) => renderMarkdown(t);
 window.ARIA_doScrapeWithChoice = doScrapeWithChoice;
 window.ARIA_doWebSearch = doWebSearch;
 window.ARIA_loadFromServer = loadFromServer;
@@ -1265,6 +1086,9 @@ function renderEmptyState() {
     });
   });
 }
+
+/** The open chat's id, for other modules (routines.js records against it). */
+window.ARIA_currentChatId = () => currentChatId;
 
 /** Show a chat by id. For other modules: the home screen's recent chats. */
 window.ARIA_loadChat = (id) => {
@@ -1649,6 +1473,7 @@ function renderMessages() {
   // Code panel/copy/download buttons are wired via a single delegated
   // listener set up once at module load (see top of file) — no per-render wiring needed.
 
+  typesetMath(messages);
   messages.scrollTop = messages.scrollHeight;
 }
 
@@ -1811,7 +1636,8 @@ window._renderMathViz = function () {
   const latexEl = document.getElementById("mathVizLatex");
   if (latexEl) {
     latexEl.textContent = expr;
-    if (window.MathJax?.typesetPromise) {
+    // innerHTML below: only for expressions that are maths and nothing else.
+    if (window.MathJax?.typesetPromise && mathOnly(expr)) {
       latexEl.innerHTML =
         "\\(" +
         expr
@@ -1826,13 +1652,39 @@ window._renderMathViz = function () {
   }
 };
 
+// The only words an expression may contain. _safeEval compiles the text with
+// new Function, and since GRAPH: lines from replies are plotted too, anything
+// that isn't plain maths would otherwise run as code in the page.
+const MATH_NAMES = new Set([
+  "x", "y", "t",
+  "sin", "cos", "tan", "asin", "acos", "atan", "sqrt", "abs", "log", "ln",
+  "exp", "pow", "sign", "floor", "ceil", "round", "pi", "e",
+]);
+/** True for numbers, operators, brackets and MATH_NAMES only. */
+function mathOnly(expr) {
+  const s = String(expr ?? "");
+  if (!s.trim() || s.length > 200 || !/^[\d\s.+\-*/^%(),a-zA-Z]*$/.test(s)) return false;
+  return (s.match(/[a-zA-Z]+/g) || []).every((w) => MATH_NAMES.has(w));
+}
+
+/** Written maths → JS: "4x" → "4*x", "2(x+1)" → "2*(x+1)", ")(" → ")*(". */
+function implicitMultiply(expr) {
+  return String(expr)
+    .replace(/(\d)\s*(?=(?!e\d)[a-zA-Z(])/g, "$1*") // 4x, 2(x+1), 3sin(x); not 2e3
+    .replace(/\)\s*(?=[a-zA-Z0-9(])/g, ")*") // (x+1)(x-1), (x)2
+    .replace(/\b([xyt])\s*(?=[(])/g, "$1*"); // x(x-1): x is a variable, not a function
+}
+
 function _safeEval(expr, vars = {}) {
+  if (!mathOnly(expr)) return NaN;
+  expr = implicitMultiply(expr);
   try {
     const fn = new Function(
       ...Object.keys(vars),
       `
       const sin=Math.sin,cos=Math.cos,tan=Math.tan,sqrt=Math.sqrt,
-            abs=Math.abs,log=Math.log,exp=Math.exp,pow=Math.pow,
+            asin=Math.asin,acos=Math.acos,atan=Math.atan,
+            abs=Math.abs,log=Math.log,ln=Math.log,exp=Math.exp,pow=Math.pow,
             pi=Math.PI,e=Math.E,sign=Math.sign,floor=Math.floor,
             ceil=Math.ceil,round=Math.round;
       return ${expr.replace(/\^/g, "**")};
@@ -2068,13 +1920,38 @@ function _render3D(expr, type) {
 // Load MathJax for LaTeX rendering
 if (!window.MathJax) {
   window.MathJax = {
-    tex: { inlineMath: [["\\(", "\\)"]] },
-    startup: { typeset: false },
+    // Inline \( \) and display $$ $$ or \[ \]: what replies are asked to use
+    // (lib/intent.js). Single $ stays plain text, so "$5 and $10" is money.
+    tex: {
+      inlineMath: [["\\(", "\\)"]],
+      displayMath: [["$$", "$$"], ["\\[", "\\]"]],
+    },
+    startup: {
+      typeset: false,
+      // Maths rendered before MathJax arrived gets typeset now.
+      ready() {
+        window.MathJax.startup.defaultReady();
+        window.MathJax.startup.promise.then(() => typesetMath(document.getElementById("messages")));
+      },
+    },
   };
   const s = document.createElement("script");
   s.src = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js";
   s.async = true;
   document.head.appendChild(s);
+}
+
+/**
+ * Typeset the maths renderMarkdown marked (.mathTex) under root. Until
+ * MathJax has loaded this does nothing; its ready hook above catches up.
+ * Offline the LaTeX just stays readable as text.
+ */
+function typesetMath(root) {
+  if (!root || !window.MathJax?.typesetPromise) return;
+  const els = [...root.querySelectorAll(".mathTex:not([data-typeset])")];
+  if (!els.length) return;
+  els.forEach((el) => el.setAttribute("data-typeset", "1"));
+  window.MathJax.typesetPromise(els).catch(() => {});
 }
 
 function buildMathPanelHTML() {
@@ -2572,17 +2449,6 @@ function buildMusicPanelHTML() {
     </div>`;
 }
 
-/* ── Auto show/hide math panel when math mode toggles ── */
-document.getElementById("mathModeBtn")?.addEventListener(
-  "click",
-  () => {
-    setTimeout(() => {
-      if (mathMode) showMathPanel();
-      else hideMathPanel();
-    }, 50);
-  },
-  true,
-);
 
 /* ── Tool dropdown extras ── */
 document.getElementById("tool_link")?.addEventListener("click", () => {
@@ -2768,6 +2634,19 @@ async function sendMessage() {
       return;
     }
   }
+  // Drop-in tools (tools/*.js) and skills' own tools answer to /name too.
+  // Asked of the server each time, so a tool added since the page loaded works.
+  const slash = text.match(/^\/([a-z][\w-]{1,30})(?:\s+([\s\S]*))?$/i);
+  if (slash) {
+    const extra = await fetch("/api/tools")
+      .then((r) => r.json())
+      .then((d) => new Set((d.tools || []).filter((t) => t.dropIn).map((t) => t.name)))
+      .catch(() => new Set());
+    if (extra.has(slash[1].toLowerCase())) {
+      addAIMessage(await runTool(slash[1], slash[2] || ""));
+      return;
+    }
+  }
 
   await sendMessageContent(text, chat, attachments);
 }
@@ -2777,7 +2656,7 @@ const HELP_TEXT = `**ARIA Commands**
 /research <question> — searches, reads the top pages, answers with sources
 /scrape <url> — read one page
 
-Open **🔧 Tools** in the sidebar for mode toggles and tool shortcuts.`;
+No modes to switch on: ask for maths, code, a picture or research and ARIA picks the tool herself.`;
 
 const STREAMING_PROVIDERS = new Set(["openrouter", "ollama"]);
 
@@ -2843,12 +2722,8 @@ async function sendMessageContent(text, chat, attachments = []) {
     })(),
     imageProvider: currentSettings.imageProvider || "auto",
     personality: currentSettings.personality || "hacker",
-    mathMode,
-    programmingMode,
-    studyMode,
-    deepThink: thinkMode,
-    musicTutorMode,
-    workspaceRepo: workspaceRepoUrl || undefined,
+    // No mode flags: the server reads each message for maths, code, study,
+    // music, images and repos (lib/intent.js).
     documentContext: docCtx,
     imageAttachments: attachments
       .filter((a) => a.type === "image" && a.base64)
@@ -3496,6 +3371,29 @@ function renderMarkdown(text) {
   // ── STEP 4: escapeHtml the remaining text (safe, no code or think) ──
   let h = escapeHtml(text);
 
+  // ── STEP 4a: maths and graphs → placeholders ──
+  // So the emphasis passes below can't turn a*b*c into italics. The LaTeX
+  // stays escaped text inside .mathTex; typesetMath() hands it to MathJax
+  // once the message is on screen.
+  const mathPlaceholders = [];
+  const stashMath = (html, block) => {
+    mathPlaceholders.push(html);
+    return `\x00${block ? "MATHB" : "MATHI"}${mathPlaceholders.length - 1}\x00`;
+  };
+  h = h.replace(/\$\$[\s\S]+?\$\$/g, (m) => stashMath(`<div class="mathTex mathBlock">${m}</div>`, true));
+  h = h.replace(/\\\[[\s\S]+?\\\]/g, (m) => stashMath(`<div class="mathTex mathBlock">${m}</div>`, true));
+  h = h.replace(/\\\([\s\S]+?\\\)/g, (m) => stashMath(`<span class="mathTex">${m}</span>`, false));
+  // "GRAPH: x^2 - 4*x + 3" (asked for by lib/intent.js) → a Plot button.
+  // The text is already escaped, so it's safe in the attribute; the click
+  // handler checks it's plain maths (mathOnly) before plotting.
+  // Models often number or bold it ("5. **GRAPH:** x^2"), so allow both.
+  h = h.replace(/^[ \t]*(?:[-*]|\d+\.)?[ \t]*(?:\*\*)?GRAPH(?:_HINT)?:(?:\*\*)?[ \t]*\[?(.+?)\]?[ \t]*$/gm, (_, expr) =>
+    stashMath(
+      `<button class="mathPlotBtn" data-expr="${expr}"><i class="bi bi-graph-up" aria-hidden="true"></i> Plot ${expr}</button>`,
+      true,
+    ),
+  );
+
   // ── STEP 4b: images and links → placeholders, BEFORE inline formatting ──
   // The text is already escaped (quotes included), so a URL can't break out
   // of its attribute. Pulling them out first also stops the emphasis/code
@@ -3558,13 +3456,14 @@ function renderMarkdown(text) {
     .split(/\n{2,}/)
     .map((b) => {
       const t = b.trim();
-      if (!t || /^<(h[1-3]|ul|ol|div|details|pre|hr|\x00)/.test(t) || /^\x00IMG\d+\x00$/.test(t)) return t;
+      if (!t || /^<(h[1-3]|ul|ol|div|details|pre|hr|\x00)/.test(t) || /^\x00(IMG|MATHB)\d+\x00$/.test(t)) return t;
       return `<p class="mdPara">${t.replace(/\n/g, "<br/>")}</p>`;
     })
     .join("\n");
 
-  // ── STEP 6: Restore link, code and think placeholders ──
+  // ── STEP 6: Restore link, maths, code and think placeholders ──
   h = h.replace(/\x00(?:LINK|IMG)(\d+)\x00/g, (_, i) => linkPlaceholders[parseInt(i)] || "");
+  h = h.replace(/\x00MATH[BI](\d+)\x00/g, (_, i) => mathPlaceholders[parseInt(i)] || "");
   h = h.replace(
     /\x00CODE(\d+)\x00/g,
     (_, i) => codePlaceholders[parseInt(i)] || "",
@@ -3666,6 +3565,7 @@ async function syncToServer() {
 // does, and when the tab is shown again (phones suspend background tabs,
 // and a laptop's connection dies while it sleeps).
 let _resyncing = null;
+window.ARIA_resyncChats = () => resyncChats();
 function resyncChats() {
   _resyncing ||= (async () => {
     try {
@@ -4234,6 +4134,8 @@ function _showQuickModal(title, html) {
   document.getElementById("ariaQuickModalBody").innerHTML = html;
   modal.style.display = "flex";
 }
+// For panels in other modules (watchers.js).
+window.ARIA_showQuickModal = _showQuickModal;
 
 /* ── MEMORY UI ────────────────────────────────────────────────── */
 window.ARIA_showMemoryUI = async function () {
@@ -4243,6 +4145,7 @@ window.ARIA_showMemoryUI = async function () {
       fetch("/api/rag/stats").then((r) => r.json()),
     ]);
     const facts = memRes.facts || [];
+    _memFacts = facts;
     const factsHtml = facts.length
       ? facts
           .map(
@@ -4282,6 +4185,7 @@ window.ARIA_showMemoryUI = async function () {
       <div style="font-size:11px;color:var(--red-core);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">FACTS (${facts.length})</div>
       <div id="memFactsList">${factsHtml}</div>
       <button class="memBtn" style="margin-top:8px" onclick="window.ARIA_addFact()">+ Add fact</button>
+      <button class="memBtn" style="margin-top:8px" onclick="window.ARIA_showMemoryTimeline?.()">🕘 Timeline: when, where, correct</button>
       ${ragHtml}
       ${searchHtml}
     `,
@@ -4291,12 +4195,14 @@ window.ARIA_showMemoryUI = async function () {
   }
 };
 
+let _memFacts = []; // what the panel showed, so a delete names the fact it means
 window.ARIA_deleteFact = async function (idx) {
-  await fetch("/api/memory", {
+  const r = await fetch("/api/memory", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "delete", index: idx }),
+    body: JSON.stringify({ action: "delete", index: idx, expect: _memFacts[idx] }),
   });
+  if (!r.ok) showToast((await r.json().catch(() => ({}))).error || "Couldn't delete that.", "✗");
   window.ARIA_showMemoryUI();
 };
 window.ARIA_addFact = async function () {
@@ -4467,72 +4373,26 @@ window.ARIA_createSkill = async function () {
   window.ARIA_showSkillsUI();
 };
 
-/* ── CLAW MACRO RECORDER ──────────────────────────────────────── */
-let _macroRecording = false;
-let _macroSteps = [];
-let _macros = JSON.parse(localStorage.getItem("aria_macros") || "{}");
+/* Claw macros became Routines: public/js/routines.js (window.ARIA_showMacros).
+   Recordings the old panel kept in localStorage ("aria_macros") are listed
+   there and can be taught as routines. */
 
-window.ARIA_startMacroRecord = function () {
-  _macroRecording = true;
-  _macroSteps = [];
-  showToast("Macro recording started", "⏺");
-  // Notify server to tag claw commands as macro steps
-  fetch("/api/claw/macro/record", { method: "POST" }).catch(() => {});
-};
-
-window.ARIA_stopMacroRecord = function () {
-  _macroRecording = false;
-  const name = prompt(`Save macro as (${_macroSteps.length} steps recorded):`);
-  if (name?.trim()) {
-    _macros[name.trim()] = { steps: _macroSteps, createdAt: Date.now() };
-    localStorage.setItem("aria_macros", JSON.stringify(_macros));
-    showToast(`Macro "${name}" saved`, "✓");
-  }
-  fetch("/api/claw/macro/stop", { method: "POST" }).catch(() => {});
-};
-
-window.ARIA_runMacro = function (name) {
-  const macro = _macros[name];
-  if (!macro) {
-    showToast("Macro not found", "✗");
-    return;
-  }
-  fetch("/api/claw/macro/run", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ steps: macro.steps }),
-  })
-    .then(() => showToast(`Macro "${name}" running`, "▶"))
-    .catch(() => showToast("Macro run failed", "✗"));
-};
-
-window.ARIA_showMacros = function () {
-  const names = Object.keys(_macros);
-  if (!names.length) {
-    showToast("No macros saved yet", "⏺");
-    return;
-  }
-  const html = names
-    .map(
-      (n) => `
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border-cut)">
-      <span style="flex:1;font-size:12px">${n} <span style="color:var(--text-muted);font-size:10px">(${_macros[n].steps.length} steps)</span></span>
-      <button class="memBtn" onclick="window.ARIA_runMacro('${n}')">▶ Run</button>
-      <button class="memBtn" onclick="delete _macros['${n}'];localStorage.setItem('aria_macros',JSON.stringify(_macros));window.ARIA_showMacros()">✕</button>
-    </div>`,
-    )
-    .join("");
-  _showQuickModal(
-    "Claw Macros",
-    `
-    <div style="margin-bottom:8px;display:flex;gap:8px">
-      <button class="memBtn" onclick="window.ARIA_startMacroRecord()">⏺ Record</button>
-      <button class="memBtn" onclick="window.ARIA_stopMacroRecord()">⏹ Stop & Save</button>
-    </div>
-    ${html}
-  `,
-  );
-};
+/** A system notification for an alert, only when ARIA isn't on screen. */
+function notifyDesktop({ title, text, icon, chatId }) {
+  try {
+    if (!document.hidden || typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    const n = new Notification(`${icon || "🔔"} ${title || "ARIA"}`, {
+      body: String(text || "").slice(0, 200),
+      tag: chatId || "aria-alert",
+      icon: "/icons/icon-192.png",
+    });
+    n.onclick = () => {
+      window.focus();
+      if (chatId) window.ARIA_loadChat?.(chatId);
+      n.close();
+    };
+  } catch {}
+}
 
 /* ── DAILY BRIEFING RECEIVER ──────────────────────────────────── */
 (function initBriefingSubscription() {
@@ -4545,6 +4405,20 @@ window.ARIA_showMacros = function () {
       if (data.type === "briefing" && data.filed) {
         resyncChats();
         showToast("Morning briefing ready", "🌅");
+        return;
+      }
+      // Something ARIA noticed on her own (a watcher): filed in the shared
+      // Alerts chat, which arrives through chat sync.
+      if (data.type === "debrief" && data.filed) {
+        resyncChats();
+        showToast("Evening debrief ready", "🌙");
+        notifyDesktop({ title: "Evening debrief ready", text: "What got done, what slipped, and tomorrow.", icon: "🌙", chatId: data.chatId });
+        return;
+      }
+      if (data.type === "alert") {
+        resyncChats();
+        showToast(data.title || "Alert", data.icon || "🔔");
+        notifyDesktop(data);
         return;
       }
       if (data.type === "briefing" && data.text) {

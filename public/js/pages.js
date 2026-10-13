@@ -173,7 +173,7 @@ async function loadToolsPage() {
         .map(
           (t) =>
             `<li><code>/${esc(t.name)}</code> <span class="hwSub">${esc(t.desc || "")}${
-              t.dropIn ? " · drop-in" : ""
+              t.skill ? ` · from the ${esc(t.skill)} skill` : t.dropIn ? " · drop-in" : ""
             }</span></li>`,
         )
         .join("")}</ul>`;

@@ -493,6 +493,54 @@ async function loadChatModules() {
       initTaskPanel();
     } catch {}
     try {
+      const { initWatchers } = await import("./watchers.js");
+      initWatchers();
+    } catch {}
+    try {
+      const { initDebrief } = await import("./debrief.js");
+      initDebrief();
+    } catch {}
+    try {
+      const { initTriggers } = await import("./triggers.js");
+      initTriggers();
+    } catch {}
+    try {
+      const { initRoutines } = await import("./routines.js");
+      initRoutines();
+    } catch {}
+    try {
+      const { initScreenFix } = await import("./screenfix.js");
+      initScreenFix();
+    } catch {}
+    try {
+      const { initGrades } = await import("./grades.js");
+      initGrades();
+    } catch {}
+    try {
+      const { initPractice } = await import("./practice.js");
+      initPractice();
+    } catch {}
+    try {
+      const { initFlashcards } = await import("./flashcards.js");
+      initFlashcards();
+    } catch {}
+    try {
+      const { initWakeWord } = await import("./wakeWord.js");
+      initWakeWord();
+    } catch {}
+    try {
+      const { initMemoryTimeline } = await import("./memoryTimeline.js");
+      initMemoryTimeline();
+    } catch {}
+    try {
+      const { initArena } = await import("./arena.js");
+      initArena();
+    } catch {}
+    try {
+      const { initSelfTest } = await import("./selftest.js");
+      initSelfTest();
+    } catch {}
+    try {
       const { initInstallApp } = await import("./installApp.js");
       initInstallApp();
     } catch {}

@@ -11,4 +11,12 @@ contextBridge.exposeInMainWorld("ariaDesktop", {
   getClaw: () => ipcRenderer.invoke("aria:getClaw"),
   /** Turn PC control on or off. Resolves the new state. */
   setClaw: (on) => ipcRenderer.invoke("aria:setClaw", !!on),
+  /** Bring the window up from the tray (the wake word heard "Hey ARIA"). */
+  showWindow: () => ipcRenderer.invoke("aria:show"),
+  /** The page says whether it's listening for "Hey ARIA" (the tray shows it). */
+  setWake: (on) => ipcRenderer.invoke("aria:setWake", !!on),
+  /** The tray's "Listen for Hey ARIA" switch. */
+  onWakeToggle: (cb) => ipcRenderer.on("aria:wake", (_e, on) => cb(!!on)),
+  /** The global push-to-talk shortcut (Ctrl+Shift+Space). */
+  onPushToTalk: (cb) => ipcRenderer.on("aria:ptt", () => cb()),
 });

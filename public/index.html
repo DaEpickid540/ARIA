@@ -472,33 +472,43 @@
               <i class="bi bi-tools" aria-hidden="true"></i> Tools <i class="bi bi-chevron-down" aria-hidden="true"></i>
             </button>
             <div id="toolsDropdown" style="display: none">
-              <button class="toolDropItem" id="tool_math">∑ Math Mode</button>
-              <button class="toolDropItem" id="tool_code"><i class="bi bi-terminal" aria-hidden="true"></i> Code Mode</button>
-              <button class="toolDropItem" id="tool_study">
-                <i class="bi bi-book" aria-hidden="true"></i> Study Mode
-              </button>
-              <button class="toolDropItem" id="tool_think">
-                <i class="bi bi-lightbulb" aria-hidden="true"></i> Thinking Mode
+              <!-- No modes here: maths, code, study, music, images, search and
+                   repos are picked per message (lib/intent.js, ARIA's tools). -->
+              <p class="toolDropHint">ARIA picks the right tool on her own. Just ask: "solve…", "draw…", "look up…".</p>
+              <button class="toolDropItem" id="tool_math">
+                <i class="bi bi-calculator" aria-hidden="true"></i> Math keyboard &amp; graph
               </button>
               <button class="toolDropItem" id="tool_music">
-                <i class="bi bi-music-note-beamed" aria-hidden="true"></i> Music Tutor
-              </button>
-              <button class="toolDropItem" id="tool_workspace">
-                <i class="bi bi-github" aria-hidden="true"></i> Workspace (repo)
-              </button>
-              <div class="toolDropDivider"></div>
-              <button class="toolDropItem" id="tool_search">
-                <i class="bi bi-search" aria-hidden="true"></i> Web Search
-              </button>
-              <button class="toolDropItem" id="tool_imagine">
-                <i class="bi bi-image" aria-hidden="true"></i> Generate Image
+                <i class="bi bi-music-note-beamed" aria-hidden="true"></i> Music keyboard
               </button>
               <button class="toolDropItem" id="tool_calendar">
                 <i class="bi bi-calendar3" aria-hidden="true"></i> Calendar
               </button>
-              <button class="toolDropItem" id="tool_bg">
-                <i class="bi bi-gear-wide-connected" aria-hidden="true"></i> Background Task
+              <button class="toolDropItem" id="tool_debrief">
+                <i class="bi bi-moon-stars" aria-hidden="true"></i> Evening debrief
               </button>
+              <button class="toolDropItem" id="tool_screenfix">
+                <i class="bi bi-bandaid" aria-hidden="true"></i> Fix my screen
+              </button>
+              <button class="toolDropItem" id="tool_grades">
+                <i class="bi bi-mortarboard" aria-hidden="true"></i> Grades
+              </button>
+              <button class="toolDropItem" id="tool_flashcards">
+                <i class="bi bi-card-text" aria-hidden="true"></i> Flashcards
+              </button>
+              <button class="toolDropItem" id="tool_practice">
+                <i class="bi bi-music-note-list" aria-hidden="true"></i> Practice (tuner, metronome)
+              </button>
+              <button class="toolDropItem" id="tool_arena">
+                <i class="bi bi-trophy" aria-hidden="true"></i> Arena (models compete)
+              </button>
+              <button class="toolDropItem" id="tool_selftest">
+                <i class="bi bi-heart-pulse" aria-hidden="true"></i> Check ARIA (self-test)
+              </button>
+              <button class="toolDropItem" id="tool_wake" title="Listen for 'Hey ARIA' (checked on this device only)">
+                <i class="bi bi-ear" aria-hidden="true"></i> Hey ARIA: <b>off</b>
+              </button>
+              <div class="toolDropDivider"></div>
               <button class="toolDropItem" id="tool_link">
                 <i class="bi bi-link-45deg" aria-hidden="true"></i> Link Mode
               </button>
@@ -532,8 +542,14 @@
             <button class="secondaryBtn" onclick="window.ARIA_toggleSplitPane()" title="Split pane mode" id="splitPaneBtn">
               ◫ Split
             </button>
-            <button class="secondaryBtn" onclick="window.ARIA_showMacros()" title="Claw macros">
-              <i class="bi bi-record-circle" aria-hidden="true"></i> Macros
+            <button class="secondaryBtn" onclick="window.ARIA_showMacros()" title="Routines: PC steps ARIA learned, reusable with blanks">
+              <i class="bi bi-record-circle" aria-hidden="true"></i> Routines
+            </button>
+            <button id="watchersBtn" class="secondaryBtn" title="Watchers: things ARIA checks and alerts you about">
+              <i class="bi bi-eye" aria-hidden="true"></i> Watchers
+            </button>
+            <button id="triggersBtn" class="secondaryBtn" title="Triggers: when you're in an app, or at a time, ARIA does something">
+              <i class="bi bi-lightning" aria-hidden="true"></i> Triggers
             </button>
           </div>
 
@@ -663,14 +679,6 @@
             <button id="pushToTalkBtn" class="voiceBtn glitch"><i class="bi bi-mic" aria-hidden="true"></i> PTT</button>
             <button id="vttBtn" class="voiceBtn glitch"><i class="bi bi-soundwave" aria-hidden="true"></i> VTT</button>
             <button id="ttsBtn" class="voiceBtn glitch"><i class="bi bi-volume-up" aria-hidden="true"></i> TTS</button>
-            <button id="mathModeBtn" style="display: none"></button>
-            <button id="codeAssistBtn" style="display: none"></button>
-            <button id="studyModeBtn" style="display: none"></button>
-            <button id="thinkingBtn" style="display: none"></button>
-            <button id="webSearchBtn" style="display: none"></button>
-            <button id="imagineBtn" style="display: none"></button>
-            <button id="calendarBtn" style="display: none"></button>
-            <button id="bgTaskBtn" style="display: none"></button>
             <div id="voiceWave"></div>
           </div>
         </div>
@@ -1576,6 +1584,10 @@ triggers: ["keyword1"]
 ---
 
 Instructions ARIA follows when this skill is active.</code>
+                <br>To give the skill its own tool, put a <code>tool.js</code> beside SKILL.md (see <code>skills/public/music-theory</code>):
+                <code style="display:block;white-space:pre;background:var(--bg-void);padding:8px;border-radius:2px;margin-top:4px;font-size:10px">export const TOOL_META = { name: "mytool", desc: "What it does", args: "&lt;input&gt;", local: true };
+export async function run(input, { dataDir }) { return "answer"; }</code>
+                ARIA can use it while the skill is on, and you can run it yourself as <code>/mytool …</code>. Set <code>local: true</code> only if it never fetches outside text.
               </p>
             </section>
           </div>

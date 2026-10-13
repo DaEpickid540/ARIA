@@ -281,3 +281,146 @@
   color: var(--text-blaze);
 }
 .briefingBanner strong { color: var(--warning); }
+
+/* ── Watchers panel (watchers.js) ── */
+.watchRow {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px dotted var(--border-cut);
+}
+.watchMain { flex: 1; min-width: 0; }
+.watchTitle { font-size: 12px; overflow-wrap: anywhere; }
+.watchTitle a { color: var(--text-hot); text-decoration: none; }
+.watchTitle a:hover { text-decoration: underline; }
+.watchWhat, .watchMeta, .watchNote, .watchHint, .watchEmpty { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.watchLast { font-size: 11px; margin-top: 3px; line-height: 1.4; }
+.watchErr { font-size: 11px; margin-top: 3px; color: var(--red-core); }
+.watchState { font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 5px; border-radius: var(--radius-sm); border: 1px solid var(--border-cut); }
+.watchState.on { color: var(--red-core); border-color: var(--red-core); }
+.watchState.off { color: var(--text-muted); }
+.watchBtns { display: flex; gap: 4px; flex-shrink: 0; }
+.watchForm { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.watchForm input:not([type="checkbox"]), .watchForm select {
+  background: var(--bg-inset);
+  border: 1px solid var(--border-cut);
+  color: var(--text-blaze);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-size: 12px;
+  min-width: 0;
+}
+.watchFormRow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.watchFormRow label { font-size: 11px; color: var(--text-muted); display: flex; gap: 4px; align-items: center; }
+.watchFormRow button[type="submit"] { margin-left: auto; }
+
+/* ── Evening debrief panel (debrief.js) ── */
+.debriefRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12px; }
+
+/* ── Triggers panel (triggers.js) ── */
+.watchForm [hidden] { display: none !important; }
+.watchForm input[name="app"] { flex: 1; min-width: 200px; }
+.watchForm input[type="time"] { min-width: 96px; }
+
+/* ── Fix my screen (screenfix.js) ── */
+.screenDiag { font-size: 12px; line-height: 1.5; margin-top: 10px; overflow-wrap: anywhere; }
+.screenDiag code, .routineSteps code, .routineConfirm pre { font-size: 11px; }
+.routineConfirm { margin-top: 8px; padding: 8px; border: 1px solid var(--border-cut); border-radius: var(--radius-sm); }
+.routineConfirm pre { white-space: pre-wrap; margin: 4px 0; max-height: 200px; overflow: auto; }
+
+/* ── Grades panel (grades.js) ── */
+.gradeRow { padding: 8px 0; border-bottom: 1px dotted var(--border-cut); }
+.gradeHead { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.gradeName { font-size: 13px; font-weight: 600; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.gradePct { font-size: 15px; font-variant-numeric: tabular-nums; }
+.gradeRow.below .gradePct, .gradeNeed.below { color: var(--red-core); }
+.gradeRow.close .gradePct { color: var(--warning); }
+.gradeNeed.safe { color: var(--text-muted); }
+.gradeBar { position: relative; height: 4px; margin: 6px 0 4px; background: var(--bg-inset); border-radius: 2px; }
+.gradeBar i { position: absolute; inset: 0 auto 0 0; background: var(--text-hot); border-radius: 2px; }
+.gradeRow.below .gradeBar i { background: var(--red-core); }
+.gradeBar b { position: absolute; top: -3px; width: 2px; height: 10px; background: var(--text-blaze); }
+.gradeNext { font-size: 12px; margin-top: 4px; }
+.gradeNeed { font-size: 11px; margin-top: 2px; }
+.gradeTiny { padding: 0 4px; font-size: 10px; }
+
+/* ── Practice panel (practice.js) ── */
+.practiceBox { border: 1px solid var(--border-cut); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 10px; }
+.practiceHead { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--red-core); margin-bottom: 6px; }
+.practiceHead label, .practiceHead button { text-transform: none; letter-spacing: 0; }
+.practiceBox input[type="number"], .practiceBox select, .practiceBox input:not([type]) {
+  background: var(--bg-inset); border: 1px solid var(--border-cut); color: var(--text-blaze);
+  border-radius: var(--radius-sm); padding: 5px 7px; font-size: 12px; min-width: 0;
+}
+.tunerNote { font-size: 44px; text-align: center; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.tunerHz { text-align: center; min-height: 14px; }
+.tunerScale { position: relative; display: flex; justify-content: space-between; font-size: 9px; color: var(--text-muted); height: 22px; margin: 6px 0; border-bottom: 1px solid var(--border-cut); }
+.tunerScale b { position: absolute; left: 50%; bottom: 0; width: 2px; height: 12px; background: var(--text-blaze); }
+.tunerScale i { position: absolute; left: 50%; bottom: 0; width: 4px; height: 20px; margin-left: -2px; border-radius: 2px; background: var(--text-muted); transition: left 0.12s; }
+.tunerScale i.in { background: #3fb950; }
+.tunerScale i.near { background: var(--warning); }
+.tunerScale i.off { background: var(--red-core); }
+.metroDots { display: flex; gap: 6px; justify-content: center; margin-top: 6px; }
+.metroDots i { width: 10px; height: 10px; border-radius: 50%; background: var(--bg-inset); border: 1px solid var(--border-cut); }
+.metroDots i:first-child { width: 12px; height: 12px; }
+.metroDots i.on { background: var(--red-core); border-color: var(--red-core); }
+.tempoResult { font-size: 13px; margin-top: 6px; }
+.practiceTimer { font-size: 16px; font-variant-numeric: tabular-nums; color: var(--text-blaze); margin-left: auto; letter-spacing: 0; }
+.practiceStats { display: flex; gap: 14px; font-size: 12px; margin: 8px 0 4px; }
+
+/* ── Flashcards panel (flashcards.js) ── */
+.cardFace { border: 1px solid var(--border-cut); border-radius: var(--radius-sm); padding: 18px 14px; margin: 8px 0; min-height: 70px; font-size: 15px; line-height: 1.45; text-align: center; overflow-wrap: anywhere; white-space: pre-wrap; }
+.cardBack { border-top: 1px dashed var(--border-cut); margin-top: 12px; padding-top: 12px; color: var(--text-hot); }
+.cardGrades { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.cardGrades button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; }
+.cardGrades small { font-size: 10px; color: var(--text-muted); }
+.cardDeckRow { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px dotted var(--border-cut); font-size: 12px; }
+.cardDeckRow .watchMain { flex: 1; }
+.cardForm textarea { background: var(--bg-inset); border: 1px solid var(--border-cut); color: var(--text-blaze); border-radius: var(--radius-sm); padding: 6px 8px; font-size: 12px; min-height: 90px; resize: vertical; font-family: inherit; }
+
+/* ── Memory timeline (memoryTimeline.js) ── */
+.tlCats { display: flex; gap: 4px; flex-wrap: wrap; margin: 8px 0; }
+.tlChip { font-size: 10px; padding: 2px 7px; border-radius: 10px; border: 1px solid var(--border-cut); background: none; color: var(--text-muted); cursor: pointer; }
+.tlChip.on { color: var(--red-core); border-color: var(--red-core); }
+.tlDay { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--red-core); margin: 12px 0 2px; }
+.tlItem { position: relative; display: flex; gap: 8px; align-items: flex-start; padding: 6px 0 6px 14px; border-left: 1px solid var(--border-cut); margin-left: 4px; }
+.tlDot { position: absolute; left: -4px; top: 11px; width: 7px; height: 7px; border-radius: 50%; background: var(--red-core); }
+.tlFact { font-size: 12px; overflow-wrap: anywhere; }
+.tlCat { font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 5px; border: 1px solid var(--border-cut); border-radius: var(--radius-sm); color: var(--text-muted); margin-right: 4px; }
+.tlItem a { color: var(--text-hot); }
+.tlEdit { display: flex; gap: 6px; flex: 1; }
+.tlEdit input, #tlSearch { flex: 1; background: var(--bg-inset); border: 1px solid var(--border-cut); color: var(--text-blaze); border-radius: var(--radius-sm); padding: 5px 7px; font-size: 12px; min-width: 0; }
+.tlConflicts { border: 1px solid var(--warning); border-radius: var(--radius-sm); padding: 8px; font-size: 12px; margin-bottom: 8px; }
+.tlConflict { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+
+/* ── Arena (arena.js) ── */
+#arenaQ { background: var(--bg-inset); border: 1px solid var(--border-cut); color: var(--text-blaze); border-radius: var(--radius-sm); padding: 6px 8px; font-size: 12px; font-family: inherit; resize: vertical; }
+.arenaCols { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin-top: 8px; }
+.arenaCol { border: 1px solid var(--border-cut); border-radius: var(--radius-sm); padding: 8px; min-width: 0; font-size: 12px; }
+.arenaCol.winner { border-color: var(--red-core); box-shadow: 0 0 0 1px var(--red-core) inset; }
+.arenaHead { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; margin-bottom: 4px; }
+.arenaAnswer { overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
+.arenaAnswer pre, .arenaRebuttal pre { white-space: pre-wrap; }
+.arenaRebuttal { margin-top: 6px; border-top: 1px dashed var(--border-cut); padding-top: 4px; }
+.arenaRebuttal summary { font-size: 11px; color: var(--text-muted); cursor: pointer; }
+.arenaVerdict { border: 1px solid var(--border-cut); border-radius: var(--radius-sm); padding: 10px; margin-top: 10px; font-size: 12px; }
+.arenaMistakes { margin: 4px 0 8px 16px; padding: 0; color: var(--warning); }
+.arenaScore { display: grid; grid-template-columns: 70px 1fr 44px; gap: 6px; align-items: center; margin-top: 4px; }
+.arenaScore i { height: 6px; background: var(--red-core); border-radius: 3px; }
+.arenaScore small { grid-column: 1 / -1; }
+#arenaHistory { margin-top: 14px; }
+
+/* ── Check ARIA (selftest.js) ── */
+#stResults { margin-top: 10px; }
+.stHead { font-weight: 600; font-size: 13px; padding: 6px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-cut); }
+.stHead.st-fail { border-color: var(--red-core); color: var(--red-core); }
+.stHead.st-warn { border-color: var(--warning); color: var(--warning); }
+.stRow { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; font-size: 12px; border-bottom: 1px solid var(--border-cut); }
+.stIcon { width: 14px; flex: none; text-align: center; font-weight: 700; }
+.st-ok .stIcon { color: var(--success, #3c9); }
+.st-warn .stIcon { color: var(--warning); }
+.st-fail .stIcon { color: var(--red-core); }
+.st-off { opacity: 0.6; }
+.stMain { min-width: 0; overflow-wrap: anywhere; }
+.stFix { color: var(--text-muted); margin-top: 2px; }

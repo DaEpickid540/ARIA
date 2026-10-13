@@ -39,6 +39,7 @@ import {
   Notification,
   Tray,
   dialog,
+  globalShortcut,
   ipcMain,
   nativeImage,
   shell,
@@ -90,7 +91,8 @@ let quitting = false;
 // claw: PC control on at all. remote: also reachable through Render, so
 // signing in to ARIA on any other machine can reach this PC. texting: run the
 // Google Voice hook. trayTold: the "still running in the tray" notice showed.
-const DEFAULT_SETTINGS = { claw: false, remote: true, texting: false, trayTold: false };
+// wake: the page is listening for "Hey ARIA" (public/js/wakeWord.js).
+const DEFAULT_SETTINGS = { claw: false, remote: true, texting: false, trayTold: false, wake: false };
 function loadSettings() {
   try {
     return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")) };
@@ -418,6 +420,34 @@ function setClaw(on) {
 ipcMain.handle("aria:getClaw", () => settings.claw);
 ipcMain.handle("aria:setClaw", (_e, on) => setClaw(on));
 
+// ── "Hey ARIA" and push-to-talk ───────────────────────────────────
+// The listening happens in the page; the app keeps it alive in the tray,
+// stops Chromium throttling a hidden window (or the mic stalls), and
+// brings the window up when it hears its name.
+ipcMain.handle("aria:show", (e) => {
+  if (win && e.sender === win.webContents) showWindow();
+});
+ipcMain.handle("aria:setWake", (e, on) => {
+  if (!win || e.sender !== win.webContents) return settings.wake;
+  settings = { ...settings, wake: !!on };
+  saveSettings(settings);
+  win.webContents.setBackgroundThrottling(!settings.wake);
+  buildMenu();
+  return settings.wake;
+});
+function toggleWake(on) {
+  win?.webContents.send("aria:wake", !!on); // the page answers with aria:setWake
+}
+const PTT_KEY = "CommandOrControl+Shift+Space";
+function registerPushToTalk() {
+  const ok = globalShortcut.register(PTT_KEY, () => {
+    if (!win) return;
+    showWindow();
+    win.webContents.send("aria:ptt");
+  });
+  if (!ok) console.warn(`[desktop] ${PTT_KEY} is taken by another app; push-to-talk shortcut off`);
+}
+
 // ── Texting (Google Voice) ────────────────────────────────────────
 // aria-voice-hook.js against this server, so a text reaches the server the
 // Claw relay is attached to and can use PC control like the chat can.
@@ -576,13 +606,13 @@ function createWindow() {
   // PC control and texting only work while the app runs, so with either on,
   // closing the window keeps ARIA in the tray instead of quitting.
   win.on("close", (e) => {
-    if (quitting || !(settings.claw || settings.texting)) return;
+    if (quitting || !(settings.claw || settings.texting || settings.wake)) return;
     e.preventDefault();
     win.hide();
     if (!settings.trayTold) {
       settings = { ...settings, trayTold: true };
       saveSettings(settings);
-      notify("ARIA is still running", "PC control and texting keep working. Quit from the tray icon.");
+      notify("ARIA is still running", "PC control, texting and 'Hey ARIA' keep working. Quit from the tray icon.");
     }
   });
   win.on("closed", () => {
@@ -747,6 +777,13 @@ function clawMenuItems() {
       checked: settings.texting,
       click: (item) => setTexting(item.checked),
     },
+    {
+      label: 'Listen for "Hey ARIA"',
+      type: "checkbox",
+      checked: settings.wake,
+      click: (item) => toggleWake(item.checked),
+    },
+    { label: "Push to talk: Ctrl+Shift+Space", enabled: false },
     { label: "Claw and texting log…", click: openLogWindow },
   ];
 }
@@ -856,6 +893,8 @@ if (!app.requestSingleInstanceLock()) {
     createTray();
     buildMenu();
     createWindow();
+    registerPushToTalk();
+    if (settings.wake) win.webContents.setBackgroundThrottling(false);
 
     if (!hasAnyProviderKey(readEnvFile())) {
       dialog
@@ -878,6 +917,7 @@ if (!app.requestSingleInstanceLock()) {
 
   // Give the server a moment to finish its debounced (500 ms) JSON writes;
   // on Windows kill() ends it outright, so SIGTERM handlers never run.
+  app.on("will-quit", () => globalShortcut.unregisterAll());
   app.on("before-quit", (e) => {
     if (quitting) return;
     quitting = true;
