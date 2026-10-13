@@ -43,11 +43,12 @@ export function addManualMemory(text, category = "note") {
   ariaMemory.facts.unshift(fact);
   saveMemory();
   renderMemoryPanel();
-  // Sync to server
+  // Add this one fact to the server's memory. (Posting this browser's whole
+  // list replaced everything ARIA had learned in chat with it.)
   fetch("/api/memory", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ facts: ariaMemory.facts }),
+    body: JSON.stringify({ action: "add", fact: text, category }),
   }).catch(() => {});
 }
 
@@ -98,7 +99,7 @@ export function clearAllMemory() {
   fetch("/api/memory", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ facts: [] }),
+    body: JSON.stringify({ action: "clear" }),
   }).catch(() => {});
 }
 

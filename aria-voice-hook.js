@@ -33,6 +33,8 @@ import path from "path";
 import os from "os";
 import { fileURLToPath } from "url";
 import { createSmsGate } from "./lib/sms-gate.js";
+import { createOutbox } from "./lib/sms-outbox.js";
+import { attachAndSend } from "./lib/gv-mms.js";
 import { stripThinking } from "./lib/think.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -66,10 +68,15 @@ const HEADLESS = flag("headless") === true;
 const DATA_DIR = process.env.ARIA_DATA_DIR || path.join(__dirname, "data");
 const PROFILE_DIR = path.resolve(flag("profile") || path.join(DATA_DIR, "gvoice-profile"));
 const SEEN_FILE = path.join(DATA_DIR, "gvoice-seen.json");
+// Texts ARIA starts herself (evening debrief, alerts) go to the conversation
+// that last unlocked with the password: that's the owner's phone.
+const OWNER_FILE = path.join(DATA_DIR, "gvoice-owner.json");
+const OUTBOX_FILE = path.join(DATA_DIR, "gvoice-outbox.json");
 // Only ever changed to point at a mock page when testing.
 const GV_URL = process.env.ARIA_GVOICE_URL || "https://voice.google.com/u/0/messages";
 
 const POLL_MS = 3000; // how often the inbox is checked
+const OUTBOX_EVERY_MS = 30 * 1000; // how often ARIA is asked for texts to send
 const MAX_SMS_CHARS = 1000; // longer replies are split across texts…
 const MAX_SMS_PARTS = 5; // …up to this many
 const SEND_GAP_MS = 1200; // between consecutive texts
@@ -98,6 +105,9 @@ const SEL = {
   input:
     'textarea.message-input, textarea[placeholder*="Type a message" i], textarea[aria-label*="Type a message" i]',
   send: 'button[aria-label*="Send message" i], [role="button"][aria-label*="Send message" i], button[gv-test-id*="send-message" i]',
+  // The composer's photo picker. GV hides the <input>; Playwright can still
+  // hand it a file. The first that exists wins.
+  attach: 'input[type="file"][accept*="image" i], input[type="file"]',
 };
 
 if (!PASSWORD) {
@@ -148,6 +158,36 @@ function session(id) {
   }
   return s;
 }
+
+// ── Texts ARIA starts herself (lib/sms-outbox.js) ─────────────
+let _page = null; // set once the browser is up
+const outboxFiles = { owner: OWNER_FILE, outbox: OUTBOX_FILE };
+const outbox = createOutbox({
+  load: (name) => {
+    try { return JSON.parse(readFileSync(outboxFiles[name], "utf8")); } catch { return null; }
+  },
+  save: (name, data) => {
+    try {
+      mkdirSync(DATA_DIR, { recursive: true });
+      writeFileSync(outboxFiles[name] + ".tmp", JSON.stringify(data));
+      renameSync(outboxFiles[name] + ".tmp", outboxFiles[name]);
+    } catch (e) {
+      console.warn(`[VOICE] Couldn't save ${name}:`, e.message);
+    }
+  },
+  fetchOutbox: async (since) => {
+    const r = await fetch(new URL(`/api/sms/outbox?since=${since}`, SERVER_URL), {
+      headers: ACCESS_KEY ? { Authorization: `Bearer ${ACCESS_KEY}` } : {},
+      signal: AbortSignal.timeout(15000),
+    });
+    return r.ok ? (await r.json()).messages : [];
+  },
+  // sendText, not sendAll: an outgoing text mustn't keep a lock open. The
+  // outbox records it as unprompted (on disk, so it survives a restart).
+  send: (threadId, text) => sendText(_page, threadId, text),
+  toParts: (text) => toParts([plain(text)]),
+  log: (msg) => console.log(`[VOICE] ${msg}`),
+});
 
 // ── Messages already dealt with (on disk, so a restart doesn't redo them) ──
 let seen = {};
@@ -366,6 +406,18 @@ async function sendText(page, threadId, text) {
   await sleep(SEND_GAP_MS);
 }
 
+/**
+ * A picture as an MMS (a screenshot ARIA took), through lib/gv-mms.js. Best
+ * effort: GV's photo picker is the part of its page most likely to change,
+ * so any failure throws and the caller texts a sentence instead.
+ */
+async function sendImage(page, threadId, dataUrl) {
+  const openId = decodeURIComponent((page.url().match(/[?&]itemId=([^&#]+)/) || [])[1] || "");
+  if (openId !== threadId) await page.goto(threadUrl(threadId), { waitUntil: "domcontentloaded" });
+  await attachAndSend(page, dataUrl, SEL);
+  await sleep(SEND_GAP_MS);
+}
+
 async function sendAll(page, threadId, parts) {
   const s = session(threadId);
   s.sentAt = s.sentAt.filter((t) => Date.now() - t < 60000);
@@ -375,7 +427,16 @@ async function sendAll(page, threadId, parts) {
     return;
   }
   s.sentAt.push(Date.now());
-  for (const part of parts) await sendText(page, threadId, part);
+  for (const part of parts) {
+    if (part && typeof part === "object" && part.image) {
+      try {
+        await sendImage(page, threadId, part.image);
+      } catch (e) {
+        console.warn(`[VOICE] Couldn't send the picture: ${e.message}`);
+        await sendText(page, threadId, `(I took the screenshot but couldn't attach it: ${e.message}. Open ARIA to see it.)`);
+      }
+    } else await sendText(page, threadId, part);
+  }
   gate.touch(threadId);
 }
 
@@ -417,7 +478,10 @@ async function askAria(threadId, text) {
     bubbles[bubbles.length - 1] += "\n\nReply YES to run it or NO to cancel.";
   }
   s.history.push({ role: "user", content: text }, { role: "assistant", content: bubbles.join("\n\n") });
-  return toParts(bubbles);
+  const parts = toParts(bubbles);
+  // A screenshot (the "screen" command) goes out as a picture after the text.
+  if (typeof data.image === "string" && data.image.startsWith("data:image/")) parts.push({ image: data.image });
+  return parts;
 }
 
 // A held Claw action (see /api/confirm) approved or refused by text.
@@ -453,7 +517,12 @@ async function handleThread(page, sig) {
   // Unanswered texts: after our last reply, not handled before, and not an
   // echo of something we sent (in case GV stops marking ours as outgoing).
   const done = new Set(seen[id] || []);
-  const lastOut = t.messages.map((m) => m.outgoing).lastIndexOf(true);
+  // The last REPLY: a debrief or alert ARIA sent on her own can land after a
+  // text the owner sent a moment earlier, and mustn't count as answering it.
+  const unprompted = new Set(outbox.unprompted(id).map(norm));
+  const lastOut = t.messages
+    .map((m) => m.outgoing && !unprompted.has(norm(m.text)))
+    .lastIndexOf(true);
   const fresh = t.messages
     .slice(lastOut + 1)
     .filter((m) => !done.has(m.fp) && m.text && !s.sent.includes(norm(m.text)))
@@ -483,6 +552,20 @@ async function handleThread(page, sig) {
     switch (step.action) {
       case "unlocked":
         console.log(`[VOICE] ${mask(id)}: 🔓 unlocked`);
+        {
+          const moved = outbox.rememberOwner(id);
+          if (moved) {
+            console.log(`[VOICE] ${mask(id)} is the owner's conversation — ARIA's own texts go there.`);
+            // Tell the old one, so a password used elsewhere can't quietly
+            // redirect the debrief.
+            if (moved.previous) {
+              const notice = `ARIA's own texts (debrief, alerts) now go to another number (…${last10(id).slice(-4) || "?"}), which just unlocked.`;
+              await sendText(page, moved.previous, notice)
+                .then(() => outbox.recordUnprompted(moved.previous, notice))
+                .catch(() => {});
+            }
+          }
+        }
         parts = [`🔓 Unlocked. I lock again after ${IDLE_LABEL} of quiet — text "lock" to lock now.`];
         break;
       case "still_unlocked":
@@ -547,6 +630,8 @@ async function main() {
   let baseline = new Set(await snapshot(page));
   const failures = new Map(); // row text → failed attempts
   let lastReload = Date.now();
+  let lastOutbox = 0;
+  _page = page;
   console.log(`[VOICE] Watching ${baseline.size} conversation(s) for new texts ✓`);
 
   while (running) {
@@ -578,6 +663,11 @@ async function main() {
       // look at that thread and finds nothing new.
       baseline = new Set(rows.filter((sig) => baseline.has(sig) || handled.has(sig)));
       for (const sig of failures.keys()) if (!rows.includes(sig)) failures.delete(sig);
+      if (Date.now() - lastOutbox > OUTBOX_EVERY_MS) {
+        lastOutbox = Date.now();
+        const sent = await outbox.deliver().catch((e) => console.warn("[VOICE] Outbox:", e.message.split("\n")[0]));
+        if (sent) console.log(`[VOICE] Sent ${sent} message(s) ARIA queued`);
+      }
     } catch (e) {
       if (!running) break;
       console.warn("[VOICE] Poll error:", e.message.split("\n")[0]);

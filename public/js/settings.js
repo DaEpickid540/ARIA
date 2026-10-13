@@ -1257,6 +1257,8 @@ async function initSettingsSkillsList() {
             ${esc(s.name)} <span style="font-size:9px;color:var(--text-muted)">${esc(s.location)}</span>
           </div>
           <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${esc(String(s.description).slice(0,90))}</div>
+          ${s.tool ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;font-family:var(--font-mono)" title="${esc(s.tool.desc)}">tool: /${esc(s.tool.name)} ${esc(s.tool.args)}</div>` : ""}
+          ${s.toolError ? `<div style="font-size:10px;color:var(--warning);margin-top:2px">⚠ tool.js: ${esc(s.toolError)}</div>` : ""}
         </div>
         <button
           onclick="fetch('/api/skills/${String(s.id).replace(/[^\w.-]/g, "")}/toggle',{method:'POST'}).then(()=>initSettingsSkillsList())"

@@ -4,7 +4,7 @@
 // Bump CACHE_VERSION when you ship breaking front-end changes — old caches
 // get auto-purged on activate.
 
-const CACHE_VERSION = "v10-2026-10-wiring";
+const CACHE_VERSION = "v11-2026-10-ideas";
 const CACHE_NAME = `aria-${CACHE_VERSION}`;
 
 // Core shell to precache. Stylesheet paths must match what index.html links.

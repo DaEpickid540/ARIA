@@ -344,3 +344,38 @@
 body.hideTimestamps .msgTimestamp {
   display: none;
 }
+
+/* Maths in replies (renderMarkdown STEP 4a, typeset by MathJax) */
+.mathBlock {
+  margin: 10px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+}
+.mathPlotBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+  padding: 6px 12px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  color: var(--text-2);
+  font-family: var(--font-mono-stack);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: border-color var(--tr), color var(--tr);
+}
+.mathPlotBtn:hover {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+}
+
+/* Tools menu: the line saying tools are picked automatically */
+.toolDropHint {
+  margin: 2px 4px 8px;
+  font-size: 0.68rem;
+  line-height: 1.5;
+  color: var(--text-3);
+}

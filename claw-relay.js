@@ -11,7 +11,7 @@
 //  Kill switch: click the red ⬡ KILL CLAW button in any ARIA tab
 // ═══════════════════════════════════════════════════════════════
 
-import { execSync, exec } from "child_process";
+import { execSync, execFileSync, exec, spawn } from "child_process";
 import { createInterface } from "readline";
 import { writeFileSync, unlinkSync } from "fs";
 import os from "os";
@@ -64,6 +64,9 @@ function detectDefaultBrowser() {
 
 // Returns the right executable / launch command for the detected browser
 function browserCmd(url) {
+  // Inside "…" for cmd.exe: a quote in the URL would end it. %22 is the same
+  // character to the browser.
+  url = String(url).replace(/"/g, "%22");
   const q = `"${url}"`;
   switch (DEFAULT_BROWSER) {
     case "edge":
@@ -242,50 +245,41 @@ async function dispatch(cmd) {
     // ── Type text (with configurable per-char delay) ──
     case "type":
     case "keys": {
-      const text = cmd.text || cmd.raw || "";
+      // The text never goes into a command line: it's handed over in an
+      // environment variable (or as an argument with no shell), so a quote
+      // in it can't end anything and start a command of its own.
+      const text = String(cmd.text || cmd.raw || "");
       if (PLATFORM === "win32") {
-        if (typeDelay <= 5) {
-          // Fast mode: dump all at once via SendKeys
-          const escaped = text.replace(/'/g, "''");
-          run(
-            `powershell -Command "$wsh = New-Object -ComObject WScript.Shell; $wsh.SendKeys('${escaped}')"`,
-          );
-        } else {
-          // Slow mode: char by char via SetForegroundWindow + SendKeys
-          for (const ch of text) {
-            const esc = ch
-              .replace(/'/g, "''")
-              .replace(/[~+^%(){}[\]]/g, "{$&}"); // escape SendKeys specials
-            run(
-              `powershell -Command "$wsh = New-Object -ComObject WScript.Shell; $wsh.SendKeys('${esc}')"`,
-            );
-            await sleep(typeDelay);
-          }
-        }
-      } else if (PLATFORM === "darwin") {
-        if (typeDelay <= 5) {
-          const escaped = text.replace(/'/g, "\\'");
-          run(
-            `osascript -e 'tell application "System Events" to keystroke "${escaped}"'`,
-          );
-        } else {
-          for (const ch of text) {
-            const escaped = ch.replace(/'/g, "\\'");
-            run(
-              `osascript -e 'tell application "System Events" to keystroke "${escaped}"'`,
-            );
-            await sleep(typeDelay);
-          }
-        }
-      } else {
-        run(
-          `xdotool type --clearmodifiers --delay ${typeDelay} "${text.replace(
-            /"/g,
-            '\\"',
-          )}"`,
+        // SendKeys reads + ^ % ~ ( ) { } [ ] as keys; braced, they're typed.
+        const keys = [...text].map((ch) =>
+          ch === "\n" ? "{ENTER}" : ch === "\t" ? "{TAB}" : ch === "\r" ? "" : ch.replace(/[~+^%(){}[\]]/g, "{$&}"),
         );
+        const fast = typeDelay <= 5;
+        return runFile(
+          "powershell",
+          [
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            fast
+              ? "$wsh = New-Object -ComObject WScript.Shell; $wsh.SendKeys(($env:ARIA_KEYS | ConvertFrom-Json) -join '')"
+              : `$wsh = New-Object -ComObject WScript.Shell; foreach ($k in ($env:ARIA_KEYS | ConvertFrom-Json)) { $wsh.SendKeys($k); Start-Sleep -Milliseconds ${Math.max(0, Math.round(typeDelay))} }`,
+          ],
+          { ARIA_KEYS: JSON.stringify(keys.filter(Boolean)) },
+          Math.max(15000, keys.length * (typeDelay + 60) + 5000),
+        ).startsWith("exit")
+          ? "exit 1: typing failed"
+          : "typed";
+      } else if (PLATFORM === "darwin") {
+        // AppleScript reads the text from the environment itself.
+        return runFile("osascript", ["-e", 'tell application "System Events" to keystroke (system attribute "ARIA_KEYS")'], { ARIA_KEYS: text }).startsWith("exit")
+          ? "exit 1: typing failed"
+          : "typed";
+      } else {
+        return runFile("xdotool", ["type", "--clearmodifiers", "--delay", String(typeDelay), "--", text]).startsWith("exit")
+          ? "exit 1: typing failed"
+          : "typed";
       }
-      return "typed";
     }
 
     // ── Hotkey / shortcut ──
@@ -615,15 +609,17 @@ public class AriaDrag2 {
     // ── Focus / switch to app ──
     case "focus":
     case "switch_app": {
-      const app = cmd.app || cmd.raw || "";
+      // A window name goes inside quotes in a shell command: it must not be
+      // able to close them (an app called x'); Start-Process calc; (' would).
+      const app = String(cmd.app || cmd.raw || "").replace(/["`$\r\n]/g, "");
       if (PLATFORM === "win32") {
         run(
-          `powershell -Command "$wsh = New-Object -ComObject WScript.Shell; $wsh.AppActivate('${app}')"`,
+          `powershell -Command "$wsh = New-Object -ComObject WScript.Shell; $wsh.AppActivate('${app.replace(/'/g, "''")}')"`,
         );
       } else if (PLATFORM === "darwin") {
-        run(`osascript -e 'tell application "${app}" to activate'`);
+        run(`osascript -e 'tell application "${app.replace(/['\\]/g, "")}" to activate'`);
       } else {
-        run(`wmctrl -a "${app}"`);
+        run(`wmctrl -a "${app.replace(/\\/g, "")}"`);
       }
       return `switched to ${app}`;
     }
@@ -781,7 +777,9 @@ public class AriaDrag2 {
 
     // ── app search — find an app by name and launch it ──
     case "launch_app": {
-      const appRaw = (cmd.app || cmd.raw || "").trim(); // preserve original casing for search
+      // Quotes and shell metacharacters can't be part of an app name, and would
+      // close the quotes it's put in below.
+      const appRaw = String(cmd.app || cmd.raw || "").replace(/["'`$&|;<>^()\r\n]/g, "").trim(); // preserve original casing for search
       const appName = appRaw.toLowerCase(); // lowercase only for map lookup
       if (PLATFORM === "win32") {
         // ── Tier 1: known exact .exe mappings (instant) ───────
@@ -880,6 +878,17 @@ function run(cmd) {
     return execSync(cmd, { encoding: "utf8", timeout: 15000 }).trim() || "ok";
   } catch (e) {
     return `exit ${e.status}: ${e.stderr?.trim() || e.message}`;
+  }
+}
+
+/** A program with arguments and no shell, extra environment variables added. */
+function runFile(file, args, env = {}, timeout = 15000) {
+  try {
+    return (
+      execFileSync(file, args, { encoding: "utf8", timeout, windowsHide: true, env: { ...process.env, ...env } }).trim() || "ok"
+    );
+  } catch (e) {
+    return `exit ${e.status ?? 1}: ${e.stderr?.trim() || e.message}`;
   }
 }
 
@@ -1023,6 +1032,153 @@ async function apiPost(path, data) {
   });
 }
 
+// ── What's in front (for ARIA's triggers, lib/triggers.js) ────
+// Only while the server says a trigger needs it (heartbeat → wantContext,
+// which it says only while a trigger's time window is open): the foreground
+// app's name, seconds since the last key or mouse input, and the window
+// title ONLY when it contains one of the triggers' words (contextMatch), so
+// an email subject or a private tab never leaves the PC. Sent when it
+// changes, and every 30s so the server knows it's current.
+const FG_SAMPLE_MS = 5000;
+const FG_KEEPALIVE_MS = 30000;
+let fgWanted = false;
+let fgProc = null; // Windows: one long-lived PowerShell that prints a line per sample
+let fgTimer = null; // macOS / Linux: a sample per tick
+let fgLast = "";
+let fgLastSent = 0;
+let fgMatch = []; // lowercase words a title must contain to be sent
+let fgQuickExits = 0; // PowerShell dying right after starting: blocked, not flaky
+let fgPausedUntil = 0;
+
+// GetForegroundWindow / GetWindowText / GetLastInputInfo. TickCount is a
+// signed 32-bit int that wraps after ~25 days, hence the modulo.
+const FG_PS = `
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+Add-Type @"
+using System; using System.Runtime.InteropServices; using System.Text;
+public class AriaFg {
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint p);
+  [StructLayout(LayoutKind.Sequential)] public struct LII { public uint cbSize; public uint dwTime; }
+  [DllImport("user32.dll")] public static extern bool GetLastInputInfo(ref LII p);
+}
+"@
+# Windows doesn't end a child when its parent is killed: stop with the relay.
+while (Get-Process -Id ${process.pid} -ErrorAction SilentlyContinue) {
+  $h = [AriaFg]::GetForegroundWindow()
+  $sb = New-Object System.Text.StringBuilder 512
+  [void][AriaFg]::GetWindowText($h, $sb, 512)
+  $procId = 0
+  [void][AriaFg]::GetWindowThreadProcessId($h, [ref]$procId)
+  $name = ""
+  try { $name = (Get-Process -Id $procId -ErrorAction Stop).ProcessName } catch {}
+  $l = New-Object AriaFg+LII
+  $l.cbSize = 8
+  [void][AriaFg]::GetLastInputInfo([ref]$l)
+  $tc = [int64]([Environment]::TickCount) -band 0xFFFFFFFF
+  $idle = [int]((($tc - [int64]$l.dwTime) + 4294967296) % 4294967296 / 1000)
+  try {
+    [Console]::Out.WriteLine((@{ app = $name; title = $sb.ToString(); idleSec = $idle } | ConvertTo-Json -Compress))
+    [Console]::Out.Flush()
+  } catch { exit }
+  Start-Sleep -Milliseconds ${FG_SAMPLE_MS}
+}`;
+
+function fgReport(sample) {
+  if (!fgWanted) return; // a sampler still winding down after a stop
+  const t = String(sample.title || "");
+  const low = t.toLowerCase();
+  // The app name decides most rules; a title is only sent when it's what a
+  // rule is looking for (a site name in a browser tab, say).
+  sample = { ...sample, title: fgMatch.some((w) => w && low.includes(w)) ? t : "" };
+  const key = `${sample.app}|${sample.title}|${sample.idleSec > 600}`;
+  if (key === fgLast && Date.now() - fgLastSent < FG_KEEPALIVE_MS) return;
+  fgLast = key;
+  fgLastSent = Date.now();
+  apiPost("/api/claw/relay/context", { deviceId: DEVICE_ID, ...sample })
+    .then((r) => {
+      // The answer carries the same request as a heartbeat: stop as soon as
+      // no window is open any more, and pick up changed words.
+      if (r && "wantContext" in r) setForegroundWanted(r.wantContext === true, r.contextMatch);
+    })
+    .catch(() => {});
+}
+
+function sampleUnix() {
+  const cmd =
+    PLATFORM === "darwin"
+      ? `osascript -e 'tell application "System Events" to set p to first application process whose frontmost is true' -e 'set n to name of p' -e 'set t to ""' -e 'try' -e 'set t to name of front window of p' -e 'end try' -e 'return n & linefeed & t'; ioreg -c IOHIDSystem | awk '/HIDIdleTime/ {print int($NF/1000000000); exit}'`
+      : `w=$(xdotool getactivewindow 2>/dev/null) && ps -p "$(xdotool getwindowpid "$w")" -o comm= && xdotool getwindowname "$w"; (xprintidle 2>/dev/null || echo 0) | awk '{print int($1/1000)}'`;
+  exec(cmd, { timeout: 4000, shell: "/bin/sh" }, (err, out) => {
+    if (err || !fgWanted) return;
+    const [app = "", title = "", idle = "0"] = String(out).split("\n").map((s) => s.trim());
+    fgReport({ app, title, idleSec: Number(idle) || 0 });
+  });
+}
+
+function startForeground() {
+  if (fgProc || fgTimer) return;
+  if (Date.now() < fgPausedUntil) return;
+  console.log("[RELAY] ARIA has a trigger that needs the foreground app — reporting it.");
+  if (PLATFORM === "win32") {
+    const encoded = Buffer.from(FG_PS, "utf16le").toString("base64");
+    const proc = (fgProc = spawn("powershell", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded], {
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "ignore"],
+    }));
+    let buf = "";
+    const started = Date.now();
+    proc.stdout.setEncoding("utf8"); // a character split across chunks stays whole
+    proc.stdout.on("data", (d) => {
+      buf += d;
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, i).replace(/^\uFEFF/, "").trim(); // UTF-8 output may open with a BOM
+        buf = buf.slice(i + 1);
+        try {
+          const s = JSON.parse(line);
+          fgReport({ app: String(s.app || ""), title: String(s.title || ""), idleSec: Number(s.idleSec) || 0 });
+        } catch {}
+      }
+    });
+    proc.on("exit", (code) => {
+      // Only if it's still the current one: a quick stop-then-start must not
+      // lose track of the new process (and leave it running unkilled).
+      if (fgProc === proc) fgProc = null;
+      if (!fgWanted || fgProc) return;
+      // Died on its own while still wanted. Within seconds of starting, three
+      // times running: PowerShell is being blocked (Constrained Language
+      // Mode, AppLocker, antivirus), and retrying every heartbeat won't help.
+      fgQuickExits = Date.now() - started < 10000 ? fgQuickExits + 1 : 0;
+      if (fgQuickExits >= 3) {
+        fgPausedUntil = Date.now() + 30 * 60000;
+        fgQuickExits = 0;
+        console.warn(`[RELAY] Can't read the foreground app (PowerShell exited with ${code} right after starting — blocked by policy or antivirus?). App triggers won't work; trying again in 30 min.`);
+      }
+    });
+  } else {
+    sampleUnix();
+    fgTimer = setInterval(sampleUnix, FG_SAMPLE_MS);
+  }
+}
+
+function stopForeground() {
+  if (fgProc) fgProc.kill();
+  if (fgTimer) clearInterval(fgTimer);
+  if (fgProc || fgTimer) console.log("[RELAY] No trigger needs the foreground app any more — stopped reporting it.");
+  fgProc = null;
+  fgTimer = null;
+  fgLast = "";
+}
+
+function setForegroundWanted(want, match = []) {
+  fgMatch = (Array.isArray(match) ? match : []).map((w) => String(w).toLowerCase()).filter(Boolean);
+  fgWanted = !!want;
+  if (fgWanted) startForeground();
+  else stopForeground();
+}
+
 // Heartbeat — also detects server restart and re-registers if needed
 let _heartbeatFailures = 0;
 setInterval(async () => {
@@ -1030,6 +1186,7 @@ setInterval(async () => {
   try {
     const r = await apiPost("/api/claw/relay/heartbeat", { deviceId: DEVICE_ID });
     _heartbeatFailures = 0;
+    setForegroundWanted(r?.wantContext === true, r?.contextMatch);
     // If server doesn't recognize us (e.g. after a restart), re-register
     if (r?.error === "unknown_device" || r?.needsRegister) {
       console.log("[RELAY] Server doesn't recognize us — re-registering…");
@@ -1052,6 +1209,7 @@ setInterval(async () => {
 function shutdown(signal) {
   console.log(`\n[RELAY] Received ${signal}, shutting down.`);
   running = false;
+  stopForeground();
   apiPost("/api/claw/relay/unregister", { deviceId: DEVICE_ID })
     .catch(() => {})
     .finally(() => process.exit(0));

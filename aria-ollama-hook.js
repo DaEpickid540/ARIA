@@ -69,6 +69,9 @@ async function listModels() {
       name: m.name,
       size: m.size,
       parameterSize: m.details?.parameter_size || "",
+      // Newer Ollama lists capabilities here; ARIA sends screenshots only to
+      // a model that has "vision".
+      vision: Array.isArray(m.capabilities) && m.capabilities.includes("vision"),
     }));
   } catch (e) {
     if (ollamaUp !== false)

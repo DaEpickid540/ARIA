@@ -18,6 +18,9 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const NOTES_FILE = path.join(DATA_DIR, "notes.json");
 const TODOS_FILE = path.join(DATA_DIR, "todos.json");
 
+/** The todo list as stored (for the evening debrief). */
+export const readTodos = () => loadJSON(TODOS_FILE, []);
+
 function loadJSON(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return fallback; }
 }
@@ -177,7 +180,7 @@ async function runTodo(input = "") {
   switch (cmd) {
     case "add":
       if (!text) return "Usage: /todo add <text>";
-      todos.push({ text, done: false });
+      todos.push({ text, done: false, createdAt: Date.now() });
       saveJSON(TODOS_FILE, todos);
       return `✓ Task #${todos.length}: "${text}"`;
     case "list":
@@ -190,6 +193,7 @@ async function runTodo(input = "") {
       const i = parseInt(text) - 1;
       if (!todos[i]) return "Not found.";
       todos[i].done = true;
+      todos[i].doneAt = Date.now();
       saveJSON(TODOS_FILE, todos);
       return `✓ Done: "${todos[i].text}"`;
     }
@@ -197,6 +201,7 @@ async function runTodo(input = "") {
       const i = parseInt(text) - 1;
       if (!todos[i]) return "Not found.";
       todos[i].done = false;
+      delete todos[i].doneAt;
       saveJSON(TODOS_FILE, todos);
       return `↩ Undone: "${todos[i].text}"`;
     }
@@ -357,13 +362,13 @@ export const CALENDAR_NOT_CONFIGURED =
  * Throws when Google refuses the refresh token or the events request.
  * @returns {Promise<{title,start,end,location,allDay}[]>}
  */
-export async function getCalendarEvents() {
+export async function getCalendarEvents({ timeMin = Date.now(), timeMax = Date.now() + 7 * 86400000, max = 10 } = {}) {
   const token = await getCalendarToken();
   if (!token) throw new Error("Google refused the refresh token");
-  const now = new Date().toISOString(),
-    future = new Date(Date.now() + 7 * 86400000).toISOString();
+  const now = new Date(timeMin).toISOString(),
+    future = new Date(timeMax).toISOString();
   const resp = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&timeMax=${future}&singleEvents=true&orderBy=startTime&maxResults=10`,
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&timeMax=${future}&singleEvents=true&orderBy=startTime&maxResults=${Math.min(250, Math.max(1, max))}`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
   const data = await resp.json();

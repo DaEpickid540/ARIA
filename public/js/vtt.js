@@ -219,9 +219,10 @@ async function transcribe(blob) {
   throw new Error(d.message || d.error || `HTTP ${r.status}`);
 }
 
-/* Local Whisper, for when the server has no speech key. */
+/* Local Whisper, for when the server has no speech key, and for the wake
+   word (wakeWord.js), which never sends what the mic hears anywhere. */
 let _asr = null;
-async function transcribeLocally(blob) {
+function localAsr() {
   if (!_asr) {
     toast("Downloading the speech model (first time only, ~80 MB)…");
     _asr = import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1")
@@ -236,7 +237,18 @@ async function transcribeLocally(blob) {
         throw e;
       });
   }
-  const asr = await _asr;
+  return _asr;
+}
+
+/** Text from 16 kHz mono samples, on this device. */
+export async function transcribePcmLocally(pcm) {
+  const asr = await localAsr();
+  const out = await asr(pcm);
+  return String(out?.text || "").trim();
+}
+
+async function transcribeLocally(blob) {
+  const asr = await localAsr();
   // Whisper wants 16 kHz mono PCM.
   const ctx = new AudioContext({ sampleRate: 16000 });
   try {
@@ -313,6 +325,26 @@ export function stopContinuousVTT() {
   } catch {}
   isListening = false;
 }
+
+/** One utterance, ended by silence, then sent (the wake word's follow-up). */
+export function listenOnce() {
+  if (isListening || callModeActive) return false;
+  if (engine === "record") {
+    recordStart({ endOnSilence: true });
+    return true;
+  }
+  if (!recognition) return false;
+  try {
+    recognition.start();
+    isListening = true;
+    setWaveActive(true);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export const isVoiceBusy = () => isListening || callModeActive;
 
 /* -------------------------------------------------------
    PUSH TO TALK
