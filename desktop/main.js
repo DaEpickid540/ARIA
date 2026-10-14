@@ -14,8 +14,9 @@
 //     ARIA_DATA_DIR, so updating or uninstalling the app never touches it.
 //   - Ollama needs no hook: the server is on the same PC, so it talks to
 //     OLLAMA_URL (localhost:11434) directly and the model switcher lists them.
-//   - Claw (PC control) is off until you turn it on: in ARIA's Claw panel
-//     (through preload.cjs's window.ariaDesktop) or the ARIA menu. It runs
+//   - Claw (PC control) is on while the app runs unless you switch it off:
+//     in ARIA's Claw panel (through preload.cjs's window.ariaDesktop) or the
+//     ARIA menu. It runs
 //     claw-relay.js against this local server, and a second copy against
 //     Render (ARIA ▸ Reachable from anywhere) so ARIA opened on any other
 //     machine can still control this PC. That one signs in with this PC's
@@ -88,17 +89,29 @@ const DEFAULT_CLOUD_URL = "https://aria-69jr.onrender.com";
 let quitting = false;
 
 // ── Settings (desktop-only switches) ──────────────────────────────
-// claw: PC control on at all. remote: also reachable through Render, so
+// claw: PC control on at all; on whenever the app runs unless you switched
+// it off. clawPicked: you have used the switch (older builds saved claw:false
+// without you ever touching it). remote: also reachable through Render, so
 // signing in to ARIA on any other machine can reach this PC. texting: run the
 // Google Voice hook. trayTold: the "still running in the tray" notice showed.
 // wake: the page is listening for "Hey ARIA" (public/js/wakeWord.js).
-const DEFAULT_SETTINGS = { claw: false, remote: true, texting: false, trayTold: false, wake: false };
+const DEFAULT_SETTINGS = {
+  claw: true,
+  clawPicked: false,
+  remote: true,
+  texting: false,
+  trayTold: false,
+  wake: false,
+};
 function loadSettings() {
+  let s;
   try {
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")) };
+    s = { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")) };
   } catch {
-    return { ...DEFAULT_SETTINGS };
+    s = { ...DEFAULT_SETTINGS };
   }
+  if (!s.clawPicked) s.claw = true;
+  return s;
 }
 function saveSettings(s) {
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(s, null, 2));
@@ -409,7 +422,7 @@ function setRemote(on) {
 
 /** The one switch for PC control, from the page or the menu. */
 function setClaw(on) {
-  settings = { ...settings, claw: !!on };
+  settings = { ...settings, claw: !!on, clawPicked: true };
   saveSettings(settings);
   if (on) startRelay();
   else stopRelay();

@@ -4880,6 +4880,8 @@ app.post("/api/claw", async (req, res) => {
           " step(s)." +
           (tid
             ? " Executing..."
+            : process.env.ARIA_DESKTOP
+            ? ' PC control is off. Turn it on in the Claw panel ("Turn on PC control").'
             : " No relay connected — start claw-relay.js on your machine."),
         queued: cmds.map(
           (c) =>
@@ -4902,8 +4904,9 @@ app.post("/api/claw", async (req, res) => {
   // Direct modes: shell, type, hotkey, mouse
   if (!tid)
     return res.json({
-      error:
-        "No relay connected. Run claw-relay.js on your machine, or flash and pair the ESP32 relay.",
+      error: process.env.ARIA_DESKTOP
+        ? 'PC control is off. Turn it on in the Claw panel ("Turn on PC control").'
+        : "No relay connected. Run claw-relay.js on your machine, or flash and pair the ESP32 relay.",
     });
   // Mouse mode takes "move X Y | click X Y | scroll up 3"; the rest are "<mode>: <input>".
   const line =
