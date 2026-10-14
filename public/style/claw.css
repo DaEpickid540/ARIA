@@ -223,6 +223,19 @@
   color: var(--accent-text);
   text-shadow: none;
 }
+/* AUTO mode: the mode the current step is using lights up as it switches */
+.clawModeBtn.autoLive {
+  border-color: var(--info);
+  color: var(--info);
+  animation: clawAutoPulse 0.9s ease-in-out infinite alternate;
+}
+@keyframes clawAutoPulse {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--info) 0%, transparent); }
+  to { box-shadow: 0 0 6px 1px color-mix(in srgb, var(--info) 45%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .clawModeBtn.autoLive { animation: none; }
+}
 
 /* Quick actions row */
 #clawQuickRow {

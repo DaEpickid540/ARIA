@@ -24,6 +24,8 @@ import * as arena from "./lib/arena.js";
 import * as selftest from "./lib/selftest.js";
 import { toolsFor, subAgentMay } from "./lib/agent-tools.js";
 import * as screenFix from "./lib/screen-fix.js";
+import * as clawGrid from "./lib/claw-grid.js";
+import * as clawAuto from "./lib/claw-auto.js";
 import { parseSmsCommand, statusText, HELP as SMS_HELP } from "./lib/sms-commands.js";
 import * as skills from "./lib/skills.js";
 import * as cloud from "./lib/cloud-sync.js";
@@ -455,9 +457,38 @@ function nextClawId() {
   return "claw_" + Date.now() + "_" + clawCmdSeq++;
 }
 
-function _parseChatClawInput(s) {
+/* ── The grid Claw sees over the screen(s) (lib/claw-grid.js) ──
+   Set each time a model is shown a screenshot, so "click: F7" means the cell
+   it just looked at. Per device, plus the latest (a screen watcher posts the
+   ESP32's screenshots under its own id). */
+const clawGrids = new Map(); // deviceId → { spec, monitors, at }
+let lastClawGrid = null;
+function gridFor(deviceId) {
+  return (deviceId && clawGrids.get(deviceId)) || lastClawGrid;
+}
+
+/**
+ * "X,Y", "X Y", a grid cell ("F7", "F7.3"), or nothing.
+ * @returns {{x:number,y:number} | {none:true} | {error:string}}
+ */
+function clawPoint(arg, deviceId) {
+  const t = String(arg ?? "").trim();
+  if (!t) return { none: true };
+  if (clawGrid.parseCell(t)) {
+    const g = gridFor(deviceId);
+    if (!g) return { error: `"${t}" is a grid cell, but there's no grid yet — take a screenshot first` };
+    const p = clawGrid.cellPoint(g.spec, t);
+    return p || { error: `"${t}" is off the grid (columns A–${clawGrid.colName(g.spec.cols - 1)}, rows 1–${g.spec.rows})` };
+  }
+  const m = /^(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)$/.exec(t);
+  if (m) return { x: Math.round(+m[1]), y: Math.round(+m[2]) };
+  return { error: `"${t}" isn't a spot — use X,Y or a grid cell like F7` };
+}
+
+function _parseChatClawInput(s, deviceId) {
   const id = nextClawId();
-  s = s.trim();
+  s = String(s ?? "").trim();
+  const bad = (hint) => ({ id, type: "unknown", raw: s, hint });
   if (s.startsWith("shell:"))
     return { id, type: "shell", cmd: s.slice(6).trim() };
   if (s.startsWith("type:"))
@@ -475,36 +506,40 @@ function _parseChatClawInput(s) {
     const p = s.slice(11).split("|");
     return { id, type: "write_code", app: p[0]?.trim(), code: p[1]?.trim() };
   }
-  // ── Mouse actions ──────────────────────────────────────────
-  if (s.startsWith("move:")) {
-    const [x, y] = s.slice(5).trim().split(/[, ]+/);
-    return { id, type: "mouse_move", x: +x || 0, y: +y || 0 };
+  if (/^wait\b/.test(s)) {
+    const ms = Math.round(Number(s.replace(/^wait:?/, "").trim()) || 1000);
+    return { id, type: "wait", ms: Math.max(0, Math.min(10000, ms)) };
   }
-  if (s.startsWith("click:")) {
-    const [x, y] = s.slice(6).trim().split(/[, ]+/);
-    return { id, type: "click", x: +x || 0, y: +y || 0, button: "left" };
-  }
-  if (s.startsWith("right_click:")) {
-    const [x, y] = s.slice(12).trim().split(/[, ]+/);
-    return { id, type: "click", x: +x || 0, y: +y || 0, button: "right" };
-  }
-  if (s.startsWith("double_click:")) {
-    const [x, y] = s.slice(13).trim().split(/[, ]+/);
-    return { id, type: "double_click", x: +x || 0, y: +y || 0 };
+  // ── Mouse actions: X,Y or a grid cell (F7 / F7.3) ──────────
+  if (/^(mouse_pos|mouse position|where|pos|position):?\s*$/i.test(s)) return { id, type: "mouse_pos" };
+  const mouse = /^(move|click|right_click|double_click):\s*(.*)$/i.exec(s);
+  if (mouse) {
+    const verb = mouse[1].toLowerCase();
+    const p = clawPoint(mouse[2], deviceId);
+    if (p.error) return bad(p.error);
+    if (verb === "move") return p.none ? bad("move: needs X,Y or a grid cell") : { id, type: "mouse_move", x: p.x, y: p.y };
+    // No spot = click where the pointer already is (it used to click 0,0).
+    const at = p.none ? {} : { x: p.x, y: p.y };
+    if (verb === "double_click") return { id, type: "double_click", ...at };
+    return { id, type: "click", ...at, button: verb === "right_click" ? "right" : "left" };
   }
   if (s.startsWith("drag:")) {
-    // drag: X1,Y1 to X2,Y2
-    const m = s.match(/drag:\s*(-?\d+)[, ]+(-?\d+)\s+to\s+(-?\d+)[, ]+(-?\d+)/i);
-    if (m)
-      return { id, type: "drag", x1: +m[1], y1: +m[2], x2: +m[3], y2: +m[4] };
+    // drag: X1,Y1 to X2,Y2  (either end may be a grid cell)
+    const m = /^drag:\s*(.+?)\s+to\s+(.+)$/i.exec(s);
+    if (!m) return bad("drag: <from> to <to>");
+    const a = clawPoint(m[1], deviceId);
+    const b = clawPoint(m[2], deviceId);
+    if (a.error || b.error) return bad(a.error || b.error);
+    if (a.none || b.none) return bad("drag: needs both ends");
+    return { id, type: "drag", x1: a.x, y1: a.y, x2: b.x, y2: b.y };
   }
   if (s.startsWith("scroll:")) {
-    const p = s.slice(7).trim().split(" ");
+    const p = s.slice(7).trim().split(/\s+/);
     return {
       id,
       type: "scroll",
-      direction: p[0] || "down",
-      amount: +p[1] || 3,
+      direction: /^up$/i.test(p[0]) ? "up" : "down",
+      amount: Math.max(1, Math.min(50, Math.round(+p[1] || 3))),
     };
   }
   if (s.startsWith("open:")) {
@@ -515,12 +550,12 @@ function _parseChatClawInput(s) {
   }
   // Unknown — used to be queued as a shell echo, which told the model it had
   // succeeded at something it had not done.
-  return { id, type: "unknown", raw: s };
+  return bad();
 }
 
 const CLAW_HELP =
-  "open:, switch:, new_tab:, close_tab, hotkey:, type:, shell:, screenshot, write_code:, " +
-  "scroll:, move:, click:, right_click:, double_click:, drag:";
+  "open:, switch:, new_tab:, close_tab, hotkey:, type:, shell:, screenshot, write_code:, wait:, " +
+  "scroll:, move:, click:, right_click:, double_click:, drag: (spots are X,Y or a grid cell like F7), mouse_pos";
 
 /* ── Claw: which relay, waiting for results, approvals ──────────
    The screen watcher registers as a relay so it shows up in the panel, but
@@ -565,7 +600,7 @@ function clawWaitMs(cmd) {
 }
 
 // Commands that only look. Everything else acts on the machine.
-const CLAW_READONLY = new Set(["screenshot", "wait", "scroll", "mouse_move", "move"]);
+const CLAW_READONLY = new Set(["screenshot", "wait", "scroll", "mouse_move", "move", "mouse_pos"]);
 const DANGEROUS_SHELL = [
   /\brm\s+-\w*[rf]/i, /\brmdir\b/i, /\b(del|erase)\b[^|&]*\/[sq]/i,
   /Remove-Item\b/i, /\bformat(\.com)?\s+[a-z]:/i, /\bmkfs/i, /\bdd\s+if=/i,
@@ -970,6 +1005,9 @@ ACTION: claw | click: 500,300
 ACTION: claw | right_click: 500,300
 ACTION: claw | double_click: 500,300
 ACTION: claw | drag: 100,200 to 400,500
+ACTION: claw | click: F7          ← a cell of the grid on your last screenshot
+ACTION: claw | mouse_pos          ← where the pointer is now
+ACTION: claw | wait: 1500
 Claw results come back to you (shell output, errors). Read them
 before telling Sarvin something worked. If a result says "exit 1:" it FAILED.
 
@@ -982,8 +1020,9 @@ MOUSE RULES — CRITICAL:
   ACTION: claw | screenshot         ← see the screen first
   ACTION: claw | move: 960,540      ← then move
   ACTION: claw | click: 960,540     ← then click
-- When the user asks to click something you can't see, take a screenshot first to find its coordinates, then click.
-- Coordinates are screen pixels from top-left corner (0,0).
+- When the user asks to click something you can't see, take a screenshot first to find it, then click.
+- Screenshots come back with a labelled grid drawn on them (only in the picture, not on the real screen). Click by cell: click: F7, or click: F7.3 for a ninth of a cell (1 top-left … 5 centre … 9 bottom-right). Cells work for move/click/right_click/double_click/drag.
+- Coordinates are desktop pixels; with several monitors some can be negative. The pointer glides there in a smooth curve on its own.
 
 SENSITIVE CLAW (requires Sarvin's approval — use CONFIRM: prefix):
 CONFIRM: claw | shell: rm -rf somefolder
@@ -1559,10 +1598,10 @@ async function runAgenticPipeline(
             "https://your-aria-url.onrender.com") +
           " --key=<ARIA_RELAY_KEY>` on your machine. Node.js required, zero installs.";
       } else {
-        const cmd = _parseChatClawInput(toolInput);
+        const cmd = _parseChatClawInput(toolInput, tid);
         const needs = cmd.type === "unknown" ? null : clawConfirmReason(cmd, { tainted });
         if (cmd.type === "unknown") {
-          clawResult = `Unknown claw command "${cmd.raw}". Valid: ${CLAW_HELP}`;
+          clawResult = cmd.hint ? `Can't run "${cmd.raw}": ${cmd.hint}.` : `Unknown claw command "${cmd.raw}". Valid: ${CLAW_HELP}`;
         } else if (needs) {
           const c = createConfirm("claw", { cmd, deviceId: tid }, describeClaw(cmd), needs);
           pushStep({ tool: "claw_confirm", input: c.summary, preText, result: "awaiting_approval" });
@@ -1576,24 +1615,13 @@ async function runAgenticPipeline(
           };
         } else if (cmd.type === "screenshot") {
           // ── Screenshot: wait for the image, then inject it as vision ──
-          queueClaw(tid, cmd);
-          const screenshotB64 = await new Promise((resolve) => {
-            const timeoutTimer = setTimeout(() => {
-              pendingScreenshotResolvers.delete(cmd.id);
-              resolve(null); // timed out — no image
-            }, 12000);
-            pendingScreenshotResolvers.set(cmd.id, {
-              deviceId: tid,
-              resolve,
-              timer: timeoutTimer,
-            });
-          });
-
+          const screenshotB64 = await captureScreen(tid, { cmd, ms: 12000 });
           if (screenshotB64) {
-            // Shrunk, and as an OpenAI-style image part: the Anthropic-style
-            // block this used to send was read by no provider ARIA has, so
-            // the model "looked" at the screen and saw nothing.
-            const img = await shrinkScreenshot(screenshotB64);
+            // Shrunk, gridded (lib/claw-grid.js — only in the picture, not on
+            // the screen), and as an OpenAI-style image part: the
+            // Anthropic-style block this used to send was read by no provider
+            // ARIA has, so the model "looked" at the screen and saw nothing.
+            const shot = await gridScreenshot(screenshotB64, tid);
             // What's on a screen is anybody's text (a page, an email, a chat),
             // and the model now really reads it: PC actions after this ask.
             tainted = true;
@@ -1609,10 +1637,10 @@ async function runAgenticPipeline(
               {
                 role: "user",
                 content: [
-                  screenFix.imagePart(img),
+                  screenFix.imagePart(shot.image),
                   {
                     type: "text",
-                    text: `${screenFix.SCREENSHOT_NOTE} Analyze this screen and continue your task.`,
+                    text: `${screenFix.SCREENSHOT_NOTE} ${shot.note} Analyze this screen and continue your task.`,
                   },
                 ],
               },
@@ -1648,7 +1676,7 @@ async function runAgenticPipeline(
               ? `Queued [${describeClaw(cmd)}] — no result back within ${Math.round(
                   waitMs / 1000,
                 )}s (the relay may still be running it).`
-              : `[${describeClaw(cmd)}]\n${truncateOut(out)}`;
+              : `[${describeClaw(cmd)}]\n${truncateOut(withCell(cmd, out))}`;
         }
       }
       pushStep({
@@ -2656,6 +2684,12 @@ async function callAI(messages, provider, model, modeOpts = {}) {
 }
 
 // ── Provider helpers ──
+// Groq retired llama-3.3-70b-versatile on 16 Aug 2026 and Llama 4 Scout (its
+// only image model) on 17 Jul 2026 (console.groq.com/docs/deprecations), so
+// every Groq call was failing. Its suggested replacements: GPT-OSS 120B for
+// text, Qwen3.6 27B — which also reads images — for pictures.
+const GROQ_TEXT_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL || "qwen/qwen3.6-27b";
 async function callGroq(messages, model) {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("GROQ_API_KEY not set");
@@ -2666,12 +2700,12 @@ async function callGroq(messages, model) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: model || "llama-3.3-70b-versatile",
+      model: model || GROQ_TEXT_MODEL,
       messages,
       max_tokens: 4096,
     }),
   });
-  if (!res.ok) throw new Error(`Groq HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`Groq HTTP ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`);
   const data = await res.json();
   const reply = data?.choices?.[0]?.message?.content?.trim();
   if (!reply) throw new Error("Empty Groq response");
@@ -2689,16 +2723,56 @@ const OR_FREE_MODELS = [
   "nousresearch/hermes-3-llama-3.1-405b:free",
   "microsoft/phi-4-reasoning-plus:free",
   "moonshotai/kimi-k2:free",
+  // OpenRouter's free router: picks any free model that can do what the
+  // request needs (images included). The vision fallback after Gemma.
+  "openrouter/free",
 ];
 
 // The free OpenRouter model in OR_FREE_MODELS that reads images.
 const OR_VISION_MODEL = "google/gemma-3-27b-it:free";
 
+// Workers AI models that read images (OpenAI-style image_url parts), tried
+// in order. CLOUDFLARE_VISION_MODEL goes first when set.
+const CF_VISION_MODELS = [
+  process.env.CLOUDFLARE_VISION_MODEL,
+  "@cf/meta/llama-4-scout-17b-16e-instruct",
+  "@cf/google/gemma-3-12b-it",
+  "@cf/mistralai/mistral-small-3.1-24b-instruct",
+].filter(Boolean);
+
+/** Cloudflare Workers AI with a picture: each vision model in turn until one answers. */
+async function callCloudflareVision(messages) {
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const apiKey = process.env.CLOUDFLARE_AI_API;
+  if (!accountId || !apiKey) throw new Error("CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_AI_API not set.");
+  const errors = [];
+  for (const model of CF_VISION_MODELS) {
+    try {
+      const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ messages, max_tokens: 2048 }),
+        signal: AbortSignal.timeout(120_000),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data?.errors?.[0]?.message || `HTTP ${res.status}`);
+      // Most models answer { response }, the OpenAI-compatible ones { choices }.
+      const r = data?.result;
+      const reply = (typeof r?.response === "string" ? r.response : r?.choices?.[0]?.message?.content || "").trim();
+      if (!reply) throw new Error("empty reply");
+      return { reply, model };
+    } catch (e) {
+      errors.push(`${model.split("/").pop()}: ${e.message}`);
+    }
+  }
+  throw new Error(`Cloudflare vision: ${errors.join("; ")}`);
+}
+
 /**
- * A model that can see. Ollama first when it's the chosen provider (it
- * swaps to an installed vision model on its own), then OpenRouter's vision
- * model, then Ollama as a last resort. Throws a sentence saying what to set
- * up when nothing can.
+ * A model that can see (callVision): the chosen local model, then an
+ * installed Ollama vision model, then the cloud — Groq, Cloudflare and
+ * OpenRouter vision models, the model switcher's provider first. Throws a
+ * sentence saying what to set up when nothing can.
  */
 /**
  * The owner's own vision model, if any: Ollama here (OLLAMA_URL), or the
@@ -2757,19 +2831,49 @@ async function callVision(messages, { provider = activeModel.provider, model = a
       tried.push(e.message);
     }
   }
-  if (process.env.OPENROUTER_API_KEY) {
+  // Then every cloud provider with a key that has a model that can see, the
+  // one picked in the model switcher first: Groq → Cloudflare → OpenRouter.
+  // Some (Gemma) refuse system messages, so the system prompt is folded in.
+  const folded = screenFix.foldSystem(messages);
+  const clouds = [
+    process.env.GROQ_API_KEY && {
+      name: "groq",
+      run: async () => [await callGroq(messages, GROQ_VISION_MODEL), `Groq (${GROQ_VISION_MODEL}, cloud)`],
+    },
+    process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_API && {
+      name: "cloudflare",
+      run: async () => {
+        const { reply, model: m } = await callCloudflareVision(folded);
+        return [reply, `Cloudflare (${m.split("/").pop()}, cloud)`];
+      },
+    },
+    process.env.OPENROUTER_API_KEY && {
+      name: "openrouter",
+      run: async () => {
+        try {
+          return [await callOpenRouter(folded, OR_VISION_MODEL), `OpenRouter (${OR_VISION_MODEL}, cloud)`];
+        } catch (e) {
+          tried.push(`openrouter ${OR_VISION_MODEL}: ${e.message}`);
+          return [await callOpenRouter(folded, "openrouter/free"), "OpenRouter (free router, cloud)"];
+        }
+      },
+    },
+  ].filter(Boolean);
+  clouds.sort((a, b) => (b.name === provider) - (a.name === provider));
+  for (const c of clouds) {
     try {
-      // Gemma on OpenRouter refuses system messages: fold them into the user turn.
-      const out = await callOpenRouter(screenFix.foldSystem(messages), OR_VISION_MODEL);
-      report(`OpenRouter (${OR_VISION_MODEL}, cloud)`);
+      const [out, via] = await c.run();
+      if (!String(out || "").trim()) throw new Error("empty reply");
+      report(via);
       return out;
     } catch (e) {
-      tried.push(e.message);
+      tried.push(`${c.name}: ${e.message}`);
+      console.warn(`[VISION] ${c.name} couldn't read the image (${e.message}) — trying the next one`);
     }
   }
   throw new Error(
-    "No model here can see images. Set OPENROUTER_API_KEY, or install an Ollama vision model (`ollama pull qwen2.5vl`)." +
-      (tried.length ? ` (${tried.join("; ").slice(0, 300)})` : ""),
+    "No model here can see images. Set GROQ_API_KEY, CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_API, or OPENROUTER_API_KEY, or install an Ollama vision model (`ollama pull qwen2.5vl`)." +
+      (tried.length ? ` (${tried.join("; ").slice(0, 400)})` : ""),
   );
 }
 
@@ -2786,6 +2890,40 @@ async function shrinkScreenshot(b64) {
     return `data:image/jpeg;base64,${out.toString("base64")}`;
   } catch {
     return `data:image/png;base64,${raw}`;
+  }
+}
+
+/**
+ * A screenshot for a model to act on: shrunk like shrinkScreenshot(), with
+ * the labelled grid (lib/claw-grid.js) drawn on it, and that grid kept so
+ * "click: F7" can be turned back into pixels. The grid covers what the relay
+ * captured (all monitors, or one), in desktop coordinates.
+ * @returns {Promise<{ image: string, note: string, spec: object|null }>}
+ */
+async function gridScreenshot(b64, deviceId) {
+  const raw = String(b64 || "").replace(/^data:image\/\w+;base64,/, "");
+  // The relay's report of where the capture sits and where each monitor is.
+  let meta = null;
+  for (const v of global.clawScreenshots?.values() || []) if (v.b64 === raw && (!meta || v.ts > meta.ts)) meta = v;
+  try {
+    const { default: sharp } = await import("sharp");
+    const src = Buffer.from(raw, "base64");
+    const { width: W, height: H } = await sharp(src).metadata();
+    const small = await sharp(src).resize({ width: 1600, withoutEnlargement: true }).toBuffer({ resolveWithObject: true });
+    const b = meta?.bounds;
+    const spec = clawGrid.gridSpec(b && b.w > 0 && b.h > 0 ? b : { x: 0, y: 0, w: W, h: H });
+    const svg = clawGrid.gridSvg(spec, small.info.width, small.info.height, meta?.monitors || []);
+    const out = await sharp(small.data)
+      .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
+      .jpeg({ quality: 80 })
+      .toBuffer();
+    const grid = { spec, monitors: meta?.monitors || [], at: Date.now() };
+    if (deviceId) clawGrids.set(deviceId, grid);
+    lastClawGrid = grid;
+    return { image: `data:image/jpeg;base64,${out.toString("base64")}`, note: clawGrid.gridNote(spec), spec };
+  } catch (e) {
+    console.warn("[CLAW] grid overlay failed:", e.message);
+    return { image: await shrinkScreenshot(raw), note: "Use exact pixels (click: X,Y).", spec: null };
   }
 }
 
@@ -4713,7 +4851,7 @@ app.post("/api/claw/relay/unregister", (req, res) => {
 const pendingScreenshotResolvers = new Map(); // cmdId → {resolve, timer}
 
 app.post("/api/claw/relay/result", (req, res) => {
-  const { screenshot, fname, bounds, deviceId, cmdId, result } = req.body;
+  const { screenshot, fname, bounds, monitors, deviceId, cmdId, result } = req.body;
   if (screenshot && deviceId) {
     // Store latest screenshot per device for POV feed
     if (!global.clawScreenshots) global.clawScreenshots = new Map();
@@ -4721,6 +4859,7 @@ app.post("/api/claw/relay/result", (req, res) => {
       b64: screenshot,
       fname: fname || "",
       bounds: bounds || null,
+      monitors: Array.isArray(monitors) ? monitors.slice(0, 16) : [],
       ts: Date.now(),
     });
     // Resolve the pipeline waiting on this screenshot. The node relay names
@@ -4748,13 +4887,20 @@ app.post("/api/claw/relay/result", (req, res) => {
 });
 
 // Latest screenshot for POV feed in claw panel
-app.get("/api/claw/screenshot", (req, res) => {
+// ?grid=1: the same picture with the grid ARIA clicks by (lib/claw-grid.js),
+// so you can see what it sees; that grid becomes the one "click: F7" uses.
+app.get("/api/claw/screenshot", async (req, res) => {
   const shots = global.clawScreenshots;
   if (!shots || shots.size === 0) return res.json({ ok: false });
   // Return most recent across all devices
   let latest = null;
-  for (const [, v] of shots) {
-    if (!latest || v.ts > latest.ts) latest = v;
+  let latestId = null;
+  for (const [id, v] of shots) {
+    if (!latest || v.ts > latest.ts) [latest, latestId] = [v, id];
+  }
+  if (req.query.grid) {
+    const g = await gridScreenshot(latest.b64, latestId);
+    return res.json({ ok: true, image: g.image, grid: g.spec, ts: latest.ts, bounds: latest.bounds });
   }
   res.json({ ok: true, b64: latest.b64, ts: latest.ts, bounds: latest.bounds });
 });
@@ -4832,71 +4978,13 @@ app.post("/api/claw", async (req, res) => {
   // Prefer ESP32 if available, otherwise the PC relay (never the screen watcher)
   const tid = pickRelay({ preferEsp32: true });
 
-  if (mode === "ai") {
-    // AI plans steps then queues them
-    try {
-      const relayInfo = tid ? clawRelays.get(tid) : null;
-      const relayType = relayInfo?.relayType || "node";
-      const isEsp32 = relayType === "esp32";
-
-      const platHint = tid
-        ? `Target: ${relayInfo?.platform || "?"} — ${
-            relayInfo?.hostname || "?"
-          } (${relayType})`
-        : "No relay connected.";
-
-      const cmdTypes = isEsp32
-        ? "{type:type,text:string} {type:hotkey,keys:[string]} {type:mouse_move,x:number,y:number} {type:click,x:number,y:number,button:string} {type:double_click,x:number,y:number} {type:scroll,direction:string,amount:number} {type:drag,x1:number,y1:number,x2:number,y2:number} {type:wait,ms:number}"
-        : "{type:shell,cmd:string} {type:type,text:string} {type:hotkey,keys:[string]} {type:launch_app,app:string} {type:browser,url:string} {type:new_tab,url:string} {type:close_tab} {type:screenshot} {type:mouse_move,x:number,y:number} {type:click,x:number,y:number,button:string} {type:scroll,direction:string,amount:number} {type:drag,x1:number,y1:number,x2:number,y2:number} {type:wait,ms:number}";
-
-      const esp32Note = isEsp32
-        ? " IMPORTANT: This is an ESP32 BLE relay — NO shell/screenshot/launch_app. To open apps: use hotkey:{keys:[win]}, wait, type the app name, hotkey:{keys:[enter]}."
-        : "";
-
-      const msgs = [
-        {
-          role: "system",
-          content: `You are ARIA Claw. ${platHint}.${esp32Note} Output ONLY a JSON array of command objects. No other text. Commands: ${cmdTypes}`,
-        },
-        { role: "user", content: input },
-      ];
-      const r = await callAI(msgs, "openrouter", null, {});
-      let cmds = [];
-      try {
-        const match = (r || "[]").match(/\[[\s\S]*\]/);
-        cmds = JSON.parse(match ? match[0] : "[]");
-      } catch {}
-      cmds = cmds.map((c) => ({ ...c, id: nextClawId() }));
-
-      if (tid && cmds.length) {
-        if (!clawQueue.has(tid)) clawQueue.set(tid, []);
-        clawQueue.get(tid).push(...cmds);
-      }
-
-      return res.json({
-        output:
-          "Planned " +
-          cmds.length +
-          " step(s)." +
-          (tid
-            ? " Executing..."
-            : " No relay connected — start claw-relay.js on your machine."),
-        queued: cmds.map(
-          (c) =>
-            c.type +
-            (c.cmd
-              ? ": " + String(c.cmd).slice(0, 30)
-              : c.app
-              ? " → " + c.app
-              : c.url
-              ? " → " + c.url
-              : ""),
-        ),
-        relayConnected: !!tid,
-      });
-    } catch (e) {
-      return res.json({ error: "AI error: " + e.message });
-    }
+  // AUTO (and the old "ai" mode): a model picks the mode for each step,
+  // runs it, looks at the result and carries on (lib/claw-auto.js). The
+  // panel follows along through /api/claw/auto/:id.
+  if (mode === "auto" || mode === "ai") {
+    if (!tid) return res.json({ error: "No relay connected. Run claw-relay.js on your machine, or turn on PC control." });
+    const job = startClawAuto(input, { maxSteps: req.body.maxSteps, deviceId: tid });
+    return res.json({ jobId: job.id, output: "Working on it…", relayConnected: true });
   }
 
   // Direct modes: shell, type, hotkey, mouse
@@ -4905,28 +4993,153 @@ app.post("/api/claw", async (req, res) => {
       error:
         "No relay connected. Run claw-relay.js on your machine, or flash and pair the ESP32 relay.",
     });
-  // Mouse mode takes "move X Y | click X Y | scroll up 3"; the rest are "<mode>: <input>".
+  // Mouse mode takes "move X Y | click F7 | scroll up 3 | pos"; "line" is
+  // raw Claw syntax (the quick buttons); the rest are "<mode>: <input>".
   const line =
-    mode === "mouse"
+    mode === "line"
+      ? input.trim()
+      : mode === "mouse"
       ? input.trim().replace(
           /^(move|click|right_click|double_click|scroll|drag)\s+/i,
           (_, verb) => verb.toLowerCase() + ": ",
         )
       : mode + ": " + input;
-  const cmd = _parseChatClawInput(line);
+  const cmd = _parseChatClawInput(line, tid);
   if (cmd.type === "unknown")
-    return res.json({ error: `Unknown command "${cmd.raw}". Valid: ${CLAW_HELP}` });
+    return res.json({ error: cmd.hint ? `Can't run "${cmd.raw}": ${cmd.hint}.` : `Unknown command "${cmd.raw}". Valid: ${CLAW_HELP}` });
+  const why = clawConfirmReason(cmd);
+  if (why) {
+    const c = createConfirm("claw", { cmd, deviceId: tid }, describeClaw(cmd), why);
+    return res.json({ output: `Needs your OK — ${why}.`, confirm: publicConfirm(c), relayConnected: true });
+  }
   queueClaw(tid, cmd);
+  // Wait briefly for what it did, so the panel shows a result, not "queued".
+  const out = cmd.type === "screenshot" ? null : await awaitClawResult(cmd.id, Math.min(clawWaitMs(cmd) || 0, 8000));
   return res.json({
-    output: "Queued: " + cmd.type,
+    output: out == null ? "Queued: " + cmd.type : `${describeClaw(cmd)} → ${truncateOut(withCell(cmd, out), 1500)}`,
     queued: [cmd.type],
     relayConnected: true,
   });
 });
 
+/* ── Claw AUTO jobs (lib/claw-auto.js) ─────────────────────────
+   One job per task typed in the panel. The panel polls the log; the kill
+   switch or the panel's stop button ends it between steps. */
+const clawAutoJobs = new Map(); // id → { id, task, status, log, stop, created }
+
+/** "mouse at 812,433" → "mouse at 812,433 (cell H5)" when there's a grid. */
+function withCell(cmd, out) {
+  if (cmd.type !== "mouse_pos" || !out) return out;
+  const m = /(-?\d+),(-?\d+)/.exec(out);
+  const g = gridFor(null);
+  const cell = m && g && clawGrid.pointCell(g.spec, +m[1], +m[2]);
+  return cell ? `${out} (cell ${cell})` : out;
+}
+
+function startClawAuto(task, { maxSteps, deviceId }) {
+  for (const [k, j] of clawAutoJobs) if (Date.now() - j.created > 60 * 60_000) clawAutoJobs.delete(k);
+  const job = { id: "auto_" + crypto.randomBytes(5).toString("hex"), task, status: "running", log: [], stop: false, created: Date.now() };
+  clawAutoJobs.set(job.id, job);
+  const push = (e) => job.log.push({ ...e, i: job.log.length, ts: Date.now() });
+  const relay = () => (liveClawRelays().some(([k]) => k === deviceId) ? deviceId : pickRelay());
+  const info = clawRelays.get(deviceId) || {};
+  const provider = activeModel.provider;
+  const model = activeModel.model;
+
+  clawAuto
+    .runAuto(
+      task,
+      {
+        // With a screenshot in the messages callAI goes to callVision, which
+        // finds a provider that can see (Groq → Cloudflare → OpenRouter).
+        ai: (msgs) => callAI(msgs, provider, model, {}),
+        parse: (line) => _parseChatClawInput(line, relay()),
+        stopped: () => job.stop || clawKilled || !auth.dangerousAllowed(),
+        needsOk: (cmd, { looked }) =>
+          clawConfirmReason(cmd) ||
+          // After a look at the screen, text on it could be steering the
+          // model: shell commands then wait for the owner.
+          (looked && cmd.type === "shell" ? "it looked at your screen first, and anything on a screen could be steering it" : null),
+        askOk: (cmd, reason) => {
+          const c = createConfirm("claw", { cmd, deviceId: relay() }, describeClaw(cmd), reason);
+          push({ label: "CONFIRM", text: `Waiting for your OK: ${c.summary}`, mode: "confirm", confirm: publicConfirm(c) });
+          return waitForConfirm(c.id);
+        },
+        exec: async (cmd) => {
+          const tid = relay();
+          if (!tid) return { text: "ERROR: the relay disconnected" };
+          if (cmd.type === "screenshot") {
+            const b64 = await captureScreen(tid, { cmd, ms: 15000 });
+            if (!b64) return { text: "ERROR: no screenshot came back within 15s" };
+            const shot = await gridScreenshot(b64, tid);
+            const s = shot.spec;
+            return { image: shot.image, text: s ? `screenshot attached — grid ${s.cols}×${s.rows}, A1 at ${s.x},${s.y}. ${shot.note}` : "screenshot attached (no grid)" };
+          }
+          queueClaw(tid, cmd);
+          const out = await awaitClawResult(cmd.id, clawWaitMs(cmd) || 10000);
+          return { text: out == null ? "no result back in time (it may still be running)" : withCell(cmd, out) };
+        },
+        log: push,
+      },
+      {
+        maxSteps,
+        system: clawAuto.autoSystem({ platform: info.platform, hostname: info.hostname, relayType: info.relayType, maxSteps: clawAutoMax(maxSteps) }),
+      },
+    )
+    .then((r) => {
+      job.status = r.status;
+      push({ label: r.status === "done" ? "DONE" : r.status.toUpperCase(), text: `${r.say} (${r.steps} step${r.steps === 1 ? "" : "s"})`, mode: r.status === "done" ? "done" : "error" });
+    })
+    .catch((e) => {
+      job.status = "error";
+      push({ label: "ERROR", text: e.message, mode: "error" });
+    });
+  return job;
+}
+const clawAutoMax = (n) => Math.max(1, Math.min(clawAuto.MAX_STEPS, Math.round(Number(n) || clawAuto.DEFAULT_MAX_STEPS)));
+
+app.get("/api/claw/auto/:id", (req, res) => {
+  const job = clawAutoJobs.get(req.params.id);
+  if (!job) return res.status(404).json({ error: "No such task (finished over an hour ago?)." });
+  const after = Number(req.query.after ?? -1);
+  res.json({ id: job.id, status: job.status, log: job.log.filter((e) => e.i > after) });
+});
+
+app.post("/api/claw/auto/:id/stop", (req, res) => {
+  const job = clawAutoJobs.get(req.params.id);
+  if (!job) return res.status(404).json({ error: "No such task." });
+  job.stop = true;
+  res.json({ ok: true });
+});
+
+// id → resolve({ approved, output }): an AUTO task waiting on an approval.
+const confirmWaiters = new Map();
+function waitForConfirm(id) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      confirmWaiters.delete(id);
+      resolve({ approved: false, output: "no answer in time" });
+    }, CONFIRM_TTL_MS);
+    confirmWaiters.set(id, (r) => {
+      clearTimeout(timer);
+      confirmWaiters.delete(id);
+      resolve(r);
+    });
+  });
+}
+
 // Approve or deny a held claw command. The client
 // only sends the id — what runs is exactly what was proposed.
 async function resolveConfirm(req, res) {
+  // An AUTO task may be waiting on this one: tell it how it went.
+  const waiter = confirmWaiters.get(req.body?.id);
+  if (waiter) {
+    const json = res.json.bind(res);
+    res.json = (r) => {
+      waiter({ approved: !!req.body?.approved && r?.ok !== false && r?.message !== "Cancelled.", output: r?.output || r?.error || r?.message });
+      return json(r);
+    };
+  }
   const { id, approved } = req.body || {};
   const c = id && pendingConfirms.get(id);
   if (!c) return res.json({ ok: false, error: "No such pending action (expired or already handled)." });
@@ -5661,7 +5874,7 @@ async function arenaModels() {
     } catch {}
   }
   const labelOf = (p, m) =>
-    ({ groq: "Groq Llama 3.3 70B", deepseek: "DeepSeek", nemotron: "Nemotron 70B", cloudflare: "Cloudflare", openrouter: m ? `OpenRouter ${String(m).split("/").pop()}` : "OpenRouter" })[p] ||
+    ({ groq: "Groq GPT-OSS 120B", deepseek: "DeepSeek", nemotron: "Nemotron 70B", cloudflare: "Cloudflare", openrouter: m ? `OpenRouter ${String(m).split("/").pop()}` : "OpenRouter" })[p] ||
     `${p}${m ? ` ${m}` : ""}`;
   const keys = {
     groq: !!process.env.GROQ_API_KEY,
@@ -5858,16 +6071,15 @@ app.delete("/api/watchers/:id", (req, res) => {
    named "screen-fix"), since everything on a screen is someone's text.
    ============================================================ */
 /** One screenshot from the relay, as base64 (no prefix), or null. */
-async function captureScreen(deviceId) {
+async function captureScreen(deviceId, { cmd = { id: nextClawId(), type: "screenshot" }, ms = 15000 } = {}) {
   const tid = deviceId && liveClawRelays().some(([k]) => k === deviceId) ? deviceId : pickRelay();
   if (!tid) return null;
-  const cmd = { id: nextClawId(), type: "screenshot" };
   queueClaw(tid, cmd);
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       pendingScreenshotResolvers.delete(cmd.id);
       resolve(null);
-    }, 15000);
+    }, ms);
     pendingScreenshotResolvers.set(cmd.id, { deviceId: tid, resolve, timer });
   });
 }

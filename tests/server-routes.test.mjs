@@ -522,3 +522,74 @@ test("skill tools: the bundled chord tool answers /api/tool and is listed; a bad
   const w = await (await post("/api/tool", { tool: "weather", input: "" })).json();
   assert.notEqual(w.output, "hijacked");
 });
+
+test("claw: grid cells need a screenshot first, then click where the grid says; pos and blank clicks; auto mode runs as a job", async () => {
+  const deviceId = "relay-grid-test";
+  await post("/api/claw/relay/register", { deviceId, platform: "win32" });
+  // A 400×200 "desktop" whose left edge is at x = -200 (a monitor to the left).
+  const { default: sharp } = await import("sharp");
+  const PNG = (await sharp({ create: { width: 400, height: 200, channels: 3, background: "#222" } }).png().toBuffer()).toString("base64");
+  const seen = [];
+  let stop = false;
+  const relay = (async () => {
+    while (!stop) {
+      const { commands = [] } = await getJson(`/api/claw/queue?deviceId=${deviceId}`);
+      for (const c of commands) {
+        seen.push(c);
+        const shot =
+          c.type === "screenshot"
+            ? { screenshot: PNG, bounds: { x: -200, y: 0, w: 400, h: 200 }, monitors: [{ x: -200, y: 0, w: 200, h: 200 }, { x: 0, y: 0, w: 200, h: 200, primary: true }] }
+            : {};
+        await post("/api/claw/relay/result", { deviceId, cmdId: c.id, result: c.type === "mouse_pos" ? "mouse at -150,120" : "ok", ...shot });
+      }
+      await post("/api/claw/relay/heartbeat", { deviceId });
+      await new Promise((res) => setTimeout(res, 50));
+    }
+  })();
+  const claw = async (input, mode) => (await post("/api/claw", { input, mode })).json();
+  try {
+    // No screenshot yet: a cell means nothing.
+    assert.match((await claw("click F7", "mouse")).error, /take a screenshot first/);
+    // "click:" with no spot clicks where the pointer is (it used to click 0,0).
+    await claw("click:", "line");
+    assert.deepEqual([seen.at(-1).type, seen.at(-1).x, seen.at(-1).y], ["click", undefined, undefined]);
+
+    // A screenshot, then the gridded view of it (what a model is shown).
+    await claw("screenshot", "line");
+    let shot;
+    for (let i = 0; i < 40 && !shot?.ok; i++) {
+      await new Promise((res) => setTimeout(res, 100));
+      shot = await getJson("/api/claw/screenshot");
+    }
+    const grid = await getJson("/api/claw/screenshot?grid=1");
+    assert.match(grid.image, /^data:image\/jpeg;base64,/);
+    assert.deepEqual([grid.grid.cols, grid.grid.rows, grid.grid.x], [4, 2, -200]);
+
+    // A2 on a 100px grid starting at -200,0 → its centre is -150,150.
+    let r = await claw("click A2", "mouse");
+    assert.ok(!r.error, r.error);
+    assert.deepEqual([seen.at(-1).type, seen.at(-1).x, seen.at(-1).y], ["click", -150, 150]);
+    await claw("drag A1.1 to D2.9", "mouse");
+    assert.deepEqual([seen.at(-1).x1, seen.at(-1).y1, seen.at(-1).x2, seen.at(-1).y2], [-183, 17, 183, 183]);
+    assert.match((await claw("click Z9", "mouse")).error, /off the grid/);
+    assert.match((await claw("pos", "mouse")).output, /mouse at -150,120 \(cell A2\)/);
+
+    // AUTO: becomes a job the panel follows. With no model keys it ends in a
+    // readable error instead of hanging.
+    r = await claw("open notepad and click File", "auto");
+    assert.match(r.jobId, /^auto_/);
+    let job;
+    for (let i = 0; i < 40; i++) {
+      job = await getJson(`/api/claw/auto/${r.jobId}`);
+      if (job.status !== "running") break;
+      await new Promise((res) => setTimeout(res, 100));
+    }
+    assert.equal(job.status, "error");
+    assert.ok(job.log.some((e) => e.mode === "error"));
+    assert.equal((await fetch(`${BASE}/api/claw/auto/nope`)).status, 404);
+  } finally {
+    stop = true;
+    await relay;
+    await post("/api/claw/relay/unregister", { deviceId });
+  }
+});

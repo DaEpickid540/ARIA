@@ -17,7 +17,7 @@ const MODEL_KEY = { openrouter: "orModel", ollama: "ollamaModel", lmstudio: "lms
 
 // Cloud providers with one fixed model (or their own auto-routing).
 const OTHERS = [
-  { provider: "groq", label: "Groq · Llama 3.3 70B" },
+  { provider: "groq", label: "Groq · GPT-OSS 120B" },
   { provider: "cloudflare", label: "Cloudflare (picks per task)" },
   { provider: "nemotron", label: "NVIDIA Nemotron 70B" },
   { provider: "deepseek", label: "DeepSeek" },

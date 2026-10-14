@@ -36,6 +36,7 @@ function _buildKillSwitch() {
 }
 
 async function killClaw() {
+  if (_autoJob) _stopAuto();
   document.getElementById("clawKillSwitch")?.classList.add("killed");
   const ks = document.getElementById("clawKillSwitch");
   if (ks) ks.innerHTML = "⬡<br>RESUME";
@@ -57,11 +58,13 @@ async function resumeClaw() {
    MAIN PANEL
 ═══════════════════════════════════════════════════════════ */
 let _clawEnabled = true;
-let _activeMode = "ai";
+let _activeMode = "auto";
 let _activeTab = "control";
 let _screenWatch = false;
 let _screenTimer = null;
 let _screenInterval = 4000;
+let _screenGrid = false; // show ARIA's click grid on the POV picture
+const _shotUrl = () => "/api/claw/screenshot" + (_screenGrid ? "?grid=1" : "");
 
 function _buildPanel() {
   const panel = document.createElement("div");
@@ -98,11 +101,11 @@ function _buildPanel() {
       <!-- Mode pills -->
       <div id="clawModeRow">
         <span class="clawModeLabel">MODE</span>
-        <button class="clawModeBtn active" data-mode="ai"     title="AI plans steps automatically">🤖 AI</button>
+        <button class="clawModeBtn active" data-mode="auto"   title="Auto: ARIA picks the mode for every step and switches as it goes (PowerShell → mouse → keyboard…)">🧠 Auto</button>
         <button class="clawModeBtn"        data-mode="shell"  title="Direct shell command">💻 Shell</button>
         <button class="clawModeBtn"        data-mode="type"   title="Type text into active window">⌨ Type</button>
         <button class="clawModeBtn"        data-mode="hotkey" title="Keyboard shortcut e.g. ctrl+t">⌘ Key</button>
-        <button class="clawModeBtn"        data-mode="mouse"  title="Mouse: move X Y | click X Y | scroll up 3">🖱 Mouse</button>
+        <button class="clawModeBtn"        data-mode="mouse"  title="Mouse: move X Y | click F7 (grid cell) | pos | scroll up 3">🖱 Mouse</button>
       </div>
 
       <!-- Quick actions -->
@@ -136,6 +139,7 @@ function _buildPanel() {
       <div id="clawScreenControls">
         <button id="clawScreenSnapBtn" class="clawHdrBtn">📸 Snapshot</button>
         <button id="clawScreenWatchBtn" class="clawHdrBtn">▶ Start Watch</button>
+        <button id="clawScreenGridBtn" class="clawHdrBtn" title="Show the grid ARIA clicks by (it's only in this picture, never on your screen)">▦ Grid</button>
         <span id="clawScreenStatus" class="clawScreenStatusText">Idle</span>
       </div>
       <div id="clawScreenIntervalRow">
@@ -160,7 +164,7 @@ function _buildPanel() {
           <span id="cfgTypeDelayVal" class="clawCfgVal">25ms</span>
         </label>
         <label class="clawCfgRow">
-          <span class="clawCfgLabel">Mouse speed</span>
+          <span class="clawCfgLabel">Mouse glide speed</span>
           <input type="range" id="cfgMouseSpeed" min="1" max="10" value="1" step="1"/>
           <span id="cfgMouseSpeedVal" class="clawCfgVal">1×</span>
         </label>
@@ -208,8 +212,8 @@ function _buildPanel() {
           <span id="cfgConfidenceVal" class="clawCfgVal">70%</span>
         </label>
         <label class="clawCfgRow">
-          <span class="clawCfgLabel">Max steps per task</span>
-          <input type="range" id="cfgMaxSteps" min="1" max="20" value="8" step="1"/>
+          <span class="clawCfgLabel">Max steps per Auto task</span>
+          <input type="range" id="cfgMaxSteps" min="1" max="25" value="8" step="1"/>
           <span id="cfgMaxStepsVal" class="clawCfgVal">8</span>
         </label>
       </div>
@@ -218,8 +222,9 @@ function _buildPanel() {
         <div class="clawCfgTitle">RELAY</div>
         <div id="clawSetupGuideBlock" class="clawCfgGuide">
           <div class="clawCfgTitle" style="margin-bottom:8px">CONNECT YOUR PC</div>
-          <code>node claw-relay.js https://aria-69jr.onrender.com</code>
+          <code>node claw-relay.js https://aria-69jr.onrender.com --key=&lt;key&gt; --background</code>
           <p>No npm install. Node.js only. Works on Win / Mac / Linux.</p>
+          <p><code>--background</code> runs it hidden (no window); <code>--stop</code> stops it; <code>--startup</code> also starts it hidden at every Windows login.</p>
           <p>Kill switch ⬡ always visible bottom-right.</p>
         </div>
       </div>
@@ -244,11 +249,11 @@ function _buildPanel() {
 
   // ── Mode buttons ──
   const HINTS = {
-    ai: "describe what ARIA should do on your PC...",
+    auto: "e.g. open Spotify and click Liked Songs — ARIA picks the modes",
     shell: "dir  /  Get-Process  /  echo hello",
     type: "Hello World!  (types into active window)",
     hotkey: "ctrl+t  /  alt+tab  /  ctrl+shift+n  /  win+d",
-    mouse: "move 500 300  |  click 500 300  |  scroll down 3",
+    mouse: "move 500 300  |  click F7  |  pos  |  scroll down 3",
   };
   panel.querySelectorAll(".clawModeBtn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -264,7 +269,7 @@ function _buildPanel() {
 
   // ── Quick actions ──
   panel.querySelectorAll(".clawQuickBtn[data-action]").forEach((btn) => {
-    btn.addEventListener("click", () => _runCommand(btn.dataset.action, "ai"));
+    btn.addEventListener("click", () => _runCommand(btn.dataset.action, "line"));
   });
   document.getElementById("clawQuickKill").addEventListener("click", killClaw);
 
@@ -348,9 +353,10 @@ function _buildPanel() {
   });
 
   // ── Run / input ──
-  document
-    .getElementById("clawRunBtn")
-    .addEventListener("click", _runFromInput);
+  document.getElementById("clawRunBtn").addEventListener("click", () => {
+    if (_autoJob) _stopAuto();
+    else _runFromInput();
+  });
   document.getElementById("clawInput").addEventListener("keydown", (e) => {
     if (e.key === "Enter") _runFromInput();
   });
@@ -372,6 +378,16 @@ function _buildPanel() {
   document
     .getElementById("clawScreenWatchBtn")
     .addEventListener("click", _toggleScreenWatch);
+  document.getElementById("clawScreenGridBtn").addEventListener("click", (e) => {
+    _screenGrid = !_screenGrid;
+    e.currentTarget.classList.toggle("active", _screenGrid);
+    // Redraw the frame on screen with (or without) the grid.
+    if (_lastShotTs)
+      fetch(_shotUrl())
+        .then((r) => r.json())
+        .then((d) => d.ok && _showScreenshot(d.image || d.b64, d.ts, d.bounds))
+        .catch(() => {});
+  });
   document
     .getElementById("clawScreenIntervalSlider")
     .addEventListener("input", (e) => {
@@ -412,12 +428,12 @@ async function _takeSnapshot({ quiet = false } = {}) {
     let attempts = 0;
     const poll = setInterval(async () => {
       attempts++;
-      const d = await fetch("/api/claw/screenshot")
+      const d = await fetch(_shotUrl())
         .then((r) => r.json())
         .catch(() => ({}));
-      if (d.ok && d.b64 && d.ts > since) {
+      if (d.ok && (d.b64 || d.image) && d.ts > since) {
         clearInterval(poll);
-        _showScreenshot(d.b64, d.ts, d.bounds);
+        _showScreenshot(d.image || d.b64, d.ts, d.bounds);
         if (!quiet) _setScreenStatus("Snapshot taken");
       } else if (attempts > 10) {
         clearInterval(poll);
@@ -439,10 +455,10 @@ function _startScreenWatch() {
   _setScreenStatus("Watching...");
   _takeSnapshot();
   _screenTimer = setInterval(() => {
-    fetch("/api/claw/screenshot")
+    fetch(_shotUrl())
       .then((r) => r.json())
       .then((d) => {
-        if (d.ok && d.b64) _showScreenshot(d.b64, d.ts, d.bounds);
+        if (d.ok && (d.b64 || d.image)) _showScreenshot(d.image || d.b64, d.ts, d.bounds);
       })
       .catch(() => {});
     // Also request a fresh one from relay
@@ -477,7 +493,7 @@ function _showScreenshot(b64, ts, bounds) {
   const empty = document.getElementById("clawPovEmpty");
   const stamp = document.getElementById("clawPovTimestamp");
   if (img) {
-    img.src = "data:image/png;base64," + b64;
+    img.src = String(b64).startsWith("data:") ? b64 : "data:image/png;base64," + b64;
     img.style.display = "block";
   }
   if (empty) empty.style.display = "none";
@@ -795,26 +811,39 @@ async function _runCommand(input, mode) {
     _log("BLOCKED", "Claw is OFF. Toggle ON to execute.", "error");
     return;
   }
+  if (_autoJob && mode === "auto") {
+    _log("BUSY", "Still working on the last task — ⏹ to stop it first.", "error");
+    return;
+  }
   _log("YOU", input, "user");
   _setStatus("● RUNNING", "var(--red-neon, #ff2222)");
   const panel = document.getElementById("clawPanel");
   const vizMode = panel?._getViz?.() || false;
+  let following = false;
 
   try {
     const res = await fetch("/api/claw", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input, mode }),
+      body: JSON.stringify({
+        input,
+        mode,
+        maxSteps: Number(document.getElementById("cfgMaxSteps")?.value) || 8,
+      }),
     });
     const data = await res.json();
     if (data.error) {
       _log("ERROR", data.error, "error");
+    } else if (data.jobId) {
+      following = true;
+      _followAuto(data.jobId);
     } else {
       if (data.output) _log("ARIA", data.output, "output");
+      if (data.confirm) showConfirmDialog(data.confirm);
       if (vizMode && data.queued?.length) {
         data.queued.forEach((q) => _log("EXEC", q, "viz"));
       }
-      if (!data.relayConnected && mode !== "ai") {
+      if (!data.relayConnected) {
         _log(
           "WARN",
           "No relay connected. Start claw-relay.js on your machine.",
@@ -825,9 +854,89 @@ async function _runCommand(input, mode) {
   } catch (e) {
     _log("ERROR", "Network: " + e.message, "error");
   } finally {
-    _setStatus("● READY", "");
+    if (!following) _setStatus("● READY", "");
     document.getElementById("clawOutput")?.scrollTo(0, 999999);
   }
+}
+
+/* ── AUTO: follow a task as it runs ────────────────────────────
+   The server picks the mode for every step (lib/claw-auto.js); here each
+   step is logged under its mode and that mode's pill lights up, so you can
+   watch it switch from PowerShell to the mouse and back. */
+let _autoJob = null; // { id, after, timer }
+const AUTO_LABEL = {
+  shell: "💻 PS",
+  app: "🚀 APP",
+  type: "⌨ TYPE",
+  hotkey: "⌘ KEY",
+  mouse: "🖱 MOUSE",
+  look: "👁 LOOK",
+  wait: "⏳ WAIT",
+};
+const AUTO_PILL = { shell: "shell", app: "shell", type: "type", hotkey: "hotkey", mouse: "mouse", look: "mouse" };
+
+function _autoPill(mode) {
+  document.querySelectorAll(".clawModeBtn").forEach((b) => {
+    b.classList.toggle("autoLive", !!mode && b.dataset.mode === AUTO_PILL[mode]);
+  });
+}
+
+function _followAuto(id) {
+  const btn = document.getElementById("clawRunBtn");
+  if (btn) {
+    btn.textContent = "⏹";
+    btn.title = "Stop this task";
+  }
+  _autoJob = { id, after: -1, timer: null };
+  const job = _autoJob;
+  const tick = async () => {
+    if (_autoJob !== job) return;
+    try {
+      const d = await fetch(`/api/claw/auto/${encodeURIComponent(id)}?after=${job.after}`).then((r) => r.json());
+      if (d.error) throw new Error(d.error);
+      for (const e of d.log || []) {
+        job.after = Math.max(job.after, e.i);
+        if (AUTO_LABEL[e.mode]) {
+          _autoPill(e.mode);
+          _log(AUTO_LABEL[e.mode], e.text, "viz");
+        } else if (e.mode === "confirm") {
+          _log("⚠ CONFIRM", e.text, "error");
+          if (e.confirm) showConfirmDialog(e.confirm);
+        } else if (e.mode === "say" || e.mode === "done") {
+          _log(e.label === "DONE" ? "✓ DONE" : "ARIA", e.text, "output");
+        } else if (e.mode === "result") {
+          _log("↳", e.text, "info");
+        } else {
+          _log(e.label || "ERROR", e.text, "error");
+        }
+      }
+      if (d.status && d.status !== "running") return _endAuto();
+    } catch (e) {
+      _log("ERROR", "Lost track of the task: " + e.message, "error");
+      return _endAuto();
+    }
+    job.timer = setTimeout(tick, 700);
+  };
+  tick();
+}
+
+function _endAuto() {
+  if (_autoJob) clearTimeout(_autoJob.timer);
+  _autoJob = null;
+  _autoPill(null);
+  const btn = document.getElementById("clawRunBtn");
+  if (btn) {
+    btn.textContent = "⚡";
+    btn.title = "";
+  }
+  _setStatus("● READY", "");
+}
+
+function _stopAuto() {
+  const job = _autoJob;
+  if (!job) return;
+  _log("SYSTEM", "Stopping after the current step…", "info");
+  fetch(`/api/claw/auto/${encodeURIComponent(job.id)}/stop`, { method: "POST" }).catch(() => {});
 }
 
 /* ═══════════════════════════════════════════════════════════
