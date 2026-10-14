@@ -13,7 +13,7 @@
 import { loadSettings, patchSettings } from "./personality.js";
 
 // Where each provider keeps its chosen model in settings.
-const MODEL_KEY = { openrouter: "orModel", ollama: "ollamaModel", lmstudio: "lmstudioModel" };
+const MODEL_KEY = { openrouter: "orModel", ollama: "ollamaModel", lmstudio: "lmstudioModel", gemini: "geminiModel" };
 
 // Cloud providers with one fixed model (or their own auto-routing).
 const OTHERS = [
@@ -61,6 +61,7 @@ function labelFor({ provider, model }) {
   }
   if (provider === "ollama") return model || "Ollama";
   if (provider === "lmstudio") return model || "LM Studio";
+  if (provider === "gemini") return model ? `Gemini · ${model.replace(/^gemini-/, "")}` : "Gemini · newest Flash";
   return OTHERS.find((o) => o.provider === provider)?.label || provider;
 }
 
@@ -152,9 +153,10 @@ function note(text, code = "") {
 async function buildMenu() {
   const menu = $("modelSwitchMenu");
   menu.replaceChildren(note("Loading models…"));
-  const [ollama, config] = await Promise.all([
+  const [ollama, config, gem] = await Promise.all([
     getJSON("/api/ollama/status"),
     providers ? Promise.resolve(null) : getJSON("/api/config"),
+    getJSON("/api/gemini/models"),
   ]);
   if (config?.providers) providers = config.providers;
   const cur = current();
@@ -176,6 +178,18 @@ async function buildMenu() {
   out.push(heading("OpenRouter · free"));
   for (const m of openRouterModels())
     out.push(item({ provider: "openrouter", ...m, disabled: !has("openrouter"), sub: has("openrouter") ? "" : "no key" }, cur));
+
+  // Gemini: "auto" follows the newest Flash model the keys can use.
+  out.push(document.createElement("div"));
+  out.at(-1).className = "toolDropDivider";
+  const gemKeys = gem?.keys?.length || 0;
+  out.push(heading(`Google Gemini${gemKeys > 1 ? ` · ${gemKeys} keys` : ""}`));
+  if (!gem?.configured) {
+    out.push(note("No key yet — add one (or several) in Settings ▸ Keys."));
+  } else {
+    out.push(item({ provider: "gemini", model: null, label: "Newest Flash (auto)", sub: gem.default || "" }, cur));
+    for (const m of (gem.models || []).slice(0, 8)) out.push(item({ provider: "gemini", model: m, label: m.replace(/^gemini-/, "") }, cur));
+  }
 
   out.push(document.createElement("div"));
   out.at(-1).className = "toolDropDivider";

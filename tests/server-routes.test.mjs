@@ -593,3 +593,29 @@ test("claw: grid cells need a screenshot first, then click where the grid says; 
     await post("/api/claw/relay/unregister", { deviceId });
   }
 });
+
+test("Gemini: several keys added one at a time, one removed, the provider shows up; key values never come back", async () => {
+  const keys = async () => (await getJson("/api/keys")).keys.find((k) => k.name === "GEMINI_API_KEYS");
+  assert.equal((await keys()).set, false);
+  assert.equal((await getJson("/api/config")).providers.gemini, false);
+
+  for (const k of ["AIzaTestKeyOne1111", "AIzaTestKeyTwo2222", "AIzaTestKeyThree3333"]) {
+    const r = await post("/api/keys", { name: "GEMINI_API_KEYS", add: k });
+    assert.equal(r.status, 200, await r.clone().text());
+  }
+  let g = await keys();
+  assert.deepEqual([g.multi, g.count, g.previews], [true, 3, ["…1111", "…2222", "…3333"]]);
+  assert.doesNotMatch(JSON.stringify(await getJson("/api/keys")), /AIzaTestKey/);
+  assert.equal((await post("/api/keys", { name: "GEMINI_API_KEYS", add: "AIzaTestKeyTwo2222" })).status, 400, "no duplicates");
+  assert.equal((await post("/api/keys", { name: "GEMINI_API_KEYS", add: "bad key!" })).status, 400);
+
+  assert.equal((await post("/api/keys", { name: "GEMINI_API_KEYS", remove: 0 })).status, 200);
+  g = await keys();
+  assert.deepEqual(g.previews, ["…2222", "…3333"]);
+  assert.equal((await getJson("/api/config")).providers.gemini, true);
+  assert.equal((await post("/api/model", { provider: "gemini", model: null })).status, 200);
+  await post("/api/model", { provider: "openrouter", model: null });
+
+  assert.equal((await post("/api/keys", { name: "GEMINI_API_KEYS", value: "" })).status, 200);
+  assert.equal((await keys()).set, false);
+});

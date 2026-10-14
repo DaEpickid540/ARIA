@@ -396,6 +396,25 @@
   padding: 6px 12px;
   font-size: 0.8rem;
 }
+/* Several keys for one provider (Gemini) */
+.keyMultiList {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.keyMultiItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.keyMultiItem .keyRemove {
+  padding: 3px 10px;
+  font-size: 0.72rem;
+}
 .keyMsg {
   min-height: 0;
   font-size: 0.75rem;

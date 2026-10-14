@@ -41,7 +41,43 @@ async function load() {
   list.querySelectorAll(".keyRow").forEach((el) => wire(el, byName.get(el.dataset.name)));
 }
 
+// A setting that holds several keys (Gemini): each listed by its last four
+// characters with its own remove button, and a box to add another.
+function multiRow(k, editable) {
+  const items = (k.previews || [])
+    .map(
+      (p, i) => `
+        <li class="keyMultiItem">
+          <span class="keyStatus keySet">Key ${i + 1} ${esc(p)}</span>
+          ${editable ? `<button type="button" class="secondaryBtn keyRemove" data-index="${i}" title="Remove this key">Remove</button>` : ""}
+        </li>`,
+    )
+    .join("");
+  return `
+    <div class="keyRow keyMulti" data-name="${esc(k.name)}">
+      <div class="keyHead">
+        <span class="keyLabel">${esc(k.label)}</span>
+        <span class="keyStatus${k.set ? " keySet" : ""}">${k.set ? esc(k.preview) : "Not set"}</span>
+        ${k.url ? `<a class="keyGet" href="${esc(k.url)}" target="_blank" rel="noopener">Get a key <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a>` : ""}
+      </div>
+      ${k.hint ? `<div class="keyHint">${esc(k.hint)}</div>` : ""}
+      ${items ? `<ul class="keyMultiList">${items}</ul>` : ""}
+      ${
+        editable
+          ? `<div class="keyEdit">
+              <input class="keyInput" type="password" autocomplete="off" spellcheck="false"
+                placeholder="${k.set ? "Add another key…" : "Paste key"}" aria-label="Add a ${esc(k.label)} key" />
+              <button type="button" class="primaryBtn keyAdd">Add</button>
+              ${k.count > 1 ? `<button type="button" class="secondaryBtn keyClear" title="Remove every key">Clear all</button>` : ""}
+            </div>
+            <div class="keyMsg" role="status"></div>`
+          : ""
+      }
+    </div>`;
+}
+
 function row(k, editable) {
+  if (k.multi) return multiRow(k, editable);
   const status = k.set
     ? `<span class="keyStatus keySet" title="Set">${k.secret ? "Set " : ""}${esc(k.preview)}</span>`
     : `<span class="keyStatus">Not set</span>`;
@@ -75,22 +111,44 @@ function wire(el, k) {
   // owner ID means typing ",<id>", not retyping the first.
   if (input && k && !k.secret && k.set) input.value = k.preview;
 
-  const save = async (value) => {
+  const send = async (body, done) => {
     if (msg) msg.textContent = "Saving…";
     try {
       const r = await fetch("/api/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, value }),
+        body: JSON.stringify({ name, ...body }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.ok) throw new Error(d.error || `HTTP ${r.status}`);
       await load(); // redraw with the new status
-      window.ARIA_showNotification?.(value ? "Key saved — it works from the next message." : "Key removed.");
+      window.ARIA_showNotification?.(done);
     } catch (e) {
       if (msg) msg.textContent = e.message;
     }
   };
+  const save = (value) => send({ value }, value ? "Key saved — it works from the next message." : "Key removed.");
+
+  if (k?.multi) {
+    el.querySelector(".keyAdd")?.addEventListener("click", () => {
+      const v = input?.value.trim();
+      if (!v) {
+        if (msg) msg.textContent = "Paste a key first.";
+        return;
+      }
+      send({ add: v }, "Key added — ARIA takes turns with it from the next message.");
+    });
+    input?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") el.querySelector(".keyAdd")?.click();
+    });
+    el.querySelectorAll(".keyRemove").forEach((b) =>
+      b.addEventListener("click", () => send({ remove: Number(b.dataset.index) }, "Key removed.")),
+    );
+    el.querySelector(".keyClear")?.addEventListener("click", () => {
+      if (confirm(`Remove all ${k.count} ${k.label} keys?`)) save("");
+    });
+    return;
+  }
 
   el.querySelector(".keySave")?.addEventListener("click", () => {
     const v = input?.value.trim();

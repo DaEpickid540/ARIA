@@ -124,6 +124,7 @@ At minimum you need one AI provider. See `.env.example` for the full list.
 |---|---|---|
 | `OPENROUTER_API_KEY` | recommended | Default chat model |
 | `GROQ_API_KEY` | optional | Fast inference |
+| `GEMINI_API_KEYS` | optional | Google Gemini. Several keys, comma-separated (or add them one by one in Settings ▸ Keys): ARIA takes them in turn and skips any that hit a rate limit, so free-tier limits add up. Reads images. `GEMINI_API_KEY` (one key) also works; `GEMINI_MODEL` pins a model, otherwise it uses the newest Flash model your keys can see |
 | `OPENAI_KEY` | optional | DALL-E image generation |
 | `CLOUDFLARE_AI_API` + `CLOUDFLARE_ACCOUNT_ID` | optional | FLUX image gen |
 | `NEWSDATA_KEY` | optional | Live news headlines |
@@ -205,7 +206,8 @@ SCREEN tab's **▦ Grid** button shows you the same view.
 
 **Images** go to whichever provider can see: a local Ollama vision model
 first, then Groq (`qwen/qwen3.6-27b`), Cloudflare Workers AI (Llama 4 Scout →
-Gemma 3 → Mistral Small 3.1) and OpenRouter (Gemma 3 → its free router) — the
+Gemma 3 → Mistral Small 3.1), Google Gemini (every key in turn) and
+OpenRouter (Gemma 3 → its free router) — the
 provider picked in the model switcher is tried first, and a failure moves on
 to the next.
 

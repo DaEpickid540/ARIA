@@ -884,7 +884,7 @@ function wireAllControls() {
   // in step or the next theme change would quietly undo the model pick.
   window.addEventListener("aria:model-changed", () => {
     const saved = loadSettings();
-    for (const k of ["provider", "orModel", "ollamaModel", "lmstudioModel", "cfModel", "cfAutoModel"])
+    for (const k of ["provider", "orModel", "ollamaModel", "lmstudioModel", "geminiModel", "cfModel", "cfAutoModel"])
       currentSettings[k] = saved[k];
     if (document.getElementById("settingsOverlay")?.classList.contains("active")) applySettingsToUI();
   });

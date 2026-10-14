@@ -26,6 +26,7 @@ import { toolsFor, subAgentMay } from "./lib/agent-tools.js";
 import * as screenFix from "./lib/screen-fix.js";
 import * as clawGrid from "./lib/claw-grid.js";
 import * as clawAuto from "./lib/claw-auto.js";
+import * as gemini from "./lib/gemini.js";
 import { parseSmsCommand, statusText, HELP as SMS_HELP } from "./lib/sms-commands.js";
 import * as skills from "./lib/skills.js";
 import * as cloud from "./lib/cloud-sync.js";
@@ -445,7 +446,7 @@ if (memTimeline.repair(ariaMemory)) writeJSONDebounced(MEM_FILE, ariaMemory);
 // What the client's model switcher last picked. Requests that don't name a
 // provider themselves — texts from aria-voice-hook.js — use it.
 const MODEL_FILE = path.join(DATA_DIR, "model.json");
-const PROVIDERS = ["openrouter", "groq", "cloudflare", "nemotron", "deepseek", "ollama", "lmstudio"];
+const PROVIDERS = ["openrouter", "groq", "gemini", "cloudflare", "nemotron", "deepseek", "ollama", "lmstudio"];
 let activeModel = readJSON(MODEL_FILE, { provider: "openrouter", model: null });
 
 /* ── Claw state ── */
@@ -2461,6 +2462,13 @@ async function openChatStream(provider, messages, { hasImages, requestedModel })
     return { deltas: openRouterDeltas(r.body) };
   }
 
+  // Gemini streams the same SSE as OpenRouter (its OpenAI-compatible
+  // endpoint), images included; lib/gemini.js picks the key.
+  if (provider === "gemini" && gemini.configured()) {
+    const r = await gemini.chat(messages, { model: geminiModel(requestedModel), stream: true });
+    return { deltas: openRouterDeltas(r.body) };
+  }
+
   // Straight to Ollama when it's reachable from here (local server, desktop
   // app). Through the PC hook it stays non-streaming for now.
   if (provider === "ollama" && !ollamaRelay.connected()) {
@@ -2582,6 +2590,20 @@ async function callAI(messages, provider, model, modeOpts = {}) {
     }
   }
 
+  // ── GOOGLE GEMINI (several keys, taken in turn — lib/gemini.js) ──
+  if (provider === "gemini") {
+    try {
+      return await gemini.chat(messages, { model: geminiModel(model) });
+    } catch (e) {
+      console.warn("[AI] Gemini failed:", e.message, "— falling back");
+      if (modeOpts.noFallback) throw e; // the self-test asks one provider, not "any that works"
+      if (hasGroq) return callGroq(messages, null);
+      if (hasCF) return callCloudflare(messages, pickCFModel(modeOpts));
+      if (hasOR) return callOpenRouter(messages, null, modeOpts);
+      throw e;
+    }
+  }
+
   // ── GROQ ──
   if (provider === "groq") {
     try {
@@ -2679,6 +2701,7 @@ async function callAI(messages, provider, model, modeOpts = {}) {
     if (modeOpts.noFallback) throw e; // the self-test asks one provider, not "any that works"
     if (hasCF) return callCloudflare(messages, pickCFModel(modeOpts));
     if (hasGroq) return callGroq(messages, null);
+    if (gemini.configured()) return gemini.chat(messages);
     throw e;
   }
 }
@@ -2690,6 +2713,9 @@ async function callAI(messages, provider, model, modeOpts = {}) {
 // text, Qwen3.6 27B — which also reads images — for pictures.
 const GROQ_TEXT_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
 const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL || "qwen/qwen3.6-27b";
+/** A Gemini model id the client asked for, or undefined (= lib/gemini.js picks the newest Flash). */
+const geminiModel = (m) => (typeof m === "string" && /^gemini-[\w.\-]{1,60}$/.test(m) ? m : undefined);
+
 async function callGroq(messages, model) {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("GROQ_API_KEY not set");
@@ -2770,8 +2796,8 @@ async function callCloudflareVision(messages) {
 
 /**
  * A model that can see (callVision): the chosen local model, then an
- * installed Ollama vision model, then the cloud — Groq, Cloudflare and
- * OpenRouter vision models, the model switcher's provider first. Throws a
+ * installed Ollama vision model, then the cloud — Groq, Cloudflare, Gemini
+ * and OpenRouter vision models, the model switcher's provider first. Throws a
  * sentence saying what to set up when nothing can.
  */
 /**
@@ -2832,7 +2858,8 @@ async function callVision(messages, { provider = activeModel.provider, model = a
     }
   }
   // Then every cloud provider with a key that has a model that can see, the
-  // one picked in the model switcher first: Groq → Cloudflare → OpenRouter.
+  // one picked in the model switcher first: Groq → Cloudflare → Gemini →
+  // OpenRouter.
   // Some (Gemma) refuse system messages, so the system prompt is folded in.
   const folded = screenFix.foldSystem(messages);
   const clouds = [
@@ -2845,6 +2872,13 @@ async function callVision(messages, { provider = activeModel.provider, model = a
       run: async () => {
         const { reply, model: m } = await callCloudflareVision(folded);
         return [reply, `Cloudflare (${m.split("/").pop()}, cloud)`];
+      },
+    },
+    gemini.configured() && {
+      name: "gemini",
+      run: async () => {
+        const m = geminiModel(provider === "gemini" ? model : null) || (await gemini.defaultModel());
+        return [await gemini.chat(messages, { model: m }), `Google Gemini (${m}, cloud)`];
       },
     },
     process.env.OPENROUTER_API_KEY && {
@@ -2872,7 +2906,7 @@ async function callVision(messages, { provider = activeModel.provider, model = a
     }
   }
   throw new Error(
-    "No model here can see images. Set GROQ_API_KEY, CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_API, or OPENROUTER_API_KEY, or install an Ollama vision model (`ollama pull qwen2.5vl`)." +
+    "No model here can see images. Set GROQ_API_KEY, CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_API, GEMINI_API_KEYS or OPENROUTER_API_KEY, or install an Ollama vision model (`ollama pull qwen2.5vl`)." +
       (tried.length ? ` (${tried.join("; ").slice(0, 400)})` : ""),
   );
 }
@@ -4303,6 +4337,14 @@ app.post("/api/tool", async (req, res) => {
   }
 });
 
+// Gemini: the chat models the keys can use (newest Flash first) and how each
+// key is doing, for the model switcher. Keys show only their last four.
+app.get("/api/gemini/models", async (req, res) => {
+  if (!gemini.configured()) return res.json({ configured: false, models: [], keys: [] });
+  const models = await gemini.listModels({ force: !!req.query.refresh }).catch(() => []);
+  res.json({ configured: true, models, default: process.env.GEMINI_MODEL || models[0] || gemini.FALLBACK_MODEL, keys: gemini.keyStatus() });
+});
+
 app.get("/api/config", async (_, res) => {
   const hasCF = !!(
     process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_API
@@ -4338,6 +4380,7 @@ app.get("/api/config", async (_, res) => {
     providers: {
       cloudflare: hasCF,
       groq: hasGroq,
+      gemini: gemini.configured(),
       openrouter: hasOR,
       nemotron: hasNV,
       deepseek: hasDS,
@@ -5659,12 +5702,13 @@ app.delete("/api/flashcards/:id", (req, res) => {
    ============================================================ */
 const PROVIDER_KEYS = {
   groq: ["GROQ_API_KEY"],
+  gemini: ["GEMINI_API_KEYS"], // or GEMINI_API_KEY — see hasKeys
   openrouter: ["OPENROUTER_API_KEY"],
   deepseek: ["DEEPSEEK_KEY"],
   nemotron: ["NEMOTRON_NVIDIA"],
   cloudflare: ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_AI_API"],
 };
-const hasKeys = (p) => (PROVIDER_KEYS[p] || []).every((k) => !!process.env[k]);
+const hasKeys = (p) => (p === "gemini" ? gemini.configured() : (PROVIDER_KEYS[p] || []).every((k) => !!process.env[k]));
 const keyFix = (p) => `Check ${PROVIDER_KEYS[p].join(" and ")} (Settings ▸ Keys, or the .env file)`;
 const agoText = (t) => {
   const s = Math.round((Date.now() - t) / 1000);
@@ -5874,10 +5918,11 @@ async function arenaModels() {
     } catch {}
   }
   const labelOf = (p, m) =>
-    ({ groq: "Groq GPT-OSS 120B", deepseek: "DeepSeek", nemotron: "Nemotron 70B", cloudflare: "Cloudflare", openrouter: m ? `OpenRouter ${String(m).split("/").pop()}` : "OpenRouter" })[p] ||
+    ({ groq: "Groq GPT-OSS 120B", gemini: m ? `Gemini ${m}` : "Google Gemini", deepseek: "DeepSeek", nemotron: "Nemotron 70B", cloudflare: "Cloudflare", openrouter: m ? `OpenRouter ${String(m).split("/").pop()}` : "OpenRouter" })[p] ||
     `${p}${m ? ` ${m}` : ""}`;
   const keys = {
     groq: !!process.env.GROQ_API_KEY,
+    gemini: gemini.configured(),
     openrouter: !!process.env.OPENROUTER_API_KEY,
     deepseek: !!process.env.DEEPSEEK_KEY,
     nemotron: !!process.env.NEMOTRON_NVIDIA,
@@ -5886,7 +5931,7 @@ async function arenaModels() {
   const mine = activeModel.provider;
   if (mine === "ollama" && ollama) add("ollama", activeModel.model || ollama.name || ollama, `PC ${activeModel.model || ollama.name || ollama}`);
   else if (keys[mine]) add(mine, activeModel.model || null, labelOf(mine, activeModel.model));
-  for (const p of ["groq", "openrouter", "deepseek", "nemotron", "cloudflare"]) if (keys[p]) add(p, null, labelOf(p, null));
+  for (const p of ["groq", "gemini", "openrouter", "deepseek", "nemotron", "cloudflare"]) if (keys[p]) add(p, null, labelOf(p, null));
   if (ollama && mine !== "ollama") add("ollama", ollama.name || ollama, `PC ${ollama.name || ollama}`);
   return out;
 }
