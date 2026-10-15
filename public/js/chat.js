@@ -2718,6 +2718,7 @@ async function sendMessageContent(text, chat, attachments = []) {
           : currentSettings.cfModel || undefined;
       if (p === "ollama") return currentSettings.ollamaModel || undefined;
       if (p === "lmstudio") return currentSettings.lmstudioModel || undefined;
+      if (p === "gemini") return currentSettings.geminiModel || undefined;
       return undefined;
     })(),
     imageProvider: currentSettings.imageProvider || "auto",

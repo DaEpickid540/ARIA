@@ -124,6 +124,7 @@ At minimum you need one AI provider. See `.env.example` for the full list.
 |---|---|---|
 | `OPENROUTER_API_KEY` | recommended | Default chat model |
 | `GROQ_API_KEY` | optional | Fast inference |
+| `GEMINI_API_KEYS` | optional | Google Gemini. Several keys, comma-separated (or add them one by one in Settings ▸ Keys): ARIA takes them in turn and skips any that hit a rate limit, so free-tier limits add up. Reads images. `GEMINI_API_KEY` (one key) also works; `GEMINI_MODEL` pins a model, otherwise it uses the newest Flash model your keys can see |
 | `OPENAI_KEY` | optional | DALL-E image generation |
 | `CLOUDFLARE_AI_API` + `CLOUDFLARE_ACCOUNT_ID` | optional | FLUX image gen |
 | `NEWSDATA_KEY` | optional | Live news headlines |
@@ -176,6 +177,39 @@ Claw lets ARIA control keyboard, mouse, screenshots, app launching on a target m
 ```bash
 node claw-relay.js https://your-aria-url.onrender.com --key=<ARIA_RELAY_KEY>
 ```
+
+**Headless** — no window on your screen, keeps running after you close the
+terminal, logs to `~/.aria/claw-relay.log`:
+```bash
+node claw-relay.js https://your-aria-url.onrender.com --key=<ARIA_RELAY_KEY> --background
+node claw-relay.js --stop
+# Windows: also start hidden at every login (a .vbs in your Startup folder)
+node claw-relay.js https://your-aria-url.onrender.com --key=<ARIA_RELAY_KEY> --startup
+node claw-relay.js --no-startup
+```
+Every PowerShell the relay runs is hidden too, so nothing flashes on screen.
+
+**Auto mode** (the Claw panel's default): type a task and ARIA picks the mode
+for each step and switches as it goes — PowerShell/`open:` to launch, a
+screenshot to look, the mouse to click inside the app, the keyboard to type.
+The pill for the mode in use lights up as it switches. Once it has looked at
+the screen, PowerShell steps wait for your OK (text on a screen could be
+trying to steer it). *Max steps per Auto task* is in CONFIG.
+
+**Mouse**: moves glide in a smooth, slightly random curve (arcs, S-curves,
+waves, little loops, overshoots, spirals — `lib/claw-motion.js`); *Mouse glide
+speed* in CONFIG sets how fast. `mouse_pos` reads where the pointer is.
+Screenshots a model reads carry a labelled grid (columns A…, rows 1…, each
+monitor outlined) that exists only in the picture, never on your screen; it
+clicks by cell — `click: F7`, or `click: F7.3` for a ninth of a cell. The
+SCREEN tab's **▦ Grid** button shows you the same view.
+
+**Images** go to whichever provider can see: a local Ollama vision model
+first, then Groq (`qwen/qwen3.6-27b`), Cloudflare Workers AI (Llama 4 Scout →
+Gemma 3 → Mistral Small 3.1), Google Gemini (every key in turn) and
+OpenRouter (Gemma 3 → its free router) — the
+provider picked in the model switcher is tried first, and a failure moves on
+to the next.
 
 The model now gets each command's real result (shell output, errors) back
 instead of "queued". Destructive shell commands (`rm -rf`, `Remove-Item`,

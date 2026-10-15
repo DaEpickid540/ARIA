@@ -7,22 +7,33 @@
 //    node claw-relay.js
 //    node claw-relay.js https://your-render-url.onrender.com --key=<ARIA_RELAY_KEY>
 //
+//  Headless (no window on your screen, keeps running after you close the
+//  terminal; log in ~/.aria/claw-relay.log):
+//    node claw-relay.js <url> --key=<key> --background   start it
+//    node claw-relay.js --stop                           stop it
+//    node claw-relay.js <url> --key=<key> --startup      Windows: also start
+//                                                        hidden at every login
+//    node claw-relay.js --no-startup                     undo --startup
+//
 //  Supports: Windows (PowerShell/nircmd), macOS (osascript), Linux (xdotool/bash)
 //  Kill switch: click the red ⬡ KILL CLAW button in any ARIA tab
 // ═══════════════════════════════════════════════════════════════
 
 import { execSync, execFileSync, exec, spawn } from "child_process";
-import { createInterface } from "readline";
-import { writeFileSync, unlinkSync } from "fs";
+import { writeFileSync, unlinkSync, readFileSync, mkdirSync, appendFileSync, statSync, renameSync } from "fs";
 import os from "os";
+import path from "path";
+import { fileURLToPath } from "url";
 import https from "https";
 import http from "http";
+import { mousePath, encodePath, applyPath, DURATION, speedFactor } from "./lib/claw-motion.js";
 
 // Positional arg = server URL; --key=<ARIA_RELAY_KEY> (or the ARIA_RELAY_KEY
 // env var) authenticates to a server that has ARIA_ACCESS_KEY set.
 const _args = process.argv.slice(2);
 const SERVER_URL =
   _args.find((a) => !a.startsWith("--")) || "http://localhost:3000";
+const HEADLESS = _args.includes("--headless");
 const RELAY_KEY =
   _args.find((a) => a.startsWith("--key="))?.slice(6) ||
   process.env.ARIA_RELAY_KEY ||
@@ -31,12 +42,126 @@ const POLL_MS = 1500; // how often to check for commands
 const DEVICE_ID = `relay-${os.hostname()}-${os.platform()}`;
 const PLATFORM = os.platform(); // "win32" | "darwin" | "linux"
 
+
+// ── Headless: run in the background, out of sight ─────────────
+// --background starts a detached copy with no window (Windows hides every
+// console it or its PowerShell children would open) and returns at once.
+// That copy writes its pid so --stop can find it. --startup does the same at
+// every Windows login, through a one-line .vbs in the Startup folder (a .vbs
+// can start node with its window hidden; a shortcut can't).
+const SELF = fileURLToPath(import.meta.url);
+const BG_DIR = path.join(os.homedir(), ".aria");
+const PID_FILE = path.join(BG_DIR, "claw-relay.pid");
+const LOG_FILE = path.join(BG_DIR, "claw-relay.log");
+const STARTUP_VBS = path.join(
+  process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"),
+  "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "ARIA Claw Relay.vbs",
+);
+const BG_FLAGS = new Set(["--background", "--bg", "--stop", "--startup", "--no-startup", "--headless"]);
+const passArgs = () => _args.filter((a) => !BG_FLAGS.has(a));
+
+function runningPid() {
+  try {
+    const pid = Number(readFileSync(PID_FILE, "utf8").trim());
+    if (!pid) return 0;
+    process.kill(pid, 0); // throws when it's gone
+    return pid;
+  } catch {
+    return 0;
+  }
+}
+
+function startBackground() {
+  const pid = runningPid();
+  if (pid) {
+    console.log(`Claw relay is already running in the background (pid ${pid}). Stop it: node claw-relay.js --stop`);
+    return;
+  }
+  const child = spawn(process.execPath, [SELF, ...passArgs(), "--headless"], {
+    detached: true,
+    windowsHide: true,
+    stdio: "ignore", // a headless relay writes its own log
+    env: process.env,
+  });
+  child.unref();
+  console.log(`Claw relay is running in the background (pid ${child.pid}).\n  Log : ${LOG_FILE}\n  Stop: node claw-relay.js --stop`);
+}
+
+function stopBackground() {
+  const pid = runningPid();
+  if (!pid) return console.log("No background Claw relay is running.");
+  try {
+    process.kill(pid, "SIGTERM");
+    console.log(`Stopped the background Claw relay (pid ${pid}).`);
+  } catch (e) {
+    console.log(`Couldn't stop pid ${pid}: ${e.message}`);
+  }
+  try { unlinkSync(PID_FILE); } catch {}
+}
+
+function installStartup(on) {
+  if (os.platform() !== "win32") return console.log("--startup is for Windows. Elsewhere, add `node claw-relay.js <url> --key=… --background` to your login items.");
+  if (!on) {
+    try { unlinkSync(STARTUP_VBS); console.log("Removed the Claw relay from Windows startup."); } catch { console.log("It wasn't set to start with Windows."); }
+    return;
+  }
+  // VBScript strings double their quotes; a quote can't be part of a URL or key anyway.
+  const q = (s) => `""${String(s).replace(/"/g, "")}""`;
+  const cmd = [process.execPath, SELF, ...passArgs()].map(q).join(" ") + " --headless";
+  writeFileSync(
+    STARTUP_VBS,
+    `' ARIA Claw relay, started hidden at login. Remove: node claw-relay.js --no-startup\r\n` +
+      `Set sh = CreateObject("WScript.Shell")\r\n` +
+      `sh.CurrentDirectory = "${path.dirname(SELF).replace(/"/g, "")}"\r\n` +
+      `sh.Run "${cmd}", 0, False\r\n`,
+  );
+  console.log(`Claw relay will start hidden at every login (${STARTUP_VBS}).` + (RELAY_KEY ? "\n  Note: your relay key is stored in that file, in your user profile." : ""));
+}
+
+if (_args.includes("--stop")) {
+  stopBackground();
+  process.exit(0);
+}
+if (_args.includes("--no-startup")) {
+  installStartup(false);
+  process.exit(0);
+}
+if (_args.includes("--startup")) {
+  installStartup(true);
+  mkdirSync(BG_DIR, { recursive: true });
+  startBackground();
+  process.exit(0);
+}
+if (_args.includes("--background") || _args.includes("--bg")) {
+  startBackground();
+  process.exit(0);
+}
+if (HEADLESS) {
+  try {
+    mkdirSync(BG_DIR, { recursive: true });
+    writeFileSync(PID_FILE, String(process.pid));
+  } catch {}
+  // Keep the log from growing forever: one old copy, then start fresh.
+  try { if (statSync(LOG_FILE).size > 5 * 1024 * 1024) renameSync(LOG_FILE, LOG_FILE + ".old"); } catch {}
+  // No console to print to: everything goes to the log file instead.
+  for (const k of ["log", "warn", "error"]) {
+    console[k] = (...a) => {
+      try {
+        appendFileSync(LOG_FILE, `${new Date().toISOString()} ${a.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(" ")}\n`);
+      } catch {}
+    };
+  }
+  process.on("exit", () => {
+    try { if (readFileSync(PID_FILE, "utf8").trim() === String(process.pid)) unlinkSync(PID_FILE); } catch {}
+  });
+}
+
 let running = true;
 let execLock = false; // prevent parallel execution
 
 // ── Runtime config (updated live from server) ─────────────────
 let typeDelay = 25; // ms between each character when typing
-let mouseSpeed = 1; // movement speed multiplier (future use)
+let mouseSpeed = 1; // 1× (slow, showy glide) … 10× (snappy) — lib/claw-motion.js
 let monitorIdx = -1; // -1 = all monitors combined, 0 = primary, 1+ = secondary
 
 // ── Browser detection (Windows) ──────────────────────────────
@@ -135,14 +260,16 @@ console.log(`
 ║  Server  : ${SERVER_URL.slice(0, 35).padEnd(35)} ║
 ╚═══════════════════════════════════════════════╝
 
-  Press Ctrl+C or click ⬡ KILL CLAW in ARIA to stop.
+  ${HEADLESS ? `Running headless (pid ${process.pid}). Stop: node claw-relay.js --stop` : "Press Ctrl+C or click ⬡ KILL CLAW in ARIA to stop."}
 `);
 
 // ── Register with server (with retry/backoff) ─────────────────
 async function register() {
   detectDefaultBrowser();
   let delay = 1000;
-  for (let attempt = 1; attempt <= 10; attempt++) {
+  // Headless (e.g. started at login before the network is up) keeps trying;
+  // in a terminal, ten tries and it says so.
+  for (let attempt = 1; HEADLESS || attempt <= 10; attempt++) {
     try {
       const r = await apiPost("/api/claw/relay/register", {
         deviceId: DEVICE_ID,
@@ -163,10 +290,10 @@ async function register() {
       return;
     } catch (e) {
       console.warn(
-        `[RELAY] Register failed (attempt ${attempt}/10): ${e.message}. Retrying in ${delay / 1000}s…`,
+        `[RELAY] Register failed (attempt ${attempt}${HEADLESS ? "" : "/10"}): ${e.message}. Retrying in ${delay / 1000}s…`,
       );
       await sleep(delay);
-      delay = Math.min(delay * 1.5, 15000);
+      delay = Math.min(delay * 1.5, HEADLESS ? 60000 : 15000);
     }
   }
   console.error("[RELAY] Could not register after 10 attempts. Exiting.");
@@ -357,94 +484,59 @@ async function dispatch(cmd) {
       return `hotkey: ${keys.join("+")}`;
     }
 
-    // ── Mouse move ──
+    // ── Where the pointer is ──
+    case "mouse_pos":
+    case "where": {
+      const p = await mousePos();
+      return p ? `mouse at ${p.x},${p.y}` : "exit 1: can't read the mouse position here";
+    }
+
+    // ── Mouse move: a smooth, curvy glide (lib/claw-motion.js) ──
     case "mouse_move":
     case "move": {
-      const { x = 0, y = 0 } = cmd;
+      const x = Math.round(Number(cmd.x) || 0);
+      const y = Math.round(Number(cmd.y) || 0);
       if (PLATFORM === "win32") {
-        // SetCursorPos moves the cursor but many apps only respond to WM_MOUSEMOVE.
-        // Follow with a zero-delta SendInput to fire that message.
-        runPs1(`
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class AriaMove {
-    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
-    [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT {
-        public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr dwExtraInfo;
-    }
-    [StructLayout(LayoutKind.Sequential)] public struct INPUT {
-        public uint type; public MOUSEINPUT mi;
-    }
-    [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint n, INPUT[] pInputs, int cbSize);
-    public static void MoveTo(int x, int y) {
-        SetCursorPos(x, y);
-        var inp = new INPUT[1]; inp[0].type = 0; inp[0].mi.dwFlags = 0x0001;
-        SendInput(1, inp, System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT)));
-    }
-}
-"@ -ErrorAction SilentlyContinue
-[AriaMove]::MoveTo(${x}, ${y})
-`);
+        const g = glide(x, y);
+        const r = winMouse([g.line], g.env);
+        if (r.startsWith("exit")) return r;
       } else if (PLATFORM === "darwin") {
         run(
           `osascript -e 'tell application "System Events" to set the position of the mouse to {${x}, ${y}}'`,
         );
       } else {
-        run(`xdotool mousemove ${x} ${y}`);
+        const r = await unixGlide(x, y);
+        if (r.startsWith("exit")) return r;
       }
       return `mouse moved to ${x},${y}`;
     }
 
-    // ── Mouse click ──
+    // ── Mouse click (glides there first when given a spot) ──
     case "mouse_click":
     case "click": {
-      const { x, y, button = "left" } = cmd;
+      const { button = "left" } = cmd;
+      const has = cmd.x != null && cmd.y != null;
+      const x = has ? Math.round(Number(cmd.x) || 0) : null;
+      const y = has ? Math.round(Number(cmd.y) || 0) : null;
       const btn = { left: 1, right: 3, middle: 2 }[button] || 1;
       if (PLATFORM === "win32") {
-        // Use SendInput — more reliable than deprecated mouse_event on Win10/11.
-        // Move cursor first (SetCursorPos is instant and doesn't need INPUT struct),
-        // then fire down+up via SendInput.
-        const posLine =
-          x != null && y != null
-            ? `[AriaInput]::SetCursorPos(${x}, ${y})\r\nStart-Sleep -Milliseconds 80`
-            : "";
-        // MOUSEEVENTF flags for SendInput: MOVE=0x1, ABSOLUTE=0x8000,
-        // LEFTDOWN=0x2, LEFTUP=0x4, RIGHTDOWN=0x8, RIGHTUP=0x10
+        // SendInput flags: LEFTDOWN=0x2 LEFTUP=0x4 RIGHTDOWN=0x8 RIGHTUP=0x10 MIDDLEDOWN=0x20 MIDDLEUP=0x40
         const [downFlag, upFlag] =
           btn === 3 ? [0x0008, 0x0010] : btn === 2 ? [0x0020, 0x0040] : [0x0002, 0x0004];
-        runPs1(`
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class AriaInput {
-    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
-    [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT {
-        public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr dwExtraInfo;
-    }
-    [StructLayout(LayoutKind.Sequential)] public struct INPUT {
-        public uint type; public MOUSEINPUT mi;
-    }
-    [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint n, INPUT[] pInputs, int cbSize);
-    public static void Click(uint downF, uint upF) {
-        var inputs = new INPUT[2];
-        inputs[0].type = 0; inputs[0].mi.dwFlags = downF;
-        inputs[1].type = 0; inputs[1].mi.dwFlags = upF;
-        SendInput(2, inputs, System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT)));
-    }
-}
-"@ -ErrorAction SilentlyContinue
-${posLine}
-[AriaInput]::Click(${downFlag}, ${upFlag})
-`);
+        const g = has ? glide(x, y) : null;
+        const r = winMouse(
+          [...(g ? [g.line, "Start-Sleep -Milliseconds 40"] : []), `[AriaMouse]::Button(${downFlag}, ${upFlag}, 1)`],
+          g?.env,
+        );
+        if (r.startsWith("exit")) return r;
       } else if (PLATFORM === "darwin") {
-        if (x != null)
+        if (has)
           run(
             `osascript -e 'tell application "System Events" to set the position of the mouse to {${x}, ${y}}'`,
           );
         run(`osascript -e 'tell application "System Events" to click'`);
       } else {
-        if (x != null) run(`xdotool mousemove ${x} ${y}`);
+        if (has) await unixGlide(x, y);
         run(`xdotool click ${btn}`);
       }
       return `clicked ${button} at ${x ?? "current"},${y ?? "current"}`;
@@ -453,32 +545,11 @@ ${posLine}
     // ── Mouse scroll ──
     case "scroll": {
       const dir = (cmd.direction || cmd.raw || "down").toLowerCase();
-      const amt = cmd.amount || 3;
+      const amt = Math.max(1, Math.min(50, Math.round(Number(cmd.amount) || 3)));
       if (PLATFORM === "win32") {
         const delta = dir === "up" ? amt * 120 : -amt * 120;
-        runPs1(`
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class AriaScroll {
-    [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT {
-        public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr dwExtraInfo;
-    }
-    [StructLayout(LayoutKind.Sequential)] public struct INPUT {
-        public uint type; public MOUSEINPUT mi;
-    }
-    [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint n, INPUT[] pInputs, int cbSize);
-    public static void Scroll(int delta) {
-        var inp = new INPUT[1];
-        inp[0].type = 0;
-        inp[0].mi.dwFlags = 0x0800; // MOUSEEVENTF_WHEEL
-        inp[0].mi.mouseData = (uint)delta;
-        SendInput(1, inp, System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT)));
-    }
-}
-"@ -ErrorAction SilentlyContinue
-[AriaScroll]::Scroll(${delta})
-`);
+        const r = winMouse([`[AriaMouse]::Wheel(${delta})`]);
+        if (r.startsWith("exit")) return r;
       } else if (PLATFORM === "darwin") {
         run(
           `osascript -e 'tell application "System Events" to scroll (${
@@ -494,40 +565,18 @@ public class AriaScroll {
 
     // ── Double click ──
     case "double_click": {
-      const { x, y } = cmd;
+      const has = cmd.x != null && cmd.y != null;
+      const x = has ? Math.round(Number(cmd.x) || 0) : null;
+      const y = has ? Math.round(Number(cmd.y) || 0) : null;
       if (PLATFORM === "win32") {
-        const posLine =
-          x != null && y != null
-            ? `[AriaInput]::SetCursorPos(${x}, ${y})\r\nStart-Sleep -Milliseconds 80`
-            : "";
-        runPs1(`
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class AriaInput {
-    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
-    [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT {
-        public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr dwExtraInfo;
-    }
-    [StructLayout(LayoutKind.Sequential)] public struct INPUT {
-        public uint type; public MOUSEINPUT mi;
-    }
-    [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint n, INPUT[] pInputs, int cbSize);
-    public static void DoubleClick() {
-        var inputs = new INPUT[4];
-        inputs[0].type = 0; inputs[0].mi.dwFlags = 0x0002;
-        inputs[1].type = 0; inputs[1].mi.dwFlags = 0x0004;
-        inputs[2].type = 0; inputs[2].mi.dwFlags = 0x0002;
-        inputs[3].type = 0; inputs[3].mi.dwFlags = 0x0004;
-        SendInput(4, inputs, System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT)));
-    }
-}
-"@ -ErrorAction SilentlyContinue
-${posLine}
-[AriaInput]::DoubleClick()
-`);
+        const g = has ? glide(x, y) : null;
+        const r = winMouse(
+          [...(g ? [g.line, "Start-Sleep -Milliseconds 40"] : []), "[AriaMouse]::Button(0x0002, 0x0004, 2)"],
+          g?.env,
+        );
+        if (r.startsWith("exit")) return r;
       } else if (PLATFORM === "darwin") {
-        if (x != null)
+        if (has)
           run(
             `osascript -e 'tell application "System Events" to set the position of the mouse to {${x}, ${y}}'`,
           );
@@ -535,54 +584,31 @@ ${posLine}
           `osascript -e 'tell application "System Events" to double click at the position of the mouse'`,
         );
       } else {
-        if (x != null) run(`xdotool mousemove ${x} ${y}`);
+        if (has) await unixGlide(x, y);
         run(`xdotool click --repeat 2 --delay 80 1`);
       }
       return `double clicked at ${x ?? "current"},${y ?? "current"}`;
     }
 
-    // ── Drag ──
+    // ── Drag: glide to the start, press, glide (curvy) to the end, let go ──
     case "drag": {
       const [x1, y1, x2, y2] = [cmd.x1, cmd.y1, cmd.x2, cmd.y2].map((v) => Math.round(Number(v) || 0));
       if (PLATFORM === "win32") {
-        // Button down, then ~20-40 interpolated moves, then up — a single
-        // jump from start to end doesn't register as a drag in most apps.
-        runPs1(`
-Add-Type -TypeDefinition @"
-using System;
-using System.Threading;
-using System.Runtime.InteropServices;
-public class AriaDrag2 {
-    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
-    [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT {
-        public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr dwExtraInfo;
-    }
-    [StructLayout(LayoutKind.Sequential)] public struct INPUT {
-        public uint type; public MOUSEINPUT mi;
-    }
-    [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint n, INPUT[] pInputs, int cbSize);
-    static void Send(uint flag) {
-        var inp = new INPUT[1]; inp[0].type = 0; inp[0].mi.dwFlags = flag;
-        SendInput(1, inp, Marshal.SizeOf(typeof(INPUT)));
-    }
-    public static void Drag(int x1, int y1, int x2, int y2) {
-        double dist = Math.Sqrt((double)(x2 - x1) * (x2 - x1) + (double)(y2 - y1) * (y2 - y1));
-        int steps = Math.Max(20, Math.Min(40, (int)(dist / 15)));
-        SetCursorPos(x1, y1); Thread.Sleep(60);
-        Send(0x0002); Thread.Sleep(60);            // LEFTDOWN
-        for (int i = 1; i <= steps; i++) {
-            double t = (double)i / steps;
-            SetCursorPos((int)Math.Round(x1 + (x2 - x1) * t), (int)Math.Round(y1 + (y2 - y1) * t));
-            Send(0x0001);                          // MOVE (0,0) so apps see a move event
-            Thread.Sleep(12);
-        }
-        Thread.Sleep(60);
-        Send(0x0004);                              // LEFTUP
-    }
-}
-"@ -ErrorAction SilentlyContinue
-[AriaDrag2]::Drag(${x1}, ${y1}, ${x2}, ${y2})
-`);
+        const g1 = glide(x1, y1, "ARIA_PATH1");
+        const g2 = glide(x2, y2, "ARIA_PATH2");
+        const r = winMouse(
+          [
+            g1.line,
+            "Start-Sleep -Milliseconds 60",
+            "[AriaMouse]::Hold(0x0002)", // LEFTDOWN
+            "Start-Sleep -Milliseconds 80",
+            g2.line, // every step is a real move event, so apps see a drag
+            "Start-Sleep -Milliseconds 60",
+            "[AriaMouse]::Hold(0x0004)", // LEFTUP
+          ],
+          { ...g1.env, ...g2.env },
+        );
+        if (r.startsWith("exit")) return r;
       } else if (PLATFORM === "darwin") {
         run(
           `osascript -e 'tell application "System Events" to set the position of the mouse to {${x1}, ${y1}}'`,
@@ -599,9 +625,10 @@ public class AriaDrag2 {
           `osascript -e 'tell application "System Events" to key up {button 1}'`,
         );
       } else {
-        run(
-          `xdotool mousemove ${x1} ${y1} mousedown 1 ${Array.from({ length: 20 }, (_, i) => `mousemove ${Math.round(x1 + ((x2 - x1) * (i + 1)) / 20)} ${Math.round(y1 + ((y2 - y1) * (i + 1)) / 20)} sleep 0.01`).join(" ")} mouseup 1`,
-        );
+        await unixGlide(x1, y1);
+        run("xdotool mousedown 1");
+        await unixGlide(x2, y2);
+        run("xdotool mouseup 1");
       }
       return `dragged (${x1},${y1}) → (${x2},${y2})`;
     }
@@ -669,6 +696,7 @@ public class AriaDrag2 {
       // Where the captured image sits on the desktop, in the same coordinates
       // click:/drag: use — lets the POV panel map a click on the image back.
       let bounds = null;
+      let monitors = [];
       if (PLATFORM === "win32") {
         if (mIdx === -1) {
           // Capture ALL monitors combined (virtual desktop)
@@ -680,6 +708,7 @@ public class AriaDrag2 {
               `$g=[System.Drawing.Graphics]::FromImage($b); ` +
               `$g.CopyFromScreen($vd.Left,$vd.Top,0,0,$b.Size); ` +
               `$b.Save('${fname}'); ` +
+              `$ms=[System.Windows.Forms.Screen]::AllScreens | ForEach-Object { '' + $_.Bounds.X + ',' + $_.Bounds.Y + ',' + $_.Bounds.Width + ',' + $_.Bounds.Height + ',' + [int]$_.Primary }; Write-Output ('MON ' + ($ms -join ';')); ` +
               `Write-Output ('' + $vd.Left + ',' + $vd.Top + ',' + $vd.Width + ',' + $vd.Height)"`,
           );
         } else {
@@ -693,9 +722,16 @@ public class AriaDrag2 {
               `$g=[System.Drawing.Graphics]::FromImage($b); ` +
               `$g.CopyFromScreen($s.Bounds.X,$s.Bounds.Y,0,0,$b.Size); ` +
               `$b.Save('${fname}'); ` +
+              `$ms=[System.Windows.Forms.Screen]::AllScreens | ForEach-Object { '' + $_.Bounds.X + ',' + $_.Bounds.Y + ',' + $_.Bounds.Width + ',' + $_.Bounds.Height + ',' + [int]$_.Primary }; Write-Output ('MON ' + ($ms -join ';')); ` +
               `Write-Output ('' + $s.Bounds.X + ',' + $s.Bounds.Y + ',' + $s.Bounds.Width + ',' + $s.Bounds.Height)"`,
           );
         }
+        // Every monitor's rectangle, so the grid can outline each screen.
+        monitors = (/MON ([-\d,;]+)/.exec(bounds || "")?.[1] || "")
+          .split(";")
+          .map((r) => r.split(",").map(Number))
+          .filter((r) => r.length === 5 && r.every(Number.isFinite))
+          .map(([x, y, w, h, primary]) => ({ x, y, w, h, primary: primary === 1 }));
         const m = /(-?\d+),(-?\d+),(\d+),(\d+)\s*$/.exec(bounds || "");
         bounds = m ? { x: +m[1], y: +m[2], w: +m[3], h: +m[4] } : null;
       } else if (PLATFORM === "darwin") {
@@ -714,6 +750,7 @@ public class AriaDrag2 {
           screenshot: b64,
           fname,
           bounds,
+          monitors,
         });
         return `screenshot: ${fname}`;
       } catch {
@@ -873,9 +910,11 @@ public class AriaDrag2 {
 }
 
 // ── Helpers ───────────────────────────────────────────────────
+// windowsHide everywhere: a relay with no console of its own (headless, the
+// desktop app) would otherwise flash a console window for every command.
 function run(cmd) {
   try {
-    return execSync(cmd, { encoding: "utf8", timeout: 15000 }).trim() || "ok";
+    return execSync(cmd, { encoding: "utf8", timeout: 15000, windowsHide: true }).trim() || "ok";
   } catch (e) {
     return `exit ${e.status}: ${e.stderr?.trim() || e.message}`;
   }
@@ -890,6 +929,104 @@ function runFile(file, args, env = {}, timeout = 15000) {
   } catch (e) {
     return `exit ${e.status ?? 1}: ${e.stderr?.trim() || e.message}`;
   }
+}
+
+// ── Mouse (Windows): one C# helper for every pointer action ──────
+// Glide() reads the cursor itself and lays the normalised path from
+// lib/claw-motion.js between there and the target, timed with a stopwatch
+// (and a 1 ms timer) so the speed is the same on every PC. Each step is a
+// SetCursorPos plus a zero-move SendInput, which is what apps listen for.
+const MOUSE_CS = `
+using System;
+using System.Diagnostics;
+using System.Globalization;
+using System.Threading;
+using System.Runtime.InteropServices;
+public class AriaMouse {
+  [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+  [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
+  [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT p);
+  [DllImport("winmm.dll")] static extern uint timeBeginPeriod(uint p);
+  [DllImport("winmm.dll")] static extern uint timeEndPeriod(uint p);
+  [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT { public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr dwExtraInfo; }
+  [StructLayout(LayoutKind.Sequential)] public struct INPUT { public uint type; public MOUSEINPUT mi; }
+  [DllImport("user32.dll", SetLastError=true)] static extern uint SendInput(uint n, INPUT[] i, int cb);
+  static void Send(uint flags, uint data) {
+    var a = new INPUT[1]; a[0].type = 0; a[0].mi.dwFlags = flags; a[0].mi.mouseData = data;
+    SendInput(1, a, Marshal.SizeOf(typeof(INPUT)));
+  }
+  static double D(string s) { return double.Parse(s, CultureInfo.InvariantCulture); }
+  public static string Pos() { POINT p; GetCursorPos(out p); return p.X + "," + p.Y; }
+  public static void Glide(string path, int tx, int ty, double baseMs, double perDoubling, double scale, double minMs, double factor) {
+    POINT p; GetCursorPos(out p);
+    double dx = tx - p.X, dy = ty - p.Y, dist = Math.Sqrt(dx * dx + dy * dy);
+    if (dist < 3 || String.IsNullOrEmpty(path)) { SetCursorPos(tx, ty); Send(1, 0); return; }
+    double ms = Math.Max(minMs, (baseMs + perDoubling * Math.Log(1 + dist / scale, 2)) / factor);
+    string[] pts = path.Split(';');
+    timeBeginPeriod(1);
+    try {
+      var sw = Stopwatch.StartNew();
+      int lx = int.MinValue, ly = int.MinValue;
+      for (int i = 0; i < pts.Length; i++) {
+        string[] f = pts[i].Split(',');
+        if (i + 1 < pts.Length && sw.Elapsed.TotalMilliseconds > D(pts[i + 1].Split(',')[2]) * ms) continue; // behind: skip ahead
+        double due = D(f[2]) * ms;
+        while (sw.Elapsed.TotalMilliseconds < due) Thread.Sleep(1);
+        double a = D(f[0]), b = D(f[1]);
+        int x = (int)Math.Round(p.X + a * dx - b * dy), y = (int)Math.Round(p.Y + a * dy + b * dx);
+        if (x == lx && y == ly) continue;
+        SetCursorPos(x, y); Send(1, 0); lx = x; ly = y;
+      }
+    } finally { timeEndPeriod(1); }
+    SetCursorPos(tx, ty); Send(1, 0);
+  }
+  public static void Button(uint down, uint up, int times) {
+    for (int i = 0; i < times; i++) { Send(down, 0); Thread.Sleep(30); Send(up, 0); if (i < times - 1) Thread.Sleep(70); }
+  }
+  public static void Hold(uint flag) { Send(flag, 0); }
+  public static void Wheel(int delta) { Send(0x0800, (uint)delta); }
+}`;
+
+function winMouse(lines, env = {}) {
+  return runPs1(`Add-Type -TypeDefinition @"\n${MOUSE_CS}\n"@ -ErrorAction Stop\n${lines.join("\n")}\n`, env);
+}
+
+/** A Glide() line for PowerShell, its path handed over in an env var. */
+function glide(x, y, key = "ARIA_PATH") {
+  const { base, perDoubling, scale, min } = DURATION;
+  return {
+    line: `[AriaMouse]::Glide($env:${key}, ${x}, ${y}, ${base}, ${perDoubling}, ${scale}, ${min}, ${speedFactor(mouseSpeed)})`,
+    env: { [key]: encodePath(mousePath()) },
+  };
+}
+
+async function mousePos() {
+  if (PLATFORM === "win32") {
+    const m = /(-?\d+),(-?\d+)\s*$/.exec(winMouse(["[AriaMouse]::Pos()"]));
+    return m ? { x: +m[1], y: +m[2] } : null;
+  }
+  if (PLATFORM === "linux") {
+    const out = runFile("xdotool", ["getmouselocation", "--shell"]);
+    const x = /X=(-?\d+)/.exec(out)?.[1];
+    const y = /Y=(-?\d+)/.exec(out)?.[1];
+    return x != null && y != null ? { x: +x, y: +y } : null;
+  }
+  return null; // macOS has no built-in way to read it
+}
+
+/** Linux: the same glide, as one xdotool call (mousemove … sleep … ). */
+async function unixGlide(x, y) {
+  const from = await mousePos();
+  if (!from) return runFile("xdotool", ["mousemove", String(x), String(y)]);
+  const pts = applyPath(mousePath(), from, { x, y }, mouseSpeed);
+  const args = [];
+  let t = 0;
+  for (const [px, py, ms] of pts) {
+    if (ms > t) args.push("sleep", ((ms - t) / 1000).toFixed(3));
+    t = ms;
+    args.push("mousemove", String(px), String(py)); // X11 coordinates are never negative
+  }
+  return runFile("xdotool", args, {}, 20000);
 }
 
 // Finds the Start Menu entry that best matches `query`: every .lnk under the
@@ -952,14 +1089,17 @@ function findStartMenuApp(query) {
 
 // Writes a .ps1 file and runs it — avoids all quote-escaping issues
 // Use this whenever the PowerShell needs Add-Type / here-strings
-function runPs1(script) {
-  const tmp = `${os.tmpdir()}\\aria-${Date.now()}.ps1`;
+let _ps1Seq = 0;
+function runPs1(script, env = {}) {
+  const tmp = path.join(os.tmpdir(), `aria-${process.pid}-${Date.now()}-${_ps1Seq++}.ps1`);
   try {
     writeFileSync(tmp, script, "utf8");
     return (
-      execSync(`powershell -ExecutionPolicy Bypass -NoProfile -File "${tmp}"`, {
+      execSync(`powershell -ExecutionPolicy Bypass -NoProfile -NonInteractive -File "${tmp}"`, {
         encoding: "utf8",
-        timeout: 12000,
+        timeout: 15000,
+        windowsHide: true,
+        env: { ...process.env, ...env },
       }).trim() || "ok"
     );
   } catch (e) {
