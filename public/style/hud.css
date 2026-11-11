@@ -1,0 +1,888 @@
+/* ============================================================
+   HUD — the home screen layout, Daily Rings, and the command palette
+   Loaded after bookware.css. Same cards, tokens and type as the rest of
+   the app; this file only decides where things sit.
+
+   Home screen:  [ systems rail ]  [ core + dock ]  [ operator rail ]
+   ============================================================ */
+
+/* ── frame ───────────────────────────────────────────────── */
+#homepageContent.hud {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 1680px;
+}
+
+#homepageContent.hud #homeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 0;
+}
+
+.hudSearch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: min(340px, 40vw);
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-3);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.hudSearch span {
+  flex: 1;
+  text-align: left;
+}
+.hudSearch:hover {
+  border-color: var(--border-strong);
+  color: var(--text-2);
+}
+.hudSearch kbd,
+#paletteFoot kbd {
+  font-family: var(--font-mono-stack);
+  font-size: 0.62rem;
+  padding: 2px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  color: var(--text-3);
+  background: var(--bg-inset);
+}
+
+#hudHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.hudMini {
+  font-family: var(--font-sans);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.hudDot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 3px var(--success-bg);
+}
+#hudStatusMini.down .hudDot {
+  background: var(--danger, #e5484d);
+  box-shadow: none;
+}
+
+/* ── rails ───────────────────────────────────────────────── */
+.hudRail {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.hudRailTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-sans);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  color: var(--text-3);
+}
+.hudRailTitle::after,
+.hudRailRight .hudRailTitle::before {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--border-strong), transparent);
+}
+.hudRailRight .hudRailTitle::after {
+  content: none;
+}
+.hudRailRight .hudRailTitle::before {
+  background: linear-gradient(to left, var(--border-strong), transparent);
+}
+.hudRailScroll {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+}
+.hud .hudRail .homeCard {
+  flex: 0 0 auto;
+  padding: 12px 14px;
+}
+/* The edge of each card facing the screen edge carries the accent. */
+.hud .hudRailLeft .homeCard {
+  border-left: 2px solid var(--accent-border);
+}
+.hud .hudRailRight .homeCard {
+  border-right: 2px solid var(--accent-border);
+}
+.hud .hudRailLeft .homeCard:hover {
+  border-left-color: var(--accent);
+}
+.hud .hudRailRight .homeCard:hover {
+  border-right-color: var(--accent);
+}
+
+/* ── centre ──────────────────────────────────────────────── */
+.hudCenter {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-width: 0;
+  min-height: 0;
+  order: -1; /* small screens: core first, then the rails */
+}
+.hud #homeHeader {
+  order: -2;
+}
+.hud #homeButtons {
+  margin-top: 0;
+  width: 100%;
+}
+
+/* ── the core ────────────────────────────────────────────── */
+#hudCore {
+  position: relative;
+  width: min(86vw, 420px);
+  aspect-ratio: 1;
+  flex: 0 1 auto;
+  container-type: inline-size;
+}
+#hudCoreSvg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+#hudCoreSvg circle,
+#hudCoreSvg path {
+  fill: none;
+}
+.hudTick {
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  transition: stroke 0.3s ease, opacity 0.3s ease;
+}
+.hudTick.major {
+  stroke: var(--text-3);
+  stroke-width: 2;
+}
+.hudTick.on {
+  stroke: var(--accent);
+  opacity: 0.5;
+}
+.hudTick.now {
+  opacity: 1;
+  stroke-width: 3;
+}
+.hudRingA,
+.hudRingB {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.hudRingA {
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+  stroke-dasharray: 1 5;
+  animation: hudSpin 120s linear infinite;
+}
+.hudRingB {
+  stroke: var(--accent-border);
+  stroke-width: 1.5;
+  stroke-dasharray: 70 8 4 8;
+  animation: hudSpin 70s linear infinite reverse;
+}
+@keyframes hudSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.hudGaugeTrack {
+  stroke: var(--border);
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+.hudGauge {
+  stroke: var(--accent);
+  stroke-width: 7;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.8s ease, stroke 0.4s ease;
+}
+.hudGauge.warn {
+  stroke: var(--warning);
+}
+.hudGauge.crit {
+  stroke: var(--danger, #e5484d);
+}
+.hudGaugeText {
+  font-family: var(--font-sans);
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  fill: var(--text-3);
+}
+.hudRingTrack {
+  stroke: var(--border);
+  stroke-width: 5;
+}
+.hudRingProg {
+  stroke: var(--accent);
+  stroke-width: 5;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.8s ease, stroke 0.4s ease;
+}
+#hudCore.ringsClosed .hudRingProg {
+  stroke: var(--success);
+}
+#hudCoreSvg .hudRingC {
+  fill: color-mix(in srgb, var(--bg-card) 70%, transparent);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+#hudCoreSvg .hudGlow {
+  fill: url(#hudGlowGrad);
+  animation: hudBreathe 6s ease-in-out infinite;
+}
+@keyframes hudBreathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* What's written inside the ring. */
+.hudCoreReadout {
+  position: absolute;
+  inset: 23%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+  pointer-events: none;
+}
+.hudCoreReadout .emotionIndicator {
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+#hudClock {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--text);
+}
+#hudClockMain {
+  font-size: 2.6rem;
+  font-size: 13.5cqw;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+}
+#hudClockSec {
+  font-size: 0.72rem;
+  font-size: max(0.62rem, 3.2cqw);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--accent-text);
+  white-space: nowrap;
+}
+#hudDate {
+  font-family: var(--font-sans);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--text-3);
+}
+#hudGreeting {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  color: var(--text-2);
+}
+#hudRingsBtn {
+  pointer-events: auto;
+  margin-top: 4px;
+  padding: 3px 10px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+}
+#hudRingsBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+#hudRingsBtn.allDone {
+  border-color: var(--success-border);
+  color: var(--success-text);
+}
+
+/* Corner callouts. */
+.hudCallout {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px 8px;
+  background: transparent;
+  border: 0;
+  font-family: var(--font-sans);
+  text-align: left;
+}
+button.hudCallout {
+  cursor: pointer;
+}
+button.hudCallout:hover .hudCalloutLabel {
+  color: var(--accent-text);
+}
+.hudCalloutTL,
+.hudCalloutBL {
+  left: -3%;
+  border-left: 2px solid var(--accent-border);
+}
+.hudCalloutTR,
+.hudCalloutBR {
+  right: -3%;
+  border-right: 2px solid var(--accent-border);
+  text-align: right;
+  align-items: flex-end;
+}
+.hudCalloutTL,
+.hudCalloutTR {
+  top: 2%;
+}
+.hudCalloutBL,
+.hudCalloutBR {
+  bottom: 2%;
+}
+.hudCalloutLabel {
+  font-size: 0.54rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--text-3);
+}
+.hudCalloutValue {
+  font-size: 0.86rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.hudCalloutValue.good {
+  color: var(--success-text);
+}
+.hudCalloutValue.warn {
+  color: var(--warning);
+}
+.hudCalloutValue.crit {
+  color: var(--danger-text, #e5484d);
+}
+.hudCalloutValue.off {
+  color: var(--text-3);
+}
+
+/* ── tool dock ───────────────────────────────────────────── */
+#hudDockWrap {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+#hudDock {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  max-width: 620px;
+}
+.hudDockBtn {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--text-2);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.hudDockBtn:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+  transform: translateY(-2px);
+}
+.hudDockBtn.active {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.hudDockBtn::after {
+  content: attr(data-label);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 8px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: 0.64rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--tr);
+  z-index: 30;
+}
+.hudDockBtn:hover::after,
+.hudDockBtn:focus-visible::after {
+  opacity: 1;
+}
+#hudDockPanels.open ~ #hudDock .hudDockBtn::after,
+#hudDockWrap:has(#hudDockPanels.open) .hudDockBtn::after {
+  display: none;
+}
+#hudDockPanels {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 12px);
+  transform: translateX(-50%);
+  width: min(440px, 100%);
+  z-index: 25;
+}
+#hudDockPanels.open {
+  display: block;
+}
+.hud .hudDockPanel {
+  display: none;
+  max-height: min(62vh, 540px);
+  overflow: auto;
+  border-color: var(--accent-border);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4);
+  animation: hudPanelIn 0.16s ease-out;
+}
+.hud .hudDockPanel.open {
+  display: block;
+}
+.hud .hudDockPanel:hover {
+  transform: none;
+}
+@keyframes hudPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* ── wide screens: three columns, nothing scrolls but the rails ── */
+@media (min-width: 1000px) {
+  #homepageScreen {
+    overflow: hidden;
+    padding: 18px 22px;
+  }
+  #homepageContent.hud {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(240px, 310px) minmax(0, 1fr) minmax(240px, 310px);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 12px 26px;
+    padding: 0;
+  }
+  .hud #homeHeader {
+    grid-column: 1 / -1;
+  }
+  .hudCenter {
+    order: 0;
+  }
+  .hudRailScroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px 0 26px;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 28px), transparent 100%);
+  }
+  .hudRailScroll::-webkit-scrollbar {
+    display: none;
+  }
+  #hudCore {
+    width: min(100%, 500px, calc(100dvh - 290px));
+    min-width: 250px;
+  }
+}
+
+/* ── small screens: one column, the page scrolls ─────────── */
+@media (max-width: 999px) {
+  .hudSearch {
+    min-width: 0;
+    flex: 1;
+  }
+  .hudSearch kbd,
+  #hudWeatherMini,
+  .hud .homeTitleAcronym {
+    display: none;
+  }
+  .hudCenter {
+    padding: 6px 0 10px;
+  }
+  /* You before the machine: rings and tasks sit above the system cards. */
+  .hudRailRight {
+    order: 1;
+  }
+  .hudRailLeft {
+    order: 2;
+  }
+  .hudRailRight .hudRailTitle::before {
+    content: none;
+  }
+  .hudRailRight .hudRailTitle::after {
+    content: "";
+  }
+  .hudCalloutTL,
+  .hudCalloutBL {
+    left: -1%;
+  }
+  .hudCalloutTR,
+  .hudCalloutBR {
+    right: -1%;
+  }
+}
+@media (min-width: 600px) and (max-width: 999px) {
+  .hudRailScroll {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hudRingA,
+  .hudRingB,
+  #hudCoreSvg .hudGlow,
+  .hud .hudDockPanel {
+    animation: none;
+  }
+}
+
+/* ============================================================
+   DAILY RINGS (rings.js)
+   ============================================================ */
+.ringRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 4px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+.ringRow:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.ringRow.done .ringName {
+  color: var(--text);
+}
+.ringDotSvg {
+  flex: none;
+}
+.ringDotSvg circle,
+.ringDotSvg path {
+  fill: none;
+}
+.ringDotTrack {
+  stroke: var(--border-strong);
+  stroke-width: 2.5;
+}
+.ringDotFill {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.4s ease;
+}
+.ringRow.done .ringDotFill,
+.ringPanelDot.done .ringDotFill,
+.ringDotCheck {
+  stroke: var(--success);
+}
+.ringDotCheck {
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ringName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ringCount {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+.ringStreak {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--warning);
+}
+.ringFoot {
+  padding-top: 7px;
+  font-size: 0.68rem;
+  color: var(--text-3);
+}
+.ringAddForm {
+  display: flex;
+  gap: 6px;
+  margin-top: 9px;
+}
+.ringAddForm .hwField {
+  flex: 1;
+  min-width: 0;
+}
+.ringAddForm .hwToolBtn {
+  flex: none;
+  min-width: 32px;
+  justify-content: center;
+}
+
+/* the panel */
+.ringsHead {
+  margin-bottom: 8px;
+}
+.ringPanelRow {
+  align-items: center;
+  gap: 10px;
+}
+.ringPanelDot {
+  flex: none;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  line-height: 0;
+}
+.ringWeek {
+  display: flex;
+  gap: 3px;
+  margin-top: 5px;
+}
+.ringWeekDay {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  font-size: 8.5px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.ringWeekDay.part {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.ringWeekDay.full {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.ringTarget {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.74rem;
+  color: var(--text-3);
+}
+.ringTarget input {
+  width: 46px;
+  padding: 3px 5px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+}
+#ringsBody .ringAddForm {
+  margin-top: 14px;
+}
+
+/* ============================================================
+   COMMAND PALETTE (palette.js) — Ctrl+K
+   ============================================================ */
+#ariaPalette {
+  position: fixed;
+  inset: 0;
+  z-index: 9800;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 13vh 16px 0;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(6px);
+}
+#ariaPalette.open {
+  display: flex;
+}
+#paletteBox {
+  width: min(640px, 100%);
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  animation: hudPanelIn 0.14s ease-out;
+}
+#paletteInputRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
+}
+#paletteInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+}
+#paletteMode {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent-text);
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+#paletteMode:empty {
+  display: none;
+}
+#paletteList {
+  max-height: 52vh;
+  overflow-y: auto;
+  padding: 6px;
+}
+.palGroup {
+  padding: 9px 10px 4px;
+  font-family: var(--font-sans);
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.palItem {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+.palItem > i {
+  flex: none;
+  width: 18px;
+  text-align: center;
+  color: var(--text-3);
+}
+.palItem.sel {
+  background: var(--accent-bg);
+  color: var(--text);
+}
+.palItem.sel > i {
+  color: var(--accent-text);
+}
+.palLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.palLabel mark {
+  background: transparent;
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.palHint {
+  flex: none;
+  font-size: 0.68rem;
+  color: var(--text-3);
+}
+.palEmpty {
+  padding: 22px 12px;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  color: var(--text-3);
+}
+#paletteFoot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-sans);
+  font-size: 0.66rem;
+  color: var(--text-3);
+}

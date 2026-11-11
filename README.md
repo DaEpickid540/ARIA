@@ -217,6 +217,19 @@ instead of "queued". Destructive shell commands (`rm -rf`, `Remove-Item`,
 model phrases them, as is any PC action after ARIA has read web content in the
 same turn. Approvals are held server-side by id and expire after 10 minutes.
 
+**Panel shortcuts.** `↑`/`↓` in the input walks your command history.
+`!dir` runs in Shell without switching mode, and `/shell`, `/type`, `/key`,
+`/mouse`, `/auto` do the same for the other modes (`/help` lists them). ★ on
+a command you ran pins it as a one-click button (right-click to unpin); click
+an entry's label to copy it, ↻ to run it again, ⧉ to copy the whole log,
+Ctrl+L to clear it. The mode, tab, sliders and watch interval are remembered
+per browser. On the SCREEN tab, **⤢** widens the panel, **⬇** saves the
+picture, the pointer's real screen coordinates show as you move, **⌨ Keys**
+sends what you type to the PC while the picture has focus, and watching
+pauses while the panel is closed. **Ctrl+Shift+X** is the kill switch from
+anywhere, and **Esc** denies a permission request (there is no key for
+"allow").
+
 ### ESP32 BLE HID relay (Chromebooks, locked-down devices)
 1. Open `ARIA_ESP32__Relay/ARIA_ESP32_Relay.ino` in Arduino IDE
 2. Set partition scheme to **Huge APP (3MB No OTA/1MB SPIFFS)**
@@ -305,6 +318,8 @@ Each one works from chat in plain words; most also have a panel.
 | **Grades**: weighted averages, what you need on the next test, study plans | Tools ▸ Grades | "what do I need on the chem final for an A?" | `grades.json` |
 | **Practice coach**: tuner, metronome, tempo check, practice log and streak | Tools ▸ Practice | "log 30 min of scales" | `practice.json` |
 | **Flashcards**: spaced repetition (SM-2), made from your notes or a chat | Tools ▸ Flashcards | "make flashcards from this" | `flashcards.json` |
+| **Daily Rings**: the few things you do every day, with streaks; the home screen's inner ring fills as they close | Home ▸ Daily Rings, Tools ▸ Daily Rings | "I read today", "how are my rings?" | `habits.json` |
+| **Command palette**: one box for every tool, chat and action; `>` runs text on the PC with Claw, `?` asks ARIA | **Ctrl+K** anywhere, or the search pill on the home screen | type "flash", "dr", "> open spotify" | browser storage (recents) |
 | **Hey ARIA**: wake word on this device; Ctrl+Shift+Space push-to-talk in the desktop app | Tools ▸ Hey ARIA, tray menu | say "Hey ARIA" | browser storage |
 | **Memory timeline**: everything ARIA learned, when and from which chat; edit or forget | Sidebar ▸ Memory ▸ Timeline | "what do you know about me?" | `memory.json` |
 | **Arena**: 2–3 models answer, push back on each other, and a judge scores them | Tools ▸ Arena | "arena: is 0.999… equal to 1?" | `arena.json` |

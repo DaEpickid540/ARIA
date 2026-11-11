@@ -735,3 +735,161 @@ pre.clawEntryText {
   opacity: 0.6;
   cursor: default;
 }
+
+/* ══════════════════════════════════════
+   QUALITY OF LIFE — pins, log tools, wide view, screen extras
+══════════════════════════════════════ */
+
+/* Wide panel: room for the screen */
+#clawPanel.clawWide {
+  width: min(1100px, 100vw);
+}
+
+/* Pinned commands */
+#clawPinRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-inset);
+  flex-shrink: 0;
+}
+.clawPinBtn {
+  max-width: 100%;
+  padding: 3px 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-family: var(--font-mono-stack);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.clawPinBtn:hover {
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+}
+
+/* Log entries: click the label to copy; ↻ and ★ on your own commands */
+.clawEntry {
+  position: relative;
+}
+.clawEntryLabel {
+  cursor: copy;
+  align-self: flex-start;
+}
+.clawEntryLabel:hover {
+  opacity: 1;
+}
+.clawEntry.copied pre.clawEntryText {
+  border-color: var(--success-border);
+}
+.clawEntry.copied .clawEntryLabel::after {
+  content: "  copied";
+  color: var(--success-text);
+}
+.clawEntryTook {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  font-family: var(--font-sans);
+  font-size: 8px;
+  color: var(--text-3);
+}
+.clawEntryTools {
+  position: absolute;
+  top: 12px;
+  right: 4px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.clawEntry:hover .clawEntryTools,
+.clawEntryTools:focus-within {
+  opacity: 1;
+}
+.clawEntryTools button {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+.clawEntryTools button:hover {
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+}
+
+#clawCopyBtn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  padding: 4px 7px;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+#clawCopyBtn:hover {
+  color: var(--accent-text);
+}
+
+/* Screen tab */
+#clawScreenControls {
+  flex-wrap: wrap;
+}
+#clawPovFrame {
+  outline: none;
+}
+#clawPovFrame.keysOn {
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+#clawPovFrame.keysOn:focus {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+#clawPovCoords {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  font-family: var(--font-mono-stack);
+  font-size: 9px;
+  color: var(--text-2);
+  background: color-mix(in srgb, var(--bg-inset) 70%, transparent);
+  padding: 2px 5px;
+  border-radius: 2px;
+  pointer-events: none;
+}
+#clawPovCoords:empty {
+  display: none;
+}
+#clawPovTimestamp.stale {
+  color: var(--warning);
+}
+#clawPovTimestamp.stale::before {
+  content: "stale · ";
+}
+
+#clawSetupCopy {
+  margin-top: 6px;
+}
+
+/* The empty Screen tab used to be dark grey on near-black: unreadable. */
+#clawPovEmpty {
+  color: var(--text-3);
+  padding: 0 24px;
+}
+#clawPovEmpty span {
+  color: var(--text-3);
+  opacity: 0.8;
+}

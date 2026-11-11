@@ -1,16 +1,17 @@
 // shortcuts.js — ARIA keyboard shortcut system
-// Ctrl+K → commands, Ctrl+/ → settings, Ctrl+Shift+N → new chat,
+// Ctrl+K → command palette (palette.js), Ctrl+/ → settings, Ctrl+Shift+N → new chat,
 // Ctrl+E → export chat, Ctrl+. → ambient mode toggle,
 // Ctrl+Shift+A → ARIA Claw panel, Esc → close panels
 
 export function initShortcuts() {
   const SHORTCUTS = [
-    { keys: "Ctrl+K", desc: "Open commands modal" },
+    { keys: "Ctrl+K", desc: "Command palette: search tools, chats, actions" },
     { keys: "Ctrl+/", desc: "Open settings" },
     { keys: "Ctrl+Shift+N", desc: "New chat" },
     { keys: "Ctrl+E", desc: "Export current chat" },
     { keys: "Ctrl+.", desc: "Toggle ambient mode" },
     { keys: "Ctrl+Shift+A", desc: "ARIA Claw panel" },
+    { keys: "Ctrl+Shift+X", desc: "Claw emergency stop (kill switch)" },
     { keys: "Ctrl+?", desc: "Show this help" },
   ];
 
@@ -27,7 +28,9 @@ export function initShortcuts() {
     if (key === "Escape") {
       // Close any open panel
       document.getElementById("shortcutsOverlay")?.classList.remove("active");
-      document.getElementById("clawPanel")?.classList.remove("open");
+      window.ARIA_closeClaw
+        ? window.ARIA_closeClaw()
+        : document.getElementById("clawPanel")?.classList.remove("open");
       document.getElementById("settingsOverlay")?.classList.remove("active");
       document.getElementById("commandsModal") &&
         (document.getElementById("commandsModal").style.display = "none");
@@ -36,10 +39,8 @@ export function initShortcuts() {
 
     if (inInput) return;
 
-    if (ctrl && key === "k") {
-      e.preventDefault();
-      document.getElementById("commandsBtn")?.click();
-    }
+    // Ctrl+K is the command palette (palette.js listens for it everywhere,
+    // including inside the chat box); "All slash commands" is in there.
     if (ctrl && key === "/") {
       e.preventDefault();
       window.ARIA_openSettings?.();
@@ -60,6 +61,8 @@ export function initShortcuts() {
       e.preventDefault();
       window.ARIA_toggleClaw?.();
     }
+    // Ctrl+Shift+X (Claw kill switch) is handled in claw.js, so it works
+    // inside text boxes too.
     if (ctrl && key === "?") {
       e.preventDefault();
       showShortcutsHelp(SHORTCUTS);

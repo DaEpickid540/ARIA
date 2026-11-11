@@ -4,7 +4,7 @@
 // Bump CACHE_VERSION when you ship breaking front-end changes — old caches
 // get auto-purged on activate.
 
-const CACHE_VERSION = "v11-2026-10-ideas";
+const CACHE_VERSION = "v12-2026-11-hud";
 const CACHE_NAME = `aria-${CACHE_VERSION}`;
 
 // Core shell to precache. Stylesheet paths must match what index.html links.
@@ -35,6 +35,7 @@ const PRECACHE = [
   // Loaded last in index.html and the layer the current design lives in —
   // missing here, an offline cold start rendered the app unstyled.
   "/style/bookware.css",
+  "/style/hud.css",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
 ];
