@@ -454,6 +454,31 @@ test("flashcards: paste a deck, review one, the tool sees the same cards", async
   assert.equal((await getJson("/api/flashcards")).decks.length, 0);
 });
 
+test("daily rings: add, check in, close, undo; the tool sees the same rings", async () => {
+  let r = await post("/api/habits", { name: "Water", target: 2 });
+  let s = await r.json();
+  assert.deepEqual([s.ok, s.total, s.done, s.percent], [true, 1, 0, 0]);
+  assert.equal((await post("/api/habits", { name: "water" })).status, 400, "same name twice");
+  assert.equal((await post("/api/habits", { name: "  " })).status, 400);
+  const id = s.habits[0].id;
+  s = await (await post(`/api/habits/${id}/check`, { amount: 1 })).json();
+  assert.deepEqual([s.habits[0].count, s.habits[0].done, s.percent], [1, false, 50]);
+  s = await (await post(`/api/habits/${id}/check`, { amount: 1 })).json();
+  assert.deepEqual([s.done, s.habits[0].streak, s.line], [1, 1, "Rings: all 1 closed today."]);
+  s = await (await post(`/api/habits/${id}/check`, { amount: -1 })).json();
+  assert.equal(s.habits[0].count, 1);
+  s = await (await post(`/api/habits/${id}/check`, { toggle: true })).json();
+  assert.equal(s.habits[0].done, true);
+  assert.equal((await post("/api/habits/nope/check", {})).status, 404);
+  s = await (await post(`/api/habits/${id}`, { name: "Hydrate", target: 3 })).json();
+  assert.deepEqual([s.habits[0].name, s.habits[0].target, s.habits[0].done], ["Hydrate", 3, false]);
+  const t = await (await post("/api/tool", { tool: "rings done", input: "hydrate" })).json();
+  assert.match(t.output, /"Hydrate" is closed for today/);
+  assert.match((await (await post("/api/tool", { tool: "rings", input: "" })).json()).output, /● Hydrate: 3\/3 today/);
+  assert.equal((await fetch(`${BASE}/api/habits/${id}`, { method: "DELETE" })).status, 200);
+  assert.equal((await getJson("/api/habits")).total, 0);
+});
+
 test("memory timeline: facts keep their story; edits and forgets need the fact you saw; an old client's objects stay text", async () => {
   await post("/api/memory", { action: "clear" });
   await post("/api/memory", { action: "add", fact: "User's name is Sarvin", category: "identity" });

@@ -19,6 +19,7 @@ import * as routines from "./lib/routines.js";
 import * as grades from "./lib/grades.js";
 import * as practice from "./lib/practice.js";
 import * as flashcards from "./lib/flashcards.js";
+import * as habits from "./lib/habits.js";
 import * as memTimeline from "./lib/memory-timeline.js";
 import * as arena from "./lib/arena.js";
 import * as selftest from "./lib/selftest.js";
@@ -767,6 +768,7 @@ async function serverTool(name, input, { skillTools } = {}) {
   if (/^grades?(\s+(list|summary|class|score|add|need|remove|delete))?$/.test(key)) return grades.runGradesTool(key, input);
   if (/^practi[cs]e(\s+(summary|list|log|piece))?$/.test(key)) return practice.runPracticeTool(key, input);
   if (/^flash ?cards?(\s+(list|decks|add|due|grade))?$/.test(key)) return flashcards.runFlashcardTool(key, input);
+  if (/^(rings?|habits?)(\s+(list|add|done|check|undo|remove|delete))?$/.test(key)) return habits.runHabitTool(key, input);
   if (key === "arena") return arenaTool(input);
   if (key === "selftest" || key === "self-test" || key === "self test") return (await runSelfTest({ full: /full|tests?|suite/i.test(String(input)) })).summary;
   // A skill's own tool (skills/*/tool.js). skillTools is the chat's list of
@@ -889,6 +891,17 @@ add saves cards (front => back, ";;" between cards, one line). Keep fronts
 short and specific, one fact each. To quiz from due cards: flashcards due,
 ask ONE front, wait for the answer, then grade it: again (wrong), hard (got
 it with effort), good (right), easy (instant) — then the next card.
+
+DAILY RINGS — the few things the user wants to do every day, and their streaks:
+ACTION: rings |
+ACTION: rings add | Read | 1
+ACTION: rings done | Water | 2
+ACTION: rings undo | Water
+ACTION: rings remove | Read
+The last field of add is times per day (default 1); of done, how many to
+count (default 1). When the user says they did one of their rings ("I read
+today", "drank 2 glasses") → rings done. For "how are my rings / habits /
+streaks" → rings. Never invent a check-in the user didn't report.
 
 SELF-TEST — check every part of yourself and report what's broken:
 ACTION: selftest |
@@ -1090,7 +1103,7 @@ allTools()
       ...Object.keys(all),
       ...[...TOOL_SYSTEM.matchAll(/^ACTION:\s*([a-z][\w-]*)/gim)].map((m) => m[1]),
       ...["agent", "claw", "debrief", "fixscreen", "imagine", "research", "scrape", "search", "spawn", "task", "visualize", "watch", "trigger",
-        "routine", "routines", "grade", "grades", "practice", "practise", "flash", "flashcard", "flashcards", "arena", "selftest", "self-test"],
+        "routine", "routines", "grade", "grades", "practice", "practise", "flash", "flashcard", "flashcards", "ring", "rings", "habit", "habits", "arena", "selftest", "self-test"],
     ]);
     return skills.refreshSkillTools();
   })
@@ -5640,6 +5653,50 @@ app.delete("/api/practice/:id", (req, res) => {
 });
 
 /* ============================================================
+   DAILY RINGS — habits and streaks (lib/habits.js)
+   ============================================================ */
+habits.init();
+
+app.get("/api/habits", (_req, res) => {
+  res.json(habits.summary());
+});
+
+app.post("/api/habits", (req, res) => {
+  try {
+    habits.addHabit(req.body?.name, { target: req.body?.target });
+    res.json({ ok: true, ...habits.summary() });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// { amount } adds to today's count (negative takes it back); { toggle: true }
+// closes the ring, or reopens it if it's already closed.
+app.post("/api/habits/:id/check", (req, res) => {
+  try {
+    if (req.body?.toggle) habits.toggle(req.params.id);
+    else habits.checkIn(req.params.id, { amount: req.body?.amount });
+    res.json({ ok: true, ...habits.summary() });
+  } catch (e) {
+    res.status(404).json({ error: e.message });
+  }
+});
+
+app.post("/api/habits/:id", (req, res) => {
+  try {
+    habits.editHabit(req.params.id, { name: req.body?.name, target: req.body?.target });
+    res.json({ ok: true, ...habits.summary() });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.delete("/api/habits/:id", (req, res) => {
+  if (!habits.removeHabit(req.params.id)) return res.status(404).json({ error: "No such ring." });
+  res.json({ ok: true, ...habits.summary() });
+});
+
+/* ============================================================
    FLASHCARDS — spaced repetition (lib/flashcards.js)
    ============================================================ */
 flashcards.init();
@@ -6778,6 +6835,7 @@ async function generateBriefing() {
     const tasksResult = taskEngine.listTasks({ status: "running" });
     const gradesFocus = grades.atRisk().length ? grades.summary() : "";
     const cardsLine = flashcards.dueLine();
+    const ringsLine = habits.todayLine();
     const practiceLine = practice.listSessions(1).length ? practice.summary().split("\n").filter((l) => /^Today|^Not played/.test(l)).join("\n") : "";
     const runningTasks = tasksResult.length
       ? tasksResult.map((t) => `• ${t.title} (${t.status})`).join("\n")
@@ -6801,7 +6859,7 @@ ${memFacts}
 
 BACKGROUND TASKS:
 ${runningTasks}
-${gradesFocus ? `\nGRADES (the gradebook; the Focus line is what matters today):\n${gradesFocus}\n` : ""}${practiceLine ? `\nPRACTICE (streak, and pieces going stale):\n${practiceLine}\n` : ""}${cardsLine ? `\nFLASHCARDS:\n${cardsLine}\n` : ""}
+${gradesFocus ? `\nGRADES (the gradebook; the Focus line is what matters today):\n${gradesFocus}\n` : ""}${practiceLine ? `\nPRACTICE (streak, and pieces going stale):\n${practiceLine}\n` : ""}${cardsLine ? `\nFLASHCARDS:\n${cardsLine}\n` : ""}${ringsLine ? `\nDAILY RINGS (habits to close today):\n${ringsLine}\n` : ""}
 Today is ${new Date().toLocaleDateString("en-US", {
       weekday: "long",
       month: "long",

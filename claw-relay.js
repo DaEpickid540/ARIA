@@ -425,6 +425,7 @@ async function dispatch(cmd) {
           enter: "{ENTER}",
           esc: "{ESC}",
           del: "{DEL}",
+          backspace: "{BS}",
           space: " ",
           f1: "{F1}",
           f2: "{F2}",

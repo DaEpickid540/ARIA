@@ -1,6 +1,5 @@
 // homepage.js — imports from homeTools.js (same js/ folder)
 import {
-  initTime,
   initWeather,
   initSystemInfo,
   initQuote,
@@ -27,6 +26,9 @@ import {
   initTextStats,
   initPasswordGen,
 } from "./homeTools.js";
+import { initHomeCore } from "./homeCore.js";
+import { initRings } from "./rings.js";
+import { initPalette } from "./palette.js";
 
 export function initHomepage() {
   const screen = document.getElementById("homepageScreen");
@@ -38,7 +40,6 @@ export function initHomepage() {
   // One-time DOM setup — skip on subsequent visits
   if (screen.dataset.inited !== "1") {
     screen.dataset.inited = "1";
-    initTime();
     initQuote();
     initTasksPreview();
     initSystemInfo();
@@ -57,6 +58,11 @@ export function initHomepage() {
     initTextStats();
     initPasswordGen();
   }
+
+  // The core (clock, gauges, dock) and Daily Rings: safe to call every visit
+  initHomeCore();
+  initRings();
+  initPalette();
 
   // Async / live-data tools — always refresh on every visit
   initWeather();

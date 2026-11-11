@@ -1,6 +1,17 @@
 // claw.js — ARIA Claw Control Panel
 // Tabs: CONTROL | SCREEN | CONFIG
 // No chat terminal — pure control surface
+//
+// Things that make it quicker to live with:
+//   - ↑ / ↓ in the input walks your command history (kept between visits)
+//   - "!dir" runs in Shell without switching mode; /shell /type /key /mouse
+//     /auto do the same for the other modes; /help lists them
+//   - ★ on a command you ran pins it as a one-click button (right-click to unpin)
+//   - click a log entry's label to copy it, ↻ to run it again, ⧉ copies the log
+//   - mode, tab, sliders and the watch interval are remembered
+//   - Screen tab: wide view, save the picture, live coordinates, and ⌨ Keys
+//     to type on the PC from here; watching pauses while the panel is closed
+//   - Ctrl+Shift+X is the kill switch from anywhere; Esc denies a permission
 
 export function initClaw() {
   _buildKillSwitch();
@@ -9,6 +20,12 @@ export function initClaw() {
   _startStatusPoll();
 
   window.ARIA_toggleClaw = toggleClaw;
+  window.ARIA_openClaw = openClaw;
+  window.ARIA_closeClaw = closeClaw;
+  window.ARIA_clawRun = (text, mode = "auto") => {
+    openClaw("control");
+    if (text) _runCommand(String(text), mode);
+  };
   window.ARIA_killClaw = killClaw;
   window.ARIA_resumeClaw = resumeClaw;
   window.ARIA_clawConfirm = showConfirmDialog;
@@ -17,6 +34,18 @@ export function initClaw() {
   document
     .getElementById("sidebarClawBtn")
     ?.addEventListener("click", toggleClaw);
+
+  // The kill switch has to work wherever the cursor is, text boxes included.
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "x") {
+        e.preventDefault();
+        killClaw();
+      }
+    },
+    true,
+  );
 
   console.log("[ARIA] Claw ready.");
 }
@@ -28,7 +57,7 @@ function _buildKillSwitch() {
   const btn = document.createElement("button");
   btn.id = "clawKillSwitch";
   btn.innerHTML = "⬡<br>KILL";
-  btn.title = "Emergency stop — halt ALL Claw actions immediately";
+  btn.title = "Emergency stop — halt ALL Claw actions immediately (Ctrl+Shift+X)";
   btn.addEventListener("click", () => {
     btn.classList.contains("killed") ? resumeClaw() : killClaw();
   });
@@ -64,6 +93,102 @@ let _screenWatch = false;
 let _screenTimer = null;
 let _screenInterval = 4000;
 let _screenGrid = false; // show ARIA's click grid on the POV picture
+let _watchPaused = false; // watching, but on hold while the panel is closed
+let _povKeys = false; // ⌨ Keys: keystrokes on the picture go to the PC
+
+/* ── remembered between visits (this browser only) ───────────── */
+const PREFS_KEY = "aria_claw_prefs";
+const HISTORY_KEY = "aria_claw_history";
+const PINS_KEY = "aria_claw_pins";
+const MAX_HISTORY = 60;
+const MAX_PINS = 8;
+const MAX_LOG = 400;
+
+function _read(key, fallback) {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || "null");
+    return v ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+function _write(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+}
+let _prefs = _read(PREFS_KEY, {});
+if (!_prefs || typeof _prefs !== "object" || Array.isArray(_prefs)) _prefs = {};
+function _setPref(k, v) {
+  _prefs[k] = v;
+  _write(PREFS_KEY, _prefs);
+}
+
+let _history = _read(HISTORY_KEY, []);
+if (!Array.isArray(_history)) _history = [];
+let _histPos = -1; // -1 = not browsing; otherwise an index from the newest
+let _histDraft = "";
+function _remember(input) {
+  if (_history[0] !== input) {
+    _history.unshift(input);
+    _history = _history.slice(0, MAX_HISTORY);
+    _write(HISTORY_KEY, _history);
+  }
+  _histPos = -1;
+}
+
+let _pins = _read(PINS_KEY, []);
+if (!Array.isArray(_pins)) _pins = [];
+const MODE_ICON = { auto: "🧠", shell: "💻", type: "⌨", hotkey: "⌘", mouse: "🖱", line: "⚡" };
+
+function _renderPins() {
+  const row = document.getElementById("clawPinRow");
+  if (!row) return;
+  row.style.display = _pins.length ? "flex" : "none";
+  row.innerHTML =
+    `<span class="clawModeLabel">PINNED</span>` +
+    _pins
+      .map(
+        (p, i) =>
+          `<button class="clawPinBtn" data-pin="${i}" title="${_esc(p.input)}\n(${_esc(p.mode)} — right-click to unpin)">${MODE_ICON[p.mode] || "⚡"} ${_esc(
+            p.input.length > 22 ? p.input.slice(0, 21) + "…" : p.input,
+          )}</button>`,
+      )
+      .join("");
+}
+function _togglePin(input, mode) {
+  const at = _pins.findIndex((p) => p.input === input && p.mode === mode);
+  if (at >= 0) _pins.splice(at, 1);
+  else {
+    if (_pins.length >= MAX_PINS) {
+      _log("SYSTEM", `Only ${MAX_PINS} pins fit. Right-click one to unpin it first.`, "info");
+      return;
+    }
+    _pins.push({ input, mode });
+  }
+  _write(PINS_KEY, _pins);
+  _renderPins();
+}
+
+// "!dir" → shell; "/key ctrl+t" → hotkey. Anything else runs in the mode
+// the pills show.
+const PREFIX_MODE = { shell: "shell", sh: "shell", ps: "shell", type: "type", key: "hotkey", hotkey: "hotkey", mouse: "mouse", auto: "auto", ai: "auto" };
+function _splitPrefix(v, mode) {
+  if (v.startsWith("!") && v.length > 1) return { input: v.slice(1).trim(), mode: "shell" };
+  const m = v.match(/^\/(\w+)\s+([\s\S]+)$/);
+  if (m && PREFIX_MODE[m[1].toLowerCase()]) return { input: m[2].trim(), mode: PREFIX_MODE[m[1].toLowerCase()] };
+  return { input: v, mode };
+}
+const CLAW_HELP_TEXT = [
+  "!<command>        run in Shell without switching mode",
+  "/shell /type /key /mouse /auto <text>   run once in that mode",
+  "↑ / ↓             walk your command history",
+  "★ on a command    pin it as a button (right-click the pin to remove)",
+  "label of an entry copy it      ↻ run it again      ⧉ copy the whole log",
+  "Ctrl+L            clear the log",
+  "Ctrl+Shift+X      kill switch, from anywhere",
+  "Screen tab        click / drag / scroll the picture; ⌨ Keys types on the PC",
+].join("\n");
 const _shotUrl = () => "/api/claw/screenshot" + (_screenGrid ? "?grid=1" : "");
 
 function _buildPanel() {
@@ -79,7 +204,8 @@ function _buildPanel() {
       <div id="clawHeaderRight">
         <span id="clawStatus">● READY</span>
         <button class="clawHdrBtn clawOnOff" id="clawToggleBtn" title="Enable / disable Claw">ON</button>
-        <button class="clawHdrBtn" onclick="document.getElementById('clawPanel').classList.remove('open')">✕</button>
+        <button class="clawHdrBtn" id="clawWideBtn" title="Wide panel (more room for the screen)">⤢</button>
+        <button class="clawHdrBtn" id="clawCloseBtn" title="Close (Esc)">✕</button>
       </div>
     </div>
 
@@ -120,6 +246,9 @@ function _buildPanel() {
         <button class="clawQuickBtn clawQuickDanger" id="clawQuickKill" title="Kill switch">⬡</button>
       </div>
 
+      <!-- Pinned commands (★ on a command you ran) -->
+      <div id="clawPinRow" style="display:none"></div>
+
       <!-- Output log -->
       <div id="clawOutput"></div>
 
@@ -127,10 +256,11 @@ function _buildPanel() {
       <div id="clawInputRow">
         <span class="clawPrompt">▶</span>
         <input id="clawInput" type="text"
-          placeholder="describe what ARIA should do on your PC..."
+          placeholder="describe what ARIA should do on your PC...  (/help)"
           autocomplete="off" spellcheck="false"/>
-        <button id="clawRunBtn">⚡</button>
-        <button id="clawClearBtn" title="Clear log">🗑</button>
+        <button id="clawRunBtn" title="Run (Enter)">⚡</button>
+        <button id="clawCopyBtn" title="Copy the whole log">⧉</button>
+        <button id="clawClearBtn" title="Clear log (Ctrl+L)">🗑</button>
       </div>
     </div>
 
@@ -140,6 +270,8 @@ function _buildPanel() {
         <button id="clawScreenSnapBtn" class="clawHdrBtn">📸 Snapshot</button>
         <button id="clawScreenWatchBtn" class="clawHdrBtn">▶ Start Watch</button>
         <button id="clawScreenGridBtn" class="clawHdrBtn" title="Show the grid ARIA clicks by (it's only in this picture, never on your screen)">▦ Grid</button>
+        <button id="clawScreenKeysBtn" class="clawHdrBtn" title="Send what you type to the PC while the picture has focus (click the picture first)">⌨ Keys</button>
+        <button id="clawScreenSaveBtn" class="clawHdrBtn" title="Save this picture">⬇</button>
         <span id="clawScreenStatus" class="clawScreenStatusText">Idle</span>
       </div>
       <div id="clawScreenIntervalRow">
@@ -147,9 +279,10 @@ function _buildPanel() {
         <input type="range" id="clawScreenIntervalSlider" min="1" max="15" value="4" step="1"/>
         <span id="clawScreenIntervalVal">4s</span>
       </div>
-      <div id="clawPovFrame">
-        <div id="clawPovEmpty">No screenshot yet<br><span>Click Snapshot or Start Watch, then click, drag or scroll on the picture to control the PC</span></div>
+      <div id="clawPovFrame" tabindex="0">
+        <div id="clawPovEmpty">No screenshot yet<br><span>Click Snapshot or Start Watch, then click, drag or scroll on the picture to control the PC. ⌨ Keys sends your typing too.</span></div>
         <img id="clawPovImg" style="display:none" alt="ARIA POV"/>
+        <div id="clawPovCoords"></div>
         <div id="clawPovTimestamp"></div>
       </div>
     </div>
@@ -222,7 +355,8 @@ function _buildPanel() {
         <div class="clawCfgTitle">RELAY</div>
         <div id="clawSetupGuideBlock" class="clawCfgGuide">
           <div class="clawCfgTitle" style="margin-bottom:8px">CONNECT YOUR PC</div>
-          <code>node claw-relay.js https://aria-69jr.onrender.com --key=&lt;key&gt; --background</code>
+          <code id="clawSetupCmd">node claw-relay.js https://aria-69jr.onrender.com --key=&lt;key&gt; --background</code>
+          <button id="clawSetupCopy" class="clawHdrBtn" type="button">⧉ Copy command</button>
           <p>No npm install. Node.js only. Works on Win / Mac / Linux.</p>
           <p><code>--background</code> runs it hidden (no window); <code>--stop</code> stops it; <code>--startup</code> also starts it hidden at every Windows login.</p>
           <p>Kill switch ⬡ always visible bottom-right.</p>
@@ -234,18 +368,11 @@ function _buildPanel() {
 
   // ── Tab switching ──
   panel.querySelectorAll(".clawTab").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      _activeTab = btn.dataset.tab;
-      panel
-        .querySelectorAll(".clawTab")
-        .forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      panel
-        .querySelectorAll(".clawTabContent")
-        .forEach((c) => (c.style.display = "none"));
-      document.getElementById(`clawTab-${_activeTab}`).style.display = "flex";
-    });
+    btn.addEventListener("click", () => _switchTab(btn.dataset.tab));
   });
+
+  document.getElementById("clawCloseBtn").addEventListener("click", closeClaw);
+  document.getElementById("clawWideBtn").addEventListener("click", () => _setWide(!panel.classList.contains("clawWide")));
 
   // ── Mode buttons ──
   const HINTS = {
@@ -255,16 +382,47 @@ function _buildPanel() {
     hotkey: "ctrl+t  /  alt+tab  /  ctrl+shift+n  /  win+d",
     mouse: "move 500 300  |  click F7  |  pos  |  scroll down 3",
   };
+  const setMode = (mode, { save = true } = {}) => {
+    if (!HINTS[mode]) return;
+    _activeMode = mode;
+    panel.querySelectorAll(".clawModeBtn").forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
+    document.getElementById("clawInput").placeholder = HINTS[mode] + "   (/help)";
+    if (save) _setPref("mode", mode);
+  };
   panel.querySelectorAll(".clawModeBtn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      panel
-        .querySelectorAll(".clawModeBtn")
-        .forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      _activeMode = btn.dataset.mode;
-      document.getElementById("clawInput").placeholder =
-        HINTS[_activeMode] || "";
+      setMode(btn.dataset.mode);
+      document.getElementById("clawInput").focus();
     });
+  });
+
+  // ── Pinned commands ──
+  const pinRow = document.getElementById("clawPinRow");
+  pinRow.addEventListener("click", (e) => {
+    const p = _pins[e.target.closest("[data-pin]")?.dataset.pin];
+    if (p) _runCommand(p.input, p.mode);
+  });
+  pinRow.addEventListener("contextmenu", (e) => {
+    const p = _pins[e.target.closest("[data-pin]")?.dataset.pin];
+    if (!p) return;
+    e.preventDefault();
+    _togglePin(p.input, p.mode);
+  });
+  _renderPins();
+
+  // ── Log entries: copy, run again, pin ──
+  document.getElementById("clawOutput").addEventListener("click", (e) => {
+    const entry = e.target.closest(".clawEntry");
+    if (!entry) return;
+    const text = entry.querySelector(".clawEntryText")?.textContent || "";
+    if (e.target.closest(".clawEntryRerun")) return _runCommand(entry.dataset.input, entry.dataset.mode);
+    if (e.target.closest(".clawEntryPin")) return _togglePin(entry.dataset.input, entry.dataset.mode);
+    if (e.target.closest(".clawEntryLabel")) {
+      navigator.clipboard?.writeText(text).then(() => {
+        entry.classList.add("copied");
+        setTimeout(() => entry.classList.remove("copied"), 700);
+      }).catch(() => {});
+    }
   });
 
   // ── Quick actions ──
@@ -304,6 +462,7 @@ function _buildPanel() {
     if (cfgTypeDelayVal)
       cfgTypeDelayVal.textContent = v === 0 ? "instant" : `${v}ms`;
     _pushRelayConfig({ typeDelay: v });
+    _setPref("typeDelay", v);
   });
 
   const cfgMouseSpeed = document.getElementById("cfgMouseSpeed");
@@ -312,10 +471,12 @@ function _buildPanel() {
     const v = Number(cfgMouseSpeed.value);
     if (cfgMouseSpeedVal) cfgMouseSpeedVal.textContent = `${v}×`;
     _pushRelayConfig({ mouseSpeed: v });
+    _setPref("mouseSpeed", v);
   });
 
   document.getElementById("cfgMonitorIdx")?.addEventListener("change", (e) => {
     _pushRelayConfig({ monitorIdx: Number(e.target.value) });
+    _setPref("monitorIdx", Number(e.target.value));
   });
 
   // ── Config toggles ──
@@ -335,6 +496,7 @@ function _buildPanel() {
   let _visualizerMode = false;
   vizCb?.addEventListener("change", (e) => {
     _visualizerMode = e.target.checked;
+    _setPref("visualizer", _visualizerMode);
   });
   // expose so _runFromInput can read it
   panel._getViz = () => _visualizerMode;
@@ -349,6 +511,7 @@ function _buildPanel() {
     const vl = document.getElementById(valId);
     el?.addEventListener("input", () => {
       if (vl) vl.textContent = fmt(el.value);
+      _setPref(id, Number(el.value));
     });
   });
 
@@ -357,11 +520,48 @@ function _buildPanel() {
     if (_autoJob) _stopAuto();
     else _runFromInput();
   });
-  document.getElementById("clawInput").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") _runFromInput();
-  });
-  document.getElementById("clawClearBtn").addEventListener("click", () => {
+  const clawInput = document.getElementById("clawInput");
+  const clearLog = () => {
     document.getElementById("clawOutput").innerHTML = "";
+  };
+  clawInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") return _runFromInput();
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "l") {
+      e.preventDefault();
+      return clearLog();
+    }
+    // ↑ / ↓: older / newer commands. What you were typing comes back at the end.
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      if (!_history.length) return;
+      e.preventDefault();
+      if (_histPos === -1) _histDraft = clawInput.value;
+      _histPos = e.key === "ArrowUp" ? Math.min(_history.length - 1, _histPos + 1) : Math.max(-1, _histPos - 1);
+      clawInput.value = _histPos === -1 ? _histDraft : _history[_histPos];
+      clawInput.setSelectionRange(clawInput.value.length, clawInput.value.length);
+    }
+  });
+  document.getElementById("clawClearBtn").addEventListener("click", clearLog);
+  document.getElementById("clawCopyBtn").addEventListener("click", (e) => {
+    const text = [...document.querySelectorAll("#clawOutput .clawEntry")]
+      .map((el) => `[${el.dataset.time || ""}] ${el.querySelector(".clawEntryLabel")?.textContent || ""}: ${el.querySelector(".clawEntryText")?.textContent || ""}`)
+      .join("\n");
+    const btn = e.currentTarget;
+    navigator.clipboard?.writeText(text).then(() => {
+      btn.textContent = "✓";
+      setTimeout(() => (btn.textContent = "⧉"), 900);
+    }).catch(() => {});
+  });
+
+  // ── Setup command: this server's address, one click to copy ──
+  const setupCmd = document.getElementById("clawSetupCmd");
+  if (setupCmd && /^https?:/.test(location.origin))
+    setupCmd.textContent = `node claw-relay.js ${location.origin} --key=<key> --background`;
+  document.getElementById("clawSetupCopy")?.addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    navigator.clipboard?.writeText(setupCmd.textContent).then(() => {
+      btn.textContent = "✓ Copied";
+      setTimeout(() => (btn.textContent = "⧉ Copy command"), 1200);
+    }).catch(() => {});
   });
 
   // ── Setup guide delegation ──
@@ -381,6 +581,7 @@ function _buildPanel() {
   document.getElementById("clawScreenGridBtn").addEventListener("click", (e) => {
     _screenGrid = !_screenGrid;
     e.currentTarget.classList.toggle("active", _screenGrid);
+    _setPref("grid", _screenGrid);
     // Redraw the frame on screen with (or without) the grid.
     if (_lastShotTs)
       fetch(_shotUrl())
@@ -395,6 +596,7 @@ function _buildPanel() {
       document.getElementById(
         "clawScreenIntervalVal",
       ).textContent = `${e.target.value}s`;
+      _setPref("interval", parseInt(e.target.value));
       // restart watch with new interval if active
       if (_screenWatch) {
         _stopScreenWatch();
@@ -404,7 +606,63 @@ function _buildPanel() {
 
   _bindPovControls();
 
-  _log("SYSTEM", "ARIA Claw ready. Connect relay → full PC control.", "info");
+  document.getElementById("clawScreenKeysBtn").addEventListener("click", (e) => {
+    _povKeys = !_povKeys;
+    e.currentTarget.classList.toggle("active", _povKeys);
+    document.getElementById("clawPovFrame").classList.toggle("keysOn", _povKeys);
+    _setScreenStatus(_povKeys ? "Keys on: click the picture, then type" : _screenWatch ? "Watching..." : "Idle");
+    if (_povKeys) document.getElementById("clawPovFrame").focus();
+  });
+  document.getElementById("clawScreenSaveBtn").addEventListener("click", () => {
+    const img = document.getElementById("clawPovImg");
+    if (!img?.src || img.style.display === "none") return _setScreenStatus("Nothing to save yet");
+    const a = document.createElement("a");
+    a.href = img.src;
+    a.download = `aria-screen-${new Date(_lastShotTs || Date.now()).toISOString().replace(/[:.]/g, "-").slice(0, 19)}.png`;
+    a.click();
+  });
+  // How old the picture is, so a stale frame doesn't pass for live.
+  setInterval(_paintStamp, 1000);
+
+  // ── Put things back the way they were left ──
+  // Setting the value and firing its event runs the control's own handler,
+  // so the label updates and the relay hears about speed and monitor again.
+  const restore = (id, key) => {
+    const el = document.getElementById(id);
+    if (!el || _prefs[key] == null) return;
+    el.value = String(_prefs[key]);
+    el.dispatchEvent(new Event(el.tagName === "SELECT" ? "change" : "input"));
+  };
+  if (_prefs.mode) setMode(_prefs.mode, { save: false });
+  restore("cfgConfidence", "cfgConfidence");
+  restore("cfgMaxSteps", "cfgMaxSteps");
+  restore("cfgTypeDelay", "typeDelay");
+  restore("cfgMouseSpeed", "mouseSpeed");
+  restore("cfgMonitorIdx", "monitorIdx");
+  restore("clawScreenIntervalSlider", "interval");
+  if (_prefs.visualizer && vizCb) {
+    vizCb.checked = true;
+    _visualizerMode = true;
+  }
+  if (_prefs.grid) {
+    _screenGrid = true;
+    document.getElementById("clawScreenGridBtn").classList.add("active");
+  }
+  if (_prefs.wide) _setWide(true, { save: false });
+  if (_prefs.tab) _switchTab(_prefs.tab, { save: false });
+
+  _log("SYSTEM", "ARIA Claw ready. Connect relay → full PC control. /help for shortcuts.", "info");
+}
+
+function _setWide(on, { save = true } = {}) {
+  const panel = document.getElementById("clawPanel");
+  panel?.classList.toggle("clawWide", on);
+  const btn = document.getElementById("clawWideBtn");
+  if (btn) {
+    btn.classList.toggle("active", on);
+    btn.title = on ? "Back to the narrow panel" : "Wide panel (more room for the screen)";
+  }
+  if (save) _setPref("wide", on);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -470,8 +728,30 @@ function _startScreenWatch() {
   }, _screenInterval);
 }
 
+// The panel closed (or the tab went to the background) while watching:
+// stop asking the relay for pictures nobody's looking at, and pick up again
+// when it's back.
+function _pauseScreenWatch() {
+  if (!_screenWatch || _watchPaused) return;
+  _watchPaused = true;
+  clearInterval(_screenTimer);
+  _screenTimer = null;
+  _setScreenStatus("Paused while hidden");
+}
+function _resumeScreenWatch() {
+  if (!_watchPaused) return;
+  _watchPaused = false;
+  if (_screenWatch && !_screenTimer) _startScreenWatch();
+}
+function _syncWatch() {
+  const open = document.getElementById("clawPanel")?.classList.contains("open");
+  if (open && !document.hidden && _activeTab === "screen") _resumeScreenWatch();
+  else _pauseScreenWatch();
+}
+
 function _stopScreenWatch() {
   _screenWatch = false;
+  _watchPaused = false;
   clearInterval(_screenTimer);
   _screenTimer = null;
   const btn = document.getElementById("clawScreenWatchBtn");
@@ -491,16 +771,23 @@ function _showScreenshot(b64, ts, bounds) {
   if (ts) _lastShotTs = ts;
   const img = document.getElementById("clawPovImg");
   const empty = document.getElementById("clawPovEmpty");
-  const stamp = document.getElementById("clawPovTimestamp");
   if (img) {
     img.src = String(b64).startsWith("data:") ? b64 : "data:image/png;base64," + b64;
     img.style.display = "block";
   }
   if (empty) empty.style.display = "none";
-  if (stamp && ts) {
-    const d = new Date(ts);
-    stamp.textContent = d.toLocaleTimeString();
-  }
+  _paintStamp();
+}
+
+// "10:51:16 PM · 4s ago", and marked stale once it's well past the interval.
+function _paintStamp() {
+  const stamp = document.getElementById("clawPovTimestamp");
+  if (!stamp || !_lastShotTs) return;
+  if (_activeTab !== "screen" || !document.getElementById("clawPanel")?.classList.contains("open")) return;
+  const age = Math.max(0, Math.round((Date.now() - _lastShotTs) / 1000));
+  const ago = age < 2 ? "now" : age < 60 ? `${age}s ago` : age < 3600 ? `${Math.floor(age / 60)}m ago` : `${Math.floor(age / 3600)}h ago`;
+  stamp.textContent = `${new Date(_lastShotTs).toLocaleTimeString()} · ${ago}`;
+  stamp.classList.toggle("stale", age * 1000 > Math.max(15000, _screenInterval * 3));
 }
 
 /* ── POV remote control ──────────────────────────────────────
@@ -600,6 +887,78 @@ function _bindPovControls() {
 
   img.addEventListener("pointercancel", () => (down = null));
 
+  // Where the pointer is on the real screen, as you move over the picture.
+  const coords = document.getElementById("clawPovCoords");
+  img.addEventListener("pointermove", (e) => {
+    const p = _povToScreen(img, e.clientX, e.clientY);
+    if (coords) coords.textContent = p ? `x ${p.x}  y ${p.y}` : "";
+  });
+  img.addEventListener("pointerleave", () => {
+    if (coords) coords.textContent = "";
+  });
+  img.addEventListener("pointerdown", () => document.getElementById("clawPovFrame")?.focus({ preventScroll: true }));
+
+  // ⌨ Keys: with the picture focused, what you type goes to the PC. Letters
+  // are batched into one "type"; Enter, arrows and Ctrl/Alt combos go as
+  // hotkeys. Off by default, so the panel's own shortcuts keep working.
+  const frame = document.getElementById("clawPovFrame");
+  const NAMED = {
+    Enter: "enter", Tab: "tab", Escape: "esc", Backspace: "backspace", Delete: "del", " ": "space",
+    ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
+    Home: "home", End: "end", PageUp: "pgup", PageDown: "pgdn",
+  };
+  let typed = "", typeTimer = null;
+  const send = async (input, mode) => {
+    _log("POV", `${mode}: ${input}`, "viz");
+    try {
+      const d = await fetch("/api/claw", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input, mode }),
+      }).then((r) => r.json());
+      if (d.error) _log("ERROR", d.error, "error");
+      if (d.confirm) showConfirmDialog(d.confirm);
+    } catch (e) {
+      _log("ERROR", "Network: " + e.message, "error");
+    }
+    _povRefreshSoon(600);
+  };
+  const flush = () => {
+    clearTimeout(typeTimer);
+    typeTimer = null;
+    if (!typed) return Promise.resolve();
+    const text = typed;
+    typed = "";
+    return send(text, "type");
+  };
+  frame?.addEventListener("keydown", (e) => {
+    if (!_povKeys || !_clawEnabled) return;
+    if (["Control", "Shift", "Alt", "Meta"].includes(e.key)) return;
+    // Leave the kill switch and the browser's own tab/window keys alone.
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "x") return;
+    const named = NAMED[e.key] || (/^F\d{1,2}$/.test(e.key) ? e.key.toLowerCase() : null);
+    const combo = e.ctrlKey || e.altKey || e.metaKey;
+    if (!named && !combo && e.key.length !== 1) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!combo && !named) {
+      typed += e.key;
+      clearTimeout(typeTimer);
+      typeTimer = setTimeout(flush, 450);
+      return;
+    }
+    if (!combo && e.key === " ") {
+      typed += " ";
+      clearTimeout(typeTimer);
+      typeTimer = setTimeout(flush, 450);
+      return;
+    }
+    const mods = [e.ctrlKey && "ctrl", e.altKey && "alt", e.shiftKey && (combo || named) && "shift", e.metaKey && "win"].filter(Boolean);
+    const key = named || e.key.toLowerCase();
+    flush().then(() => send([...mods, key].join("+"), "hotkey"));
+  });
+  frame?.addEventListener("blur", flush);
+
   img.addEventListener("contextmenu", (e) => {
     e.preventDefault();
     const p = _povToScreen(img, e.clientX, e.clientY);
@@ -661,6 +1020,17 @@ function _buildConfirmDialog() {
   document.getElementById("clawConfirmAllow").addEventListener("click", () =>
     _answerConfirm(true),
   );
+  // Esc is "no". There is deliberately no key for "yes".
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key !== "Escape" || !_confirmCurrent) return;
+      e.preventDefault();
+      e.stopPropagation();
+      _answerConfirm(false);
+    },
+    true,
+  );
 }
 
 // Approvals are held on the server by id (see resolveConfirm in server.js);
@@ -704,6 +1074,7 @@ function _showNextConfirm() {
     c.reason || c.description || "ARIA wants to run a sensitive action:";
   document.getElementById("clawConfirmAction").textContent = c.action;
   dlg.style.display = "flex";
+  document.getElementById("clawConfirmDeny")?.focus();
   _log("⚠ CONFIRM", "Action: " + c.action, "error");
 }
 
@@ -803,7 +1174,10 @@ async function _runFromInput() {
   const v = document.getElementById("clawInput")?.value.trim();
   if (!v) return;
   document.getElementById("clawInput").value = "";
-  _runCommand(v, _activeMode);
+  if (/^\/(help|\?)$/i.test(v)) return _log("HELP", CLAW_HELP_TEXT, "info");
+  _remember(v);
+  const { input, mode } = _splitPrefix(v, _activeMode);
+  if (input) _runCommand(input, mode);
 }
 
 async function _runCommand(input, mode) {
@@ -815,8 +1189,9 @@ async function _runCommand(input, mode) {
     _log("BUSY", "Still working on the last task — ⏹ to stop it first.", "error");
     return;
   }
-  _log("YOU", input, "user");
+  _log("YOU", input, "user", { input, mode });
   _setStatus("● RUNNING", "var(--red-neon, #ff2222)");
+  const started = performance.now();
   const panel = document.getElementById("clawPanel");
   const vizMode = panel?._getViz?.() || false;
   let following = false;
@@ -838,7 +1213,7 @@ async function _runCommand(input, mode) {
       following = true;
       _followAuto(data.jobId);
     } else {
-      if (data.output) _log("ARIA", data.output, "output");
+      if (data.output) _log("ARIA", data.output, "output", { took: performance.now() - started });
       if (data.confirm) showConfirmDialog(data.confirm);
       if (vizMode && data.queued?.length) {
         data.queued.forEach((q) => _log("EXEC", q, "viz"));
@@ -855,7 +1230,6 @@ async function _runCommand(input, mode) {
     _log("ERROR", "Network: " + e.message, "error");
   } finally {
     if (!following) _setStatus("● READY", "");
-    document.getElementById("clawOutput")?.scrollTo(0, 999999);
   }
 }
 
@@ -887,8 +1261,9 @@ function _followAuto(id) {
     btn.textContent = "⏹";
     btn.title = "Stop this task";
   }
-  _autoJob = { id, after: -1, timer: null };
+  _autoJob = { id, after: -1, timer: null, steps: 0, started: performance.now() };
   const job = _autoJob;
+  const maxSteps = Number(document.getElementById("cfgMaxSteps")?.value) || 8;
   const tick = async () => {
     if (_autoJob !== job) return;
     try {
@@ -898,12 +1273,14 @@ function _followAuto(id) {
         job.after = Math.max(job.after, e.i);
         if (AUTO_LABEL[e.mode]) {
           _autoPill(e.mode);
+          job.steps++;
+          _setStatus(`● STEP ${job.steps}/${maxSteps}`, "var(--red-neon, #ff2222)");
           _log(AUTO_LABEL[e.mode], e.text, "viz");
         } else if (e.mode === "confirm") {
           _log("⚠ CONFIRM", e.text, "error");
           if (e.confirm) showConfirmDialog(e.confirm);
         } else if (e.mode === "say" || e.mode === "done") {
-          _log(e.label === "DONE" ? "✓ DONE" : "ARIA", e.text, "output");
+          _log(e.label === "DONE" ? "✓ DONE" : "ARIA", e.text, "output", e.mode === "done" ? { took: performance.now() - job.started } : {});
         } else if (e.mode === "result") {
           _log("↳", e.text, "info");
         } else {
@@ -943,20 +1320,37 @@ function _stopAuto() {
    PANEL TOGGLE
 ═══════════════════════════════════════════════════════════ */
 function toggleClaw() {
-  document.getElementById("clawPanel")?.classList.toggle("open");
-  if (document.getElementById("clawPanel")?.classList.contains("open")) {
-    document.getElementById("clawInput")?.focus();
-  }
+  document.getElementById("clawPanel")?.classList.contains("open") ? closeClaw() : openClaw();
 }
 
-function _switchTab(name) {
+/** Opens the panel, optionally on a tab ("control" | "screen" | "config"). */
+function openClaw(tab) {
+  const panel = document.getElementById("clawPanel");
+  if (!panel) return;
+  panel.classList.add("open");
+  if (tab) _switchTab(tab);
+  if (_activeTab === "control") document.getElementById("clawInput")?.focus();
+  _syncWatch();
+}
+
+function closeClaw() {
+  document.getElementById("clawPanel")?.classList.remove("open");
+  _syncWatch();
+}
+
+document.addEventListener("visibilitychange", _syncWatch);
+
+function _switchTab(name, { save = true } = {}) {
+  if (!document.getElementById(`clawTab-${name}`)) return;
   _activeTab = name;
+  if (save) _setPref("tab", name);
   document.querySelectorAll(".clawTab").forEach((b) => {
     b.classList.toggle("active", b.dataset.tab === name);
   });
   document.querySelectorAll(".clawTabContent").forEach((c) => {
     c.style.display = c.id === `clawTab-${name}` ? "flex" : "none";
   });
+  _syncWatch();
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -970,16 +1364,40 @@ function _setStatus(text, color) {
   }
 }
 
-function _log(label, text, type = "output") {
+/**
+ * One line in the log. `extra.input`/`extra.mode` (a command you ran) add
+ * the ↻ and ★ buttons; `extra.took` (ms) shows how long it took.
+ */
+function _log(label, text, type = "output", extra = {}) {
   const out = document.getElementById("clawOutput");
   if (!out) return;
+  // Only follow the log down if you were already at the bottom, so reading
+  // back through a long task isn't yanked away by the next step.
+  const atBottom = out.scrollHeight - out.scrollTop - out.clientHeight < 40;
+  const now = new Date();
+  const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const e = document.createElement("div");
   e.className = "clawEntry clawEntry-" + type;
+  e.dataset.time = time;
+  const took = extra.took != null ? ` · ${extra.took < 1000 ? Math.round(extra.took) + "ms" : (extra.took / 1000).toFixed(1) + "s"}` : "";
+  let tools = "";
+  if (extra.input != null) {
+    e.dataset.input = extra.input;
+    e.dataset.mode = extra.mode || "auto";
+    tools =
+      `<span class="clawEntryTools">` +
+      `<button class="clawEntryRerun" title="Run again">↻</button>` +
+      `<button class="clawEntryPin" title="Pin as a button">★</button>` +
+      `</span>`;
+  }
   e.innerHTML =
-    `<span class="clawEntryLabel">${label}</span>` +
-    `<pre class="clawEntryText">${_esc(text)}</pre>`;
+    `<span class="clawEntryLabel" title="${time}${took} — click to copy">${label}</span>` +
+    `<pre class="clawEntryText">${_esc(text)}</pre>` +
+    (took ? `<span class="clawEntryTook">${took.slice(3)}</span>` : "") +
+    tools;
   out.appendChild(e);
-  out.scrollTop = out.scrollHeight;
+  while (out.children.length > MAX_LOG) out.firstElementChild.remove();
+  if (atBottom || type === "user") out.scrollTop = out.scrollHeight;
 }
 
 function _esc(t) {

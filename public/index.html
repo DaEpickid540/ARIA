@@ -95,6 +95,8 @@
 
     <!-- Design-system finishing layer — must win over Bootstrap -->
     <link rel="stylesheet" href="style/bookware.css" />
+    <!-- Home screen HUD, Daily Rings, command palette. After bookware. -->
+    <link rel="stylesheet" href="style/hud.css" />
   </head>
 
   <body>
@@ -202,7 +204,7 @@
     <!--  HOMEPAGE                 -->
     <!-- ========================= -->
     <div id="homepageScreen">
-      <div id="homepageContent" class="neon">
+      <div id="homepageContent" class="neon hud">
         <div id="homeHeader">
           <div id="homeAriaTitle">
             <span class="homeTitleMain">ARIA</span>
@@ -210,195 +212,248 @@
               >Adaptive Reasoning Intelligence Architecture</span
             >
           </div>
-          <div id="ariaEmotionIndicator" class="emotionIndicator">
-            ◉ NEUTRAL
+          <button id="hudSearchBtn" class="hudSearch" type="button" title="Search everything (Ctrl+K)">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <span>Search or jump to…</span>
+            <kbd>Ctrl K</kbd>
+          </button>
+          <div id="hudHeaderRight">
+            <span id="hudWeatherMini" class="hudMini"></span>
+            <span id="hudStatusMini" class="hudMini"><i class="hudDot"></i> <span id="hudStatusText">ONLINE</span></span>
           </div>
         </div>
 
-        <!-- TOP GRID (3-COLUMN) -->
-        <div id="homeTopGrid" class="homeGrid">
-          <div id="homeTimeCard" class="homeCard" style="--i: 0">
-            <div class="homeLabel"><i class="bi bi-clock" aria-hidden="true"></i> SYSTEM TIME</div>
-            <div id="homeTime" class="homeValue"></div>
+        <!-- LEFT RAIL: the machine -->
+        <aside class="hudRail hudRailLeft" aria-label="Systems">
+          <div class="hudRailTitle"><span>SYSTEMS</span></div>
+          <div class="hudRailScroll">
+            <div id="homeWeatherCard" class="homeCard" style="--i: 0">
+              <div class="homeLabel"><i class="bi bi-thermometer-half" aria-hidden="true"></i> WEATHER — MASON, OH</div>
+              <div id="homeWeatherMain" class="homeValue"></div>
+              <div id="homeWeatherDetails" class="homeSub"></div>
+            </div>
+            <div id="homeSystemCard" class="homeCard" style="--i: 1">
+              <div class="homeLabel"><i class="bi bi-pc-display" aria-hidden="true"></i> SYSTEM</div>
+              <div id="homeSystem" class="homeValue"></div>
+              <div id="networkIndicator" class="homeSub"></div>
+            </div>
+            <div id="homeHealthCard" class="homeCard" style="--i: 2">
+              <div class="homeLabel"><i class="bi bi-heart-pulse" aria-hidden="true"></i> SYSTEM HEALTH</div>
+              <div id="homeHealthScore" class="homeValue"></div>
+              <div id="homeHealthDetails" class="homeSub"></div>
+            </div>
+            <div class="homeCard latencyCard" style="--i: 3">
+              <div class="homeLabel"><i class="bi bi-reception-4" aria-hidden="true"></i> SERVER LATENCY</div>
+              <div class="latencyMain">
+                <span id="latencyValue" class="latencyValue">—</span>
+                <span id="latencyAvg" class="hwSub">avg —</span>
+              </div>
+              <div id="latencySpark" class="latencySpark"></div>
+            </div>
+            <div id="homeMonitorCard" class="homeCard" style="--i: 4">
+              <div class="homeLabel"><i class="bi bi-activity" aria-hidden="true"></i> SYSTEM MONITOR</div>
+              <div id="homeSystemMonitor" class="homeValue"></div>
+            </div>
+            <div class="homeCard" style="--i: 5">
+              <div class="homeLabel"><i class="bi bi-wifi" aria-hidden="true"></i> NETWORK</div>
+              <div id="homeNetworkInfo" class="homeValue"></div>
+            </div>
           </div>
-          <div id="homeWeatherCard" class="homeCard" style="--i: 1">
-            <div class="homeLabel"><i class="bi bi-thermometer-half" aria-hidden="true"></i> WEATHER — MASON, OH</div>
-            <div id="homeWeatherMain" class="homeValue"></div>
-            <div id="homeWeatherDetails" class="homeSub"></div>
-          </div>
-          <div id="homeSystemCard" class="homeCard" style="--i: 2">
-            <div class="homeLabel"><i class="bi bi-pc-display" aria-hidden="true"></i> SYSTEM</div>
-            <div id="homeSystem" class="homeValue"></div>
-            <div id="networkIndicator" class="homeSub"></div>
-          </div>
-        </div>
+        </aside>
 
-        <!-- SCROLL ROW 1 -->
-        <div class="scrollRow">
-          <div id="homeQuoteCard" class="homeCard scrollCard">
-            <div class="homeLabel"><i class="bi bi-chat-quote" aria-hidden="true"></i> MOTIVATION</div>
-            <div id="homeQuote" class="homeValue"></div>
+        <!-- CENTRE: the core, the way in, and the tool dock -->
+        <main class="hudCenter">
+          <div id="hudCore">
+            <svg id="hudCoreSvg" viewBox="0 0 400 400" aria-hidden="true"></svg>
+            <div class="hudCoreReadout">
+              <div id="ariaEmotionIndicator" class="emotionIndicator">
+                ◉ NEUTRAL
+              </div>
+              <div id="hudClock"><span id="hudClockMain">--:--</span><span id="hudClockSec">--</span></div>
+              <div id="hudDate"></div>
+              <div id="hudGreeting"></div>
+              <button id="hudRingsBtn" type="button" title="Daily Rings: open the list"></button>
+            </div>
+            <div class="hudCallout hudCalloutTL" title="Host CPU load">
+              <span class="hudCalloutLabel">CPU</span><span id="hudCpu" class="hudCalloutValue">—</span>
+            </div>
+            <div class="hudCallout hudCalloutTR" title="Host memory in use">
+              <span class="hudCalloutLabel">RAM</span><span id="hudRam" class="hudCalloutValue">—</span>
+            </div>
+            <div class="hudCallout hudCalloutBL" title="Round trip to the ARIA server">
+              <span class="hudCalloutLabel">LINK</span><span id="hudLink" class="hudCalloutValue">—</span>
+            </div>
+            <button class="hudCallout hudCalloutBR" id="hudClawCallout" type="button" title="Claw relay: click to open Claw">
+              <span class="hudCalloutLabel">CLAW</span><span id="hudClaw" class="hudCalloutValue">—</span>
+            </button>
           </div>
-          <div id="homeTasksCard" class="homeCard scrollCard">
-            <div class="homeLabel"><i class="bi bi-check2-square" aria-hidden="true"></i> TASKS PREVIEW</div>
-            <div id="homeTasksList" class="homeValue"></div>
-          </div>
-          <div id="homeRecentCard" class="homeCard scrollCard">
-            <div class="homeLabel"><i class="bi bi-collection" aria-hidden="true"></i> RECENT CHATS</div>
-            <div id="homeRecentChats" class="homeValue"></div>
-          </div>
-        </div>
 
-        <!-- SCROLL ROW 2 -->
-        <div class="scrollRow">
-          <div id="homeHealthCard" class="homeCard scrollCard">
-            <div class="homeLabel"><i class="bi bi-heart-pulse" aria-hidden="true"></i> SYSTEM HEALTH</div>
-            <div id="homeHealthScore" class="homeValue"></div>
-            <div id="homeHealthDetails" class="homeSub"></div>
+          <div id="homeButtons">
+            <button id="enterConsoleBtn" class="primaryBtn glitch wideBtn">
+              <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> ENTER ARIA CONSOLE
+            </button>
           </div>
-          <div id="homeSpeedCard" class="homeCard scrollCard">
-            <div class="homeLabel"><i class="bi bi-speedometer2" aria-hidden="true"></i> SPEED TEST</div>
-            <div id="homeSpeedPreview" class="homeValue"></div>
-            <div id="homeSpeedNote" class="homeSub"></div>
-          </div>
-          <div id="homeQuickToolsCard" class="homeCard scrollCard">
-            <div class="homeLabel"><i class="bi bi-tools" aria-hidden="true"></i> QUICK TOOLS</div>
-            <div id="homeQuickTools" class="homeValue"></div>
-          </div>
-          <div id="homeSummaryCard" class="homeCard scrollCard">
-            <div class="homeLabel"><i class="bi bi-journal-text" aria-hidden="true"></i> DAILY SUMMARY</div>
-            <div id="homeDailySummary" class="homeValue"></div>
-          </div>
-          <div id="homeMonitorCard" class="homeCard scrollCard">
-            <div class="homeLabel"><i class="bi bi-activity" aria-hidden="true"></i> SYSTEM MONITOR</div>
-            <div id="homeSystemMonitor" class="homeValue"></div>
-          </div>
-        </div>
 
-        <!-- SCROLL ROW 3 — memory, activity and devices (homeTools.js) -->
-        <div class="scrollRow">
-          <div class="homeCard scrollCard">
-            <div class="homeLabel"><i class="bi bi-hdd" aria-hidden="true"></i> MEMORY</div>
-            <div id="homeMemoryFacts" class="homeValue"></div>
+          <!-- TOOL DOCK: each chip opens its card above the dock (homeCore.js) -->
+          <div id="hudDockWrap">
+          <div id="hudDock" role="toolbar" aria-label="Tools">
+            <button class="hudDockBtn" type="button" data-panel="homeQuickToolsCard" data-label="Quick tools"><i class="bi bi-tools" aria-hidden="true"></i></button>
+            <button class="hudDockBtn" type="button" data-panel="homeSpeedCard" data-label="Speed test"><i class="bi bi-speedometer2" aria-hidden="true"></i></button>
+            <button class="hudDockBtn" type="button" data-panel="hudPomodoroCard" data-label="Pomodoro"><i class="bi bi-stopwatch" aria-hidden="true"></i></button>
+            <button class="hudDockBtn" type="button" data-panel="hudScratchpadCard" data-label="Scratchpad"><i class="bi bi-pencil-square" aria-hidden="true"></i></button>
+            <button class="hudDockBtn" type="button" data-panel="hudClipboardCard" data-label="Clipboard"><i class="bi bi-clipboard" aria-hidden="true"></i></button>
+            <button class="hudDockBtn" type="button" data-panel="hudDictCard" data-label="Define"><i class="bi bi-book" aria-hidden="true"></i></button>
+            <button class="hudDockBtn" type="button" data-panel="hudWorldClockCard" data-label="World clocks"><i class="bi bi-globe2" aria-hidden="true"></i></button>
+            <button class="hudDockBtn" type="button" data-panel="hudCryptoCard" data-label="Crypto"><i class="bi bi-currency-bitcoin" aria-hidden="true"></i></button>
+            <button class="hudDockBtn" type="button" data-panel="hudColorCard" data-label="Color picker"><i class="bi bi-palette" aria-hidden="true"></i></button>
+            <button class="hudDockBtn" type="button" data-panel="hudTextStatsCard" data-label="Text stats"><i class="bi bi-bar-chart" aria-hidden="true"></i></button>
+            <button class="hudDockBtn" type="button" data-panel="hudPasswordCard" data-label="Password"><i class="bi bi-key" aria-hidden="true"></i></button>
+            <button class="hudDockBtn" type="button" data-panel="hudUsbCard" data-label="USB devices"><i class="bi bi-usb-symbol" aria-hidden="true"></i></button>
+            <button class="hudDockBtn" type="button" data-panel="hudBluetoothCard" data-label="Bluetooth"><i class="bi bi-bluetooth" aria-hidden="true"></i></button>
           </div>
-          <div class="homeCard scrollCard">
-            <div class="homeLabel"><i class="bi bi-gear-wide-connected" aria-hidden="true"></i> BACKGROUND TASKS</div>
-            <div id="homeBgTasks" class="homeValue"></div>
-          </div>
-          <div class="homeCard scrollCard">
-            <div class="homeLabel"><i class="bi bi-wifi" aria-hidden="true"></i> NETWORK</div>
-            <div id="homeNetworkInfo" class="homeValue"></div>
-          </div>
-          <div class="homeCard scrollCard">
-            <div class="homeLabel"><i class="bi bi-usb-symbol" aria-hidden="true"></i> USB DEVICES</div>
-            <div id="homeUSBDevices" class="homeValue"></div>
-          </div>
-          <div class="homeCard scrollCard">
-            <div class="homeLabel"><i class="bi bi-bluetooth" aria-hidden="true"></i> BLUETOOTH</div>
-            <div id="homeBluetooth" class="homeValue"></div>
-          </div>
-        </div>
 
-        <!-- SCROLL ROW 4 — utilities (homeTools.js, Mark 1.2) -->
-        <div class="scrollRow">
-          <div class="homeCard scrollCard pomodoroCard">
-            <div class="homeLabel"><i class="bi bi-stopwatch" aria-hidden="true"></i> POMODORO</div>
-            <div id="pomodoroDisplay" class="pomodoroDisplay">25:00</div>
-            <div class="pomodoroMeta">
-              <span id="pomodoroPhase">FOCUS</span>
-              <span id="pomodoroCount">0 done</span>
+          <div id="hudDockPanels">
+            <div id="homeQuickToolsCard" class="homeCard hudDockPanel">
+              <div class="homeLabel"><i class="bi bi-tools" aria-hidden="true"></i> QUICK TOOLS</div>
+              <div id="homeQuickTools" class="homeValue"></div>
             </div>
-            <div class="hwBtnRow">
-              <button id="pomodoroStart" class="hwToolBtn">▶ Start</button>
-              <button id="pomodoroReset" class="hwToolBtn">⟳ Reset</button>
+            <div id="homeSpeedCard" class="homeCard hudDockPanel">
+              <div class="homeLabel"><i class="bi bi-speedometer2" aria-hidden="true"></i> SPEED TEST</div>
+              <div id="homeSpeedPreview" class="homeValue"></div>
+              <div id="homeSpeedNote" class="homeSub"></div>
             </div>
-          </div>
-          <div class="homeCard scrollCard scratchpadCard">
-            <div class="homeLabel">
-              <i class="bi bi-pencil-square" aria-hidden="true"></i> SCRATCHPAD
-              <span id="scratchpadCount" class="hwLabelAside">0 chars</span>
-            </div>
-            <textarea id="scratchpadText" class="hwField" rows="4" placeholder="Quick notes, ideas, anything…" aria-label="Scratchpad"></textarea>
-            <div class="hwBtnRow">
-              <button id="scratchpadCopy" class="hwToolBtn">Copy</button>
-              <button id="scratchpadClear" class="hwToolBtn">Clear</button>
-            </div>
-          </div>
-          <div class="homeCard scrollCard latencyCard">
-            <div class="homeLabel"><i class="bi bi-reception-4" aria-hidden="true"></i> SERVER LATENCY</div>
-            <div class="latencyMain">
-              <span id="latencyValue" class="latencyValue">—</span>
-              <span id="latencyAvg" class="hwSub">avg —</span>
-            </div>
-            <div id="latencySpark" class="latencySpark"></div>
-          </div>
-          <div class="homeCard scrollCard cryptoCard">
-            <div class="homeLabel"><i class="bi bi-currency-bitcoin" aria-hidden="true"></i> CRYPTO</div>
-            <div id="cryptoList"><span class="hwEmpty">Loading…</span></div>
-          </div>
-          <div class="homeCard scrollCard worldClockCard">
-            <div class="homeLabel"><i class="bi bi-globe2" aria-hidden="true"></i> WORLD CLOCKS</div>
-            <div id="worldClockList"></div>
-          </div>
-          <div class="homeCard scrollCard dictCard">
-            <div class="homeLabel"><i class="bi bi-book" aria-hidden="true"></i> DEFINE</div>
-            <input id="dictInput" class="hwField" type="text" placeholder="Type a word…" aria-label="Word to define" />
-            <div id="dictResult"></div>
-          </div>
-          <div class="homeCard scrollCard clipboardCard">
-            <div class="homeLabel">
-              <i class="bi bi-clipboard" aria-hidden="true"></i> CLIPBOARD
-              <button id="clipboardSaveBtn" class="hwToolBtn hwLabelAside">+ Save current</button>
-            </div>
-            <div id="clipboardHistoryList"></div>
-          </div>
-          <div class="homeCard scrollCard colorPickerCard">
-            <div class="homeLabel"><i class="bi bi-palette" aria-hidden="true"></i> COLOR PICKER</div>
-            <div class="colorPickerBody">
-              <input id="colorInput" class="colorInput" type="color" value="#ff2040" aria-label="Pick a color" />
-              <div id="colorSwatch" hidden></div>
-              <div class="colorValues">
-                <div><span class="hwSub">HEX</span> <span id="colorHex"></span></div>
-                <div><span class="hwSub">RGB</span> <span id="colorRgb"></span></div>
-                <div><span class="hwSub">HSL</span> <span id="colorHsl"></span></div>
+            <div id="hudPomodoroCard" class="homeCard hudDockPanel pomodoroCard">
+              <div class="homeLabel"><i class="bi bi-stopwatch" aria-hidden="true"></i> POMODORO</div>
+              <div id="pomodoroDisplay" class="pomodoroDisplay">25:00</div>
+              <div class="pomodoroMeta">
+                <span id="pomodoroPhase">FOCUS</span>
+                <span id="pomodoroCount">0 done</span>
+              </div>
+              <div class="hwBtnRow">
+                <button id="pomodoroStart" class="hwToolBtn">▶ Start</button>
+                <button id="pomodoroReset" class="hwToolBtn">⟳ Reset</button>
               </div>
             </div>
-          </div>
-          <div class="homeCard scrollCard textStatsCard">
-            <div class="homeLabel"><i class="bi bi-bar-chart" aria-hidden="true"></i> TEXT STATS</div>
-            <textarea id="textStatsInput" class="hwField" rows="3" placeholder="Paste text to analyze…" aria-label="Text to analyze"></textarea>
-            <div class="textStatsGrid">
-              <div><span id="textStatsChars">0</span> chars</div>
-              <div><span id="textStatsWords">0</span> words</div>
-              <div><span id="textStatsLines">0</span> lines</div>
-              <div id="textStatsRead">—</div>
+            <div id="hudScratchpadCard" class="homeCard hudDockPanel scratchpadCard">
+              <div class="homeLabel">
+                <i class="bi bi-pencil-square" aria-hidden="true"></i> SCRATCHPAD
+                <span id="scratchpadCount" class="hwLabelAside">0 chars</span>
+              </div>
+              <textarea id="scratchpadText" class="hwField" rows="6" placeholder="Quick notes, ideas, anything…" aria-label="Scratchpad"></textarea>
+              <div class="hwBtnRow">
+                <button id="scratchpadCopy" class="hwToolBtn">Copy</button>
+                <button id="scratchpadClear" class="hwToolBtn">Clear</button>
+              </div>
+            </div>
+            <div id="hudClipboardCard" class="homeCard hudDockPanel clipboardCard">
+              <div class="homeLabel">
+                <i class="bi bi-clipboard" aria-hidden="true"></i> CLIPBOARD
+                <button id="clipboardSaveBtn" class="hwToolBtn hwLabelAside">+ Save current</button>
+              </div>
+              <div id="clipboardHistoryList"></div>
+            </div>
+            <div id="hudDictCard" class="homeCard hudDockPanel dictCard">
+              <div class="homeLabel"><i class="bi bi-book" aria-hidden="true"></i> DEFINE</div>
+              <input id="dictInput" class="hwField" type="text" placeholder="Type a word…" aria-label="Word to define" />
+              <div id="dictResult"></div>
+            </div>
+            <div id="hudWorldClockCard" class="homeCard hudDockPanel worldClockCard">
+              <div class="homeLabel"><i class="bi bi-globe2" aria-hidden="true"></i> WORLD CLOCKS</div>
+              <div id="worldClockList"></div>
+            </div>
+            <div id="hudCryptoCard" class="homeCard hudDockPanel cryptoCard">
+              <div class="homeLabel"><i class="bi bi-currency-bitcoin" aria-hidden="true"></i> CRYPTO</div>
+              <div id="cryptoList"><span class="hwEmpty">Loading…</span></div>
+            </div>
+            <div id="hudColorCard" class="homeCard hudDockPanel colorPickerCard">
+              <div class="homeLabel"><i class="bi bi-palette" aria-hidden="true"></i> COLOR PICKER</div>
+              <div class="colorPickerBody">
+                <input id="colorInput" class="colorInput" type="color" value="#ff2040" aria-label="Pick a color" />
+                <div id="colorSwatch" hidden></div>
+                <div class="colorValues">
+                  <div><span class="hwSub">HEX</span> <span id="colorHex"></span></div>
+                  <div><span class="hwSub">RGB</span> <span id="colorRgb"></span></div>
+                  <div><span class="hwSub">HSL</span> <span id="colorHsl"></span></div>
+                </div>
+              </div>
+            </div>
+            <div id="hudTextStatsCard" class="homeCard hudDockPanel textStatsCard">
+              <div class="homeLabel"><i class="bi bi-bar-chart" aria-hidden="true"></i> TEXT STATS</div>
+              <textarea id="textStatsInput" class="hwField" rows="4" placeholder="Paste text to analyze…" aria-label="Text to analyze"></textarea>
+              <div class="textStatsGrid">
+                <div><span id="textStatsChars">0</span> chars</div>
+                <div><span id="textStatsWords">0</span> words</div>
+                <div><span id="textStatsLines">0</span> lines</div>
+                <div id="textStatsRead">—</div>
+              </div>
+            </div>
+            <div id="hudPasswordCard" class="homeCard hudDockPanel passwordGenCard">
+              <div class="homeLabel"><i class="bi bi-key" aria-hidden="true"></i> PASSWORD GENERATOR</div>
+              <input id="pwOutput" class="hwField hwMono" type="text" readonly aria-label="Generated password" />
+              <div class="pwOpts">
+                <label><input type="checkbox" id="pwUpper" checked /> A-Z</label>
+                <label><input type="checkbox" id="pwLower" checked /> a-z</label>
+                <label><input type="checkbox" id="pwDigits" checked /> 0-9</label>
+                <label><input type="checkbox" id="pwSymbols" /> !@#$</label>
+              </div>
+              <div class="pwLengthRow">
+                <input type="range" id="pwLength" min="6" max="48" value="16" aria-label="Password length" />
+                <span id="pwLengthLabel" class="hwSub">16 chars</span>
+              </div>
+              <div class="hwBtnRow">
+                <button id="pwGen" class="hwToolBtn">⟳ Generate</button>
+                <button id="pwCopy" class="hwToolBtn">Copy</button>
+              </div>
+            </div>
+            <div id="hudUsbCard" class="homeCard hudDockPanel">
+              <div class="homeLabel"><i class="bi bi-usb-symbol" aria-hidden="true"></i> USB DEVICES</div>
+              <div id="homeUSBDevices" class="homeValue"></div>
+            </div>
+            <div id="hudBluetoothCard" class="homeCard hudDockPanel">
+              <div class="homeLabel"><i class="bi bi-bluetooth" aria-hidden="true"></i> BLUETOOTH</div>
+              <div id="homeBluetooth" class="homeValue"></div>
             </div>
           </div>
-          <div class="homeCard scrollCard passwordGenCard">
-            <div class="homeLabel"><i class="bi bi-key" aria-hidden="true"></i> PASSWORD GENERATOR</div>
-            <input id="pwOutput" class="hwField hwMono" type="text" readonly aria-label="Generated password" />
-            <div class="pwOpts">
-              <label><input type="checkbox" id="pwUpper" checked /> A-Z</label>
-              <label><input type="checkbox" id="pwLower" checked /> a-z</label>
-              <label><input type="checkbox" id="pwDigits" checked /> 0-9</label>
-              <label><input type="checkbox" id="pwSymbols" /> !@#$</label>
-            </div>
-            <div class="pwLengthRow">
-              <input type="range" id="pwLength" min="6" max="48" value="16" aria-label="Password length" />
-              <span id="pwLengthLabel" class="hwSub">16 chars</span>
-            </div>
-            <div class="hwBtnRow">
-              <button id="pwGen" class="hwToolBtn">⟳ Generate</button>
-              <button id="pwCopy" class="hwToolBtn">Copy</button>
-            </div>
           </div>
-        </div>
+        </main>
 
-        <div id="homeButtons">
-          <button id="enterConsoleBtn" class="primaryBtn glitch wideBtn">
-            <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> ENTER ARIA CONSOLE
-          </button>
-        </div>
+        <!-- RIGHT RAIL: you -->
+        <aside class="hudRail hudRailRight" aria-label="Operator">
+          <div class="hudRailTitle"><span>OPERATOR</span></div>
+          <div class="hudRailScroll">
+            <div id="homeRingsCard" class="homeCard" style="--i: 0">
+              <div class="homeLabel">
+                <i class="bi bi-bullseye" aria-hidden="true"></i> DAILY RINGS
+                <button id="homeRingsManage" class="hwToolBtn hwLabelAside" type="button">Manage</button>
+              </div>
+              <div id="homeRings" class="homeValue"></div>
+            </div>
+            <div id="homeTasksCard" class="homeCard" style="--i: 1">
+              <div class="homeLabel"><i class="bi bi-check2-square" aria-hidden="true"></i> TASKS PREVIEW</div>
+              <div id="homeTasksList" class="homeValue"></div>
+            </div>
+            <div id="homeRecentCard" class="homeCard" style="--i: 2">
+              <div class="homeLabel"><i class="bi bi-collection" aria-hidden="true"></i> RECENT CHATS</div>
+              <div id="homeRecentChats" class="homeValue"></div>
+            </div>
+            <div id="homeSummaryCard" class="homeCard" style="--i: 3">
+              <div class="homeLabel"><i class="bi bi-journal-text" aria-hidden="true"></i> DAILY SUMMARY</div>
+              <div id="homeDailySummary" class="homeValue"></div>
+            </div>
+            <div class="homeCard" style="--i: 4">
+              <div class="homeLabel"><i class="bi bi-hdd" aria-hidden="true"></i> MEMORY</div>
+              <div id="homeMemoryFacts" class="homeValue"></div>
+            </div>
+            <div class="homeCard" style="--i: 5">
+              <div class="homeLabel"><i class="bi bi-gear-wide-connected" aria-hidden="true"></i> BACKGROUND TASKS</div>
+              <div id="homeBgTasks" class="homeValue"></div>
+            </div>
+            <div id="homeQuoteCard" class="homeCard" style="--i: 6">
+              <div class="homeLabel"><i class="bi bi-chat-quote" aria-hidden="true"></i> MOTIVATION</div>
+              <div id="homeQuote" class="homeValue"></div>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
 
@@ -495,6 +550,9 @@
               </button>
               <button class="toolDropItem" id="tool_flashcards">
                 <i class="bi bi-card-text" aria-hidden="true"></i> Flashcards
+              </button>
+              <button class="toolDropItem" id="tool_rings">
+                <i class="bi bi-bullseye" aria-hidden="true"></i> Daily Rings (habits, streaks)
               </button>
               <button class="toolDropItem" id="tool_practice">
                 <i class="bi bi-music-note-list" aria-hidden="true"></i> Practice (tuner, metronome)
