@@ -29,6 +29,8 @@ import {
 import { initHomeCore } from "./homeCore.js";
 import { initRings } from "./rings.js";
 import { initPalette } from "./palette.js";
+import { initSidebarHud } from "./sidebarHud.js";
+import { initChatHud } from "./chatHud.js";
 
 export function initHomepage() {
   const screen = document.getElementById("homepageScreen");
@@ -63,6 +65,8 @@ export function initHomepage() {
   initHomeCore();
   initRings();
   initPalette();
+  initSidebarHud();
+  initChatHud();
 
   // Async / live-data tools — always refresh on every visit
   initWeather();

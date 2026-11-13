@@ -121,8 +121,15 @@ test("reply parsing, modes, and image trimming", () => {
   assert.equal(modeOf({ type: "mouse_pos" }), "mouse");
   assert.equal(modeOf({ type: "hotkey" }), "hotkey");
   assert.equal(modeOf({ type: "screenshot" }), "look");
+  assert.equal(modeOf({ type: "list_apps" }), "look");
+  assert.equal(modeOf({ type: "close_app" }), "app");
   const trimmed = dropOldImages([{ role: "user", content: [{ type: "image_url", image_url: { url: "x" } }, { type: "text", text: "RESULTS" }] }]);
   assert.deepEqual(trimmed[0].content.map((p) => p.type), ["text", "text"]);
   assert.match(autoSystem({ relayType: "esp32" }), /Bluetooth keyboard/);
   assert.doesNotMatch(autoSystem({ relayType: "esp32" }), /POWERSHELL/);
+  // close: and apps need an OS to ask, so only the PC relay is told about them.
+  assert.match(autoSystem({}), /close: <app name>/);
+  assert.match(autoSystem({}), /never shell: taskkill/);
+  assert.match(autoSystem({}), /· apps \(what's open/);
+  assert.doesNotMatch(autoSystem({ relayType: "esp32" }), /close: <app|· apps \(/);
 });

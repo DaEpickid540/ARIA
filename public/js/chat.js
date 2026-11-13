@@ -3,6 +3,11 @@ import { createVisual, buildSrcdoc } from "./visualize.js";
 import { loadSettings } from "./personality.js";
 import { runTool } from "./tools.js";
 
+// The chat's markdown (code, maths, tables), for panels that show model text
+// (arena.js) and for visualize.js. Set first thing: the startup render below
+// already shows saved widgets, and renderMarkdown is hoisted.
+window.ARIA_renderMarkdown = (t) => renderMarkdown(t);
+
 /* ── STATE ── */
 let chats = [];
 let currentChatId = null;
@@ -84,6 +89,62 @@ function plotFromReply(raw) {
   if (type) type.value = "2d";
   window._renderMathViz();
 }
+
+/* ============================================================
+   DRAFTS — what you'd typed stays with its chat
+   Switching chats used to carry a half-written message into the next
+   chat (or lose it on a reload). Each chat keeps its own unsent text,
+   in localStorage on this device, until it's sent.
+   ============================================================ */
+const DRAFTS_KEY = "aria_drafts";
+const MAX_DRAFTS = 50;
+let _drafts = {};
+try {
+  const raw = JSON.parse(localStorage.getItem(DRAFTS_KEY) || "{}");
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) _drafts = raw;
+} catch {}
+let _draftChatId = null; // the chat whose text is in the composer now
+let _draftSaveT = null;
+
+function persistDrafts() {
+  clearTimeout(_draftSaveT);
+  _draftSaveT = setTimeout(() => {
+    try {
+      // Oldest out first, and none for chats that are gone.
+      const ids = Object.keys(_drafts).filter((id) => chats.some((c) => c.id === id));
+      _drafts = Object.fromEntries(ids.slice(-MAX_DRAFTS).map((id) => [id, _drafts[id]]));
+      localStorage.setItem(DRAFTS_KEY, JSON.stringify(_drafts));
+    } catch {}
+  }, 400);
+}
+/** Keeps the composer's text under the chat it was typed in. */
+function saveDraft() {
+  if (!_draftChatId || !userInput) return;
+  const had = _draftChatId in _drafts;
+  const v = userInput.value;
+  if (v.trim()) {
+    delete _drafts[_draftChatId]; // re-added last = newest
+    _drafts[_draftChatId] = v.slice(0, 20000);
+  } else delete _drafts[_draftChatId];
+  if (had || v.trim()) persistDrafts();
+}
+/** Puts a chat's unsent text in the composer (and files the old chat's). */
+function showDraftFor(chatId) {
+  if (chatId === _draftChatId || !userInput) return;
+  saveDraft();
+  _draftChatId = chatId;
+  userInput.value = (chatId && _drafts[chatId]) || "";
+  // The composer's own listener re-fits its height to the text.
+  userInput.dispatchEvent(new Event("input", { bubbles: true }));
+}
+userInput?.addEventListener("input", saveDraft);
+// A reload or a closed tab within the debounce shouldn't lose the last words.
+window.addEventListener("pagehide", () => {
+  saveDraft();
+  try {
+    localStorage.setItem(DRAFTS_KEY, JSON.stringify(_drafts));
+  } catch {}
+});
 
 /* ── LOAD ── */
 try {
@@ -852,6 +913,48 @@ window.ARIA_removeAttach = (i) => {
 /* ============================================================
    CHAT MANAGEMENT
    ============================================================ */
+/**
+ * A new chat holding this one's messages up to and including `idx`. The
+ * original is untouched, so you can try a different question from any
+ * point without losing where the first one went.
+ */
+export function branchChat(chatId, idx) {
+  const chat = chats.find((c) => c.id === chatId);
+  if (!chat?.messages[idx]) return;
+  const now = Date.now();
+  const base = String(chat.title || "Chat").replace(/\s*↳$/, "").slice(0, 37);
+  const copy = {
+    id: "chat_" + now,
+    title: `${base} ↳`,
+    // A deep copy: editing or starring a message in one mustn't touch the other.
+    messages: JSON.parse(JSON.stringify(chat.messages.slice(0, idx + 1))),
+    createdAt: now,
+    updatedAt: now,
+    branchedFrom: { chatId: chat.id, at: idx },
+  };
+  chats.unshift(copy);
+  currentChatId = copy.id;
+  saveChats();
+  syncToServer();
+  renderChatList();
+  renderMessages();
+  showToast("Branched into a new chat", "↳");
+  userInput?.focus();
+}
+window.ARIA_branchChat = branchChat;
+
+/** Alt+↑ / Alt+↓: the chat above or below in the list. */
+window.ARIA_stepChat = (delta) => {
+  if (!chats.length) return;
+  const i = chats.findIndex((c) => c.id === currentChatId);
+  const next = chats[Math.max(0, Math.min(chats.length - 1, (i < 0 ? 0 : i) + delta))];
+  if (!next || next.id === currentChatId) return;
+  currentChatId = next.id;
+  renderChatList();
+  renderMessages();
+  document.querySelector("#chatList .chatRow.active")?.scrollIntoView({ block: "nearest" });
+};
+
 function createNewChat() {
   const id = "chat_" + Date.now();
   chats.unshift({ id, title: "New Chat", messages: [], createdAt: Date.now() });
@@ -927,8 +1030,6 @@ window.ARIA_deleteMessage = deleteMessage;
 window.ARIA_copyMessage = copyMessage;
 window.ARIA_regenerateMsg = regenerateMessage;
 window.ARIA_renderChatList = renderChatList;
-// The chat's markdown (code, maths, tables), for panels that show model text (arena.js).
-window.ARIA_renderMarkdown = (t) => renderMarkdown(t);
 window.ARIA_doScrapeWithChoice = doScrapeWithChoice;
 window.ARIA_doWebSearch = doWebSearch;
 window.ARIA_loadFromServer = loadFromServer;
@@ -1109,6 +1210,12 @@ function renderChatList() {
     btn.className = "chatItem" + (chat.id === currentChatId ? " active" : "");
     btn.textContent = chat.title || "Untitled";
     btn.title = chat.title;
+    // A dot on a chat with something typed and not sent.
+    if (chat.id !== currentChatId && _drafts[chat.id]) {
+      const dot = Object.assign(document.createElement("span"), { className: "chatDraftDot", title: "Unsent draft" });
+      btn.appendChild(dot);
+      btn.title = `${chat.title} (unsent draft)`;
+    }
     btn.onclick = () => {
       currentChatId = chat.id;
       renderChatList();
@@ -1333,6 +1440,8 @@ function renderMessages() {
   if (!messages) return;
   messages.innerHTML = "";
   const chat = getCurrentChat();
+  // Every switch of chat comes through here: the composer follows it.
+  showDraftFor(chat?.id || null);
   if (!chat) return;
   // Goes inside inline onclick strings below, where HTML escaping doesn't
   // help ('&#39;' is a quote again by the time the JS runs). Chat ids are
@@ -1449,6 +1558,7 @@ function renderMessages() {
               ? `<button class="msgActionBtn msgRegenBtn" title="Regenerate" onclick="window.ARIA_regenerateMsg('${chatIdJs}',${idx})"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>`
               : ""
           }
+          <button class="msgActionBtn msgBranchBtn" title="Branch: a new chat from here (this one stays as it is)" onclick="window.ARIA_branchChat('${chatIdJs}',${idx})"><i class="bi bi-signpost-split" aria-hidden="true"></i></button>
           <button class="msgActionBtn msgDeleteBtn" title="Delete" onclick="window.ARIA_deleteMessage('${
             chatIdJs
           }',${idx})"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
@@ -2592,6 +2702,7 @@ async function sendMessage() {
   }
   userInput.value = "";
   userInput.style.height = "auto";
+  saveDraft(); // sent: nothing left waiting in this chat
   saveChats();
   syncToServer();
   renderMessages();
@@ -3156,7 +3267,7 @@ async function sendMessageContent(text, chat, attachments = []) {
 function setSendState(on) {
   if (sendBtn) {
     sendBtn.disabled = on;
-    sendBtn.textContent = on ? "…" : "Send";
+    sendBtn.innerHTML = `<i class="bi bi-${on ? "three-dots" : "send-fill"}" aria-hidden="true"></i>`;
     sendBtn.style.opacity = on ? "0.5" : "1";
   }
   // Show/hide stop bar via class (it lives in the DOM always)

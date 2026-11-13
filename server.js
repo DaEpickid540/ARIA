@@ -8,6 +8,7 @@ import {
   getCalendarEvents,
   CALENDAR_NOT_CONFIGURED,
   readTodos,
+  readNotes,
 } from "./tools/index.js";
 import { gatherDay, debriefPrompt, fallbackDebrief, factsBlock, emptyDay, lastFiled } from "./lib/debrief.js";
 import * as clock from "./lib/clock.js";
@@ -28,6 +29,13 @@ import * as screenFix from "./lib/screen-fix.js";
 import * as clawGrid from "./lib/claw-grid.js";
 import * as clawAuto from "./lib/claw-auto.js";
 import * as gemini from "./lib/gemini.js";
+import * as reminders from "./lib/reminders.js";
+import * as focus from "./lib/focus.js";
+import * as usage from "./lib/usage.js";
+import * as clawHistory from "./lib/claw-history.js";
+import * as backup from "./lib/backup.js";
+import * as hud from "./lib/hud.js";
+import { mountUpgradeRoutes, upgradeTool } from "./lib/upgrade-routes.js";
 import { parseSmsCommand, statusText, HELP as SMS_HELP } from "./lib/sms-commands.js";
 import * as skills from "./lib/skills.js";
 import * as cloud from "./lib/cloud-sync.js";
@@ -42,7 +50,7 @@ import * as auth from "./lib/auth.js";
 import * as owners from "./lib/owners.js";
 import * as ollamaRelay from "./lib/ollama-relay.js";
 import { mountKeyRoutes } from "./lib/keys.js";
-import { mountTtsRoutes } from "./lib/tts.js";
+import { mountTtsRoutes, startCloudVoice } from "./lib/tts.js";
 import { DATA_DIR } from "./lib/paths.js";
 import express from "express";
 import path from "path";
@@ -231,6 +239,10 @@ function flushPendingWrites() {
   try {
     triggers.flushSync();
   } catch {}
+  try {
+    usage.flush();
+    clawHistory.flush();
+  } catch {}
 }
 
 // Pull persisted state down from Firestore BEFORE the sync reads below.
@@ -384,7 +396,17 @@ function recordBriefing(text, at = Date.now()) {
  */
 const ALERTS_CHAT_ID = process.env.ARIA_DESKTOP ? "chat_alerts_pc" : "chat_alerts";
 const ALERTS_TITLE = process.env.ARIA_DESKTOP ? "🔔 Alerts (PC)" : "🔔 Alerts";
-function fileAlert({ title, text = "", icon = "🔔", link = "" }) {
+/**
+ * Everything ARIA tells the owner on her own goes through here. During a
+ * focus block or quiet hours it's held (lib/focus.js) and arrives later as
+ * one digest; an alert marked urgent goes straight through.
+ */
+function fileAlert(alert) {
+  if (focus.hold(alert)) return;
+  fileAlertNow(alert);
+}
+
+function fileAlertNow({ title, text = "", icon = "🔔", link = "", reminder = null }) {
   const at = Date.now();
   const store = chatStore(OWNER_CHAT_SPACE);
   const existing = store.chats.find((c) => c.id === ALERTS_CHAT_ID);
@@ -402,7 +424,8 @@ function fileAlert({ title, text = "", icon = "🔔", link = "" }) {
   chat.messages = chat.messages.slice(-200);
   chat.updatedAt = at;
   saveServerChat(chat);
-  pushToPages({ type: "alert", title, text, icon, link, chatId: ALERTS_CHAT_ID, at });
+  // `reminder` lets the page offer Snooze on the toast.
+  pushToPages({ type: "alert", title, text, icon, link, chatId: ALERTS_CHAT_ID, at, ...(reminder ? { reminder } : {}) });
 }
 
 /** True when some server already filed a briefing in the last `hours`. */
@@ -502,6 +525,13 @@ function _parseChatClawInput(s, deviceId) {
     return { id, type: "new_tab", url: s.slice(8).trim() };
   if (s === "new_tab" || s === "new tab") return { id, type: "new_tab" };
   if (s.startsWith("close_tab")) return { id, type: "close_tab" };
+  if (/^(close|quit):/.test(s)) {
+    const app = s.slice(s.indexOf(":") + 1).trim();
+    return app ? { id, type: "close_app", app } : bad("close: needs an app name");
+  }
+  // What's open (one line per app with a window): for "what's running?" and
+  // before a close: when the name is a guess.
+  if (/^(apps|running|list_apps):?\s*$/i.test(s)) return { id, type: "list_apps" };
   if (s.startsWith("switch:"))
     return { id, type: "switch_app", app: s.slice(7).trim() };
   if (s.startsWith("write_code:")) {
@@ -556,7 +586,7 @@ function _parseChatClawInput(s, deviceId) {
 }
 
 const CLAW_HELP =
-  "open:, switch:, new_tab:, close_tab, hotkey:, type:, shell:, screenshot, write_code:, wait:, " +
+  "open:, close:, apps, switch:, new_tab:, close_tab, hotkey:, type:, shell:, screenshot, write_code:, wait:, " +
   "scroll:, move:, click:, right_click:, double_click:, drag: (spots are X,Y or a grid cell like F7), mouse_pos";
 
 /* ── Claw: which relay, waiting for results, approvals ──────────
@@ -580,6 +610,28 @@ function pickRelay({ preferEsp32 = false } = {}) {
 function queueClaw(deviceId, ...cmds) {
   if (!clawQueue.has(deviceId)) clawQueue.set(deviceId, []);
   clawQueue.get(deviceId).push(...cmds);
+  // The flight recorder: whoever asked (chat, panel, AUTO, a routine, a text).
+  for (const c of cmds) clawHistory.record(c, { deviceId });
+}
+
+/**
+ * One Claw line, run now, and what the relay answered. For features that
+ * act on the PC themselves (focus closing apps, the panel's APPS row).
+ * Throws when there's no relay or PC control is off; a command that needs
+ * the owner's OK is refused rather than run.
+ */
+async function clawRunLine(line) {
+  if (clawKilled) throw new Error("Claw is killed. Click RESUME in the Claw panel.");
+  if (!auth.dangerousAllowed()) throw new Error(auth.DANGEROUS_DISABLED_MSG);
+  const tid = pickRelay();
+  if (!tid || clawRelays.get(tid)?.relayType === "esp32") throw new Error("No PC relay connected.");
+  const cmd = _parseChatClawInput(line, tid);
+  if (cmd.type === "unknown") throw new Error(cmd.hint || `"${line}" isn't a Claw command.`);
+  if (clawConfirmReason(cmd)) throw new Error("That needs your OK; run it from the Claw panel.");
+  queueClaw(tid, cmd);
+  const out = await awaitClawResult(cmd.id, clawWaitMs(cmd) || 10000);
+  if (out == null) throw new Error("The relay didn't answer in time.");
+  return out;
 }
 
 // cmdId → { resolve, timer }. Filled by /api/claw/relay/result so the model
@@ -595,14 +647,14 @@ function awaitClawResult(cmdId, ms) {
   });
 }
 function clawWaitMs(cmd) {
-  if (cmd.type === "shell") return 20000;
+  if (cmd.type === "shell" || cmd.type === "close_app" || cmd.type === "list_apps") return 20000;
   if (cmd.type === "wait") return (cmd.ms || 1000) + 4000;
   if (cmd.type === "continuous_screen") return 0;
   return 10000;
 }
 
 // Commands that only look. Everything else acts on the machine.
-const CLAW_READONLY = new Set(["screenshot", "wait", "scroll", "mouse_move", "move", "mouse_pos"]);
+const CLAW_READONLY = new Set(["screenshot", "wait", "scroll", "mouse_move", "move", "mouse_pos", "list_apps"]);
 const DANGEROUS_SHELL = [
   /\brm\s+-\w*[rf]/i, /\brmdir\b/i, /\b(del|erase)\b[^|&]*\/[sq]/i,
   /Remove-Item\b/i, /\bformat(\.com)?\s+[a-z]:/i, /\bmkfs/i, /\bdd\s+if=/i,
@@ -761,6 +813,17 @@ allTools()
  */
 async function serverTool(name, input, { skillTools } = {}) {
   const key = String(name || "").toLowerCase().trim();
+  // Reminders, focus, find, usage, status (lib/upgrade-routes.js).
+  const up = upgradeTool(key, input, upgradeDeps);
+  if (up !== undefined) return up;
+  // "Set a timer for 5 minutes" used to be a setTimeout that only logged to
+  // the console. It's a reminder now: it rings, and survives a restart.
+  if (key === "timer") {
+    const start = /^start\s+(\d+)/i.exec(String(input || "").trim());
+    if (start) return reminders.runReminderTool("remind", `in ${start[1]}s | Timer (${reminders.fmtDuration(start[1] * 1000)}) is up`);
+    if (/^(cancel|stop)/i.test(String(input || "").trim())) return reminders.runReminderTool("remind cancel", "timer");
+    return reminders.summary();
+  }
   if (/^watch(\s+(list|stop|remove|delete))?$/.test(key)) return watchers.runWatchTool(key, input);
   if (key === "debrief") return dayFactsForChat();
   if (/^trigger(\s+(list|stop|remove|delete))?$/.test(key)) return triggers.runTriggerTool(key, input);
@@ -813,8 +876,36 @@ ACTION: calc | 2+2*sqrt(16)
 ACTION: time | 
 ACTION: notes | add Buy groceries
 ACTION: todo | add Finish homework
-ACTION: timer | start 300
-ACTION: system | 
+ACTION: system |
+
+REMINDERS AND TIMERS — the server keeps the clock, so they ring whether or
+not a page is open, and survive a restart:
+ACTION: remind | in 20m | take the pizza out
+ACTION: remind | tomorrow 8am | email Mr. Patel
+ACTION: remind | every weekday 7am | pack gym bag
+ACTION: remind list
+ACTION: remind cancel | pizza
+It's when | what. When can be: in 20m, in 1h 30m, 5pm, 17:30, noon, tonight,
+tomorrow 8am, fri 3pm, 2026-11-12 14:00, every day 7am, every weekday 7:30,
+every mon 9am, every 2h. "Set a timer for 10 minutes" is remind | in 10m |
+Timer is up. Say back the time the tool returned, never one you worked out.
+
+FOCUS — a timed block with a goal; closes the apps Sarvin listed as
+distractions and holds your alerts until it ends:
+ACTION: focus start | 25 | essay draft
+ACTION: focus stop
+ACTION: focus |
+ACTION: focus apps | Discord, Spotify      ← what to close when a block starts
+ACTION: focus quiet | 22-7                 ← quiet hours (or: off)
+
+FIND — search everything you hold (every chat message, memory, notes,
+todos, flashcards, routines, reminders):
+ACTION: find | kiosk pathfinding
+Use it before saying you don't remember something Sarvin says you
+discussed. Quote what it returns; if it finds nothing, say so.
+
+ACTION: status |      ← a spoken status report: system, PC control, what needs attention
+ACTION: usage | 7     ← model calls, failures and speed over the last N days
 ACTION: gdoc | 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms
 
 YOUR DAY — what got done, what slipped, what's tomorrow (todos, ARIA's tasks,
@@ -986,6 +1077,9 @@ ACTION: visualize | Budget calculator
 \`\`\`
 
 VISUALIZE RULES:
+- Only for plain SVG or HTML that a browser can show as it is. When the user
+  asks for React, Vue, Svelte, JSX/TSX or any other component or app code, they
+  want the SOURCE: reply with it in fenced code blocks, never with visualize.
 - The markup is REQUIRED and must be in the very next block after the ACTION
   line, in the same reply. Never announce a visualization you have not written
   out — an ACTION line on its own renders nothing.
@@ -1002,6 +1096,9 @@ VISUALIZE RULES:
 CLAW — PC CONTROL (you CAN do these things):
 ACTION: claw | open: Chrome
 ACTION: claw | open: https://youtube.com
+ACTION: claw | close: Epic Games Launcher
+ACTION: claw | apps                ← what's open right now (one line per app)
+ACTION: claw | wait: 2000
 ACTION: claw | switch: Visual Studio Code
 ACTION: claw | switch: Arduino IDE
 ACTION: claw | new_tab: https://github.com
@@ -1072,8 +1169,16 @@ MANDATORY TRIGGER CONDITIONS:
 - User says they practised / played an instrument ("did 30 min of scales") → ACTION: practice log; asks how practice is going → ACTION: practice
 - User mentions a grade they got ("got a 41/50 on…") → ACTION: grades score; asks how their grades are, what they need on a test, or what to study → ACTION: grades / grades need / grades study
 - User asks about server/system → ACTION: system
+- "Remind me…", "set a timer/alarm", "don't let me forget" → ACTION: remind
+- "Let's focus", "start a pomodoro", "I need to lock in for 40 minutes" → ACTION: focus start
+- "What did we say about…", "find that chat where…", "did I ever tell you…" → ACTION: find
+- "Status report", "how are things", "sitrep" → ACTION: status
 - User asks to open ANY app (Chrome, VS Code, Spotify, Discord, etc.) → ACTION: claw | open: <AppName>
 - User asks to open a website/URL → ACTION: claw | open: <URL>
+- User asks to close/quit/exit an app → ACTION: claw | close: <AppName>  (never shell: taskkill)
+- User asks to restart/reopen an app → ACTION: claw | close: <AppName>, then ACTION: claw | open: <AppName>
+- Several apps or steps in one request ("close X and Y, then open Z") → one ACTION line per app per step, in order
+- User asks what's open / running on the PC, or to "close everything" → ACTION: claw | apps first, then act on what it lists
 - User asks to switch to/focus an app → ACTION: claw | switch: <AppName>
 - User asks to press a keyboard shortcut → ACTION: claw | hotkey: <keys>
 - User asks to type something on the PC → ACTION: claw | type: <text>
@@ -1103,7 +1208,8 @@ allTools()
       ...Object.keys(all),
       ...[...TOOL_SYSTEM.matchAll(/^ACTION:\s*([a-z][\w-]*)/gim)].map((m) => m[1]),
       ...["agent", "claw", "debrief", "fixscreen", "imagine", "research", "scrape", "search", "spawn", "task", "visualize", "watch", "trigger",
-        "routine", "routines", "grade", "grades", "practice", "practise", "flash", "flashcard", "flashcards", "ring", "rings", "habit", "habits", "arena", "selftest", "self-test"],
+        "routine", "routines", "grade", "grades", "practice", "practise", "flash", "flashcard", "flashcards", "ring", "rings", "habit", "habits", "arena", "selftest", "self-test",
+        "remind", "reminder", "reminders", "timer", "focus", "find", "recall", "usage", "status", "sitrep"],
     ]);
     return skills.refreshSkillTools();
   })
@@ -2506,6 +2612,12 @@ async function openChatStream(provider, messages, { hasImages, requestedModel })
    Falls back gracefully: CF → Groq → OpenRouter → error.
    ============================================================ */
 async function callAI(messages, provider, model, modeOpts = {}) {
+  // Every model call is timed and counted (lib/usage.js): the Usage panel
+  // and the HUD read it. Recorded under the provider that was asked for.
+  return usage.metered({ provider, model, messages }, () => callAIUnmetered(messages, provider, model, modeOpts));
+}
+
+async function callAIUnmetered(messages, provider, model, modeOpts = {}) {
   // Images: Groq, Cloudflare, DeepSeek and Nemotron get text only here, and
   // OpenRouter's default model is text-only. Ollama picks an installed vision
   // model itself (ollamaRequest); everything else goes to callVision.
@@ -3419,7 +3531,7 @@ Active GitHub repo: ${repo}
     if (relayType === "esp32") {
       sysPrompt += `\n\n[CLAW STATUS — ESP32 BLE RELAY CONNECTED]\nDevice: ${
         relay.hostname || "ARIA Claw"
-      } | Type: ESP32 BLE HID\nThe ESP32 is paired and ready. You CAN control the keyboard and mouse.\n\nESP32 SUPPORTED COMMANDS (use these freely):\n  ACTION: claw | type: Hello World\n  ACTION: claw | hotkey: ctrl+c\n  ACTION: claw | hotkey: win+d\n  ACTION: claw | move: X,Y\n  ACTION: claw | click: X,Y\n  ACTION: claw | right_click: X,Y\n  ACTION: claw | double_click: X,Y\n  ACTION: claw | drag: X1,Y1 to X2,Y2\n  ACTION: claw | scroll: down 3\n  ACTION: claw | screenshot      ← triggers ChromeOS screenshot shortcut; ARIA Screenshot Watcher uploads the image\n\nESP32 UNSUPPORTED — DO NOT USE:\n  shell: (no terminal — ESP32 has no OS)\n  launch_app: (use hotkey: win to open Start, then type: AppName, then hotkey: enter)\n  open: (use hotkey+type to navigate instead)\n\nFor launching apps on ESP32: hotkey: win → wait → type: AppName → hotkey: enter\nFor screenshots: use ACTION: claw | screenshot — the ARIA Screenshot Watcher on the Chromebook will upload the image automatically.`;
+      } | Type: ESP32 BLE HID\nThe ESP32 is paired and ready. You CAN control the keyboard and mouse.\n\nESP32 SUPPORTED COMMANDS (use these freely):\n  ACTION: claw | type: Hello World\n  ACTION: claw | hotkey: ctrl+c\n  ACTION: claw | hotkey: win+d\n  ACTION: claw | move: X,Y\n  ACTION: claw | click: X,Y\n  ACTION: claw | right_click: X,Y\n  ACTION: claw | double_click: X,Y\n  ACTION: claw | drag: X1,Y1 to X2,Y2\n  ACTION: claw | scroll: down 3\n  ACTION: claw | screenshot      ← triggers ChromeOS screenshot shortcut; ARIA Screenshot Watcher uploads the image\n\nESP32 UNSUPPORTED — DO NOT USE:\n  shell: (no terminal — ESP32 has no OS)\n  launch_app: (use hotkey: win to open Start, then type: AppName, then hotkey: enter)\n  open: (use hotkey+type to navigate instead)\n  close: / apps (no OS to ask — close the focused window with hotkey: alt+f4)\n\nFor launching apps on ESP32: hotkey: win → wait → type: AppName → hotkey: enter\nFor screenshots: use ACTION: claw | screenshot — the ARIA Screenshot Watcher on the Chromebook will upload the image automatically.`;
     } else {
       const browserLabel =
         relay.browser && relay.browser !== "default"
@@ -3529,10 +3641,13 @@ Active GitHub repo: ${repo}
   let upstream = null;
   if (!req.headers["x-no-stream"]) {
     try {
-      upstream = await openChatStream(provider, messages, {
-        hasImages: validImages.length > 0,
-        requestedModel,
-      });
+      upstream = usage.meteredStream(
+        { provider, model: requestedModel, messages },
+        await openChatStream(provider, messages, {
+          hasImages: validImages.length > 0,
+          requestedModel,
+        }),
+      );
     } catch (e) {
       console.warn("[STREAM] Couldn't open, answering without streaming:", e.message);
     }
@@ -3545,6 +3660,9 @@ Active GitHub repo: ${repo}
       res.setHeader("X-Accel-Buffering", "no");
       res.setHeader("X-Content-Type-Options", "nosniff");
       if (typeof res.flushHeaders === "function") res.flushHeaders();
+      // Counted for /api/health/details. "close" fires once, however it ends.
+      openChatStreams++;
+      res.once("close", () => openChatStreams--);
       let full = "";
       try {
         // Send a stream-start event immediately — client can show "receiving..." state
@@ -4933,6 +5051,7 @@ app.post("/api/claw/relay/result", (req, res) => {
       pendingScreenshotResolvers.delete(key);
     }
   }
+  if (cmdId) clawHistory.result(cmdId, screenshot ? "screenshot" : result);
   const waiter = cmdId && pendingClawResults.get(cmdId);
   if (waiter) {
     clearTimeout(waiter.timer);
@@ -5038,7 +5157,12 @@ app.post("/api/claw", async (req, res) => {
   // runs it, looks at the result and carries on (lib/claw-auto.js). The
   // panel follows along through /api/claw/auto/:id.
   if (mode === "auto" || mode === "ai") {
-    if (!tid) return res.json({ error: "No relay connected. Run claw-relay.js on your machine, or turn on PC control." });
+    if (!tid)
+      return res.json({
+        error: process.env.ARIA_DESKTOP
+          ? 'PC control is off. Turn it on in the Claw panel ("Turn on PC control").'
+          : "No relay connected. Run claw-relay.js on your machine, or turn on PC control.",
+      });
     const job = startClawAuto(input, { maxSteps: req.body.maxSteps, deviceId: tid });
     return res.json({ jobId: job.id, output: "Working on it…", relayConnected: true });
   }
@@ -5046,8 +5170,9 @@ app.post("/api/claw", async (req, res) => {
   // Direct modes: shell, type, hotkey, mouse
   if (!tid)
     return res.json({
-      error:
-        "No relay connected. Run claw-relay.js on your machine, or flash and pair the ESP32 relay.",
+      error: process.env.ARIA_DESKTOP
+        ? 'PC control is off. Turn it on in the Claw panel ("Turn on PC control").'
+        : "No relay connected. Run claw-relay.js on your machine, or flash and pair the ESP32 relay.",
     });
   // Mouse mode takes "move X Y | click F7 | scroll up 3 | pos"; "line" is
   // raw Claw syntax (the quick buttons); the rest are "<mode>: <input>".
@@ -5358,6 +5483,49 @@ app.get("/api/health", (_, res) => {
   });
 });
 
+/* ── Health details ──
+   The numbers to watch when hunting a leak: memory, open streams, and the
+   maps that should drain back to zero. Not in auth's PUBLIC list, so on a
+   public server it needs a login (plain /api/health stays open). */
+let openChatStreams = 0;
+const mb = (bytes) => Math.round((bytes / 1024 / 1024) * 10) / 10;
+
+app.get("/api/health/details", (_, res) => {
+  const m = process.memoryUsage();
+  let syncSubs = 0;
+  for (const set of _syncSubscribers.values()) syncSubs += set.size;
+  let clawQueued = 0;
+  for (const q of clawQueue.values()) clawQueued += q.length;
+  res.set("Cache-Control", "no-store");
+  res.json({
+    ok: true,
+    uptimeSec: Math.round(process.uptime()),
+    memoryMb: {
+      rss: mb(m.rss),
+      heapUsed: mb(m.heapUsed),
+      heapTotal: mb(m.heapTotal),
+      external: mb(m.external),
+    },
+    // Each of these should fall back when a tab closes or a reply ends.
+    streams: {
+      chat: openChatStreams,
+      tasks: taskEngine.getStats().subscribers,
+      sync: syncSubs,
+      briefing: briefingSubscribers.size,
+    },
+    // Each of these should return to zero when nothing is running.
+    waiting: {
+      clawQueued,
+      clawResults: pendingClawResults.size,
+      screenshots: pendingScreenshotResolvers.size,
+      confirms: pendingConfirms.size,
+      confirmWaiters: confirmWaiters.size,
+      clawAutoJobs: clawAutoJobs.size,
+    },
+    errors: errorLog.stats(),
+  });
+});
+
 /* ══════════════════════════════════════════════════════════════
    ERROR LOG — what keeps breaking
    Ported from the AGI harness. Read-only from the UI's point of view;
@@ -5510,11 +5678,15 @@ app.get("/api/speedtest/down", (req, res) => {
 });
 
 // Don't crash on unhandled promise rejections — log and keep running
+// Both also go to the error log, so they show up under "what keeps breaking"
+// instead of scrolling away in the console.
 process.on("unhandledRejection", (reason) => {
   console.error("[UNHANDLED REJECTION]", reason);
+  errorLog.logError("unhandled_rejection", reason?.stack || reason?.message || String(reason), "high");
 });
 process.on("uncaughtException", (err) => {
   console.error("[UNCAUGHT EXCEPTION]", err);
+  errorLog.logError("uncaught_exception", err?.stack || err?.message || String(err), "high");
 });
 
 /* ============================================================
@@ -6283,6 +6455,93 @@ app.post("/api/screen/fix", async (req, res) => {
    ============================================================ */
 routines.init({ parse: (s) => _parseChatClawInput(s) });
 
+/* ============================================================
+   HUD, REMINDERS, FOCUS, SEARCH, USAGE, CLAW HISTORY, BACKUP
+   The modules are in lib/; their routes in lib/upgrade-routes.js.
+   This is the state of the server they read.
+   ============================================================ */
+// Its own CPU sample: /api/system keeps one too, and two readers of one
+// counter would each measure only the gap since the other.
+let _hudCpuPrev = null;
+function hudCpuPercent() {
+  const now = sampleCpuTimes();
+  const prev = _hudCpuPrev;
+  _hudCpuPrev = now;
+  if (!prev || now.total <= prev.total) return null;
+  return Math.max(0, Math.min(100, Math.round((1 - (now.idle - prev.idle) / (now.total - prev.total)) * 100)));
+}
+const MODEL_NAMES = { openrouter: "OpenRouter", groq: "Groq", cloudflare: "Cloudflare", gemini: "Gemini", ollama: "Ollama", lmstudio: "LM Studio", nvidia: "NVIDIA", deepseek: "DeepSeek" };
+
+const upgradeDeps = {
+  system: () => {
+    const last = hud.history().at(-1) || {};
+    return { cpu: last.cpu ?? null, mem: last.mem ?? null, host: os.hostname(), uptimeSec: Math.round(process.uptime()) };
+  },
+  relay: () => {
+    const id = pickRelay();
+    const r = id ? clawRelays.get(id) : null;
+    return { connected: !!r, name: r?.hostname || "", platform: r?.platform || "", type: r?.relayType || "", killed: clawKilled };
+  },
+  model: () => ({
+    provider: activeModel.provider || "openrouter",
+    model: activeModel.model || "",
+    label: `${MODEL_NAMES[activeModel.provider] || activeModel.provider || "OpenRouter"}${activeModel.model ? ` (${String(activeModel.model).split("/").pop().replace(/:free$/, "")})` : ""}`,
+  }),
+  confirms: () => [...pendingConfirms.values()].filter((v) => Date.now() - v.created <= CONFIRM_TTL_MS).length,
+  taskStats: () => taskEngine.getStats(),
+  watcherCount: () => watchers.listWatchers().filter((w) => w.active).length,
+  gradesFocus: () => {
+    const f = grades.focus();
+    if (!f) return null;
+    return { line: f.need?.line || `${f.cls.name} is at ${f.pct}% (line ${f.target}%)`, margin: f.margin };
+  },
+  cardsDue: () => ({ due: flashcards.dueCards({ limit: 500 }).length }),
+  practice: () => {
+    if (!practice.listSessions(1).length) return null;
+    const stale = practice.summary().split("\n").find((l) => /^Not played/.test(l));
+    return stale ? { line: stale } : null;
+  },
+  ownerName: () => OWNER_CHAT_SPACE.replace(/^./, (c) => c.toUpperCase()),
+  searchSources: () => ({
+    chats: chatStore(OWNER_CHAT_SPACE).chats,
+    memories: ariaMemory.facts || [],
+    notes: readNotes(),
+    todos: readTodos(),
+    cards: flashcards.listCards(),
+    routines: routines.listRoutines(),
+    reminders: reminders.list(),
+  }),
+  clawRun: clawRunLine,
+  clawInputOf: routines.clawInputOf,
+  saveRoutine: (r) => routines.saveRoutine(r, { replace: false }),
+  flushAll: () => flushPendingWrites(),
+  dangerousAllowed: () => auth.dangerousAllowed(),
+  dangerousMsg: auth.DANGEROUS_DISABLED_MSG,
+};
+
+const UPGRADES_ON = process.env.ARIA_WATCHERS !== "off"; // the same switch the tests use to keep timers quiet
+usage.init();
+clawHistory.init();
+reminders.init({ notify: (a) => fileAlert(a) }, { start: UPGRADES_ON });
+focus.init(
+  {
+    notify: (a) => fileAlert(a),
+    // The digest of what was held: straight to the Alerts chat.
+    deliver: (a) => fileAlertNow(a),
+    closeApp: async (app) => {
+      try {
+        return await clawRunLine(`close: ${app}`);
+      } catch {
+        return ""; // no relay: the block still starts, it just closes nothing
+      }
+    },
+  },
+  { start: UPGRADES_ON },
+);
+hud.init({ read: () => ({ cpu: hudCpuPercent(), mem: ((os.totalmem() - os.freemem()) / os.totalmem()) * 100 }) });
+backup.init({ start: UPGRADES_ON && !process.env.RENDER }); // Render's disk doesn't keep them
+mountUpgradeRoutes(app, upgradeDeps);
+
 // What ARIA did on the PC in each chat, so "remember how to do that" has
 // the steps. In memory, last 25 per chat, 30 minutes.
 const recentClaw = new Map(); // chatId → [{ step, at }]
@@ -6960,4 +7219,6 @@ app.listen(...listenArgs, () => {
 ║  Env:  ${(process.env.NODE_ENV || "development").padEnd(46)}║
 ╚══════════════════════════════════════════════════════╝`;
   console.log(banner);
+  // A PC with a cloud ARIA configured lends it its voice (lib/tts-relay.js).
+  startCloudVoice();
 });

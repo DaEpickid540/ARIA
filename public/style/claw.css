@@ -1,8 +1,32 @@
 /* ============================================================
    ARIA CLAW — Control Panel CSS
+   Built by claw.js. bookware.css (loaded later) owns the panel's
+   surface (background, radius, shadow), the overlay scrim, the kill
+   switch's colours and the log's code-block look; this file owns the
+   layout and the controls.
    ============================================================ */
 
-/* Kill switch */
+/* One rhythm for every bar and control in the panel and its dialog. */
+#clawPanel,
+#clawConfirmOverlay {
+  --claw-pad-x: 12px; /* side padding of every bar */
+  --claw-pad-y: 6px; /* top/bottom padding of every bar */
+  --claw-gap: 6px; /* space between controls in a bar */
+  --claw-ctl-h: 26px; /* buttons, inputs, selects */
+  --claw-ctl-h-sm: 20px; /* inline tools (log entries, relay bar) */
+  --claw-fs-xs: 9px; /* labels, meta */
+  --claw-fs-sm: 10px; /* controls, status */
+  --claw-fs-md: 11px; /* title, input, log text */
+  --claw-fs-lg: 12px; /* dialog title, empty state */
+  --claw-fs-icon: 13px; /* glyph-only buttons */
+  --claw-on-accent: #000; /* text on a solid accent fill */
+  /* The kill switch floats over the panel's bottom-right corner
+     (52px + 20px inset, see #clawKillSwitch); content that sits there
+     keeps this much room clear so it stays visible and clickable. */
+  --claw-kill-clearance: 80px;
+}
+
+/* ── Kill switch (fixed, always on top, every page) ── */
 #clawKillSwitch {
   position: fixed;
   bottom: 20px;
@@ -11,42 +35,13 @@
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--bg-inset) 95%, transparent);
-  border: 2px solid var(--border);
-  color: var(--border);
-  font-family: var(--font-sans);
-  font-size: 7px;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  text-align: center;
-  cursor: pointer;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex-direction: column;
+  text-align: center;
   line-height: 1.3;
-  transition: all 0.15s;
-  box-shadow: none;
-}
-#clawKillSwitch:hover {
-  border-color: var(--accent-border);
-  color: var(--accent-text);
-  box-shadow: none;
-  transform: scale(1.08);
-}
-#clawKillSwitch.killed {
-  border-color: var(--accent-border);
-  color: var(--accent-text);
-  animation: killPulse 1.2s ease-in-out infinite;
-}
-@keyframes killPulse {
-  0%,
-  100% {
-    box-shadow: none;
-  }
-  50% {
-    box-shadow: none;
-  }
+  cursor: pointer;
 }
 
 /* ── Panel shell ── */
@@ -56,9 +51,7 @@
   top: 0;
   width: 480px;
   height: 100dvh;
-  background: var(--bg-inset);
   border-left: 1px solid var(--border);
-  box-shadow: -6px 0 40px color-mix(in srgb, var(--accent) 18%, transparent);
   z-index: 8000;
   display: flex;
   flex-direction: column;
@@ -69,74 +62,199 @@
 #clawPanel.open {
   transform: translateX(0);
 }
+/* Wide panel: room for the screen */
+#clawPanel.clawWide {
+  width: min(1100px, 100vw);
+}
+
+/* ── Bars: every fixed row shares padding, gap and divider ── */
+#clawHeader,
+#clawRelayBar,
+#clawModeRow,
+#clawQuickRow,
+#clawPinRow,
+#clawInputRow,
+#clawScreenControls,
+#clawScreenIntervalRow {
+  display: flex;
+  align-items: center;
+  gap: var(--claw-gap);
+  padding: var(--claw-pad-y) var(--claw-pad-x);
+  background: var(--bg-inset);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  min-width: 0;
+}
+#clawModeRow,
+#clawPinRow,
+#clawScreenControls {
+  flex-wrap: wrap;
+}
+
+/* Row label (MODE / QUICK / PINNED): a fixed width lines the rows up */
+.clawModeLabel {
+  min-width: 42px;
+  font-family: var(--font-sans);
+  font-size: var(--claw-fs-xs);
+  letter-spacing: 0.02em;
+  color: var(--text-3);
+}
+
+/* ── Controls ── */
+.clawHdrBtn,
+.clawModeBtn,
+.clawQuickBtn,
+.clawPinBtn,
+#clawRunBtn,
+#clawCopyBtn,
+#clawClearBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: var(--claw-ctl-h);
+  min-width: var(--claw-ctl-h);
+  padding: 0 8px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: var(--claw-fs-sm);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.clawHdrBtn:hover,
+.clawModeBtn:hover,
+.clawQuickBtn:hover,
+.clawPinBtn:hover,
+#clawCopyBtn:hover,
+#clawClearBtn:hover {
+  border-color: var(--border-strong);
+  color: var(--accent-text);
+}
+.clawHdrBtn.active,
+.clawModeBtn.active {
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+}
+.clawHdrBtn.clawBtnOff {
+  color: var(--text-3);
+}
+
+/* Glyph-only buttons are square */
+.clawQuickBtn,
+#clawCopyBtn,
+#clawClearBtn {
+  width: var(--claw-ctl-h);
+  padding: 0;
+  font-size: var(--claw-fs-icon);
+}
+
+/* Keyboard focus: one visible ring for every control */
+#clawPanel button:focus-visible,
+#clawPanel select:focus-visible,
+#clawPanel input[type="range"]:focus-visible,
+#clawConfirmBox button:focus-visible,
+#clawKillSwitch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
 /* ── Header ── */
 #clawHeader {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border-strong);
-  flex-shrink: 0;
-  background: var(--bg-inset);
+  border-bottom-color: var(--border-strong);
 }
 #clawHeaderLeft {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 #clawTitle {
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: var(--claw-fs-md);
   letter-spacing: 0.02em;
   color: var(--accent-text);
-  text-shadow: none;
 }
 #clawHeaderRight {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--claw-gap);
+  min-width: 0;
 }
 #clawStatus {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-sans);
-  font-size: 10px;
-  color: #555;
+  font-size: var(--claw-fs-sm);
+  color: var(--text-3);
+}
+.clawDotOn,
+.clawDotOff {
+  font-size: var(--claw-fs-icon);
+  cursor: default;
 }
 .clawDotOn {
   color: var(--success);
-  font-size: 13px;
 }
 .clawDotOff {
-  color: #333;
-  font-size: 13px;
+  color: var(--text-3);
 }
 
 /* ── Relay bar ── */
 #clawRelayBar {
-  display: flex;
-  align-items: center;
   gap: 10px;
-  padding: 5px 14px;
-  background: var(--bg-inset);
-  border-bottom: 1px solid var(--border);
   font-family: var(--font-sans);
-  font-size: 10px;
-  flex-shrink: 0;
+  font-size: var(--claw-fs-sm);
 }
 #clawRelayName {
-  color: var(--accent-text);
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--accent-text);
 }
 #clawRelayPlatform {
-  color: #444;
+  flex-shrink: 0;
+  color: var(--text-3);
 }
 .clawSetupLinkInline {
+  padding: 0;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: var(--accent-text);
   text-decoration: underline;
   cursor: pointer;
-  color: var(--accent-text);
 }
-.clawSetupLinkInline:hover {
+/* Desktop app: switch the built-in relay on from the panel */
+.clawDesktopOn {
+  height: var(--claw-ctl-h-sm);
+  padding: 0 8px;
+  margin-left: 4px;
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
   color: var(--accent-text);
+  font: inherit;
+  cursor: pointer;
+}
+.clawDesktopOn:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--claw-on-accent);
+}
+.clawDesktopOn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 /* ── Tab bar ── */
@@ -148,16 +266,17 @@
 }
 .clawTab {
   flex: 1;
+  min-width: 0;
   padding: 8px 4px;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #444;
+  color: var(--text-3);
   font-family: var(--font-sans);
-  font-size: 8px;
+  font-size: var(--claw-fs-xs);
   letter-spacing: 0.02em;
+  white-space: nowrap;
   cursor: pointer;
-  transition: all 0.15s;
 }
 .clawTab:hover {
   color: var(--accent-text);
@@ -166,10 +285,13 @@
   color: var(--accent-text);
   border-bottom-color: var(--accent-border);
   background: color-mix(in srgb, var(--accent) 6%, transparent);
-  text-shadow: none;
+}
+/* Tabs run edge to edge; keep the ring inside the clipped panel */
+#clawPanel .clawTab:focus-visible {
+  outline-offset: -2px;
 }
 
-/* ── Tab content wrapper ── */
+/* ── Tab content wrapper (claw.js sets display on switch) ── */
 .clawTabContent {
   flex: 1;
   display: none;
@@ -177,7 +299,6 @@
   overflow: hidden;
   min-height: 0;
 }
-.clawTabContent[style*="display: flex"],
 #clawTab-control {
   display: flex;
 }
@@ -185,44 +306,7 @@
 /* ══════════════════════════════════════
    CONTROL TAB
 ══════════════════════════════════════ */
-#clawModeRow {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-inset);
-  flex-shrink: 0;
-  flex-wrap: wrap;
-}
-.clawModeLabel {
-  font-family: var(--font-sans);
-  font-size: 7px;
-  letter-spacing: 0.02em;
-  color: #333;
-  margin-right: 2px;
-}
-.clawModeBtn {
-  background: var(--bg-inset);
-  border: 1px solid var(--border);
-  color: #444;
-  padding: 4px 9px;
-  font-family: var(--font-sans);
-  font-size: 9px;
-  cursor: pointer;
-  border-radius: var(--r-sm);
-  transition: all 0.12s;
-}
-.clawModeBtn:hover {
-  border-color: var(--border);
-  color: var(--accent-text);
-}
-.clawModeBtn.active {
-  background: color-mix(in srgb, var(--accent) 13%, transparent);
-  border-color: var(--accent-border);
-  color: var(--accent-text);
-  text-shadow: none;
-}
+
 /* AUTO mode: the mode the current step is using lights up as it switches */
 .clawModeBtn.autoLive {
   border-color: var(--info);
@@ -233,268 +317,244 @@
   from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--info) 0%, transparent); }
   to { box-shadow: 0 0 6px 1px color-mix(in srgb, var(--info) 45%, transparent); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .clawModeBtn.autoLive { animation: none; }
-}
 
-/* Quick actions row */
-#clawQuickRow {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-inset);
-  flex-shrink: 0;
-}
-.clawQuickBtn {
-  background: var(--bg-inset);
-  border: 1px solid var(--border);
-  color: #555;
-  width: 28px;
-  height: 28px;
-  font-size: 13px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 3px;
-  transition: all 0.12s;
-  flex-shrink: 0;
-}
-.clawQuickBtn:hover {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  border-color: var(--border);
-  color: var(--accent-text);
-}
+/* Quick actions: the kill button sits apart and warns on hover */
 .clawQuickDanger {
   margin-left: auto;
-  border-color: var(--border);
-  color: var(--border);
+  color: var(--text-3);
 }
 .clawQuickDanger:hover {
-  border-color: var(--accent-border) !important;
-  color: var(--accent-text) !important;
+  border-color: var(--danger-border);
+  color: var(--danger-text);
 }
 
-/* Output log */
+/* Pinned commands (claw.js shows the row only when there are pins) */
+.clawPinBtn {
+  display: block;
+  max-width: 100%;
+  padding: 0 10px;
+  line-height: calc(var(--claw-ctl-h) - 2px);
+  background: var(--bg-card);
+  border-radius: var(--r-full);
+  font-family: var(--font-mono-stack);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Output log: the only part of the tab that scrolls */
 #clawOutput {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* the bottom padding lets the last entry scroll clear of the kill switch */
+  padding: 10px var(--claw-pad-x) 40px;
   background: var(--bg);
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
-  min-height: 0;
-}
-#clawOutput::-webkit-scrollbar {
-  width: 3px;
-}
-#clawOutput::-webkit-scrollbar-thumb {
-  background: var(--bg-card);
 }
 
 .clawEntry {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
+/* Click the label to copy the entry */
 .clawEntryLabel {
+  align-self: flex-start;
   font-family: var(--font-sans);
-  font-size: 7px;
+  font-size: var(--claw-fs-xs);
   letter-spacing: 0.02em;
   opacity: 0.5;
+  cursor: copy;
 }
-.clawEntry-user .clawEntryLabel {
-  color: var(--accent-text);
+.clawEntryLabel:hover {
+  opacity: 1;
 }
-.clawEntry-output .clawEntryLabel {
-  color: var(--accent-text);
-}
+.clawEntry-user .clawEntryLabel,
+.clawEntry-output .clawEntryLabel,
 .clawEntry-error .clawEntryLabel {
   color: var(--accent-text);
 }
 .clawEntry-info .clawEntryLabel {
-  color: #555;
+  color: var(--text-3);
 }
 .clawEntry-viz .clawEntryLabel {
   color: var(--info);
 }
+.clawEntry.copied .clawEntryLabel::after {
+  content: " · copied";
+  color: var(--success-text);
+}
 
+/* Font, colour, fill and border come from bookware.css's code surface */
 pre.clawEntryText {
-  font-family: var(--font-sans);
-  font-size: 11px;
+  margin: 0;
+  padding: 6px 8px;
+  font-size: var(--claw-fs-md);
   line-height: 1.55;
   white-space: pre-wrap;
-  word-break: break-word;
-  margin: 0;
+  overflow-wrap: anywhere;
 }
-.clawEntry-user pre {
+.clawEntry-viz pre.clawEntryText {
+  font-size: var(--claw-fs-sm);
+}
+.clawEntry.copied pre.clawEntryText {
+  border-color: var(--success-border);
+}
+/* Entries you ran carry ↻ / ★; keep the text out from under them */
+.clawEntry[data-input] pre.clawEntryText {
+  padding-right: 54px;
+}
+
+.clawEntryTook {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  font-family: var(--font-sans);
+  font-size: var(--claw-fs-xs);
+  color: var(--text-3);
+}
+.clawEntryTools {
+  position: absolute;
+  top: 18px;
+  right: 6px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--tr);
+}
+.clawEntry:hover .clawEntryTools,
+.clawEntryTools:focus-within {
+  opacity: 1;
+}
+/* No hover on touch screens: show them */
+@media (hover: none) {
+  .clawEntryTools {
+    opacity: 1;
+  }
+}
+.clawEntryTools button {
+  width: var(--claw-ctl-h-sm);
+  height: var(--claw-ctl-h-sm);
+  padding: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-3);
+  font-size: var(--claw-fs-md);
+  line-height: 1;
+  cursor: pointer;
+}
+.clawEntryTools button:hover {
+  border-color: var(--accent-border);
   color: var(--accent-text);
-}
-.clawEntry-output pre {
-  color: var(--accent-text);
-}
-.clawEntry-error pre {
-  color: var(--accent-text);
-}
-.clawEntry-info pre {
-  color: #444;
-}
-.clawEntry-viz pre {
-  color: var(--info);
-  font-size: 10px;
 }
 
 /* Input row */
 #clawInputRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
   border-top: 1px solid var(--border);
-  background: var(--bg-inset);
-  flex-shrink: 0;
+  border-bottom: 0;
+  padding-right: var(--claw-kill-clearance);
+}
+#clawInputRow:focus-within {
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 .clawPrompt {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  color: var(--border);
   flex-shrink: 0;
+  font-family: var(--font-sans);
+  font-size: var(--claw-fs-md);
+  color: var(--text-3);
+}
+#clawInputRow:focus-within .clawPrompt {
+  color: var(--accent-text);
 }
 #clawInput {
   flex: 1;
+  min-width: 0;
+  height: var(--claw-ctl-h);
+  padding: 0 4px;
   background: transparent;
   border: none;
+  border-radius: 0;
   outline: none;
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: var(--claw-fs-md);
   color: var(--accent-text);
   caret-color: var(--accent-text);
 }
 #clawInput::placeholder {
-  color: var(--border-strong);
+  color: var(--text-3);
 }
 #clawRunBtn {
+  padding: 0 10px;
   background: var(--accent);
-  color: #000;
-  border: none;
-  padding: 5px 10px;
-  font-size: 13px;
-  cursor: pointer;
-  flex-shrink: 0;
-  border-radius: var(--r-sm);
-  font-weight: 900;
+  border-color: var(--accent);
+  color: var(--claw-on-accent);
+  font-size: var(--claw-fs-icon);
+  font-weight: 700;
 }
 #clawRunBtn:hover {
-  background: var(--accent);
-}
-#clawClearBtn {
-  background: none;
-  border: 1px solid var(--border);
-  color: #333;
-  padding: 4px 7px;
-  font-size: 11px;
-  cursor: pointer;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-#clawClearBtn:hover {
-  border-color: var(--border);
-  color: var(--accent-text);
-}
-
-/* Header buttons */
-.clawHdrBtn {
-  background: var(--bg-inset);
-  border: 1px solid var(--border);
-  color: #444;
-  padding: 3px 8px;
-  font-family: var(--font-sans);
-  font-size: 9px;
-  cursor: pointer;
-  transition: all 0.12s;
-}
-.clawHdrBtn:hover {
-  border-color: var(--border);
-  color: var(--accent-text);
-}
-.clawHdrBtn.active {
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  border-color: var(--accent-border);
-  color: var(--accent-text);
-}
-.clawHdrBtn.clawBtnOff {
-  border-color: var(--border);
-  color: var(--border);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 /* ══════════════════════════════════════
    SCREEN TAB
 ══════════════════════════════════════ */
 #clawTab-screen {
-  flex-direction: column;
   background: var(--bg-inset);
-}
-#clawScreenControls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
 }
 .clawScreenStatusText {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  color: #444;
   margin-left: auto;
-}
-#clawScreenIntervalRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-inset);
-  flex-shrink: 0;
-}
-#clawScreenIntervalSlider {
-  flex: 1;
-  accent-color: var(--accent);
+  font-family: var(--font-sans);
+  font-size: var(--claw-fs-sm);
+  color: var(--text-3);
 }
 #clawScreenIntervalVal {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  color: var(--accent-text);
   min-width: 24px;
   text-align: right;
+  font-family: var(--font-sans);
+  font-size: var(--claw-fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-text);
 }
 
+/* The live picture. It takes focus so ⌨ Keys can send typing to the PC. */
 #clawPovFrame {
   flex: 1;
+  min-height: 0;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  position: relative;
   overflow: hidden;
   background: var(--bg);
-  min-height: 0;
+  outline: none;
+}
+#clawPovFrame.keysOn {
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+#clawPovFrame:focus-visible,
+#clawPovFrame.keysOn:focus {
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 #clawPovEmpty {
+  padding: 0 24px;
   text-align: center;
   font-family: var(--font-sans);
-  font-size: 12px;
-  color: #222;
+  font-size: var(--claw-fs-lg);
   line-height: 2;
+  color: var(--text-3);
 }
 #clawPovEmpty span {
-  font-size: 10px;
-  color: var(--border);
+  font-size: var(--claw-fs-sm);
+  opacity: 0.8;
 }
 #clawPovImg {
   width: 100%;
@@ -502,16 +562,36 @@ pre.clawEntryText {
   object-fit: contain;
   display: block;
 }
+
+/* Corner badges over the picture */
+#clawPovCoords,
 #clawPovTimestamp {
   position: absolute;
   bottom: 8px;
-  right: 10px;
-  font-family: var(--font-sans);
-  font-size: 9px;
-  color: rgba(255, 34, 34, 0.5);
-  background: color-mix(in srgb, var(--bg-inset) 50%, transparent);
   padding: 2px 5px;
-  border-radius: 2px;
+  background: color-mix(in srgb, var(--bg-inset) 70%, transparent);
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono-stack);
+  font-size: var(--claw-fs-xs);
+  pointer-events: none;
+}
+#clawPovCoords {
+  left: 10px;
+  color: var(--text-2);
+}
+#clawPovCoords:empty,
+#clawPovTimestamp:empty {
+  display: none;
+}
+#clawPovTimestamp {
+  right: var(--claw-kill-clearance);
+  color: color-mix(in srgb, var(--accent-text) 60%, transparent);
+}
+#clawPovTimestamp.stale {
+  color: var(--warning);
+}
+#clawPovTimestamp.stale::before {
+  content: "stale · ";
 }
 
 /* ══════════════════════════════════════
@@ -519,50 +599,61 @@ pre.clawEntryText {
 ══════════════════════════════════════ */
 #clawTab-config {
   overflow-y: auto;
-  flex-direction: column;
-  gap: 0;
+  padding: 4px 0 var(--claw-kill-clearance);
   background: var(--bg-inset);
-  padding: 4px 0;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
 .clawCfgSection {
-  padding: 14px 16px;
+  padding: 12px var(--claw-pad-x);
   border-bottom: 1px solid var(--border);
 }
 .clawCfgTitle {
+  margin-bottom: 8px;
   font-family: var(--font-sans);
-  font-size: 8px;
+  font-size: var(--claw-fs-xs);
   letter-spacing: 0.02em;
-  color: var(--border);
-  margin-bottom: 12px;
+  color: var(--text-3);
 }
 .clawCfgRow {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 0;
+  min-height: var(--claw-ctl-h);
+  padding: 4px 0;
   cursor: pointer;
 }
+/* also labels the Screen tab's refresh slider */
 .clawCfgLabel {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  color: #666;
   flex: 1;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: var(--claw-fs-sm);
+  color: var(--text-2);
 }
 .clawCfgVal {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  color: var(--accent-text);
-  min-width: 30px;
+  min-width: 32px;
   text-align: right;
+  font-family: var(--font-sans);
+  font-size: var(--claw-fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-text);
 }
 
-/* Range sliders */
-.clawCfgRow input[type="range"] {
+/* Sliders (config rows and the Screen tab's refresh interval) */
+#clawPanel input[type="range"] {
   flex: 1;
+  min-width: 0;
   accent-color: var(--accent);
   cursor: pointer;
+}
+#cfgMonitorIdx {
+  flex: 1;
+  min-width: 0;
+  height: var(--claw-ctl-h);
+  padding: 0 6px;
+  font-family: var(--font-mono-stack);
+  font-size: var(--claw-fs-sm);
 }
 
 /* Toggle switch */
@@ -582,10 +673,10 @@ pre.clawEntryText {
   position: absolute;
   inset: 0;
   background: var(--border);
-  border-radius: 18px;
   border: 1px solid var(--border);
+  border-radius: var(--r-full);
   cursor: pointer;
-  transition: 0.2s;
+  transition: background var(--tr), border-color var(--tr);
 }
 .clawToggleSlider::before {
   content: "";
@@ -597,7 +688,7 @@ pre.clawEntryText {
   left: 2px;
   top: 50%;
   transform: translateY(-50%);
-  transition: 0.2s;
+  transition: transform var(--tr), background var(--tr);
 }
 .clawToggleWrap input:checked + .clawToggleSlider {
   background: color-mix(in srgb, var(--accent) 25%, transparent);
@@ -607,74 +698,86 @@ pre.clawEntryText {
   background: var(--accent);
   transform: translate(18px, -50%);
 }
+.clawToggleWrap input:focus-visible + .clawToggleSlider {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
-/* Setup guide block in config */
+/* Relay setup guide */
 .clawCfgGuide {
+  padding: 12px;
   background: var(--bg-inset);
   border: 1px solid var(--border);
-  padding: 12px;
-  border-radius: 2px;
+  border-radius: var(--r-sm);
 }
 .clawCfgGuide code {
   display: block;
-  font-family: var(--font-sans);
-  font-size: 10px;
-  color: var(--accent-text);
-  background: var(--bg);
-  padding: 8px;
   margin: 8px 0;
-  word-break: break-all;
+  padding: 8px;
+  background: var(--bg);
   border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono-stack);
+  font-size: var(--claw-fs-sm);
+  color: var(--accent-text);
+  word-break: break-all;
 }
 .clawCfgGuide p {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  color: #444;
   margin: 4px 0 0;
+  font-family: var(--font-sans);
+  font-size: var(--claw-fs-sm);
   line-height: 1.5;
+  color: var(--text-3);
+}
+#clawSetupCopy {
+  margin-top: 6px;
 }
 
-/* ── Confirm overlay ── */
+/* ══════════════════════════════════════
+   CONFIRM DIALOG (scrim colour: bookware.css)
+══════════════════════════════════════ */
 #clawConfirmOverlay {
   display: none;
   position: fixed;
   inset: 0;
   z-index: 999998;
-  background: color-mix(in srgb, var(--bg-inset) 88%, transparent);
   align-items: center;
   justify-content: center;
 }
 #clawConfirmBox {
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  padding: 24px;
   background: var(--bg-inset);
   border: 2px solid var(--accent-border);
-  box-shadow: none;
-  width: 440px;
-  max-width: 95vw;
-  padding: 24px;
   border-radius: var(--r-sm);
 }
 #clawConfirmTitle {
+  margin-bottom: 12px;
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--claw-fs-lg);
   letter-spacing: 0.02em;
   color: var(--accent-text);
-  margin-bottom: 12px;
 }
 #clawConfirmBody {
-  font-family: var(--font-sans);
-  font-size: 11px;
-  color: var(--accent-text);
   margin-bottom: 10px;
+  font-family: var(--font-sans);
+  font-size: var(--claw-fs-md);
+  line-height: 1.6;
+  color: var(--accent-text);
 }
 #clawConfirmAction {
-  font-family: var(--font-sans);
-  font-size: 11px;
-  color: var(--accent-text);
+  max-height: 40vh;
+  overflow-y: auto;
+  margin-bottom: 18px;
+  padding: 8px 10px;
   background: color-mix(in srgb, var(--accent) 6%, transparent);
   border: 1px solid var(--border);
-  padding: 8px 10px;
-  margin-bottom: 18px;
-  word-break: break-all;
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono-stack);
+  font-size: var(--claw-fs-md);
+  color: var(--accent-text);
+  overflow-wrap: anywhere;
 }
 #clawConfirmBtns {
   display: flex;
@@ -682,18 +785,19 @@ pre.clawEntryText {
   justify-content: flex-end;
 }
 .clawConfirmBtn {
-  padding: 8px 20px;
-  font-family: var(--font-sans);
-  font-size: 10px;
-  letter-spacing: 0.02em;
-  cursor: pointer;
+  height: 32px;
+  padding: 0 20px;
   border: 1px solid;
   border-radius: var(--r-sm);
+  font-family: var(--font-sans);
+  font-size: var(--claw-fs-sm);
+  letter-spacing: 0.02em;
+  cursor: pointer;
 }
 .clawConfirmBtn.deny {
   background: transparent;
   border-color: var(--border);
-  color: #666;
+  color: var(--text-2);
 }
 .clawConfirmBtn.deny:hover {
   border-color: var(--accent-border);
@@ -701,195 +805,28 @@ pre.clawEntryText {
 }
 .clawConfirmBtn.allow {
   background: var(--accent);
-  border-color: var(--accent-border);
-  color: #000;
-  font-weight: 900;
+  border-color: var(--accent);
+  color: var(--claw-on-accent);
+  font-weight: 700;
 }
 .clawConfirmBtn.allow:hover {
-  background: var(--accent);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
+/* ══════════════════════════════════════
+   SMALL SCREENS / REDUCED MOTION
+══════════════════════════════════════ */
 @media (max-width: 768px) {
   #clawPanel {
     width: 100vw;
   }
 }
-
-/* Desktop app: switch the built-in relay on from the panel (claw.js) */
-.clawDesktopOn {
-  font: inherit;
-  font-size: 11px;
-  padding: 2px 8px;
-  margin-left: 4px;
-  border: 1px solid var(--accent);
-  border-radius: var(--r-sm, 6px);
-  background: transparent;
-  color: var(--accent-text, var(--accent));
-  cursor: pointer;
-}
-.clawDesktopOn:hover:not(:disabled) {
-  background: var(--accent);
-  color: #fff;
-}
-.clawDesktopOn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-/* ══════════════════════════════════════
-   QUALITY OF LIFE — pins, log tools, wide view, screen extras
-══════════════════════════════════════ */
-
-/* Wide panel: room for the screen */
-#clawPanel.clawWide {
-  width: min(1100px, 100vw);
-}
-
-/* Pinned commands */
-#clawPinRow {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-inset);
-  flex-shrink: 0;
-}
-.clawPinBtn {
-  max-width: 100%;
-  padding: 3px 8px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--text-2);
-  font-family: var(--font-mono-stack);
-  font-size: 10px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: pointer;
-}
-.clawPinBtn:hover {
-  border-color: var(--accent-border);
-  color: var(--accent-text);
-}
-
-/* Log entries: click the label to copy; ↻ and ★ on your own commands */
-.clawEntry {
-  position: relative;
-}
-.clawEntryLabel {
-  cursor: copy;
-  align-self: flex-start;
-}
-.clawEntryLabel:hover {
-  opacity: 1;
-}
-.clawEntry.copied pre.clawEntryText {
-  border-color: var(--success-border);
-}
-.clawEntry.copied .clawEntryLabel::after {
-  content: "  copied";
-  color: var(--success-text);
-}
-.clawEntryTook {
-  position: absolute;
-  top: 0;
-  right: 2px;
-  font-family: var(--font-sans);
-  font-size: 8px;
-  color: var(--text-3);
-}
-.clawEntryTools {
-  position: absolute;
-  top: 12px;
-  right: 4px;
-  display: flex;
-  gap: 2px;
-  opacity: 0;
-  transition: opacity 0.12s;
-}
-.clawEntry:hover .clawEntryTools,
-.clawEntryTools:focus-within {
-  opacity: 1;
-}
-.clawEntryTools button {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text-3);
-  font-size: 11px;
-  line-height: 1;
-  cursor: pointer;
-}
-.clawEntryTools button:hover {
-  border-color: var(--accent-border);
-  color: var(--accent-text);
-}
-
-#clawCopyBtn {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--text-3);
-  padding: 4px 7px;
-  font-size: 11px;
-  cursor: pointer;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-#clawCopyBtn:hover {
-  color: var(--accent-text);
-}
-
-/* Screen tab */
-#clawScreenControls {
-  flex-wrap: wrap;
-}
-#clawPovFrame {
-  outline: none;
-}
-#clawPovFrame.keysOn {
-  box-shadow: inset 0 0 0 1px var(--border-strong);
-}
-#clawPovFrame.keysOn:focus {
-  box-shadow: inset 0 0 0 2px var(--accent);
-}
-#clawPovCoords {
-  position: absolute;
-  bottom: 8px;
-  left: 10px;
-  font-family: var(--font-mono-stack);
-  font-size: 9px;
-  color: var(--text-2);
-  background: color-mix(in srgb, var(--bg-inset) 70%, transparent);
-  padding: 2px 5px;
-  border-radius: 2px;
-  pointer-events: none;
-}
-#clawPovCoords:empty {
-  display: none;
-}
-#clawPovTimestamp.stale {
-  color: var(--warning);
-}
-#clawPovTimestamp.stale::before {
-  content: "stale · ";
-}
-
-#clawSetupCopy {
-  margin-top: 6px;
-}
-
-/* The empty Screen tab used to be dark grey on near-black: unreadable. */
-#clawPovEmpty {
-  color: var(--text-3);
-  padding: 0 24px;
-}
-#clawPovEmpty span {
-  color: var(--text-3);
-  opacity: 0.8;
+@media (prefers-reduced-motion: reduce) {
+  #clawPanel {
+    transition: none;
+  }
+  .clawModeBtn.autoLive {
+    animation: none;
+  }
 }

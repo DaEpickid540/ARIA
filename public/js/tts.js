@@ -1,3 +1,4 @@
+import { meterAudio } from "./voiceMeter.js";
 // tts.js — Full rebuild: browser voices + ElevenLabs AI voices + ARIA's own
 // local voice (Kokoro, generated on your PC by lib/tts.js)
 
@@ -108,20 +109,29 @@ let _endLocalClip = null;
 /** Finds the local voice, once. */
 async function findLocalVoice() {
   if (_localBase !== null) return _localBase;
-  const candidates = [""];
-  if (!["127.0.0.1", "localhost"].includes(location.hostname)) candidates.push(DESKTOP_ORIGIN);
-  for (const base of candidates) {
+  const probe = async (base) => {
     try {
       const r = await fetch(`${base}/api/tts/status`, { signal: AbortSignal.timeout(2500) });
       const d = r.ok ? await r.json() : null;
-      if (d?.available) {
-        _localVoices = d.voices || [];
-        return (_localBase = base);
-      }
+      return d?.available ? d : null;
     } catch {
-      /* not there */
+      return null; // not there
     }
+  };
+  const use = (base, d) => {
+    _localVoices = d.voices || [];
+    return (_localBase = base);
+  };
+  // This server's own voice, or the one it relays from the owner's PC.
+  const here = await probe("");
+  if (here && !here.relayed) return use("", here);
+  // The hosted site: straight to the desktop app when this is that PC
+  // (no round trip through the cloud), otherwise through the relay.
+  if (!["127.0.0.1", "localhost"].includes(location.hostname)) {
+    const desk = await probe(DESKTOP_ORIGIN);
+    if (desk) return use(DESKTOP_ORIGIN, desk);
   }
+  if (here) return use("", here);
   return (_localBase = false);
 }
 
@@ -149,6 +159,7 @@ function playClip(blob, gen) {
     if (gen !== _localGen) return resolve();
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
+    meterAudio(audio); // the call hologram glows with the voice (voiceMeter.js)
     currentAudioPlayer = audio;
     const volEl = document.getElementById("voiceVolume");
     audio.volume = volEl ? parseFloat(volEl.value) || 1 : 1;
@@ -170,7 +181,7 @@ async function speakLocal(text) {
   const base = await findLocalVoice();
   if (base === false) {
     _localBase = null; // try again next time (the desktop app may start)
-    showTTSError("ARIA's local voice isn't reachable. Is the desktop app running?");
+    showTTSError("ARIA's voice isn't reachable. Is ARIA running on your PC?");
     return speakBrowser(text);
   }
   const sel = document.getElementById("voiceSelect");
@@ -295,6 +306,7 @@ async function speakElevenLabs(text) {
     const blob = await response.blob();
     const audioUrl = URL.createObjectURL(blob);
     const audio = new Audio(audioUrl);
+    meterAudio(audio); // the call hologram glows with the voice (voiceMeter.js)
     currentAudioPlayer = audio;
 
     // Apply volume
@@ -344,6 +356,7 @@ function speakCustomVoice(text) {
   onSpeakStart();
 
   const audio = new Audio(dataUrl);
+  meterAudio(audio); // the call hologram glows with the voice (voiceMeter.js)
   currentAudioPlayer = audio;
 
   const volEl = document.getElementById("voiceVolume");

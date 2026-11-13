@@ -1,7 +1,8 @@
 // shortcuts.js — ARIA keyboard shortcut system
 // Ctrl+K → command palette (palette.js), Ctrl+/ → settings, Ctrl+Shift+N → new chat,
 // Ctrl+E → export chat, Ctrl+. → ambient mode toggle,
-// Ctrl+Shift+A → ARIA Claw panel, Esc → close panels
+// Ctrl+Shift+A → ARIA Claw panel, Alt+↑ / Alt+↓ → previous / next chat,
+// Ctrl+Shift+L → lock, Esc → close panels
 
 export function initShortcuts() {
   const SHORTCUTS = [
@@ -12,6 +13,8 @@ export function initShortcuts() {
     { keys: "Ctrl+.", desc: "Toggle ambient mode" },
     { keys: "Ctrl+Shift+A", desc: "ARIA Claw panel" },
     { keys: "Ctrl+Shift+X", desc: "Claw emergency stop (kill switch)" },
+    { keys: "Alt+↑ / Alt+↓", desc: "Previous / next chat" },
+    { keys: "Ctrl+Shift+L", desc: "Lock ARIA" },
     { keys: "Ctrl+?", desc: "Show this help" },
   ];
 
@@ -34,6 +37,22 @@ export function initShortcuts() {
       document.getElementById("settingsOverlay")?.classList.remove("active");
       document.getElementById("commandsModal") &&
         (document.getElementById("commandsModal").style.display = "none");
+      return;
+    }
+
+    // These two work while typing too: neither is a character you'd type.
+    if (e.altKey && !ctrl && (key === "ArrowUp" || key === "ArrowDown")) {
+      // Only in the console, and not when a panel or menu is using the arrows.
+      const inConsole = document.getElementById("layout")?.style.display !== "none";
+      if (inConsole && !document.querySelector("#ariaPalette.open, .upOverlay.open, #settingsOverlay.active")) {
+        e.preventDefault();
+        window.ARIA_stepChat?.(key === "ArrowUp" ? -1 : 1);
+      }
+      return;
+    }
+    if (ctrl && shift && key.toLowerCase() === "l") {
+      e.preventDefault();
+      document.getElementById("goLockBtn")?.click();
       return;
     }
 

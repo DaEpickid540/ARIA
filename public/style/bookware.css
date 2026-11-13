@@ -620,7 +620,9 @@ input[type="range"] {
   width: 100%;
   height: 200px;
   border: 0;
-  background: transparent;
+  /* Opaque, the card's own colour: a transparent frame can be composited
+     as a ghost over the chat in the desktop app when the page repaints. */
+  background: var(--bg-card);
   /* Height is driven by a postMessage from inside the frame, so ease the
      jump when a widget reflows after its scripts run. */
   transition: height 0.2s ease;
