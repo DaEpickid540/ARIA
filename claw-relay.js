@@ -27,6 +27,7 @@ import { fileURLToPath } from "url";
 import https from "https";
 import http from "http";
 import { mousePath, encodePath, applyPath, DURATION, speedFactor } from "./lib/claw-motion.js";
+import { pickProcesses, summarizeApps, formatApps } from "./lib/claw-apps.js";
 
 // Positional arg = server URL; --key=<ARIA_RELAY_KEY> (or the ARIA_RELAY_KEY
 // env var) authenticates to a server that has ARIA_ACCESS_KEY set.
@@ -905,6 +906,28 @@ async function dispatch(cmd) {
       return `launch attempted: ${appRaw}`;
     }
 
+    // ── What's open: one line per app with a window ──
+    case "list_apps":
+    case "apps":
+      return listOpenApps();
+
+    // ── Close an app by name ──
+    // Its windows are asked to close first, so an app with unsaved work can
+    // ask; only what's left with no window (hidden in the tray, helpers) is
+    // ended. Returns once they're gone, so an open: right after works.
+    case "close_app":
+    case "quit_app": {
+      const appRaw = String(cmd.app || cmd.raw || "").replace(/["'`$&|;<>^()\r\n]/g, "").trim();
+      if (!appRaw) return "ERROR: no app named";
+      if (PLATFORM === "win32") return closeWindowsApp(appRaw);
+      if (PLATFORM === "darwin") {
+        const r = runFile("osascript", ["-e", `quit app "${appRaw.replace(/\\/g, "")}"`]);
+        return r.startsWith("exit") ? `not running: ${appRaw}` : `closed ${appRaw}`;
+      }
+      const r = runFile("pkill", ["-i", "-f", appRaw]);
+      return r.startsWith("exit") ? `not running: ${appRaw}` : `closed ${appRaw}`;
+    }
+
     default:
       return `unknown command type: ${cmd.type}`;
   }
@@ -1086,6 +1109,89 @@ function findStartMenuApp(query) {
     if (!best || score > best.score) best = { ...it, score };
   }
   return best && best.score >= 30 ? best : null;
+}
+
+// Processes in this sign-in session that have a file on disk: your apps, not
+// services. `windowed` keeps only the ones showing a window (the `apps` list).
+function listWindowsProcesses({ windowed = false } = {}) {
+  const out = runPs1(`
+$ErrorActionPreference = 'SilentlyContinue'
+$sid = (Get-Process -Id $PID).SessionId
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+@(Get-Process | Where-Object { $_.SessionId -eq $sid -and $_.Path${windowed ? " -and $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle" : ""} } | ForEach-Object {
+  [pscustomobject]@{ id = $_.Id; name = $_.ProcessName; description = $_.Description; product = $_.Product; title = $_.MainWindowTitle }
+}) | ConvertTo-Json -Compress
+`);
+  if (out === "ok" || out === "") return [];
+  const parsed = JSON.parse(out); // throws on an error message: the caller reports it
+  return Array.isArray(parsed) ? parsed : [parsed];
+}
+
+/** `apps`: what's open, one line per app (lib/claw-apps.js formats it). */
+function listOpenApps() {
+  if (PLATFORM === "win32") {
+    try {
+      return formatApps(summarizeApps(listWindowsProcesses({ windowed: true })));
+    } catch (e) {
+      return `ERROR: couldn't list running apps (${String(e.message).slice(0, 200)})`;
+    }
+  }
+  if (PLATFORM === "darwin") {
+    const r = runFile("osascript", ["-e", 'tell application "System Events" to get name of (processes where background only is false)']);
+    if (r.startsWith("exit")) return `ERROR: couldn't list running apps (${r.slice(0, 200)})`;
+    return formatApps(summarizeApps(r.split(",").map((n) => ({ name: n.trim() }))));
+  }
+  const r = runFile("wmctrl", ["-lx"]);
+  if (r.startsWith("exit")) return "ERROR: listing apps needs wmctrl on Linux (sudo apt install wmctrl)";
+  return formatApps(
+    summarizeApps(
+      r.split("\n").map((l) => {
+        const p = l.trim().split(/\s+/);
+        return { name: (p[2] || "").split(".").pop(), title: p.slice(4).join(" ") };
+      }),
+    ),
+  );
+}
+
+function closeWindowsApp(appRaw) {
+  let procs;
+  try {
+    procs = listWindowsProcesses();
+  } catch (e) {
+    return `ERROR: couldn't list running apps (${String(e.message).slice(0, 200)})`;
+  }
+  const pick = pickProcesses(procs, appRaw, { selfPid: process.pid });
+  if (pick.refused) return `ERROR: ${pick.refused}`;
+  if (!pick.hits.length) return `not running: ${pick.app}`;
+  const ids = pick.hits.map((p) => Number(p.id)).filter(Number.isInteger);
+  const procNames = [...new Set(pick.hits.map((p) => `${p.name}.exe`))].join(", ");
+  const label = `${pick.app} (${procNames})`;
+
+  const r = runPs1(`
+$ErrorActionPreference = 'SilentlyContinue'
+$ids = @(${ids.join(",")})
+function Alive { @($ids | ForEach-Object { Get-Process -Id $_ }) }
+foreach ($p in Alive) { if ($p.MainWindowHandle -ne 0) { [void]$p.CloseMainWindow() } }
+# Up to 5s for windows to close, while any is still showing one.
+$until = (Get-Date).AddSeconds(5)
+while ((Get-Date) -lt $until) {
+  $shown = @(Alive | Where-Object { $_.Refresh(); $_.MainWindowHandle -ne 0 })
+  if (-not $shown.Count) { break }
+  Start-Sleep -Milliseconds 300
+}
+$asking = @()
+foreach ($p in Alive) {
+  $p.Refresh()
+  if ($p.MainWindowHandle -ne 0) { $asking += $p.ProcessName } else { Stop-Process -Id $p.Id -Force }
+}
+$until = (Get-Date).AddSeconds(3)
+while ((Get-Date) -lt $until -and @(Alive | Where-Object { $asking -notcontains $_.ProcessName }).Count) { Start-Sleep -Milliseconds 200 }
+Write-Output ('ASKING:' + (($asking | Sort-Object -Unique) -join ','))
+`);
+  const asking = /ASKING:(.*)$/m.exec(r)?.[1].trim();
+  if (asking) return `${label} is still open: its window didn't close (it may be asking to save). Look at the screen.`;
+  if (r.startsWith("exit")) return `ERROR: closing ${label} failed: ${r}`;
+  return `closed ${label}`;
 }
 
 // Writes a .ps1 file and runs it — avoids all quote-escaping issues

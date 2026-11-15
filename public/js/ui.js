@@ -57,13 +57,13 @@ const mobileToggle = document.getElementById("sidebarToggleBtn");
 function openMobileSidebar() {
   sidebar?.classList.add("open");
   overlay?.classList.add("active");
-  if (mobileToggle) mobileToggle.textContent = "✕";
+  if (mobileToggle) mobileToggle.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i><span>Close</span>';
   document.body.style.overflow = "hidden";
 }
 function closeMobileSidebar() {
   sidebar?.classList.remove("open");
   overlay?.classList.remove("active");
-  if (mobileToggle) mobileToggle.textContent = "Menu";
+  if (mobileToggle) mobileToggle.innerHTML = '<i class="bi bi-list" aria-hidden="true"></i><span>Menu</span>';
   document.body.style.overflow = "";
 }
 mobileToggle?.addEventListener("click", () =>

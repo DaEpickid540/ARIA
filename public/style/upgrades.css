@@ -1,0 +1,270 @@
+/* ============================================================
+   upgrades.css — the command palette, the panels opened from the HUD
+   and the console (reminders, focus, usage, Claw log, backup), reminder
+   cards, and the Claw panel's APPS row.
+   BookWare tokens throughout, so they follow the theme; they sit above
+   the home screen (z-index 5000) as well as the console.
+   ============================================================ */
+
+/* ── overlay + panel ───────────────────────────────────────── */
+.upOverlay,
+#paletteOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9200;
+  display: none;
+  background: rgba(8, 8, 12, 0.62);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.upOverlay.open { display: flex; align-items: center; justify-content: center; padding: 20px; }
+#paletteOverlay.open { display: flex; align-items: flex-start; justify-content: center; padding: 12vh 16px 16px; }
+
+.upPanel {
+  width: min(680px, 100%);
+  max-height: min(84vh, 760px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font-sans);
+  animation: upIn 0.16s ease-out;
+}
+@keyframes upIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+.upHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.upHead h2 { margin: 0; font-family: var(--font-display, var(--font-serif)); font-size: 1.2rem; font-weight: 400; color: var(--text); }
+.upClose { background: none; border: 0; color: var(--text-3); font-size: 1rem; cursor: pointer; padding: 4px 8px; border-radius: var(--r-sm); }
+.upClose:hover { color: var(--text); background: var(--bg-hover); }
+.upBody { padding: 16px 18px 18px; overflow-y: auto; font-size: 0.86rem; line-height: 1.5; }
+
+.upHint { margin: 0 0 12px; font-size: 0.78rem; color: var(--text-3); }
+.upEmpty { margin: 14px 0; color: var(--text-3); font-size: 0.82rem; }
+.upErr { color: var(--danger-text); }
+.upSub { margin: 18px 0 8px; font-family: var(--font-sans); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); }
+
+.upBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text-2);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.upBtn:hover { color: var(--text); border-color: var(--border-strong); background: var(--bg-hover); }
+.upBtn.primary { color: #fff; background: var(--accent); border-color: var(--accent); }
+.upBtn.primary:hover { background: var(--accent-hover); color: #fff; }
+.upBtn:disabled { opacity: 0.5; cursor: default; }
+.upBtnRow, .upTabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+
+.upForm { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; align-items: center; }
+.upFormCol { flex-direction: column; align-items: stretch; }
+.upForm input:not([type="checkbox"]):not([type="file"]) {
+  flex: 1;
+  min-width: 140px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 0.84rem;
+  color: var(--text);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  outline: none;
+}
+.upForm input:focus { border-color: var(--accent); }
+.upForm label { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; color: var(--text-2); }
+.upForm label.upCheck { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px; }
+.upForm .upHour { flex: none !important; min-width: 0 !important; width: 56px; padding: 4px 6px !important; }
+.upForm input[type="checkbox"] { accent-color: var(--accent); }
+
+.upList { display: flex; flex-direction: column; }
+.upRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  margin: 0;
+}
+.upRow:last-child { border-bottom: 0; }
+.upRow > .bi { color: var(--text-3); flex: none; }
+.upRow.failed > .upRowMain b { color: var(--danger-text); }
+.upRow small { flex: none; font-size: 0.7rem; color: var(--text-3); white-space: nowrap; }
+.upRowMain { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.upRowMain b { font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
+.upRowMain span { font-size: 0.76rem; color: var(--text-3); overflow-wrap: anywhere; }
+.upLog .upRowMain b { font-family: var(--font-mono-stack); font-size: 0.78rem; }
+.upLog input[type="checkbox"] { accent-color: var(--accent); flex: none; }
+
+.upStats { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 14px; }
+.upStats > div { flex: 1; min-width: 96px; padding: 10px 12px; background: var(--bg-inset); border: 1px solid var(--border); border-radius: var(--r); }
+.upStats b { display: block; font-size: 1.35rem; font-weight: 500; color: var(--text); line-height: 1.1; }
+.upStats b.bad, .upTable td.bad { color: var(--danger-text); }
+.upStats span { font-size: 0.7rem; color: var(--text-3); }
+
+/* Small bar charts: one bar per day; in the usage chart the failed share is the darker cap. */
+.upBars { display: flex; align-items: flex-end; gap: 6px; height: 84px; margin-bottom: 6px; }
+.upBars > div { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; min-width: 0; }
+.upBars i { display: flex; flex-direction: column; justify-content: flex-start; width: 100%; max-width: 34px; min-height: 2px; background: var(--accent); border-radius: 3px 3px 0 0; opacity: 0.85; overflow: hidden; }
+.upBars i em { display: block; width: 100%; background: rgba(0, 0, 0, 0.45); }
+.upBars span { font-size: 0.64rem; color: var(--text-3); }
+.upBarsWide { gap: 3px; }
+
+.upTable { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin-top: 10px; }
+.upTable th, .upTable td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.upTable thead th { font-size: 0.66rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.upTable th:first-child { text-align: left; font-weight: 400; color: var(--text-2); overflow-wrap: anywhere; }
+.upTable th:first-child b { font-weight: 600; color: var(--text); }
+
+.upFocusNow { display: flex; align-items: center; gap: 14px; padding: 12px 14px; margin-bottom: 14px; background: var(--accent-bg); border: 1px solid var(--accent-border); border-radius: var(--r); }
+.upFocusClock { font-family: var(--font-mono-stack); font-size: 1.8rem; font-variant-numeric: tabular-nums; color: var(--text); }
+
+/* ── toast (home screen) and reminder cards ────────────────── */
+#upToast {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 9600;
+  max-width: min(420px, calc(100vw - 36px));
+  padding: 10px 14px;
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+#upToast.show { opacity: 1; transform: none; }
+
+#upReminders {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9500;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(560px, calc(100vw - 24px));
+}
+#upReminders:empty { display: none; }
+.upReminder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-lg), 0 0 0 4px var(--accent-bg);
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  animation: upIn 0.2s ease-out;
+}
+.upReminder > .bi { color: var(--accent-text); font-size: 1.2rem; }
+
+/* ── command palette ───────────────────────────────────────── */
+#palette {
+  width: min(640px, 100%);
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  animation: upIn 0.14s ease-out;
+}
+.paletteTop { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.paletteTop .bi { color: var(--text-3); }
+#paletteInput { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--text); font: inherit; font-size: 1rem; }
+#paletteInput::placeholder { color: var(--text-3); }
+#palette kbd {
+  font-family: var(--font-mono-stack);
+  font-size: 0.66rem;
+  padding: 1px 5px;
+  color: var(--text-3);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+#paletteList { list-style: none; margin: 0; padding: 6px; overflow-y: auto; }
+#paletteList li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+#paletteList li.sel { background: var(--accent-bg); }
+#paletteList li.sel .bi { color: var(--accent-text); }
+#paletteList li > .bi { flex: none; color: var(--text-3); }
+.paletteLabel { flex: none; max-width: 60%; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.paletteSub { flex: 1; min-width: 0; font-size: 0.76rem; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.paletteTag { flex: none; margin-left: auto; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.paletteEmpty { color: var(--text-3); cursor: default !important; }
+.paletteFoot { display: flex; gap: 16px; padding: 8px 16px; border-top: 1px solid var(--border); font-size: 0.7rem; color: var(--text-3); }
+.paletteFoot kbd { margin-right: 3px; }
+
+/* The message a search result opened on, marked for a moment. */
+.msg.paletteHit { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: var(--r); transition: outline-color 0.6s; }
+
+/* ── Claw panel: what's open ───────────────────────────────── */
+#clawAppsRow { display: flex; align-items: center; gap: 8px; padding: 6px 12px; min-height: 34px; }
+#clawAppsRow .clawApps { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
+.clawAppChip {
+  flex: none;
+  padding: 3px 9px;
+  font: inherit;
+  font-size: 0.72rem;
+  color: var(--text-2);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.clawAppChip:hover { color: var(--text); border-color: var(--border-strong); }
+.clawAppChip.armed { color: #fff; background: var(--danger); border-color: var(--danger); }
+.clawAppsNote { font-size: 0.72rem; color: var(--text-3); white-space: nowrap; }
+
+/* ── composer: a draft waiting in another chat ─────────────── */
+.chatItem .chatDraftDot { display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: var(--warning); vertical-align: middle; }
+
+@media (max-width: 560px) {
+  .upOverlay.open { padding: 0; align-items: flex-end; }
+  .upPanel { max-height: 92vh; border-radius: var(--r-lg) var(--r-lg) 0 0; }
+  .paletteSub { display: none; }
+  .paletteLabel { max-width: none; flex: 1; }
+  .upReminder { flex-wrap: wrap; }
+}

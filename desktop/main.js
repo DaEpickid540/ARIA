@@ -247,6 +247,11 @@ async function startServer() {
       ARIA_MACHINE_ID: machine.id,
       ARIA_MACHINE_SECRET: machine.secret,
       ARIA_MACHINE_NAME: os.hostname(),
+      // With "remote" on, the server also sends its voice to the cloud ARIA
+      // (lib/tts-relay.js), so the hosted site can speak with it anywhere.
+      ...(settings.remote
+        ? { ARIA_CLOUD_URL: (readEnvFile().ARIA_CLOUD_URL || DEFAULT_CLOUD_URL).replace(/\/+$/, "") }
+        : {}),
     }),
   });
   server = child;

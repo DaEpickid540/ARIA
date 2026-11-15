@@ -49,6 +49,15 @@ test("health reports chat sync off without FIREBASE_SERVICE_ACCOUNT", async () =
   assert.equal(h.chatSync, "off");
 });
 
+test("health details reports memory, open streams and waiting work", async () => {
+  const d = await getJson("/api/health/details");
+  assert.equal(d.ok, true);
+  assert.ok(d.memoryMb.rss > 0 && d.memoryMb.heapUsed > 0);
+  assert.deepEqual(d.streams, { chat: 0, tasks: 0, sync: 0, briefing: 0 });
+  for (const n of Object.values(d.waiting)) assert.equal(n, 0);
+  assert.equal(typeof d.errors.total, "number");
+});
+
 test("saveChats merges: newer wins, stale copies and bad ids don't get in", async () => {
   const now = Date.now();
   await post("/api/saveChats", { chats: [{ id: `chat_${now}`, title: "first", messages: [], updatedAt: now }], deleted: [] });
@@ -393,6 +402,129 @@ test("text commands: answered with no model; 'screen' sends the PC's screen back
   }
 });
 
+test("claw: close: and apps reach the relay as their own commands, never as a shell kill", async () => {
+  const deviceId = "relay-close-test";
+  await post("/api/claw/relay/register", { deviceId, platform: "win32" });
+  const seen = [];
+  let stop = false;
+  const relay = (async () => {
+    while (!stop) {
+      const { commands = [] } = await getJson(`/api/claw/queue?deviceId=${deviceId}`);
+      for (const c of commands) {
+        seen.push(c);
+        const result = c.type === "close_app" ? `closed ${c.app} (Spotify.exe)` : c.type === "list_apps" ? "1 app open:\n- Spotify" : "ok";
+        await post("/api/claw/relay/result", { deviceId, cmdId: c.id, result });
+      }
+      await post("/api/claw/relay/heartbeat", { deviceId });
+      await new Promise((res) => setTimeout(res, 50));
+    }
+  })();
+  const claw = async (input) => (await post("/api/claw", { input, mode: "line" })).json();
+  try {
+    assert.match((await claw("close: Spotify")).output, /close_app: Spotify → closed Spotify \(Spotify\.exe\)/);
+    assert.match((await claw("quit: GitHub Desktop")).output, /close_app: GitHub Desktop → closed/);
+    assert.match((await claw("apps")).output, /1 app open:\n- Spotify/);
+    assert.match((await claw("close:")).error, /close: needs an app name/);
+    // close_tab is still a tab, not an app called "_tab".
+    await claw("close_tab");
+    assert.deepEqual(seen.map((c) => c.type), ["close_app", "close_app", "list_apps", "close_tab"]);
+    assert.deepEqual(seen.slice(0, 2).map((c) => c.app), ["Spotify", "GitHub Desktop"]);
+    // Ending a process through the shell still needs the owner's OK.
+    const held = await claw("shell: taskkill /IM spotify.exe /F");
+    assert.match(held.output, /Needs your OK/);
+    assert.equal(seen.length, 4, "the shell kill was held, not sent");
+    // The Claw panel's APPS row: the list as chips, and one closed by name.
+    assert.deepEqual(await getJson("/api/claw/apps"), { ok: true, apps: [{ label: "Spotify", title: "" }], text: "1 app open:\n- Spotify" });
+    const closed = await (await post("/api/claw/apps/close", { app: "Spotify" })).json();
+    assert.deepEqual(closed, { ok: true, output: "closed Spotify (Spotify.exe)" });
+    assert.equal((await post("/api/claw/apps/close", {})).status, 400);
+    // A focus block closes the apps on its list through the same command.
+    await post("/api/focus/settings", { apps: ["Spotify", "Discord"] });
+    const started = await (await post("/api/focus/start", { minutes: 5, goal: "close test" })).json();
+    assert.deepEqual(started.closed, ["Spotify", "Discord"]);
+    assert.deepEqual(seen.slice(-2).map((c) => [c.type, c.app]), [["close_app", "Spotify"], ["close_app", "Discord"]]);
+    await post("/api/focus/stop", {});
+    await post("/api/focus/settings", { apps: [] });
+  } finally {
+    stop = true;
+    await relay;
+    await post("/api/claw/relay/unregister", { deviceId });
+  }
+});
+
+test("reminders, focus, search, usage, HUD and backup: the routes and the tools share one state", async () => {
+  const del = (p) => fetch(`${BASE}${p}`, { method: "DELETE" });
+  const tool = async (t, input) => (await (await post("/api/tool", { tool: t, input })).json()).output;
+
+  // Reminders: from the panel and from the tool, one list.
+  let r = await post("/api/reminders", { when: "in 20m", text: "take the pizza out" });
+  assert.equal(r.status, 200);
+  assert.match((await r.json()).text, /^"take the pizza out" in 20 min/);
+  assert.equal((await post("/api/reminders", { when: "whenever", text: "x" })).status, 400);
+  assert.match(await tool("remind", "tomorrow 8am | email Mr. Patel"), /"email Mr\. Patel" tomorrow at 8am/);
+  assert.match(await tool("timer", "start 300"), /Timer \(5 min\) is up/);
+  const { reminders } = await getJson("/api/reminders");
+  assert.deepEqual(reminders.map((x) => x.text), ["Timer (5 min) is up", "take the pizza out", "email Mr. Patel"]);
+  assert.equal((await del(`/api/reminders/${reminders[0].id}`)).status, 200);
+  assert.equal((await del("/api/reminders/nope")).status, 404);
+
+  // Search finds it, and what was saved earlier in this file.
+  const { hits } = await getJson("/api/search?q=pizza");
+  assert.deepEqual(hits.map((h) => h.kind), ["reminder"]);
+  assert.match(await tool("find", "pizza"), /^1 match for "pizza":\n1\. \[Reminder\]/);
+  assert.deepEqual((await getJson("/api/search?q=p")).hits, [], "one letter isn't a search");
+
+  // Focus: start, HUD shows it, stop.
+  r = await post("/api/focus/start", { minutes: 25, goal: "essay" });
+  assert.equal((await r.json()).active.goal, "essay");
+  assert.equal((await post("/api/focus/start", { minutes: 25 })).status, 400, "one block at a time");
+  let h = await getJson("/api/hud");
+  assert.equal(h.focus.active.minutes, 25);
+  assert.equal(h.focus.hold, "focus");
+  assert.ok(h.priorities.some((p) => /^Focus: 25 min left on essay/.test(p.text)));
+  assert.ok(h.priorities.some((p) => /take the pizza out/.test(p.text)));
+  assert.equal(h.relay.connected, false);
+  assert.ok(Array.isArray(h.history) && h.history.length >= 1);
+  assert.match((await getJson("/api/hud/report")).text, /PC control is offline\./);
+  assert.match(await tool("status", ""), /PC control is offline\./);
+  assert.match(await tool("focus stop", ""), /^Stopped/);
+  assert.equal((await getJson("/api/focus")).active, null);
+  r = await post("/api/focus/settings", { apps: ["Discord"], quiet: { enabled: true, from: 22, to: 7 } });
+  assert.deepEqual((await r.json()).settings, { apps: ["Discord"], holdAlerts: true, quiet: { enabled: true, from: 22, to: 7 } });
+
+  // Usage: earlier tests asked a model with no keys set, and each of those
+  // refusals was counted.
+  const u = await getJson("/api/usage?days=3");
+  assert.equal(u.series.length, 3);
+  assert.equal(u.total.calls, u.total.fails, "no provider is configured here");
+  assert.match(await tool("usage", "3"), /^(Today: \d+ calls?|No model calls)/);
+
+  // The Claw flight recorder saw the commands of the close: test above.
+  const hist = await getJson("/api/claw/history");
+  assert.ok(hist.entries.some((e) => e.summary === "close_app: Spotify" && /^closed Spotify/.test(e.result)));
+  // Newest first: the last two are the first two that ran.
+  const ids = hist.entries.filter((e) => e.type === "close_app").map((e) => e.id).slice(-2);
+  r = await post("/api/claw/history/routine", { name: "Close music", ids });
+  assert.deepEqual((await r.json()).routine.steps, ["close: Spotify", "close: GitHub Desktop"]);
+  assert.equal((await post("/api/claw/history/routine", { name: "x", ids: ["nope"] })).status, 400);
+  assert.equal((await getJson("/api/claw/apps")).ok, false, "no relay: says so");
+
+  // Backup: make one, download it, restore from it.
+  r = await post("/api/backup", {});
+  const made = await r.json();
+  assert.match(made.snapshot.name, /^aria-backup-\d{4}-\d\d-\d\d\.json$/);
+  const doc = await getJson("/api/backup/download");
+  assert.equal(doc.kind, "backup");
+  assert.ok(doc.files["reminders.json"].reminders.length === 2);
+  assert.ok(!("owners.json" in doc.files));
+  assert.equal((await post("/api/backup/restore", { backup: { nope: 1 } })).status, 400);
+  r = await post("/api/backup/restore", { backup: doc, only: ["reminders.json"] });
+  const restored = await r.json();
+  assert.deepEqual(restored.restored, ["reminders.json"]);
+  assert.match(restored.safety, /^aria-pre-restore-/);
+  assert.equal((await getJson("/api/backup")).snapshots.filter((s) => s.safety).length, 1);
+});
+
 test("grades: add a class, score it, add what's next, and the tool sees the same book", async () => {
   const del = (p) => fetch(`${BASE}${p}`, { method: "DELETE" });
   assert.equal((await post("/api/grades/class", { name: "AP Bio", weights: "Tests 50, Quizzes 50" })).status, 200);
@@ -401,7 +533,10 @@ test("grades: add a class, score it, add what's next, and the tool sees the same
   assert.equal((await r.json()).pct, 85);
   r = await post("/api/grades/ap-bio/score", { earned: 5, possible: 0, category: "Quizzes" });
   assert.equal(r.status, 400);
-  r = await post("/api/grades/ap-bio/upcoming", { title: "Unit 2 Test", points: 100, category: "Tests", due: "2026-10-20" });
+  // A week from today: a fixed date turns into a past one, and the server
+  // (which uses the real clock) then has no "next" assignment to report.
+  const due = new Date(Date.now() + 7 * 24 * 3600_000).toISOString().slice(0, 10);
+  r = await post("/api/grades/ap-bio/upcoming", { title: "Unit 2 Test", points: 100, category: "Tests", due });
   assert.equal(r.status, 200);
   const book = await getJson("/api/grades");
   const bio = book.classes.find((c) => c.id === "ap-bio");

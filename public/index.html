@@ -8,6 +8,19 @@
       content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content"
     />
 
+    <!-- Bare module names for the call-mode hologram (js/holo/). The files
+         are in public/vendor, so it works offline; nothing loads until a
+         call opens. Must come before the first module script. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/vendor/three/three.module.min.js",
+          "three/addons/": "/vendor/three/addons/",
+          "simplex-noise": "/vendor/simplex-noise/simplex-noise.js"
+        }
+      }
+    </script>
+
     <!-- Where the API lives. Must run before anything calls /api: on the
          Firebase site it routes every call to your PC or to Render. -->
     <script src="/js/site-config.js"></script>
@@ -97,6 +110,8 @@
     <link rel="stylesheet" href="style/bookware.css" />
     <!-- Home screen HUD, Daily Rings, command palette. After bookware. -->
     <link rel="stylesheet" href="style/hud.css" />
+    <!-- Reminders, focus, usage, Claw log and backup panels (js/upgrades.js) -->
+    <link rel="stylesheet" href="style/upgrades.css" />
   </head>
 
   <body>
@@ -493,13 +508,18 @@
         <button id="sidebarCollapseBtn" title="Toggle sidebar">
           <span id="sidebarCollapseIcon"><i class="bi bi-chevron-left" aria-hidden="true"></i></span>
         </button>
-        <!-- ARIA logo in sidebar -->
+        <!-- Brand, new chat, and the chat list's label -->
         <div id="sidebarHeader">
-          <div class="sidebarLogo">ARIA</div>
-          <div class="sidebarAcronym">
-            Adaptive Reasoning<br />Intelligence Architecture
+          <div class="sbBrand">
+            <div class="sbEmblem" aria-hidden="true"><i></i></div>
+            <div class="sbBrandText">
+              <div class="sidebarLogo">ARIA</div>
+              <div class="sidebarAcronym">Adaptive Reasoning Intelligence Architecture</div>
+            </div>
+            <div id="ariaEmotionIndicator" class="emotionIndicator small"></div>
           </div>
-          <div id="ariaEmotionIndicator" class="emotionIndicator small"></div>
+          <button id="newChatBtn" class="primaryBtn glitch">＋ New Chat</button>
+          <div class="sidebarGroupLabel sbChatsLabel"><span>Chats</span><b id="sbChatCount"></b></div>
         </div>
 
         <div class="sidebarDivider"></div>
@@ -507,19 +527,16 @@
         <div id="chatList"></div>
 
         <div id="sidebarBottom">
-          <button id="newChatBtn" class="primaryBtn glitch">＋ New Chat</button>
-
-          <div class="sidebarGroup sidebarGroupRow">
-            <button id="goHomeBtn" class="secondaryBtn glitch"><i class="bi bi-house" aria-hidden="true"></i> Home</button>
-            <button id="goLockBtn" class="secondaryBtn glitch"><i class="bi bi-lock" aria-hidden="true"></i> Lock</button>
-          </div>
-
-          <!-- Full-screen pages (js/pages.js) -->
-          <div class="sidebarGroup sidebarGroupRow sidebarPagesRow">
-            <button id="openWeatherPageBtn" class="secondaryBtn" title="Weather" aria-label="Weather"><i class="bi bi-cloud-sun" aria-hidden="true"></i></button>
-            <button id="openNewsPageBtn" class="secondaryBtn" title="News" aria-label="News"><i class="bi bi-newspaper" aria-hidden="true"></i></button>
-            <button id="openSystemPageBtn" class="secondaryBtn" title="System" aria-label="System"><i class="bi bi-pc-display" aria-hidden="true"></i></button>
-            <button id="openToolsPageBtn" class="secondaryBtn" title="Commands" aria-label="Commands"><i class="bi bi-terminal" aria-hidden="true"></i></button>
+          <div class="sidebarGroupLabel"><span>Navigate</span></div>
+          <div class="sidebarGroup sbTiles sbTiles4">
+            <button id="goHomeBtn" class="secondaryBtn sbTile"><i class="bi bi-house" aria-hidden="true"></i><span>Home</span></button>
+            <button id="goLockBtn" class="secondaryBtn sbTile"><i class="bi bi-lock" aria-hidden="true"></i><span>Lock</span></button>
+            <button id="settingsBtn" class="secondaryBtn sbTile"><i class="bi bi-gear" aria-hidden="true"></i><span>Settings</span></button>
+            <button id="sidebarClawBtn" class="secondaryBtn sbTile"><i class="bi bi-robot" aria-hidden="true"></i><span>Claw</span></button>
+            <button id="openWeatherPageBtn" class="secondaryBtn sbTile"><i class="bi bi-cloud-sun" aria-hidden="true"></i><span>Weather</span></button>
+            <button id="openNewsPageBtn" class="secondaryBtn sbTile"><i class="bi bi-newspaper" aria-hidden="true"></i><span>News</span></button>
+            <button id="openSystemPageBtn" class="secondaryBtn sbTile"><i class="bi bi-pc-display" aria-hidden="true"></i><span>System</span></button>
+            <button id="openToolsPageBtn" class="secondaryBtn sbTile" title="Commands page"><i class="bi bi-terminal" aria-hidden="true"></i><span>Commands</span></button>
           </div>
 
           <div id="toolsDropdownWrap">
@@ -563,6 +580,22 @@
               <button class="toolDropItem" id="tool_selftest">
                 <i class="bi bi-heart-pulse" aria-hidden="true"></i> Check ARIA (self-test)
               </button>
+              <!-- Panels from js/upgrades.js; the command palette lists them too -->
+              <button class="toolDropItem" id="tool_reminders">
+                <i class="bi bi-alarm" aria-hidden="true"></i> Reminders and timers
+              </button>
+              <button class="toolDropItem" id="tool_focus">
+                <i class="bi bi-bullseye" aria-hidden="true"></i> Focus block
+              </button>
+              <button class="toolDropItem" id="tool_usage">
+                <i class="bi bi-bar-chart" aria-hidden="true"></i> Model usage
+              </button>
+              <button class="toolDropItem" id="tool_clawlog">
+                <i class="bi bi-journal-text" aria-hidden="true"></i> Claw log (what ran on the PC)
+              </button>
+              <button class="toolDropItem" id="tool_backup">
+                <i class="bi bi-shield-check" aria-hidden="true"></i> Backup
+              </button>
               <button class="toolDropItem" id="tool_wake" title="Listen for 'Hey ARIA' (checked on this device only)">
                 <i class="bi bi-ear" aria-hidden="true"></i> Hey ARIA: <b>off</b>
               </button>
@@ -579,46 +612,19 @@
               </button>
             </div>
           </div>
-
-          <div class="sidebarGroupLabel">Workspace</div>
-          <div class="sidebarGroup sidebarGroupGrid">
-            <button id="commandsBtn" class="secondaryBtn glitch">
-              <i class="bi bi-command" aria-hidden="true"></i> Commands
-            </button>
-            <button id="bgTasksListBtn" class="secondaryBtn glitch">
-              <i class="bi bi-gear-wide-connected" aria-hidden="true"></i> BG Tasks
-            </button>
-            <button class="secondaryBtn" onclick="window.ARIA_showMemoryUI()" title="Memory & Knowledge Base">
-              <i class="bi bi-hdd" aria-hidden="true"></i> Memory
-            </button>
-            <button class="secondaryBtn" onclick="window.ARIA_showSkillsUI()" title="Skills">
-              <i class="bi bi-lightning-charge" aria-hidden="true"></i> Skills
-            </button>
-            <button class="secondaryBtn" onclick="window.ARIA_showStarred()" title="Starred & Pinned messages">
-              <i class="bi bi-star" aria-hidden="true"></i> Starred
-            </button>
-            <button class="secondaryBtn" onclick="window.ARIA_toggleSplitPane()" title="Split pane mode" id="splitPaneBtn">
-              ◫ Split
-            </button>
-            <button class="secondaryBtn" onclick="window.ARIA_showMacros()" title="Routines: PC steps ARIA learned, reusable with blanks">
-              <i class="bi bi-record-circle" aria-hidden="true"></i> Routines
-            </button>
-            <button id="watchersBtn" class="secondaryBtn" title="Watchers: things ARIA checks and alerts you about">
-              <i class="bi bi-eye" aria-hidden="true"></i> Watchers
-            </button>
-            <button id="triggersBtn" class="secondaryBtn" title="Triggers: when you're in an app, or at a time, ARIA does something">
-              <i class="bi bi-lightning" aria-hidden="true"></i> Triggers
-            </button>
-          </div>
-
-          <div class="sidebarGroupLabel">System</div>
-          <div class="sidebarGroup sidebarGroupRow">
-            <button id="settingsBtn" class="secondaryBtn glitch">
-              <i class="bi bi-gear" aria-hidden="true"></i> Settings
-            </button>
-            <button id="sidebarClawBtn" class="secondaryBtn glitch">
-              <i class="bi bi-robot" aria-hidden="true"></i> Claw
-            </button>
+          <button type="button" id="sbWorkspaceFold" class="sidebarGroupLabel sbFold" aria-expanded="true" aria-controls="sbWorkspace">
+            <span>Workspace</span><i class="bi bi-chevron-down" aria-hidden="true"></i>
+          </button>
+          <div id="sbWorkspace" class="sidebarGroup sbTiles sbTiles3">
+            <button id="commandsBtn" class="secondaryBtn sbTile" title="Command list"><i class="bi bi-command" aria-hidden="true"></i><span>Quick cmds</span></button>
+            <button id="bgTasksListBtn" class="secondaryBtn sbTile" title="Background tasks"><i class="bi bi-gear-wide-connected" aria-hidden="true"></i><span>BG tasks</span></button>
+            <button class="secondaryBtn sbTile" onclick="window.ARIA_showMemoryUI()" title="Memory &amp; Knowledge Base"><i class="bi bi-hdd" aria-hidden="true"></i><span>Memory</span></button>
+            <button class="secondaryBtn sbTile" onclick="window.ARIA_showSkillsUI()" title="Skills"><i class="bi bi-lightning-charge" aria-hidden="true"></i><span>Skills</span></button>
+            <button class="secondaryBtn sbTile" onclick="window.ARIA_showStarred()" title="Starred &amp; Pinned messages"><i class="bi bi-star" aria-hidden="true"></i><span>Starred</span></button>
+            <button id="splitPaneBtn" class="secondaryBtn sbTile" onclick="window.ARIA_toggleSplitPane()" title="Split pane mode"><i class="bi bi-layout-split" aria-hidden="true"></i><span>Split</span></button>
+            <button class="secondaryBtn sbTile" onclick="window.ARIA_showMacros()" title="Routines: PC steps ARIA learned, reusable with blanks"><i class="bi bi-record-circle" aria-hidden="true"></i><span>Routines</span></button>
+            <button id="watchersBtn" class="secondaryBtn sbTile" title="Watchers: things ARIA checks and alerts you about"><i class="bi bi-eye" aria-hidden="true"></i><span>Watchers</span></button>
+            <button id="triggersBtn" class="secondaryBtn sbTile" title="Triggers: when you're in an app, or at a time, ARIA does something"><i class="bi bi-lightning" aria-hidden="true"></i><span>Triggers</span></button>
           </div>
         </div>
       </aside>
@@ -722,22 +728,18 @@
                   multiple
               /></label>
             </div>
-            <button id="sendBtn" class="primaryBtn glitch">Send</button>
           </div>
           <div id="inputBtnRow">
-            <button
-              id="sidebarToggleBtn"
-              class="voiceBtn glitch"
-              aria-label="Menu"
-            >
-              <i class="bi bi-list" aria-hidden="true"></i> Menu
-            </button>
-            <!-- mobilSettingsBtn removed — new #ariaSettingsBtn used instead -->
-            <button id="callModeBtn" class="voiceBtn glitch"><i class="bi bi-telephone" aria-hidden="true"></i> Call</button>
-            <button id="pushToTalkBtn" class="voiceBtn glitch"><i class="bi bi-mic" aria-hidden="true"></i> PTT</button>
-            <button id="vttBtn" class="voiceBtn glitch"><i class="bi bi-soundwave" aria-hidden="true"></i> VTT</button>
-            <button id="ttsBtn" class="voiceBtn glitch"><i class="bi bi-volume-up" aria-hidden="true"></i> TTS</button>
-            <div id="voiceWave"></div>
+            <!-- Floats above the bar: Send in the middle, the rest fanned around it (hud.css) -->
+            <div id="sendCluster">
+              <button id="sidebarToggleBtn" class="voiceBtn" aria-label="Menu"><i class="bi bi-list" aria-hidden="true"></i><span>Menu</span></button>
+              <button id="callModeBtn" class="voiceBtn"><i class="bi bi-telephone" aria-hidden="true"></i><span>Call</span></button>
+              <button id="pushToTalkBtn" class="voiceBtn"><i class="bi bi-mic" aria-hidden="true"></i><span>PTT</span></button>
+              <button id="sendBtn" class="primaryBtn" aria-label="Send" title="Send"><i class="bi bi-send-fill" aria-hidden="true"></i></button>
+              <button id="vttBtn" class="voiceBtn"><i class="bi bi-soundwave" aria-hidden="true"></i><span>VTT</span></button>
+              <button id="ttsBtn" class="voiceBtn"><i class="bi bi-volume-up" aria-hidden="true"></i><span>TTS</span></button>
+              <button id="clusterKillBtn" class="voiceBtn" title="Emergency stop: halt all Claw actions (Ctrl+Shift+X)"><i class="bi bi-octagon" aria-hidden="true"></i><span>Kill</span></button>
+            </div>
           </div>
         </div>
       </main>
@@ -1713,6 +1715,7 @@ export async function run(input, { dataDir }) { return "answer"; }</code>
     <!-- ========================= -->
     <div id="settingsToast"><i class="bi bi-check-circle" aria-hidden="true"></i> Settings saved</div>
 
+    <script type="module" src="js/serverWake.js"></script>
     <script type="module" src="js/lock.js"></script>
   </body>
 </html>

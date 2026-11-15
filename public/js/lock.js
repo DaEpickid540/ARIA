@@ -194,6 +194,10 @@ window.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       console.error("[ARIA] Homepage init failed:", err);
     }
+    // Reminder toasts (with Snooze) and the reminders / focus / usage /
+    // Claw log / backup panels: they work from the home screen too, so they
+    // load here rather than with the console.
+    import("./upgrades.js").then((m) => m.initUpgrades()).catch((e) => console.warn("[ARIA] panels init failed:", e));
 
     // Wire all nav buttons
     wireConsoleButtons();

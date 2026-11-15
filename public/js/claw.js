@@ -69,7 +69,7 @@ async function killClaw() {
   document.getElementById("clawKillSwitch")?.classList.add("killed");
   const ks = document.getElementById("clawKillSwitch");
   if (ks) ks.innerHTML = "⬡<br>RESUME";
-  _setStatus("● KILLED", "#ff4444");
+  _setStatus("● KILLED", "var(--danger-text)");
   _log("⬡ KILL", "All actions halted.", "error");
   await fetch("/api/claw/kill", { method: "POST" }).catch(() => {});
 }
@@ -87,6 +87,25 @@ async function resumeClaw() {
    MAIN PANEL
 ═══════════════════════════════════════════════════════════ */
 let _clawEnabled = true;
+
+// The panel's ON/OFF switch. In the desktop app it is also the app's PC
+// control switch, so OFF stops the relay and ON starts it again.
+// { remote: false } only updates the buttons (the state came from elsewhere).
+function _setClawEnabled(on, { remote = true } = {}) {
+  _clawEnabled = !!on;
+  const btn = document.getElementById("clawToggleBtn");
+  if (btn) {
+    btn.textContent = _clawEnabled ? "ON" : "OFF";
+    btn.classList.toggle("clawBtnOff", !_clawEnabled);
+  }
+  const cb = document.getElementById("cfgEnabled");
+  if (cb) cb.checked = _clawEnabled;
+  if (!remote) return;
+  // Not kill/resume in the desktop app: a kill outlives the relay, so turning
+  // PC control back on from the tray would still find the Claw killed.
+  if (window.ariaDesktop) window.ariaDesktop.setClaw(_clawEnabled).catch(() => {});
+  else fetch(_clawEnabled ? "/api/claw/resume" : "/api/claw/kill", { method: "POST" }).catch(() => {});
+}
 let _activeMode = "auto";
 let _activeTab = "control";
 let _screenWatch = false;
@@ -211,7 +230,7 @@ function _buildPanel() {
 
     <!-- ── Relay bar ── -->
     <div id="clawRelayBar">
-      <span id="clawRelayName">No relay — <span class="clawSetupLinkInline">setup guide</span></span>
+      <span id="clawRelayName">No relay — <button type="button" class="clawSetupLinkInline">setup guide</button></span>
       <span id="clawRelayPlatform"></span>
     </div>
 
@@ -303,7 +322,7 @@ function _buildPanel() {
         </label>
         <label class="clawCfgRow">
           <span class="clawCfgLabel">Screenshot monitor</span>
-          <select id="cfgMonitorIdx" style="flex:1;background:var(--bg-inset);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono-stack);font-size:10px;padding:3px">
+          <select id="cfgMonitorIdx">
             <option value="-1">All monitors combined</option>
             <option value="0">Primary (0)</option>
             <option value="1">Secondary (1)</option>
@@ -433,19 +452,9 @@ function _buildPanel() {
 
   // ── Enable/disable toggle ──
   document.getElementById("clawToggleBtn").addEventListener("click", () => {
-    _clawEnabled = !_clawEnabled;
-    const btn = document.getElementById("clawToggleBtn");
-    btn.textContent = _clawEnabled ? "ON" : "OFF";
-    btn.classList.toggle("clawBtnOff", !_clawEnabled);
+    _setClawEnabled(!_clawEnabled);
     _log("SYSTEM", _clawEnabled ? "Claw enabled." : "Claw disabled.", "info");
-    if (!_clawEnabled)
-      fetch("/api/claw/kill", { method: "POST" }).catch(() => {});
-    else fetch("/api/claw/resume", { method: "POST" }).catch(() => {});
-    // Keep config checkbox in sync
-    const cb = document.getElementById("cfgEnabled");
-    if (cb) cb.checked = _clawEnabled;
   });
-
   // ── Speed & monitor config — push to server live ──
   function _pushRelayConfig(patch) {
     fetch("/api/claw/config", {
@@ -481,15 +490,7 @@ function _buildPanel() {
 
   // ── Config toggles ──
   document.getElementById("cfgEnabled")?.addEventListener("change", (e) => {
-    _clawEnabled = e.target.checked;
-    const btn = document.getElementById("clawToggleBtn");
-    if (btn) {
-      btn.textContent = _clawEnabled ? "ON" : "OFF";
-      btn.classList.toggle("clawBtnOff", !_clawEnabled);
-    }
-    if (!_clawEnabled)
-      fetch("/api/claw/kill", { method: "POST" }).catch(() => {});
-    else fetch("/api/claw/resume", { method: "POST" }).catch(() => {});
+    _setClawEnabled(e.target.checked);
   });
 
   const vizCb = document.getElementById("cfgVisualizer");
@@ -1096,6 +1097,11 @@ function _startStatusPoll() {
   async function poll() {
     try {
       const d = await fetch("/api/claw/status").then((r) => r.json());
+      // The tray and ARIA menu flip PC control too; keep the ON/OFF switch in step.
+      if (window.ariaDesktop) {
+        const on = await window.ariaDesktop.getClaw();
+        if (on !== _clawEnabled) _setClawEnabled(on, { remote: false });
+      }
       // Approvals raised from a text or a background task have no chat
       // reply to ride on, so they arrive here.
       for (const c of d.pendingConfirms || []) showConfirmDialog(c);
@@ -1152,13 +1158,14 @@ function _startStatusPoll() {
             nameEl.querySelector(".clawDesktopOn").addEventListener("click", async (e) => {
               e.currentTarget.disabled = true;
               e.currentTarget.textContent = "Starting…";
+              _setClawEnabled(true, { remote: false });
               await window.ariaDesktop.setClaw(true);
               setTimeout(poll, 1500); // the relay registers within a second or so
             });
           }
         } else if (nameEl)
           nameEl.innerHTML =
-            'No relay — <span class="clawSetupLinkInline" style="text-decoration:underline;cursor:pointer">setup guide</span>';
+            'No relay — <button type="button" class="clawSetupLinkInline">setup guide</button>';
         if (platEl) platEl.textContent = "";
       }
     } catch {}
@@ -1190,7 +1197,7 @@ async function _runCommand(input, mode) {
     return;
   }
   _log("YOU", input, "user", { input, mode });
-  _setStatus("● RUNNING", "var(--red-neon, #ff2222)");
+  _setStatus("● RUNNING", "var(--accent-text)");
   const started = performance.now();
   const panel = document.getElementById("clawPanel");
   const vizMode = panel?._getViz?.() || false;
@@ -1221,7 +1228,9 @@ async function _runCommand(input, mode) {
       if (!data.relayConnected) {
         _log(
           "WARN",
-          "No relay connected. Start claw-relay.js on your machine.",
+          window.ariaDesktop
+            ? "PC control is off. Turn it on with the ON switch above."
+            : "No relay connected. Start claw-relay.js on your machine.",
           "error",
         );
       }
@@ -1274,7 +1283,7 @@ function _followAuto(id) {
         if (AUTO_LABEL[e.mode]) {
           _autoPill(e.mode);
           job.steps++;
-          _setStatus(`● STEP ${job.steps}/${maxSteps}`, "var(--red-neon, #ff2222)");
+          _setStatus(`● STEP ${job.steps}/${maxSteps}`, "var(--accent-text)");
           _log(AUTO_LABEL[e.mode], e.text, "viz");
         } else if (e.mode === "confirm") {
           _log("⚠ CONFIRM", e.text, "error");

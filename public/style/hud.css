@@ -886,3 +886,710 @@ button.hudCallout:hover .hudCalloutLabel {
   font-size: 0.66rem;
   color: var(--text-3);
 }
+
+/* ============================================================
+   CHAT SIDEBAR — same tokens, HUD orientation
+   Brand and New Chat on top, chats in the middle, and the actions as
+   two grids of labelled tiles at the bottom instead of a wall of pills.
+   ============================================================ */
+#sidebar {
+  padding: 12px 12px 10px;
+  gap: 0;
+}
+/* A ruler down the inner edge */
+#sidebar::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  right: 0;
+  width: 3px;
+  background: repeating-linear-gradient(
+    180deg,
+    var(--border-strong) 0 1px,
+    transparent 1px 8px
+  );
+  opacity: 0.6;
+  pointer-events: none;
+}
+#sidebar.collapsed::after {
+  display: none;
+}
+
+#sidebar #sidebarHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 2px 2px 0;
+  margin: 0;
+  border: 0;
+}
+.sbBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.sbBrandText {
+  min-width: 0;
+  flex: 1;
+}
+#sidebar .sidebarLogo {
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+#sidebar .sidebarAcronym {
+  font-size: 0.6rem;
+  line-height: 1.3;
+}
+/* The emblem: a still ring, a slow arc, a core */
+.sbEmblem {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+}
+.sbEmblem::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: var(--accent);
+  animation: sbSpin 14s linear infinite;
+}
+.sbEmblem::after {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  border: 1px dashed var(--text-3);
+  opacity: 0.7;
+}
+.sbEmblem i {
+  position: absolute;
+  inset: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+@keyframes sbSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+#sidebar #newChatBtn {
+  width: 100%;
+}
+
+/* Section labels: a corner mark, the name, then a ruled line */
+#sidebar .sidebarGroupLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  font-family: var(--font-mono-stack, var(--font-sans));
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  text-align: left;
+}
+#sidebar .sidebarGroupLabel::before {
+  content: "";
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-left: 1px solid var(--accent);
+  border-top: 1px solid var(--accent);
+}
+#sidebar .sidebarGroupLabel::after {
+  content: "";
+  flex: 1;
+  order: 2;
+  height: 5px;
+  border-bottom: 1px solid var(--border);
+  background: repeating-linear-gradient(
+    90deg,
+    var(--border-strong) 0 1px,
+    transparent 1px 6px
+  );
+  opacity: 0.8;
+}
+#sidebar .sidebarGroupLabel > b,
+#sidebar .sidebarGroupLabel > .bi {
+  order: 3;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--accent-text);
+}
+#sidebar .sbFold {
+  cursor: pointer;
+}
+#sidebar .sbFold:hover {
+  color: var(--text);
+}
+#sidebar .sbFold:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--r-sm);
+}
+#sidebar .sbFold > .bi {
+  font-size: 0.7rem;
+  color: var(--text-3);
+  transition: transform 0.15s;
+}
+#sidebar .sbFold[aria-expanded="false"] > .bi {
+  transform: rotate(-90deg);
+}
+
+/* The label's line replaces the old divider */
+#sidebar .sidebarDivider {
+  display: none;
+}
+#sidebar #chatList {
+  margin: 8px 0 10px;
+}
+#sidebar .chatItem.active {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+#sidebar #sidebarBottom {
+  gap: 8px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* Tiles */
+#sidebar .sbTiles {
+  display: grid;
+  gap: 5px;
+}
+#sidebar .sbTiles[hidden] {
+  display: none;
+}
+#sidebar .sbTiles4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+#sidebar .sbTiles3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+#sidebar .sbTile {
+  position: relative;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 46px;
+  padding: 7px 2px 6px;
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+}
+#sidebar .sbTile .bi {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+#sidebar .sbTile span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.56rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--text-3);
+}
+#sidebar .sbTiles4 .sbTile span {
+  font-size: 0.52rem;
+  letter-spacing: 0.02em;
+}
+/* Corner brackets close in on the tile you point at */
+#sidebar .sbTile::before,
+#sidebar .sbTile::after {
+  content: "";
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border: 0 solid var(--accent);
+  opacity: 0;
+  transition: opacity 0.12s;
+  pointer-events: none;
+}
+#sidebar .sbTile::before {
+  top: -1px;
+  left: -1px;
+  border-top-width: 1px;
+  border-left-width: 1px;
+  border-top-left-radius: var(--r-sm);
+}
+#sidebar .sbTile::after {
+  right: -1px;
+  bottom: -1px;
+  border-right-width: 1px;
+  border-bottom-width: 1px;
+  border-bottom-right-radius: var(--r-sm);
+}
+#sidebar .sbTile:hover,
+#sidebar .sbTile:focus-visible {
+  border-color: var(--border-strong);
+  color: var(--accent-text);
+}
+#sidebar .sbTile:hover span,
+#sidebar .sbTile:focus-visible span {
+  color: var(--text);
+}
+#sidebar .sbTile:hover::before,
+#sidebar .sbTile:hover::after,
+#sidebar .sbTile:focus-visible::before,
+#sidebar .sbTile:focus-visible::after {
+  opacity: 1;
+}
+
+#sidebar #toolsDropdownBtn {
+  justify-content: center;
+  min-height: 32px;
+  border-radius: var(--r-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sbEmblem::before {
+    animation: none;
+  }
+}
+
+/* ============================================================
+   SEND BAR — the floating send cluster
+   Sits just above the bar's right end, clear of its top edge. Send is in
+   the middle, a little larger; the voice actions and Claw's kill switch
+   fan around it on a half circle, each a round bubble with its name
+   underneath. Always on show: nothing opens or closes. Every bubble is a
+   shade of the accent, full to deep, never mixed with white. VTT and TTS are switches: muted
+   while off, full colour with a ring while on.
+   ============================================================ */
+#inputBar {
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  overflow: visible;
+}
+#inputTopRow {
+  min-width: 0;
+}
+/* The row is only a wrapper now: the cluster is placed against the bar. */
+#inputBtnRow {
+  display: contents !important;
+}
+#voiceWave {
+  display: none !important;
+}
+#sendCluster {
+  --r: 66px;
+  position: absolute;
+  right: 18px;
+  /* 16px: room for the names under the lowest bubbles, then a gap. */
+  bottom: calc(100% + 16px);
+  z-index: 3;
+  width: calc(var(--r) * 2 + 36px);
+  height: 46px;
+}
+#sendCluster > button {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: 0;
+}
+/* Room to scroll the last message out from under the cluster */
+#messages {
+  padding-bottom: 132px;
+}
+
+/* The middle */
+#sendCluster #sendBtn {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  min-height: 0;
+  padding: 0 !important;
+  border-radius: 50%;
+  font-size: 1.05rem !important;
+  transform: translate(-50%, -50%);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 4px 14px color-mix(in srgb, var(--accent) 40%, transparent);
+  transition: transform 0.14s ease;
+}
+#sendCluster #sendBtn:hover {
+  transform: translate(-50%, -50%) scale(1.06);
+}
+#sendCluster #sendBtn:active {
+  transform: translate(-50%, -50%) scale(0.95);
+}
+
+/* The ring. --x is right of centre, --y is above it, --bub is the shade.
+   All three are set per button below, by id, so they are read here with
+   fallbacks rather than given defaults (a default here would outrank
+   them). */
+#sendCluster .voiceBtn {
+  width: 34px;
+  height: 34px;
+  min-height: 0;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 50%;
+  animation: none;
+  touch-action: none;
+  /* --rot is the dial: drag any bubble and the ring turns about Send, then
+     springs home on release (sidebarHud.js). Bubbles stay upright. */
+  transform: translate(-50%, -50%) rotate(var(--rot, 0deg))
+    translate(var(--x, 0px), calc(-1 * var(--y, 0px)))
+    rotate(calc(-1 * var(--rot, 0deg)));
+  transition: transform var(--dial-back, 0.5s) cubic-bezier(0.3, 0.1, 0.3, 1);
+}
+#sendCluster.dialing .voiceBtn {
+  transition: none;
+  cursor: grabbing;
+}
+#callModeBtn {
+  --x: -66px;
+  --bub: var(--accent);
+}
+#pushToTalkBtn {
+  --x: -47px;
+  --y: 47px;
+  --bub: color-mix(in srgb, var(--accent) 90%, #000);
+}
+#vttBtn {
+  --y: 66px;
+  --bub: color-mix(in srgb, var(--accent) 80%, #000);
+}
+#ttsBtn {
+  --x: 47px;
+  --y: 47px;
+  --bub: color-mix(in srgb, var(--accent) 70%, #000);
+}
+#clusterKillBtn {
+  --x: 66px;
+  --bub: color-mix(in srgb, var(--accent) 58%, #000);
+}
+#sidebarToggleBtn {
+  --bub: oklch(from var(--accent) calc(l + 0.04) c h);
+}
+
+#sendCluster .voiceBtn .bi {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  font-size: 0.95rem;
+  color: #fff;
+  background: linear-gradient(
+    145deg,
+    var(--bub, var(--accent)) 45%,
+    color-mix(in srgb, var(--bub, var(--accent)) 78%, #000)
+  );
+  box-shadow:
+    0 3px 10px color-mix(in srgb, var(--accent) 35%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  transition:
+    transform 0.14s ease,
+    filter 0.2s ease,
+    box-shadow 0.2s ease;
+}
+#sendCluster .voiceBtn span {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-sans);
+  font-size: 0.5rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--text-3);
+  pointer-events: none;
+}
+#sendCluster .voiceBtn:hover span,
+#sendCluster .voiceBtn:focus-visible span,
+#sendCluster .voiceBtn.active span {
+  color: var(--text);
+}
+#sendCluster .voiceBtn:hover .bi,
+#sendCluster .voiceBtn:focus-visible .bi {
+  transform: scale(1.12);
+}
+#sendCluster .voiceBtn:active .bi {
+  transform: scale(0.94);
+}
+#sendCluster button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Switches, off */
+#vttBtn:not(.active) .bi,
+#ttsBtn:not(.active) .bi {
+  filter: saturate(0.75) brightness(0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+/* On, live, or held */
+#sendCluster .voiceBtn.active .bi,
+#sendCluster .voiceBtn.ptt-active .bi {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--accent),
+    0 3px 12px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+#callModeBtn.active .bi,
+#pushToTalkBtn.active .bi,
+#pushToTalkBtn.ptt-active .bi {
+  animation: bubLive 1.4s ease-in-out infinite;
+}
+@keyframes bubLive {
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+/* Kill: the deepest shade, ringed so it reads as the odd one out. Once
+   pressed it is the Resume button, lit and pulsing until you resume. */
+#clusterKillBtn .bi {
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 3px 10px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+#clusterKillBtn.killed {
+  --bub: var(--accent);
+}
+#clusterKillBtn.killed .bi {
+  animation: bubLive 1s ease-in-out infinite;
+}
+#clusterKillBtn.killed span {
+  color: var(--accent-text);
+}
+/* In the chat view the cluster's bubble stands in for Claw's floating
+   switch; everywhere else the floating one stays. */
+body:has(#layout[style*="display: flex"]) #clawKillSwitch {
+  display: none !important;
+}
+
+/* Phones show Menu too, so six share a wider half circle. */
+@media (max-width: 768px) {
+  #inputBar {
+    flex-direction: row !important;
+  }
+  #inputTopRow {
+    flex: 1 !important;
+    width: auto !important;
+    min-width: 0 !important;
+  }
+  #sendCluster {
+    --r: 78px;
+    right: 10px;
+  }
+  #sendCluster #sidebarToggleBtn {
+    --x: -78px;
+  }
+  #sendCluster #callModeBtn {
+    --x: -63px;
+    --y: 46px;
+  }
+  #sendCluster #pushToTalkBtn {
+    --x: -24px;
+    --y: 74px;
+  }
+  #sendCluster #vttBtn {
+    --x: 24px;
+    --y: 74px;
+  }
+  #sendCluster #ttsBtn {
+    --x: 63px;
+    --y: 46px;
+  }
+  #sendCluster #clusterKillBtn {
+    --x: 78px;
+  }
+  #messages {
+    /* panels.css sets the phone padding with !important */
+    padding-bottom: 142px !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #sendCluster button,
+  #sendCluster .voiceBtn .bi {
+    transition: none;
+    animation: none !important;
+  }
+}
+
+/* ============================================================
+   CHAT — three things that break up the flat panel
+   1. A backdrop: faint blueprint grid, two accent glows, one drifting.
+   2. Two voices: ARIA's replies are bracketed panels with an accent
+      rail; yours stay solid bubbles, now shaded.
+   3. A minimap rail down the left edge (js/chatHud.js).
+   ============================================================ */
+
+/* 1. Backdrop. Sits above the window's own fill, below everything in it. */
+#chatWindow {
+  isolation: isolate;
+}
+#chatWindow::before,
+#chatWindow::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: -1;
+}
+#chatWindow::before {
+  inset: 0;
+  background:
+    radial-gradient(55% 40% at 0% 100%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%),
+    linear-gradient(color-mix(in srgb, var(--text) 4.5%, transparent) 1px, transparent 1px) 0 0 / 100% 32px,
+    linear-gradient(90deg, color-mix(in srgb, var(--text) 4.5%, transparent) 1px, transparent 1px) 0 0 / 32px 100%;
+  -webkit-mask-image: radial-gradient(120% 90% at 50% 45%, #000 30%, transparent 100%);
+  mask-image: radial-gradient(120% 90% at 50% 45%, #000 30%, transparent 100%);
+}
+#chatWindow::after {
+  top: -20%;
+  right: -15%;
+  width: 70%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 16%, transparent), transparent);
+  animation: chatGlow 26s ease-in-out infinite alternate;
+}
+@keyframes chatGlow {
+  to {
+    transform: translate(-45%, 30%) scale(1.25);
+  }
+}
+
+/* 2. ARIA's replies */
+#messages .msg.aria {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--bg-card) 88%, transparent),
+    color-mix(in srgb, var(--bg-card) 55%, transparent)
+  );
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: 3px 12px 12px 3px;
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+#messages .msg.aria::before,
+#messages .msg.aria::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  width: 12px;
+  height: 12px;
+  border: 0 solid var(--accent);
+  pointer-events: none;
+}
+#messages .msg.aria::before {
+  top: -1px;
+  border-width: 1px 1px 0 0;
+  border-top-right-radius: 12px;
+}
+#messages .msg.aria::after {
+  bottom: -1px;
+  border-width: 0 1px 1px 0;
+  border-bottom-right-radius: 12px;
+}
+#messages .msg.aria .msgSender {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono-stack);
+  letter-spacing: 0.2em;
+}
+#messages .msg.aria .msgSender::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+#messages .msg .msgTimestamp {
+  font-family: var(--font-mono-stack);
+}
+/* Yours */
+#messages .msg.user {
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 76%, #000));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 4px 14px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* 3. Minimap rail */
+#messages {
+  padding-left: 20px !important;
+}
+#msgRail {
+  position: absolute;
+  left: 4px;
+  width: 10px;
+  z-index: 2;
+}
+#msgRail[hidden] {
+  display: none;
+}
+#msgRail::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 4px;
+  width: 1px;
+  background: var(--border);
+}
+.msgRailTicks i {
+  position: absolute;
+  left: 0;
+  width: 10px;
+  min-height: 3px;
+  cursor: pointer;
+  color: var(--text-3);
+  opacity: 0.55;
+  background: linear-gradient(90deg, transparent 3px, currentColor 3px 6px, transparent 6px);
+  background-clip: content-box;
+  padding: 1px 0;
+  transition: opacity 0.15s ease;
+}
+.msgRailTicks i.user {
+  color: var(--accent);
+  opacity: 0.95;
+}
+.msgRailTicks i:hover {
+  opacity: 1;
+  background: currentColor;
+  background-clip: content-box;
+}
+.msgRailView {
+  position: absolute;
+  left: 0;
+  width: 10px;
+  min-height: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  border-right: 0;
+  border-radius: 3px 0 0 3px;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  #chatWindow::after {
+    animation: none;
+  }
+}

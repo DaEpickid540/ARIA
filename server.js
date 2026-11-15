@@ -8,6 +8,7 @@ import {
   getCalendarEvents,
   CALENDAR_NOT_CONFIGURED,
   readTodos,
+  readNotes,
 } from "./tools/index.js";
 import { gatherDay, debriefPrompt, fallbackDebrief, factsBlock, emptyDay, lastFiled } from "./lib/debrief.js";
 import * as clock from "./lib/clock.js";
@@ -28,6 +29,23 @@ import * as screenFix from "./lib/screen-fix.js";
 import * as clawGrid from "./lib/claw-grid.js";
 import * as clawAuto from "./lib/claw-auto.js";
 import * as gemini from "./lib/gemini.js";
+import * as reminders from "./lib/reminders.js";
+import * as focus from "./lib/focus.js";
+import * as usage from "./lib/usage.js";
+import * as clawHistory from "./lib/claw-history.js";
+import {
+  clawQueue, clawRelays, isKilled, setGrid as setClawGrid, nextClawId, gridFor, _parseChatClawInput, CLAW_HELP,
+  liveClawRelays, pickRelay, queueClaw, clawRunLine, pendingClawResults, awaitClawResult, clawWaitMs,
+  clawConfirmReason, describeClaw, pendingConfirms, CONFIRM_TTL_MS, createConfirm, publicConfirm,
+  truncateOut, withCell, pendingScreenshotResolvers, recordMacroStep,
+} from "./lib/claw-core.js";
+import { mountClawRoutes } from "./lib/claw-routes.js";
+import { openSse } from "./lib/sse.js";
+import { mountIotRoutes } from "./lib/iot-routes.js";
+import { mountSystemRoutes, sampleCpuTimes, cpuUsagePercent } from "./lib/system-routes.js";
+import * as backup from "./lib/backup.js";
+import * as hud from "./lib/hud.js";
+import { mountUpgradeRoutes, upgradeTool } from "./lib/upgrade-routes.js";
 import { parseSmsCommand, statusText, HELP as SMS_HELP } from "./lib/sms-commands.js";
 import * as skills from "./lib/skills.js";
 import * as cloud from "./lib/cloud-sync.js";
@@ -42,7 +60,7 @@ import * as auth from "./lib/auth.js";
 import * as owners from "./lib/owners.js";
 import * as ollamaRelay from "./lib/ollama-relay.js";
 import { mountKeyRoutes } from "./lib/keys.js";
-import { mountTtsRoutes } from "./lib/tts.js";
+import { mountTtsRoutes, startCloudVoice } from "./lib/tts.js";
 import { DATA_DIR } from "./lib/paths.js";
 import express from "express";
 import path from "path";
@@ -231,6 +249,10 @@ function flushPendingWrites() {
   try {
     triggers.flushSync();
   } catch {}
+  try {
+    usage.flush();
+    clawHistory.flush();
+  } catch {}
 }
 
 // Pull persisted state down from Firestore BEFORE the sync reads below.
@@ -384,7 +406,17 @@ function recordBriefing(text, at = Date.now()) {
  */
 const ALERTS_CHAT_ID = process.env.ARIA_DESKTOP ? "chat_alerts_pc" : "chat_alerts";
 const ALERTS_TITLE = process.env.ARIA_DESKTOP ? "🔔 Alerts (PC)" : "🔔 Alerts";
-function fileAlert({ title, text = "", icon = "🔔", link = "" }) {
+/**
+ * Everything ARIA tells the owner on her own goes through here. During a
+ * focus block or quiet hours it's held (lib/focus.js) and arrives later as
+ * one digest; an alert marked urgent goes straight through.
+ */
+function fileAlert(alert) {
+  if (focus.hold(alert)) return;
+  fileAlertNow(alert);
+}
+
+function fileAlertNow({ title, text = "", icon = "🔔", link = "", reminder = null }) {
   const at = Date.now();
   const store = chatStore(OWNER_CHAT_SPACE);
   const existing = store.chats.find((c) => c.id === ALERTS_CHAT_ID);
@@ -402,7 +434,8 @@ function fileAlert({ title, text = "", icon = "🔔", link = "" }) {
   chat.messages = chat.messages.slice(-200);
   chat.updatedAt = at;
   saveServerChat(chat);
-  pushToPages({ type: "alert", title, text, icon, link, chatId: ALERTS_CHAT_ID, at });
+  // `reminder` lets the page offer Snooze on the toast.
+  pushToPages({ type: "alert", title, text, icon, link, chatId: ALERTS_CHAT_ID, at, ...(reminder ? { reminder } : {}) });
 }
 
 /** True when some server already filed a briefing in the last `hours`. */
@@ -449,216 +482,6 @@ if (memTimeline.repair(ariaMemory)) writeJSONDebounced(MEM_FILE, ariaMemory);
 const MODEL_FILE = path.join(DATA_DIR, "model.json");
 const PROVIDERS = ["openrouter", "groq", "gemini", "cloudflare", "nemotron", "deepseek", "ollama", "lmstudio"];
 let activeModel = readJSON(MODEL_FILE, { provider: "openrouter", model: null });
-
-/* ── Claw state ── */
-const clawQueue = new Map(); // deviceId → [commands]
-const clawRelays = new Map(); // deviceId → {platform, hostname, lastSeen}
-let clawKilled = false;
-let clawCmdSeq = 0;
-function nextClawId() {
-  return "claw_" + Date.now() + "_" + clawCmdSeq++;
-}
-
-/* ── The grid Claw sees over the screen(s) (lib/claw-grid.js) ──
-   Set each time a model is shown a screenshot, so "click: F7" means the cell
-   it just looked at. Per device, plus the latest (a screen watcher posts the
-   ESP32's screenshots under its own id). */
-const clawGrids = new Map(); // deviceId → { spec, monitors, at }
-let lastClawGrid = null;
-function gridFor(deviceId) {
-  return (deviceId && clawGrids.get(deviceId)) || lastClawGrid;
-}
-
-/**
- * "X,Y", "X Y", a grid cell ("F7", "F7.3"), or nothing.
- * @returns {{x:number,y:number} | {none:true} | {error:string}}
- */
-function clawPoint(arg, deviceId) {
-  const t = String(arg ?? "").trim();
-  if (!t) return { none: true };
-  if (clawGrid.parseCell(t)) {
-    const g = gridFor(deviceId);
-    if (!g) return { error: `"${t}" is a grid cell, but there's no grid yet — take a screenshot first` };
-    const p = clawGrid.cellPoint(g.spec, t);
-    return p || { error: `"${t}" is off the grid (columns A–${clawGrid.colName(g.spec.cols - 1)}, rows 1–${g.spec.rows})` };
-  }
-  const m = /^(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)$/.exec(t);
-  if (m) return { x: Math.round(+m[1]), y: Math.round(+m[2]) };
-  return { error: `"${t}" isn't a spot — use X,Y or a grid cell like F7` };
-}
-
-function _parseChatClawInput(s, deviceId) {
-  const id = nextClawId();
-  s = String(s ?? "").trim();
-  const bad = (hint) => ({ id, type: "unknown", raw: s, hint });
-  if (s.startsWith("shell:"))
-    return { id, type: "shell", cmd: s.slice(6).trim() };
-  if (s.startsWith("type:"))
-    return { id, type: "type", text: s.slice(5).trim() };
-  if (s.startsWith("hotkey:"))
-    return { id, type: "hotkey", keys: s.slice(7).trim().split("+") };
-  if (s.startsWith("screenshot")) return { id, type: "screenshot" };
-  if (s.startsWith("new_tab:"))
-    return { id, type: "new_tab", url: s.slice(8).trim() };
-  if (s === "new_tab" || s === "new tab") return { id, type: "new_tab" };
-  if (s.startsWith("close_tab")) return { id, type: "close_tab" };
-  if (s.startsWith("switch:"))
-    return { id, type: "switch_app", app: s.slice(7).trim() };
-  if (s.startsWith("write_code:")) {
-    const p = s.slice(11).split("|");
-    return { id, type: "write_code", app: p[0]?.trim(), code: p[1]?.trim() };
-  }
-  if (/^wait\b/.test(s)) {
-    const ms = Math.round(Number(s.replace(/^wait:?/, "").trim()) || 1000);
-    return { id, type: "wait", ms: Math.max(0, Math.min(10000, ms)) };
-  }
-  // ── Mouse actions: X,Y or a grid cell (F7 / F7.3) ──────────
-  if (/^(mouse_pos|mouse position|where|pos|position):?\s*$/i.test(s)) return { id, type: "mouse_pos" };
-  const mouse = /^(move|click|right_click|double_click):\s*(.*)$/i.exec(s);
-  if (mouse) {
-    const verb = mouse[1].toLowerCase();
-    const p = clawPoint(mouse[2], deviceId);
-    if (p.error) return bad(p.error);
-    if (verb === "move") return p.none ? bad("move: needs X,Y or a grid cell") : { id, type: "mouse_move", x: p.x, y: p.y };
-    // No spot = click where the pointer already is (it used to click 0,0).
-    const at = p.none ? {} : { x: p.x, y: p.y };
-    if (verb === "double_click") return { id, type: "double_click", ...at };
-    return { id, type: "click", ...at, button: verb === "right_click" ? "right" : "left" };
-  }
-  if (s.startsWith("drag:")) {
-    // drag: X1,Y1 to X2,Y2  (either end may be a grid cell)
-    const m = /^drag:\s*(.+?)\s+to\s+(.+)$/i.exec(s);
-    if (!m) return bad("drag: <from> to <to>");
-    const a = clawPoint(m[1], deviceId);
-    const b = clawPoint(m[2], deviceId);
-    if (a.error || b.error) return bad(a.error || b.error);
-    if (a.none || b.none) return bad("drag: needs both ends");
-    return { id, type: "drag", x1: a.x, y1: a.y, x2: b.x, y2: b.y };
-  }
-  if (s.startsWith("scroll:")) {
-    const p = s.slice(7).trim().split(/\s+/);
-    return {
-      id,
-      type: "scroll",
-      direction: /^up$/i.test(p[0]) ? "up" : "down",
-      amount: Math.max(1, Math.min(50, Math.round(+p[1] || 3))),
-    };
-  }
-  if (s.startsWith("open:")) {
-    const t = s.slice(5).trim();
-    return t.startsWith("http")
-      ? { id, type: "browser", url: t }
-      : { id, type: "launch_app", app: t };
-  }
-  // Unknown — used to be queued as a shell echo, which told the model it had
-  // succeeded at something it had not done.
-  return bad();
-}
-
-const CLAW_HELP =
-  "open:, switch:, new_tab:, close_tab, hotkey:, type:, shell:, screenshot, write_code:, wait:, " +
-  "scroll:, move:, click:, right_click:, double_click:, drag: (spots are X,Y or a grid cell like F7), mouse_pos";
-
-/* ── Claw: which relay, waiting for results, approvals ──────────
-   The screen watcher registers as a relay so it shows up in the panel, but
-   it executes nothing — it used to be picked as the target whenever it
-   happened to be first in the map, and every command vanished. */
-function liveClawRelays() {
-  return [...clawRelays.entries()].filter(
-    ([, v]) => Date.now() - v.lastSeen < 20000 && v.relayType !== "screenwatcher",
-  );
-}
-function pickRelay({ preferEsp32 = false } = {}) {
-  const live = liveClawRelays();
-  if (preferEsp32) {
-    const esp = live.find(([, v]) => v.relayType === "esp32");
-    if (esp) return esp[0];
-  }
-  const node = live.find(([, v]) => v.relayType !== "esp32");
-  return (node || live[0])?.[0] || null;
-}
-function queueClaw(deviceId, ...cmds) {
-  if (!clawQueue.has(deviceId)) clawQueue.set(deviceId, []);
-  clawQueue.get(deviceId).push(...cmds);
-}
-
-// cmdId → { resolve, timer }. Filled by /api/claw/relay/result so the model
-// sees what a command actually did instead of "✓ Queued".
-const pendingClawResults = new Map();
-function awaitClawResult(cmdId, ms) {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      pendingClawResults.delete(cmdId);
-      resolve(null);
-    }, ms);
-    pendingClawResults.set(cmdId, { resolve, timer });
-  });
-}
-function clawWaitMs(cmd) {
-  if (cmd.type === "shell") return 20000;
-  if (cmd.type === "wait") return (cmd.ms || 1000) + 4000;
-  if (cmd.type === "continuous_screen") return 0;
-  return 10000;
-}
-
-// Commands that only look. Everything else acts on the machine.
-const CLAW_READONLY = new Set(["screenshot", "wait", "scroll", "mouse_move", "move", "mouse_pos"]);
-const DANGEROUS_SHELL = [
-  /\brm\s+-\w*[rf]/i, /\brmdir\b/i, /\b(del|erase)\b[^|&]*\/[sq]/i,
-  /Remove-Item\b/i, /\bformat(\.com)?\s+[a-z]:/i, /\bmkfs/i, /\bdd\s+if=/i,
-  /\bdiskpart\b/i, /\b(shutdown|reboot|halt|poweroff)\b/i,
-  /(Restart|Stop)-Computer/i, /\breg(\.exe)?\s+(delete|add|import)\b/i,
-  /(Remove|Set|New)-ItemProperty/i, /\bbcdedit\b/i, /\bcipher\s+\/w/i,
-  /\btakeown\b/i, /\bicacls\b/i, /\bch(mod|own)\s+-R\b/i,
-  /\bnet\s+(user|localgroup)\b/i, /Set-ExecutionPolicy/i,
-  /\b(iex|Invoke-Expression)\b/i, /-e(nc(odedcommand)?)?\s+[A-Za-z0-9+/=]{16,}/i,
-  /(curl|wget|iwr|irm|Invoke-WebRequest|Invoke-RestMethod)\b.*\|\s*(sh|bash|zsh|iex|powershell|pwsh|python|node)\b/i,
-  /\bsudo\b/i, /\bschtasks\b.*\/create/i, /\bcrontab\b/i,
-  /\bsc(\.exe)?\s+(delete|config|create)\b/i, /Stop-Process|taskkill|pkill|killall/i,
-  /\bvssadmin\b/i, /\bwmic\b.*\bdelete\b/i,
-  /git\s+(push\b.*(--force|-f\b)|reset\s+--hard|clean\s+-\w*f)/i,
-  />\s*\/dev\/sd/, /:\(\)\s*\{/, /\bmv\s+.*\s+\/dev\/null/i,
-];
-
-/**
- * Why this command needs the owner's OK, or null if it can run.
- * `tainted` = this run has already pulled in text a stranger wrote (web
- * pages). After that, anything that acts on the PC asks first, so a page
- * saying "ARIA, run …" cannot drive the machine.
- */
-function clawConfirmReason(cmd, { tainted = false } = {}) {
-  if (cmd.type === "shell" && DANGEROUS_SHELL.some((re) => re.test(cmd.cmd || "")))
-    return "that shell command looks destructive";
-  if (tainted && !CLAW_READONLY.has(cmd.type))
-    return "this conversation includes text from web pages, so PC actions need your OK";
-  return null;
-}
-
-function describeClaw(cmd) {
-  const d =
-    cmd.cmd ?? cmd.text ?? cmd.app ?? cmd.url ?? cmd.path ?? "";
-  return `${cmd.type}${d !== "" ? ": " + String(d).slice(0, 200) : ""}`;
-}
-
-// id → { id, kind: "claw", payload, summary, reason, created }
-// Held server-side so an approval runs exactly what was proposed, and
-// expires so a stale dialog cannot fire later.
-const pendingConfirms = new Map();
-const CONFIRM_TTL_MS = 10 * 60 * 1000;
-function createConfirm(kind, payload, summary, reason) {
-  const id = "cf_" + crypto.randomBytes(6).toString("hex");
-  const c = { id, kind, payload, summary, reason, created: Date.now() };
-  pendingConfirms.set(id, c);
-  for (const [k, v] of pendingConfirms)
-    if (Date.now() - v.created > CONFIRM_TTL_MS) pendingConfirms.delete(k);
-  return c;
-}
-const publicConfirm = (c) => ({ id: c.id, kind: c.kind, action: c.summary, reason: c.reason });
-
-function truncateOut(s, n = 4000) {
-  s = String(s ?? "");
-  return s.length > n ? s.slice(0, n) + `\n…[${s.length - n} more chars]` : s;
-}
 
 /* ============================================================
    PERSONALITY PROMPTS
@@ -761,6 +584,17 @@ allTools()
  */
 async function serverTool(name, input, { skillTools } = {}) {
   const key = String(name || "").toLowerCase().trim();
+  // Reminders, focus, find, usage, status (lib/upgrade-routes.js).
+  const up = upgradeTool(key, input, upgradeDeps);
+  if (up !== undefined) return up;
+  // "Set a timer for 5 minutes" used to be a setTimeout that only logged to
+  // the console. It's a reminder now: it rings, and survives a restart.
+  if (key === "timer") {
+    const start = /^start\s+(\d+)/i.exec(String(input || "").trim());
+    if (start) return reminders.runReminderTool("remind", `in ${start[1]}s | Timer (${reminders.fmtDuration(start[1] * 1000)}) is up`);
+    if (/^(cancel|stop)/i.test(String(input || "").trim())) return reminders.runReminderTool("remind cancel", "timer");
+    return reminders.summary();
+  }
   if (/^watch(\s+(list|stop|remove|delete))?$/.test(key)) return watchers.runWatchTool(key, input);
   if (key === "debrief") return dayFactsForChat();
   if (/^trigger(\s+(list|stop|remove|delete))?$/.test(key)) return triggers.runTriggerTool(key, input);
@@ -813,8 +647,36 @@ ACTION: calc | 2+2*sqrt(16)
 ACTION: time | 
 ACTION: notes | add Buy groceries
 ACTION: todo | add Finish homework
-ACTION: timer | start 300
-ACTION: system | 
+ACTION: system |
+
+REMINDERS AND TIMERS — the server keeps the clock, so they ring whether or
+not a page is open, and survive a restart:
+ACTION: remind | in 20m | take the pizza out
+ACTION: remind | tomorrow 8am | email Mr. Patel
+ACTION: remind | every weekday 7am | pack gym bag
+ACTION: remind list
+ACTION: remind cancel | pizza
+It's when | what. When can be: in 20m, in 1h 30m, 5pm, 17:30, noon, tonight,
+tomorrow 8am, fri 3pm, 2026-11-12 14:00, every day 7am, every weekday 7:30,
+every mon 9am, every 2h. "Set a timer for 10 minutes" is remind | in 10m |
+Timer is up. Say back the time the tool returned, never one you worked out.
+
+FOCUS — a timed block with a goal; closes the apps Sarvin listed as
+distractions and holds your alerts until it ends:
+ACTION: focus start | 25 | essay draft
+ACTION: focus stop
+ACTION: focus |
+ACTION: focus apps | Discord, Spotify      ← what to close when a block starts
+ACTION: focus quiet | 22-7                 ← quiet hours (or: off)
+
+FIND — search everything you hold (every chat message, memory, notes,
+todos, flashcards, routines, reminders):
+ACTION: find | kiosk pathfinding
+Use it before saying you don't remember something Sarvin says you
+discussed. Quote what it returns; if it finds nothing, say so.
+
+ACTION: status |      ← a spoken status report: system, PC control, what needs attention
+ACTION: usage | 7     ← model calls, failures and speed over the last N days
 ACTION: gdoc | 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms
 
 YOUR DAY — what got done, what slipped, what's tomorrow (todos, ARIA's tasks,
@@ -986,6 +848,9 @@ ACTION: visualize | Budget calculator
 \`\`\`
 
 VISUALIZE RULES:
+- Only for plain SVG or HTML that a browser can show as it is. When the user
+  asks for React, Vue, Svelte, JSX/TSX or any other component or app code, they
+  want the SOURCE: reply with it in fenced code blocks, never with visualize.
 - The markup is REQUIRED and must be in the very next block after the ACTION
   line, in the same reply. Never announce a visualization you have not written
   out — an ACTION line on its own renders nothing.
@@ -1002,6 +867,9 @@ VISUALIZE RULES:
 CLAW — PC CONTROL (you CAN do these things):
 ACTION: claw | open: Chrome
 ACTION: claw | open: https://youtube.com
+ACTION: claw | close: Epic Games Launcher
+ACTION: claw | apps                ← what's open right now (one line per app)
+ACTION: claw | wait: 2000
 ACTION: claw | switch: Visual Studio Code
 ACTION: claw | switch: Arduino IDE
 ACTION: claw | new_tab: https://github.com
@@ -1072,8 +940,16 @@ MANDATORY TRIGGER CONDITIONS:
 - User says they practised / played an instrument ("did 30 min of scales") → ACTION: practice log; asks how practice is going → ACTION: practice
 - User mentions a grade they got ("got a 41/50 on…") → ACTION: grades score; asks how their grades are, what they need on a test, or what to study → ACTION: grades / grades need / grades study
 - User asks about server/system → ACTION: system
+- "Remind me…", "set a timer/alarm", "don't let me forget" → ACTION: remind
+- "Let's focus", "start a pomodoro", "I need to lock in for 40 minutes" → ACTION: focus start
+- "What did we say about…", "find that chat where…", "did I ever tell you…" → ACTION: find
+- "Status report", "how are things", "sitrep" → ACTION: status
 - User asks to open ANY app (Chrome, VS Code, Spotify, Discord, etc.) → ACTION: claw | open: <AppName>
 - User asks to open a website/URL → ACTION: claw | open: <URL>
+- User asks to close/quit/exit an app → ACTION: claw | close: <AppName>  (never shell: taskkill)
+- User asks to restart/reopen an app → ACTION: claw | close: <AppName>, then ACTION: claw | open: <AppName>
+- Several apps or steps in one request ("close X and Y, then open Z") → one ACTION line per app per step, in order
+- User asks what's open / running on the PC, or to "close everything" → ACTION: claw | apps first, then act on what it lists
 - User asks to switch to/focus an app → ACTION: claw | switch: <AppName>
 - User asks to press a keyboard shortcut → ACTION: claw | hotkey: <keys>
 - User asks to type something on the PC → ACTION: claw | type: <text>
@@ -1103,7 +979,8 @@ allTools()
       ...Object.keys(all),
       ...[...TOOL_SYSTEM.matchAll(/^ACTION:\s*([a-z][\w-]*)/gim)].map((m) => m[1]),
       ...["agent", "claw", "debrief", "fixscreen", "imagine", "research", "scrape", "search", "spawn", "task", "visualize", "watch", "trigger",
-        "routine", "routines", "grade", "grades", "practice", "practise", "flash", "flashcard", "flashcards", "ring", "rings", "habit", "habits", "arena", "selftest", "self-test"],
+        "routine", "routines", "grade", "grades", "practice", "practise", "flash", "flashcard", "flashcards", "ring", "rings", "habit", "habits", "arena", "selftest", "self-test",
+        "remind", "reminder", "reminders", "timer", "focus", "find", "recall", "usage", "status", "sitrep"],
     ]);
     return skills.refreshSkillTools();
   })
@@ -1599,7 +1476,7 @@ async function runAgenticPipeline(
       const tid = pickRelay();
       if (!auth.dangerousAllowed()) {
         clawResult = auth.DANGEROUS_DISABLED_MSG;
-      } else if (clawKilled) {
+      } else if (isKilled()) {
         clawResult =
           "Claw is killed. Click RESUME in the Claw panel to re-enable.";
       } else if (!tid && process.env.ARIA_DESKTOP) {
@@ -1681,8 +1558,7 @@ async function runAgenticPipeline(
           queueClaw(tid, cmd);
           noteClawStep(modeOpts?.chatId, cmd);
           // If macro recording is active, capture this command
-          if (_macroRecording && cmd.type !== "wait" && _macroChat && _macroChat === modeOpts?.chatId)
-            _macroBuffer.push({ ...cmd });
+          recordMacroStep(cmd, modeOpts?.chatId);
           const waitMs = clawWaitMs(cmd);
           const out = waitMs ? await awaitClawResult(cmd.id, waitMs) : null;
           clawResult =
@@ -2506,6 +2382,12 @@ async function openChatStream(provider, messages, { hasImages, requestedModel })
    Falls back gracefully: CF → Groq → OpenRouter → error.
    ============================================================ */
 async function callAI(messages, provider, model, modeOpts = {}) {
+  // Every model call is timed and counted (lib/usage.js): the Usage panel
+  // and the HUD read it. Recorded under the provider that was asked for.
+  return usage.metered({ provider, model, messages }, () => callAIUnmetered(messages, provider, model, modeOpts));
+}
+
+async function callAIUnmetered(messages, provider, model, modeOpts = {}) {
   // Images: Groq, Cloudflare, DeepSeek and Nemotron get text only here, and
   // OpenRouter's default model is text-only. Ollama picks an installed vision
   // model itself (ollamaRequest); everything else goes to callVision.
@@ -2965,8 +2847,7 @@ async function gridScreenshot(b64, deviceId) {
       .jpeg({ quality: 80 })
       .toBuffer();
     const grid = { spec, monitors: meta?.monitors || [], at: Date.now() };
-    if (deviceId) clawGrids.set(deviceId, grid);
-    lastClawGrid = grid;
+    setClawGrid(deviceId, grid);
     return { image: `data:image/jpeg;base64,${out.toString("base64")}`, note: clawGrid.gridNote(spec), spec };
   } catch (e) {
     console.warn("[CLAW] grid overlay failed:", e.message);
@@ -3123,23 +3004,8 @@ app.get("/api/tasks/stats", (_, res) => res.json(taskEngine.getStats()));
 // ── SSE: live task progress ────────────────────────────────────
 // Must be registered before /api/tasks/:id or the :id route captures it.
 app.get("/api/tasks/subscribe", (req, res) => {
-  res.set({
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache, no-transform",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-  });
-  res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
+  openSse(req, res, { onClose: () => taskEngine.removeSubscriber(res) });
   taskEngine.addSubscriber(res);
-  const ping = setInterval(() => {
-    try {
-      res.write(": ping\n\n");
-    } catch {}
-  }, 25000);
-  req.on("close", () => {
-    clearInterval(ping);
-    taskEngine.removeSubscriber(res);
-  });
 });
 
 app.get("/api/tasks/:id", (req, res) => {
@@ -3419,7 +3285,7 @@ Active GitHub repo: ${repo}
     if (relayType === "esp32") {
       sysPrompt += `\n\n[CLAW STATUS — ESP32 BLE RELAY CONNECTED]\nDevice: ${
         relay.hostname || "ARIA Claw"
-      } | Type: ESP32 BLE HID\nThe ESP32 is paired and ready. You CAN control the keyboard and mouse.\n\nESP32 SUPPORTED COMMANDS (use these freely):\n  ACTION: claw | type: Hello World\n  ACTION: claw | hotkey: ctrl+c\n  ACTION: claw | hotkey: win+d\n  ACTION: claw | move: X,Y\n  ACTION: claw | click: X,Y\n  ACTION: claw | right_click: X,Y\n  ACTION: claw | double_click: X,Y\n  ACTION: claw | drag: X1,Y1 to X2,Y2\n  ACTION: claw | scroll: down 3\n  ACTION: claw | screenshot      ← triggers ChromeOS screenshot shortcut; ARIA Screenshot Watcher uploads the image\n\nESP32 UNSUPPORTED — DO NOT USE:\n  shell: (no terminal — ESP32 has no OS)\n  launch_app: (use hotkey: win to open Start, then type: AppName, then hotkey: enter)\n  open: (use hotkey+type to navigate instead)\n\nFor launching apps on ESP32: hotkey: win → wait → type: AppName → hotkey: enter\nFor screenshots: use ACTION: claw | screenshot — the ARIA Screenshot Watcher on the Chromebook will upload the image automatically.`;
+      } | Type: ESP32 BLE HID\nThe ESP32 is paired and ready. You CAN control the keyboard and mouse.\n\nESP32 SUPPORTED COMMANDS (use these freely):\n  ACTION: claw | type: Hello World\n  ACTION: claw | hotkey: ctrl+c\n  ACTION: claw | hotkey: win+d\n  ACTION: claw | move: X,Y\n  ACTION: claw | click: X,Y\n  ACTION: claw | right_click: X,Y\n  ACTION: claw | double_click: X,Y\n  ACTION: claw | drag: X1,Y1 to X2,Y2\n  ACTION: claw | scroll: down 3\n  ACTION: claw | screenshot      ← triggers ChromeOS screenshot shortcut; ARIA Screenshot Watcher uploads the image\n\nESP32 UNSUPPORTED — DO NOT USE:\n  shell: (no terminal — ESP32 has no OS)\n  launch_app: (use hotkey: win to open Start, then type: AppName, then hotkey: enter)\n  open: (use hotkey+type to navigate instead)\n  close: / apps (no OS to ask — close the focused window with hotkey: alt+f4)\n\nFor launching apps on ESP32: hotkey: win → wait → type: AppName → hotkey: enter\nFor screenshots: use ACTION: claw | screenshot — the ARIA Screenshot Watcher on the Chromebook will upload the image automatically.`;
     } else {
       const browserLabel =
         relay.browser && relay.browser !== "default"
@@ -3529,10 +3395,13 @@ Active GitHub repo: ${repo}
   let upstream = null;
   if (!req.headers["x-no-stream"]) {
     try {
-      upstream = await openChatStream(provider, messages, {
-        hasImages: validImages.length > 0,
-        requestedModel,
-      });
+      upstream = usage.meteredStream(
+        { provider, model: requestedModel, messages },
+        await openChatStream(provider, messages, {
+          hasImages: validImages.length > 0,
+          requestedModel,
+        }),
+      );
     } catch (e) {
       console.warn("[STREAM] Couldn't open, answering without streaming:", e.message);
     }
@@ -3545,6 +3414,9 @@ Active GitHub repo: ${repo}
       res.setHeader("X-Accel-Buffering", "no");
       res.setHeader("X-Content-Type-Options", "nosniff");
       if (typeof res.flushHeaders === "function") res.flushHeaders();
+      // Counted for /api/health/details. "close" fires once, however it ends.
+      openChatStreams++;
+      res.once("close", () => openChatStreams--);
       let full = "";
       try {
         // Send a stream-start event immediately — client can show "receiving..." state
@@ -4235,32 +4107,17 @@ function broadcastChatSync(userId, sourceDeviceId) {
 app.get("/api/sync/subscribe", (req, res) => {
   const { deviceId = "unknown" } = req.query;
   const userId = OWNER_CHAT_SPACE;
-  res.set({
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache, no-transform",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-  });
-  res.write(
-    `data: ${JSON.stringify({ type: "connected", userId, deviceId })}\n\n`,
-  );
-
   if (!_syncSubscribers.has(userId)) _syncSubscribers.set(userId, new Set());
   const sub = { res, deviceId };
   _syncSubscribers.get(userId).add(sub);
 
-  // Keep-alive ping every 25s so proxies don't kill the connection
-  const ping = setInterval(() => {
-    try {
-      res.write(": ping\n\n");
-    } catch {}
-  }, 25000);
-
-  req.on("close", () => {
-    clearInterval(ping);
-    _syncSubscribers.get(userId)?.delete(sub);
-    if (_syncSubscribers.get(userId)?.size === 0)
-      _syncSubscribers.delete(userId);
+  openSse(req, res, {
+    hello: { type: "connected", userId, deviceId },
+    onClose: () => {
+      _syncSubscribers.get(userId)?.delete(sub);
+      if (_syncSubscribers.get(userId)?.size === 0)
+        _syncSubscribers.delete(userId);
+    },
   });
 });
 
@@ -4659,576 +4516,20 @@ app.post("/api/multi-agent", async (req, res) => {
 });
 
 /* ============================================================
-   CLAW MACROS (Mark 1.5)
-   Record sequences of claw commands and replay them.
+   ESP32 / IOT DEVICE REGISTRY — routes and state in lib/iot-routes.js
    ============================================================ */
-let _macroRecording = false;
-let _macroBuffer = [];
-let _macroChat = null; // the chat being recorded; other chats' PC steps stay out
-
-app.post("/api/claw/macro/record", (req, res) => {
-  // A recording belongs to one chat: steps ARIA takes in any other don't go in.
-  if (typeof req.body?.chatId !== "string" || !req.body.chatId)
-    return res.status(400).json({ error: "Open the chat to record in first." });
-  _macroRecording = true;
-  _macroBuffer = [];
-  _macroChat = req.body.chatId;
-  console.log("[MACRO] Recording started");
-  res.json({ ok: true });
-});
-
-app.post("/api/claw/macro/stop", (_, res) => {
-  _macroRecording = false;
-  const steps = [..._macroBuffer];
-  _macroBuffer = [];
-  console.log(`[MACRO] Recording stopped (${steps.length} steps)`);
-  res.json({ ok: true, steps });
-});
-
-app.post("/api/claw/macro/run", (req, res) => {
-  const { steps, deviceId } = req.body;
-  if (!Array.isArray(steps) || !steps.length)
-    return res.status(400).json({ error: "steps array required" });
-
-  if (!auth.dangerousAllowed())
-    return res.status(403).json({ error: auth.DANGEROUS_DISABLED_MSG });
-  if (clawKilled) return res.status(409).json({ error: "Claw is killed. Click RESUME first." });
-  // Replayed blindly, so it gets no exemption from the rules chat follows:
-  // anything that would need an OK there is refused here. Routines
-  // (/api/routines) ask for that OK instead.
-  const risky = steps.map((st) => clawConfirmReason({ ...st })).filter(Boolean);
-  if (risky.length)
-    return res.status(409).json({ error: `This recording has a step that needs your OK (${risky[0]}). Teach it as a routine in the Routines panel, which asks first.` });
-  const tid = deviceId || pickRelay();
-  if (!tid) return res.status(503).json({ error: "No relay connected" });
-
-  if (!clawQueue.has(tid)) clawQueue.set(tid, []);
-  // Queue all steps with small delays between them
-  steps.forEach((step, i) => {
-    const cmd = { ...step, id: `macro_${Date.now()}_${i}` };
-    clawQueue.get(tid).push(cmd);
-    // Insert a short wait between steps so they don't pile up
-    if (i < steps.length - 1) {
-      clawQueue.get(tid).push({ type: "wait", ms: 150, id: `macro_wait_${i}` });
-    }
-  });
-  console.log(`[MACRO] Queued ${steps.length} steps to relay ${tid}`);
-  res.json({ ok: true, queued: steps.length });
-});
+const { iotDevices } = mountIotRoutes(app);
 
 /* ============================================================
-   GENERIC ESP32 / IOT DEVICE REGISTRY (Mark 1.3)
-   Any ESP32 project can register here — smartwatch, sensor node,
-   speaker, light controller, etc. Provides command queue +
-   telemetry + key-value state per device.
-
-   Endpoints:
-     POST /api/devices/register   — { deviceId, name, type, capabilities[] }
-     POST /api/devices/heartbeat  — { deviceId, telemetry{} }
-     POST /api/devices/state      — { deviceId, key, value }   (device → server)
-     GET  /api/devices/queue      — ?deviceId=...               (device polls)
-     POST /api/devices/command    — { deviceId, command{} }     (server queues)
-     GET  /api/devices/list       — see all devices
-     POST /api/devices/unregister — { deviceId }
+   CLAW — the relay, panel and approval routes are in lib/claw-routes.js;
+   the queues, kill switch and rules they share are in lib/claw-core.js.
    ============================================================ */
-const iotDevices = new Map(); // deviceId → { name, type, capabilities, telemetry, state, lastSeen }
-const iotQueue = new Map(); // deviceId → [commands]
-let iotCmdSeq = 0;
-function nextIotCmdId() {
-  return `iot_${++iotCmdSeq}_${Date.now().toString(36)}`;
-}
-
-app.post("/api/devices/register", (req, res) => {
-  const {
-    deviceId,
-    name,
-    type,
-    capabilities = [],
-    firmware,
-    project,
-  } = req.body;
-  if (!deviceId) return res.status(400).json({ error: "deviceId required" });
-  const existing = iotDevices.get(deviceId);
-  iotDevices.set(deviceId, {
-    deviceId,
-    name: name || deviceId,
-    type: type || "esp32",
-    capabilities: Array.isArray(capabilities) ? capabilities : [],
-    firmware,
-    project,
-    state: existing?.state || {},
-    telemetry: existing?.telemetry || {},
-    registeredAt: existing?.registeredAt || Date.now(),
-    lastSeen: Date.now(),
-  });
-  if (!iotQueue.has(deviceId)) iotQueue.set(deviceId, []);
-  console.log(
-    `[IOT] Device registered: ${deviceId} (${type}/${name}) caps:[${capabilities.join(
-      ",",
-    )}]`,
-  );
-  res.json({ ok: true, deviceId });
-});
-
-app.post("/api/devices/heartbeat", (req, res) => {
-  const { deviceId, telemetry = {} } = req.body;
-  if (!deviceId) return res.status(400).json({ error: "deviceId required" });
-  if (!iotDevices.has(deviceId))
-    return res.json({ ok: false, needsRegister: true });
-  const dev = iotDevices.get(deviceId);
-  dev.lastSeen = Date.now();
-  Object.assign(dev.telemetry, telemetry);
-  res.json({ ok: true });
-});
-
-app.post("/api/devices/state", (req, res) => {
-  const { deviceId, key, value } = req.body;
-  if (!deviceId || !key)
-    return res.status(400).json({ error: "deviceId + key required" });
-  const dev = iotDevices.get(deviceId);
-  if (!dev) return res.json({ ok: false });
-  dev.state[key] = value;
-  dev.lastSeen = Date.now();
-  res.json({ ok: true });
-});
-
-app.get("/api/devices/queue", (req, res) => {
-  const deviceId = req.query.deviceId;
-  if (!deviceId) return res.status(400).json({ error: "deviceId required" });
-  if (iotDevices.has(deviceId)) iotDevices.get(deviceId).lastSeen = Date.now();
-  const q = iotQueue.get(deviceId) || [];
-  iotQueue.set(deviceId, []);
-  res.json({ commands: q });
-});
-
-app.post("/api/devices/command", (req, res) => {
-  const { deviceId, command } = req.body;
-  if (!deviceId || !command)
-    return res.status(400).json({ error: "deviceId + command required" });
-  if (!iotQueue.has(deviceId)) iotQueue.set(deviceId, []);
-  iotQueue.get(deviceId).push({ ...command, id: nextIotCmdId() });
-  res.json({ ok: true });
-});
-
-app.get("/api/devices/list", (_, res) => {
-  const now = Date.now();
-  const devices = [...iotDevices.values()].map((d) => ({
-    ...d,
-    online: now - d.lastSeen < 20000,
-  }));
-  res.json({ devices });
-});
-
-app.post("/api/devices/unregister", (req, res) => {
-  const { deviceId } = req.body;
-  iotDevices.delete(deviceId);
-  iotQueue.delete(deviceId);
-  res.json({ ok: true });
-});
-
-/* ============================================================
-   CLAW RELAY — keyboard/mouse control (existing)
-   ============================================================ */
-app.post("/api/claw/relay/register", (req, res) => {
-  const { deviceId, platform, hostname, relayType, browser, arch } = req.body;
-  if (!deviceId) return res.json({ error: "No deviceId" });
-  const inferredType =
-    relayType ||
-    (deviceId.startsWith("esp32")
-      ? "esp32"
-      : deviceId.startsWith("electron")
-      ? "electron"
-      : "node");
-  clawRelays.set(deviceId, {
-    platform,
-    hostname,
-    browser,
-    arch,
-    relayType: inferredType,
-    lastSeen: Date.now(),
-  });
-  if (!clawQueue.has(deviceId)) clawQueue.set(deviceId, []);
-  console.log(
-    `[CLAW] Relay connected: ${deviceId} (${inferredType} / ${platform})`,
-  );
-  res.json({ ok: true, killed: clawKilled });
-});
-
-// Relay heartbeat — keeps relay marked as live; stores telemetry from device
-app.post("/api/claw/relay/heartbeat", (req, res) => {
-  const { deviceId, ble, uptimeMs, rssi, freeHeap, ssid } = req.body;
-  if (!deviceId) return res.json({ error: "no_device_id" });
-  if (!clawRelays.has(deviceId)) {
-    // Tell the client to re-register; server might have restarted
-    return res.json({
-      ok: false,
-      needsRegister: true,
-      error: "unknown_device",
-    });
-  }
-  const relay = clawRelays.get(deviceId);
-  relay.lastSeen = Date.now();
-  if (ble !== undefined) relay.ble = ble;
-  if (uptimeMs !== undefined) relay.uptimeMs = uptimeMs;
-  if (rssi !== undefined) relay.rssi = rssi;
-  if (freeHeap !== undefined) relay.freeHeap = freeHeap;
-  if (ssid !== undefined) relay.ssid = ssid;
-  res.json({ ok: true, killed: clawKilled, ...contextRequest() });
-});
-
-// What's in front on the PC, for app triggers (lib/triggers.js). Only sent
-// while wantContext is true; only from a registered relay.
-app.post("/api/claw/relay/context", (req, res) => {
-  const { deviceId, app: fgApp, title, idleSec } = req.body || {};
-  if (!deviceId || !clawRelays.has(deviceId)) return res.status(404).json({ error: "unknown_device" });
-  triggers.reportContext({ app: fgApp, title, idleSec, device: deviceId }).catch(() => {});
-  res.json({ ok: true, ...contextRequest() });
-});
-
-/**
- * What the relay is asked to report: nothing unless an app rule's window is
- * open (or opens within minutes), and then the window title only when it
- * contains one of the rules' words. The app's name is always sent.
- */
-function contextRequest() {
-  const want = triggers.wantsContext();
-  return want ? { wantContext: true, contextMatch: triggers.contextMatchWords() } : { wantContext: false };
-}
-
-// Relay unregisters on Ctrl+C
-app.post("/api/claw/relay/unregister", (req, res) => {
-  clawRelays.delete(req.body.deviceId);
-  clawQueue.delete(req.body.deviceId);
-  res.json({ ok: true });
-});
-
-// Relay reports result of executed command
-// Relay reports result of executed command
-const pendingScreenshotResolvers = new Map(); // cmdId → {resolve, timer}
-
-app.post("/api/claw/relay/result", (req, res) => {
-  const { screenshot, fname, bounds, monitors, deviceId, cmdId, result } = req.body;
-  if (screenshot && deviceId) {
-    // Store latest screenshot per device for POV feed
-    if (!global.clawScreenshots) global.clawScreenshots = new Map();
-    global.clawScreenshots.set(deviceId, {
-      b64: screenshot,
-      fname: fname || "",
-      bounds: bounds || null,
-      monitors: Array.isArray(monitors) ? monitors.slice(0, 16) : [],
-      ts: Date.now(),
-    });
-    // Resolve the pipeline waiting on this screenshot. The node relay names
-    // the command; the screen watcher can't know which command triggered the
-    // capture (and posts under its own deviceId, which is why matching on
-    // deviceId never fired for the ESP32), so it takes the oldest waiter.
-    const key =
-      cmdId && pendingScreenshotResolvers.has(cmdId)
-        ? cmdId
-        : pendingScreenshotResolvers.keys().next().value;
-    const entry = key && pendingScreenshotResolvers.get(key);
-    if (entry) {
-      clearTimeout(entry.timer);
-      entry.resolve(screenshot);
-      pendingScreenshotResolvers.delete(key);
-    }
-  }
-  const waiter = cmdId && pendingClawResults.get(cmdId);
-  if (waiter) {
-    clearTimeout(waiter.timer);
-    pendingClawResults.delete(cmdId);
-    waiter.resolve(String(result ?? "ok"));
-  }
-  res.json({ ok: true });
-});
-
-// Latest screenshot for POV feed in claw panel
-// ?grid=1: the same picture with the grid ARIA clicks by (lib/claw-grid.js),
-// so you can see what it sees; that grid becomes the one "click: F7" uses.
-app.get("/api/claw/screenshot", async (req, res) => {
-  const shots = global.clawScreenshots;
-  if (!shots || shots.size === 0) return res.json({ ok: false });
-  // Return most recent across all devices
-  let latest = null;
-  let latestId = null;
-  for (const [id, v] of shots) {
-    if (!latest || v.ts > latest.ts) [latest, latestId] = [v, id];
-  }
-  if (req.query.grid) {
-    const g = await gridScreenshot(latest.b64, latestId);
-    return res.json({ ok: true, image: g.image, grid: g.spec, ts: latest.ts, bounds: latest.bounds });
-  }
-  res.json({ ok: true, b64: latest.b64, ts: latest.ts, bounds: latest.bounds });
-});
-
-// Relay live config (pushed from claw panel sliders, returned in every queue poll)
-let relayConfig = { typeDelay: 25, mouseSpeed: 1, monitorIdx: -1 };
-
-// POST /api/claw/config — claw panel sliders push updates here
-app.post("/api/claw/config", (req, res) => {
-  const { typeDelay, mouseSpeed, monitorIdx } = req.body;
-  if (typeDelay != null) relayConfig.typeDelay = Number(typeDelay);
-  if (mouseSpeed != null) relayConfig.mouseSpeed = Number(mouseSpeed);
-  if (monitorIdx != null) relayConfig.monitorIdx = Number(monitorIdx);
-  res.json({ ok: true, config: relayConfig });
-});
-
-// Relay polls this for pending commands
-app.get("/api/claw/queue", (req, res) => {
-  const { deviceId } = req.query;
-  if (!deviceId) return res.json({ commands: [] });
-  const q = clawQueue.get(deviceId) || [];
-  clawQueue.set(deviceId, []); // clear after sending
-  res.json({ commands: q, killed: clawKilled, config: relayConfig });
-});
-
-// Kill switch — clears all queues, locks relay
-app.post("/api/claw/kill", (req, res) => {
-  clawKilled = true;
-  for (const [k] of clawQueue) clawQueue.set(k, []);
-  console.log("[CLAW] ⬡ KILL SWITCH ACTIVATED");
-  res.json({ ok: true });
-});
-
-// Resume after kill
-app.post("/api/claw/resume", (req, res) => {
-  clawKilled = false;
-  console.log("[CLAW] Resumed");
-  res.json({ ok: true });
-});
-
-// Status — used by claw.js UI to show relay connection
-app.get("/api/claw/status", (req, res) => {
-  const relays = [...clawRelays.entries()]
-    .filter(([, v]) => Date.now() - v.lastSeen < 20000)
-    .map(([id, v]) => ({
-      id,
-      platform: v.platform,
-      hostname: v.hostname,
-      relayType: v.relayType || "node",
-      browser: v.browser,
-    }));
-  res.json({
-    killed: clawKilled,
-    relays,
-    disabled: !auth.dangerousAllowed(),
-    // Approvals raised where no dialog could show (background tasks)
-    // surface through the panel's status poll.
-    pendingConfirms: [...pendingConfirms.values()]
-      .filter((v) => Date.now() - v.created <= CONFIRM_TTL_MS)
-      .map(publicConfirm),
-  });
-});
-
-// Manual dispatch from Claw panel (AI task or direct mode)
-app.post("/api/claw", async (req, res) => {
-  const { input, mode = "ai" } = req.body;
-  if (!input) return res.json({ error: "No input." });
-  if (clawKilled)
-    return res.json({
-      error: "Claw is killed. Click RESUME in the Claw panel.",
-    });
-
-  if (!auth.dangerousAllowed())
-    return res.json({ error: auth.DANGEROUS_DISABLED_MSG });
-  // Prefer ESP32 if available, otherwise the PC relay (never the screen watcher)
-  const tid = pickRelay({ preferEsp32: true });
-
-  // AUTO (and the old "ai" mode): a model picks the mode for each step,
-  // runs it, looks at the result and carries on (lib/claw-auto.js). The
-  // panel follows along through /api/claw/auto/:id.
-  if (mode === "auto" || mode === "ai") {
-    if (!tid) return res.json({ error: "No relay connected. Run claw-relay.js on your machine, or turn on PC control." });
-    const job = startClawAuto(input, { maxSteps: req.body.maxSteps, deviceId: tid });
-    return res.json({ jobId: job.id, output: "Working on it…", relayConnected: true });
-  }
-
-  // Direct modes: shell, type, hotkey, mouse
-  if (!tid)
-    return res.json({
-      error:
-        "No relay connected. Run claw-relay.js on your machine, or flash and pair the ESP32 relay.",
-    });
-  // Mouse mode takes "move X Y | click F7 | scroll up 3 | pos"; "line" is
-  // raw Claw syntax (the quick buttons); the rest are "<mode>: <input>".
-  const line =
-    mode === "line"
-      ? input.trim()
-      : mode === "mouse"
-      ? input.trim().replace(
-          /^(move|click|right_click|double_click|scroll|drag)\s+/i,
-          (_, verb) => verb.toLowerCase() + ": ",
-        )
-      : mode + ": " + input;
-  const cmd = _parseChatClawInput(line, tid);
-  if (cmd.type === "unknown")
-    return res.json({ error: cmd.hint ? `Can't run "${cmd.raw}": ${cmd.hint}.` : `Unknown command "${cmd.raw}". Valid: ${CLAW_HELP}` });
-  const why = clawConfirmReason(cmd);
-  if (why) {
-    const c = createConfirm("claw", { cmd, deviceId: tid }, describeClaw(cmd), why);
-    return res.json({ output: `Needs your OK — ${why}.`, confirm: publicConfirm(c), relayConnected: true });
-  }
-  queueClaw(tid, cmd);
-  // Wait briefly for what it did, so the panel shows a result, not "queued".
-  const out = cmd.type === "screenshot" ? null : await awaitClawResult(cmd.id, Math.min(clawWaitMs(cmd) || 0, 8000));
-  return res.json({
-    output: out == null ? "Queued: " + cmd.type : `${describeClaw(cmd)} → ${truncateOut(withCell(cmd, out), 1500)}`,
-    queued: [cmd.type],
-    relayConnected: true,
-  });
-});
-
-/* ── Claw AUTO jobs (lib/claw-auto.js) ─────────────────────────
-   One job per task typed in the panel. The panel polls the log; the kill
-   switch or the panel's stop button ends it between steps. */
-const clawAutoJobs = new Map(); // id → { id, task, status, log, stop, created }
-
-/** "mouse at 812,433" → "mouse at 812,433 (cell H5)" when there's a grid. */
-function withCell(cmd, out) {
-  if (cmd.type !== "mouse_pos" || !out) return out;
-  const m = /(-?\d+),(-?\d+)/.exec(out);
-  const g = gridFor(null);
-  const cell = m && g && clawGrid.pointCell(g.spec, +m[1], +m[2]);
-  return cell ? `${out} (cell ${cell})` : out;
-}
-
-function startClawAuto(task, { maxSteps, deviceId }) {
-  for (const [k, j] of clawAutoJobs) if (Date.now() - j.created > 60 * 60_000) clawAutoJobs.delete(k);
-  const job = { id: "auto_" + crypto.randomBytes(5).toString("hex"), task, status: "running", log: [], stop: false, created: Date.now() };
-  clawAutoJobs.set(job.id, job);
-  const push = (e) => job.log.push({ ...e, i: job.log.length, ts: Date.now() });
-  const relay = () => (liveClawRelays().some(([k]) => k === deviceId) ? deviceId : pickRelay());
-  const info = clawRelays.get(deviceId) || {};
-  const provider = activeModel.provider;
-  const model = activeModel.model;
-
-  clawAuto
-    .runAuto(
-      task,
-      {
-        // With a screenshot in the messages callAI goes to callVision, which
-        // finds a provider that can see (Groq → Cloudflare → OpenRouter).
-        ai: (msgs) => callAI(msgs, provider, model, {}),
-        parse: (line) => _parseChatClawInput(line, relay()),
-        stopped: () => job.stop || clawKilled || !auth.dangerousAllowed(),
-        needsOk: (cmd, { looked }) =>
-          clawConfirmReason(cmd) ||
-          // After a look at the screen, text on it could be steering the
-          // model: shell commands then wait for the owner.
-          (looked && cmd.type === "shell" ? "it looked at your screen first, and anything on a screen could be steering it" : null),
-        askOk: (cmd, reason) => {
-          const c = createConfirm("claw", { cmd, deviceId: relay() }, describeClaw(cmd), reason);
-          push({ label: "CONFIRM", text: `Waiting for your OK: ${c.summary}`, mode: "confirm", confirm: publicConfirm(c) });
-          return waitForConfirm(c.id);
-        },
-        exec: async (cmd) => {
-          const tid = relay();
-          if (!tid) return { text: "ERROR: the relay disconnected" };
-          if (cmd.type === "screenshot") {
-            const b64 = await captureScreen(tid, { cmd, ms: 15000 });
-            if (!b64) return { text: "ERROR: no screenshot came back within 15s" };
-            const shot = await gridScreenshot(b64, tid);
-            const s = shot.spec;
-            return { image: shot.image, text: s ? `screenshot attached — grid ${s.cols}×${s.rows}, A1 at ${s.x},${s.y}. ${shot.note}` : "screenshot attached (no grid)" };
-          }
-          queueClaw(tid, cmd);
-          const out = await awaitClawResult(cmd.id, clawWaitMs(cmd) || 10000);
-          return { text: out == null ? "no result back in time (it may still be running)" : withCell(cmd, out) };
-        },
-        log: push,
-      },
-      {
-        maxSteps,
-        system: clawAuto.autoSystem({ platform: info.platform, hostname: info.hostname, relayType: info.relayType, maxSteps: clawAutoMax(maxSteps) }),
-      },
-    )
-    .then((r) => {
-      job.status = r.status;
-      push({ label: r.status === "done" ? "DONE" : r.status.toUpperCase(), text: `${r.say} (${r.steps} step${r.steps === 1 ? "" : "s"})`, mode: r.status === "done" ? "done" : "error" });
-    })
-    .catch((e) => {
-      job.status = "error";
-      push({ label: "ERROR", text: e.message, mode: "error" });
-    });
-  return job;
-}
-const clawAutoMax = (n) => Math.max(1, Math.min(clawAuto.MAX_STEPS, Math.round(Number(n) || clawAuto.DEFAULT_MAX_STEPS)));
-
-app.get("/api/claw/auto/:id", (req, res) => {
-  const job = clawAutoJobs.get(req.params.id);
-  if (!job) return res.status(404).json({ error: "No such task (finished over an hour ago?)." });
-  const after = Number(req.query.after ?? -1);
-  res.json({ id: job.id, status: job.status, log: job.log.filter((e) => e.i > after) });
-});
-
-app.post("/api/claw/auto/:id/stop", (req, res) => {
-  const job = clawAutoJobs.get(req.params.id);
-  if (!job) return res.status(404).json({ error: "No such task." });
-  job.stop = true;
-  res.json({ ok: true });
-});
-
-// id → resolve({ approved, output }): an AUTO task waiting on an approval.
-const confirmWaiters = new Map();
-function waitForConfirm(id) {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      confirmWaiters.delete(id);
-      resolve({ approved: false, output: "no answer in time" });
-    }, CONFIRM_TTL_MS);
-    confirmWaiters.set(id, (r) => {
-      clearTimeout(timer);
-      confirmWaiters.delete(id);
-      resolve(r);
-    });
-  });
-}
-
-// Approve or deny a held claw command. The client
-// only sends the id — what runs is exactly what was proposed.
-async function resolveConfirm(req, res) {
-  // An AUTO task may be waiting on this one: tell it how it went.
-  const waiter = confirmWaiters.get(req.body?.id);
-  if (waiter) {
-    const json = res.json.bind(res);
-    res.json = (r) => {
-      waiter({ approved: !!req.body?.approved && r?.ok !== false && r?.message !== "Cancelled.", output: r?.output || r?.error || r?.message });
-      return json(r);
-    };
-  }
-  const { id, approved } = req.body || {};
-  const c = id && pendingConfirms.get(id);
-  if (!c) return res.json({ ok: false, error: "No such pending action (expired or already handled)." });
-  pendingConfirms.delete(id);
-  if (!approved) return res.json({ ok: true, message: "Cancelled." });
-  if (Date.now() - c.created > CONFIRM_TTL_MS)
-    return res.json({ ok: false, error: "That approval expired — ask ARIA again." });
-  if (!auth.dangerousAllowed()) return res.json({ ok: false, error: auth.DANGEROUS_DISABLED_MSG });
-
-  if (clawKilled) return res.json({ ok: false, error: "Claw is killed. Click RESUME first." });
-  if (c.kind === "routine") {
-    const out = await runRoutineNowOrLater(c.payload.name, c.payload.runs, c.payload.deviceId);
-    return res.json({ ok: !out.error, queued: `routine ${c.payload.name}`, output: truncateOut(out.text, 3000), error: out.error });
-  }
-  const live = liveClawRelays().map(([k]) => k);
-  const tid = live.includes(c.payload.deviceId) ? c.payload.deviceId : pickRelay();
-  if (!tid) return res.json({ ok: false, error: "No relay connected." });
-  const cmd = { ...c.payload.cmd, id: nextClawId() };
-  queueClaw(tid, cmd);
-  const out = await awaitClawResult(cmd.id, clawWaitMs(cmd) || 1000);
-  res.json({
-    ok: true,
-    queued: cmd.type,
-    output: out == null ? "Queued — no result yet." : truncateOut(out, 2000),
-  });
-}
-app.post("/api/confirm", resolveConfirm);
-app.post("/api/claw/confirm", resolveConfirm); // older clients
-
-app.get("/api/confirm/pending", (_req, res) => {
-  for (const [k, v] of pendingConfirms)
-    if (Date.now() - v.created > CONFIRM_TTL_MS) pendingConfirms.delete(k);
-  res.json({ pending: [...pendingConfirms.values()].map(publicConfirm) });
+const { clawAutoJobs, confirmWaiters } = mountClawRoutes(app, {
+  gridScreenshot,
+  captureScreen,
+  callAI,
+  getActiveModel: () => activeModel,
+  runRoutineNowOrLater,
 });
 
 /* ============================================================
@@ -5250,81 +4551,9 @@ app.post("/api/model", (req, res) => {
 });
 
 /* ============================================================
-   OLLAMA — local LLM status + model listing
+   LOCAL MODELS, SYSTEM INFO, PING, SPEED TEST — lib/system-routes.js
    ============================================================ */
-app.get("/api/ollama/status", async (req, res) => {
-  const hook = ollamaRelay.status();
-  if (hook.connected)
-    return res.json({
-      running: true,
-      via: "hook",
-      url: `${hook.hostname} (aria-ollama-hook)`,
-      models: hook.models,
-      details: hook.details,
-    });
-  const url = process.env.OLLAMA_URL || "http://localhost:11434";
-  try {
-    const r = await fetch(`${url}/api/tags`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    if (!r.ok)
-      return res.json({ running: false, url, error: `HTTP ${r.status}` });
-    const d = await r.json();
-    const models = (d.models || []).map((m) => m.name);
-    res.json({ running: true, url, models });
-  } catch (e) {
-    res.json({ running: false, url, error: e.message });
-  }
-});
-
-app.get("/api/ollama/models", async (req, res) => {
-  const hook = ollamaRelay.status();
-  if (hook.connected) return res.json({ models: hook.models, via: "hook", url: hook.hostname });
-  const url = process.env.OLLAMA_URL || "http://localhost:11434";
-  try {
-    const r = await fetch(`${url}/api/tags`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    if (!r.ok) return res.json({ models: [], error: `HTTP ${r.status}` });
-    const d = await r.json();
-    res.json({ models: (d.models || []).map((m) => m.name), url });
-  } catch (e) {
-    res.json({ models: [], error: e.message, url });
-  }
-});
-
-/* ============================================================
-   LM STUDIO — local OpenAI-compatible server (default port 1234)
-   ============================================================ */
-app.get("/api/lmstudio/status", async (req, res) => {
-  const url = process.env.LMSTUDIO_URL || "http://localhost:1234";
-  try {
-    const r = await fetch(`${url}/v1/models`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    if (!r.ok)
-      return res.json({ running: false, url, error: `HTTP ${r.status}` });
-    const d = await r.json();
-    const models = (d.data || []).map((m) => m.id);
-    res.json({ running: true, url, models });
-  } catch (e) {
-    res.json({ running: false, url, error: e.message });
-  }
-});
-
-app.get("/api/lmstudio/models", async (req, res) => {
-  const url = process.env.LMSTUDIO_URL || "http://localhost:1234";
-  try {
-    const r = await fetch(`${url}/v1/models`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    if (!r.ok) return res.json({ models: [], error: `HTTP ${r.status}` });
-    const d = await r.json();
-    res.json({ models: (d.data || []).map((m) => m.id), url });
-  } catch (e) {
-    res.json({ models: [], error: e.message, url });
-  }
-});
+mountSystemRoutes(app);
 
 /* ── Health check ── */
 const startTime = Date.now();
@@ -5358,6 +4587,49 @@ app.get("/api/health", (_, res) => {
   });
 });
 
+/* ── Health details ──
+   The numbers to watch when hunting a leak: memory, open streams, and the
+   maps that should drain back to zero. Not in auth's PUBLIC list, so on a
+   public server it needs a login (plain /api/health stays open). */
+let openChatStreams = 0;
+const mb = (bytes) => Math.round((bytes / 1024 / 1024) * 10) / 10;
+
+app.get("/api/health/details", (_, res) => {
+  const m = process.memoryUsage();
+  let syncSubs = 0;
+  for (const set of _syncSubscribers.values()) syncSubs += set.size;
+  let clawQueued = 0;
+  for (const q of clawQueue.values()) clawQueued += q.length;
+  res.set("Cache-Control", "no-store");
+  res.json({
+    ok: true,
+    uptimeSec: Math.round(process.uptime()),
+    memoryMb: {
+      rss: mb(m.rss),
+      heapUsed: mb(m.heapUsed),
+      heapTotal: mb(m.heapTotal),
+      external: mb(m.external),
+    },
+    // Each of these should fall back when a tab closes or a reply ends.
+    streams: {
+      chat: openChatStreams,
+      tasks: taskEngine.getStats().subscribers,
+      sync: syncSubs,
+      briefing: briefingSubscribers.size,
+    },
+    // Each of these should return to zero when nothing is running.
+    waiting: {
+      clawQueued,
+      clawResults: pendingClawResults.size,
+      screenshots: pendingScreenshotResolvers.size,
+      confirms: pendingConfirms.size,
+      confirmWaiters: confirmWaiters.size,
+      clawAutoJobs: clawAutoJobs.size,
+    },
+    errors: errorLog.stats(),
+  });
+});
+
 /* ══════════════════════════════════════════════════════════════
    ERROR LOG — what keeps breaking
    Ported from the AGI harness. Read-only from the UI's point of view;
@@ -5375,146 +4647,16 @@ app.post("/api/errors/clear", (_, res) => {
   res.json(errorLog.clearLog());
 });
 
-/* ══════════════════════════════════════════════════════════════
-   SYSTEM INFO — real host specs
-   The home dashboard used to read navigator.hardwareConcurrency and
-   navigator.deviceMemory, which report the *browser's* view: deviceMemory
-   is capped at 8 and rounded to a power of two, so a 32GB machine showed
-   "~8GB". The server runs on the host, so it can just ask the OS.
-   ══════════════════════════════════════════════════════════════ */
-
-// CPU utilisation needs two samples of the per-core time counters. Keep the
-// previous one so each request reports usage since the last call rather than
-// blocking to take a second sample.
-let _prevCpuSample = null;
-
-function sampleCpuTimes() {
-  const cpus = os.cpus();
-  let idle = 0;
-  let total = 0;
-  for (const c of cpus) {
-    for (const k of Object.keys(c.times)) total += c.times[k];
-    idle += c.times.idle;
-  }
-  return { idle, total, at: Date.now() };
-}
-
-function cpuUsagePercent() {
-  const now = sampleCpuTimes();
-  const prev = _prevCpuSample;
-  _prevCpuSample = now;
-  // No prior sample, or the counters went backwards (host resumed from sleep).
-  if (!prev || now.total <= prev.total) return null;
-  const idleDelta = now.idle - prev.idle;
-  const totalDelta = now.total - prev.total;
-  return Math.max(0, Math.min(100, Math.round((1 - idleDelta / totalDelta) * 100)));
-}
-
-// Prime the sampler so the first request has something to diff against.
-_prevCpuSample = sampleCpuTimes();
-
-app.get("/api/system", (_, res) => {
-  const cpus = os.cpus();
-  const totalMem = os.totalmem();
-  const freeMem = os.freemem();
-
-  // loadavg is a Unix concept; Windows always returns [0, 0, 0], so omit it
-  // there rather than rendering three zeroes as if they meant something.
-  const load = os.loadavg();
-  const hasLoad = load.some((n) => n > 0);
-
-  res.json({
-    ok: true,
-    host: {
-      platform: os.platform(),
-      release: os.release(),
-      arch: os.arch(),
-      hostname: os.hostname(),
-      uptimeSec: Math.round(os.uptime()),
-    },
-    cpu: {
-      model: (cpus[0]?.model || "Unknown CPU").replace(/\s+/g, " ").trim(),
-      cores: cpus.length,
-      speedMhz: cpus[0]?.speed || null,
-      usagePercent: cpuUsagePercent(),
-      loadAvg: hasLoad ? load.map((n) => Number(n.toFixed(2))) : null,
-    },
-    memory: {
-      totalBytes: totalMem,
-      freeBytes: freeMem,
-      usedBytes: totalMem - freeMem,
-      usedPercent: Math.round(((totalMem - freeMem) / totalMem) * 100),
-    },
-    process: {
-      node: process.version,
-      uptimeSec: Math.round(process.uptime()),
-      rssBytes: process.memoryUsage().rss,
-    },
-  });
-});
-
-/* ── Latency probe ──
-   Deliberately the smallest possible response: the home dashboard times the
-   round trip, so any body size here shows up as latency. */
-app.get("/api/ping", (_, res) => {
-  res.set("Cache-Control", "no-store");
-  // A 204 would be the honest status, but Chrome logs bodyless responses as
-  // net::ERR_ABORTED in devtools even though the fetch resolves fine — five of
-  // those per measurement is a lot of red for a healthy probe. One byte costs
-  // nothing and keeps the console readable.
-  res.type("text/plain").send("1");
-});
-
-/* ── Throughput fallback ──
-   Used when the internet speed test can't reach its endpoint, so the card can
-   still report the link between this browser and the ARIA host. The payload is
-   crypto-random because compressible bytes would measure gzip, not bandwidth. */
-const SPEEDTEST_MAX_BYTES = 25 * 1024 * 1024;
-
-app.get("/api/speedtest/down", (req, res) => {
-  const requested = parseInt(req.query.bytes, 10);
-  const bytes = Math.min(
-    Number.isFinite(requested) && requested > 0 ? requested : 1024 * 1024,
-    SPEEDTEST_MAX_BYTES,
-  );
-
-  res.set({
-    "Content-Type": "application/octet-stream",
-    "Content-Length": String(bytes),
-    "Cache-Control": "no-store",
-  });
-
-  // Stream in chunks so a 25MB request doesn't allocate 25MB up front, and
-  // respect backpressure so a slow client doesn't balloon the send buffer.
-  const CHUNK = 64 * 1024;
-  let sent = 0;
-  const pump = () => {
-    while (sent < bytes) {
-      const size = Math.min(CHUNK, bytes - sent);
-      sent += size;
-      if (!res.write(crypto.randomBytes(size))) {
-        res.once("drain", pump);
-        return;
-      }
-    }
-    res.end();
-  };
-  // `close` also fires after a normal response, so destroying unconditionally
-  // would tear down a healthy keep-alive socket — the client saw that as
-  // ERR_CONNECTION_RESET, and every follow-up request paid a fresh handshake,
-  // which skews the very measurement this endpoint exists to serve.
-  req.on("close", () => {
-    if (!res.writableEnded) res.destroy();
-  });
-  pump();
-});
-
 // Don't crash on unhandled promise rejections — log and keep running
+// Both also go to the error log, so they show up under "what keeps breaking"
+// instead of scrolling away in the console.
 process.on("unhandledRejection", (reason) => {
   console.error("[UNHANDLED REJECTION]", reason);
+  errorLog.logError("unhandled_rejection", reason?.stack || reason?.message || String(reason), "high");
 });
 process.on("uncaughtException", (err) => {
   console.error("[UNCAUGHT EXCEPTION]", err);
+  errorLog.logError("uncaught_exception", err?.stack || err?.message || String(err), "high");
 });
 
 /* ============================================================
@@ -5816,7 +4958,7 @@ function selfTestChecks({ full = false } = {}) {
   // ── The PC ──
   add("PC", "Claw relay (PC control)", async () => {
     const live = liveClawRelays();
-    if (clawKilled) return { status: "warn", detail: "killed — PC control is stopped", fix: "Click RESUME in the Claw panel" };
+    if (isKilled()) return { status: "warn", detail: "killed — PC control is stopped", fix: "Click RESUME in the Claw panel" };
     if (live.length) return { status: "ok", detail: `${live.length} connected (${live.map(([, r]) => r.hostname || r.platform || "PC").join(", ")})` };
     const ever = [...clawRelays.values()].filter((r) => r.relayType !== "screenwatcher").sort((a, b) => b.lastSeen - a.lastSeen)[0];
     return ever
@@ -6231,7 +5373,7 @@ async function smsCommand({ cmd, arg }, chatId) {
     return {
       reply: statusText({
         relay: !!pickRelay(),
-        killed: clawKilled,
+        killed: isKilled(),
         app: ctx?.app || "",
         // This machine's numbers are the PC's only on the desktop app; on
         // Render they'd be Render's, so they're left out there.
@@ -6283,6 +5425,93 @@ app.post("/api/screen/fix", async (req, res) => {
    ============================================================ */
 routines.init({ parse: (s) => _parseChatClawInput(s) });
 
+/* ============================================================
+   HUD, REMINDERS, FOCUS, SEARCH, USAGE, CLAW HISTORY, BACKUP
+   The modules are in lib/; their routes in lib/upgrade-routes.js.
+   This is the state of the server they read.
+   ============================================================ */
+// Its own CPU sample: /api/system keeps one too, and two readers of one
+// counter would each measure only the gap since the other.
+let _hudCpuPrev = null;
+function hudCpuPercent() {
+  const now = sampleCpuTimes();
+  const prev = _hudCpuPrev;
+  _hudCpuPrev = now;
+  if (!prev || now.total <= prev.total) return null;
+  return Math.max(0, Math.min(100, Math.round((1 - (now.idle - prev.idle) / (now.total - prev.total)) * 100)));
+}
+const MODEL_NAMES = { openrouter: "OpenRouter", groq: "Groq", cloudflare: "Cloudflare", gemini: "Gemini", ollama: "Ollama", lmstudio: "LM Studio", nvidia: "NVIDIA", deepseek: "DeepSeek" };
+
+const upgradeDeps = {
+  system: () => {
+    const last = hud.history().at(-1) || {};
+    return { cpu: last.cpu ?? null, mem: last.mem ?? null, host: os.hostname(), uptimeSec: Math.round(process.uptime()) };
+  },
+  relay: () => {
+    const id = pickRelay();
+    const r = id ? clawRelays.get(id) : null;
+    return { connected: !!r, name: r?.hostname || "", platform: r?.platform || "", type: r?.relayType || "", killed: isKilled() };
+  },
+  model: () => ({
+    provider: activeModel.provider || "openrouter",
+    model: activeModel.model || "",
+    label: `${MODEL_NAMES[activeModel.provider] || activeModel.provider || "OpenRouter"}${activeModel.model ? ` (${String(activeModel.model).split("/").pop().replace(/:free$/, "")})` : ""}`,
+  }),
+  confirms: () => [...pendingConfirms.values()].filter((v) => Date.now() - v.created <= CONFIRM_TTL_MS).length,
+  taskStats: () => taskEngine.getStats(),
+  watcherCount: () => watchers.listWatchers().filter((w) => w.active).length,
+  gradesFocus: () => {
+    const f = grades.focus();
+    if (!f) return null;
+    return { line: f.need?.line || `${f.cls.name} is at ${f.pct}% (line ${f.target}%)`, margin: f.margin };
+  },
+  cardsDue: () => ({ due: flashcards.dueCards({ limit: 500 }).length }),
+  practice: () => {
+    if (!practice.listSessions(1).length) return null;
+    const stale = practice.summary().split("\n").find((l) => /^Not played/.test(l));
+    return stale ? { line: stale } : null;
+  },
+  ownerName: () => OWNER_CHAT_SPACE.replace(/^./, (c) => c.toUpperCase()),
+  searchSources: () => ({
+    chats: chatStore(OWNER_CHAT_SPACE).chats,
+    memories: ariaMemory.facts || [],
+    notes: readNotes(),
+    todos: readTodos(),
+    cards: flashcards.listCards(),
+    routines: routines.listRoutines(),
+    reminders: reminders.list(),
+  }),
+  clawRun: clawRunLine,
+  clawInputOf: routines.clawInputOf,
+  saveRoutine: (r) => routines.saveRoutine(r, { replace: false }),
+  flushAll: () => flushPendingWrites(),
+  dangerousAllowed: () => auth.dangerousAllowed(),
+  dangerousMsg: auth.DANGEROUS_DISABLED_MSG,
+};
+
+const UPGRADES_ON = process.env.ARIA_WATCHERS !== "off"; // the same switch the tests use to keep timers quiet
+usage.init();
+clawHistory.init();
+reminders.init({ notify: (a) => fileAlert(a) }, { start: UPGRADES_ON });
+focus.init(
+  {
+    notify: (a) => fileAlert(a),
+    // The digest of what was held: straight to the Alerts chat.
+    deliver: (a) => fileAlertNow(a),
+    closeApp: async (app) => {
+      try {
+        return await clawRunLine(`close: ${app}`);
+      } catch {
+        return ""; // no relay: the block still starts, it just closes nothing
+      }
+    },
+  },
+  { start: UPGRADES_ON },
+);
+hud.init({ read: () => ({ cpu: hudCpuPercent(), mem: ((os.totalmem() - os.freemem()) / os.totalmem()) * 100 }) });
+backup.init({ start: UPGRADES_ON && !process.env.RENDER }); // Render's disk doesn't keep them
+mountUpgradeRoutes(app, upgradeDeps);
+
 // What ARIA did on the PC in each chat, so "remember how to do that" has
 // the steps. In memory, last 25 per chat, 30 minutes.
 const recentClaw = new Map(); // chatId → [{ step, at }]
@@ -6300,7 +5529,7 @@ const recentClawSteps = (chatId) =>
 /** Why the PC can't take a routine right now, or null. */
 function routineBlocked() {
   if (!auth.dangerousAllowed()) return auth.DANGEROUS_DISABLED_MSG;
-  if (clawKilled) return "Claw is killed. Click RESUME in the Claw panel first.";
+  if (isKilled()) return "Claw is killed. Click RESUME in the Claw panel first.";
   if (!pickRelay()) return process.env.ARIA_DESKTOP ? 'PC control is off. Turn it on in the Claw panel ("Turn on PC control").' : "No relay connected.";
   return null;
 }
@@ -6324,7 +5553,7 @@ async function executeRoutinePlan(name, runs, deviceId) {
     let unconfirmed = 0; // steps the relay never reported back on
     let last = "";
     for (const step of run.steps) {
-      if (clawKilled) {
+      if (isKilled()) {
         lines.push(`${label}: stopped — Claw was killed.`);
         return { error: "Claw was killed mid-run.", text: lines.join("\n") };
       }
@@ -6777,23 +6006,8 @@ const BRIEFING_KEY = "daily_briefing_user";
 const briefingSubscribers = new Set();
 
 app.get("/api/briefing/subscribe", (req, res) => {
-  res.set({
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache, no-transform",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-  });
-  res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
+  openSse(req, res, { onClose: () => briefingSubscribers.delete(res) });
   briefingSubscribers.add(res);
-  const ping = setInterval(() => {
-    try {
-      res.write(": ping\n\n");
-    } catch {}
-  }, 25000);
-  req.on("close", () => {
-    clearInterval(ping);
-    briefingSubscribers.delete(res);
-  });
 });
 
 /** One event to every open page, over the briefing stream. */
@@ -6960,4 +6174,6 @@ app.listen(...listenArgs, () => {
 ║  Env:  ${(process.env.NODE_ENV || "development").padEnd(46)}║
 ╚══════════════════════════════════════════════════════╝`;
   console.log(banner);
+  // A PC with a cloud ARIA configured lends it its voice (lib/tts-relay.js).
+  startCloudVoice();
 });

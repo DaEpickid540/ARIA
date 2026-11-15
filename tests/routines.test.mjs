@@ -11,7 +11,7 @@ process.env.ARIA_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "aria-rout-"))
 const R = await import("../lib/routines.js");
 
 // A stand-in for server.js's claw parser: known prefixes → a type.
-const KNOWN = ["open:", "switch:", "new_tab:", "close_tab", "hotkey:", "type:", "shell:", "screenshot", "write_code:", "scroll:", "move:", "click:", "right_click:", "double_click:", "drag:"];
+const KNOWN = ["open:", "close:", "apps", "switch:", "new_tab:", "close_tab", "hotkey:", "type:", "shell:", "screenshot", "write_code:", "scroll:", "move:", "click:", "right_click:", "double_click:", "drag:"];
 const parse = (s) => ({ type: KNOWN.some((k) => s.trim().startsWith(k)) ? s.split(":")[0] : "unknown" });
 R.init({ parse });
 
@@ -108,8 +108,10 @@ test("recorded macro steps (objects) turn back into Claw text", () => {
     { type: "launch_app", app: "Spotify" },
     { type: "drag", x1: 1, y1: 2, x2: 3, y2: 4 },
     { type: "wait", ms: 100 },
+    { type: "close_app", app: "Spotify" },
+    { type: "list_apps" },
   ];
-  assert.deepEqual(cmds.map(R.clawInputOf), ["shell: dir", "hotkey: ctrl+s", "right_click: 5,6", "open: https://x.com", "open: Spotify", "drag: 1,2 to 3,4", null]);
+  assert.deepEqual(cmds.map(R.clawInputOf), ["shell: dir", "hotkey: ctrl+s", "right_click: 5,6", "open: https://x.com", "open: Spotify", "drag: 1,2 to 3,4", null, "close: Spotify", "apps"]);
 });
 
 test("sub-agent tool sets: research helpers get no private data, trigger asks can't fetch URLs", async () => {
@@ -124,6 +126,9 @@ test("sub-agent tool sets: research helpers get no private data, trigger asks ca
 test("values can't break out of quotes in any step that becomes a command, and shell blanks must be quoted", () => {
   // switch:/open: end up inside quotes in PowerShell/cmd on the relay.
   assert.throws(() => R.fill("switch: {{app}}", { app: "x'); Start-Process calc; ('" }), /could change the command/);
+  // close: names a process to end, so its blank is held to the same rule.
+  assert.throws(() => R.fill("close: {{app}}", { app: 'x"; Stop-Process -Name *; "' }), /could change the command/);
+  assert.equal(R.fill("close: {{app}}", { app: "GitHub Desktop" }), "close: GitHub Desktop");
   assert.equal(R.fill("open: {{url}}", { url: 'https://x.com/" & calc' }), "open: https://x.com/%22%20&%20calc", "a URL's quote is encoded, not obeyed");
   assert.throws(() => R.fill('shell: copy "{{f}}" x', { f: "Bob's notes.txt" }), /could change the command/);
   // Typed text and the code half of write_code are just text.

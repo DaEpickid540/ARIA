@@ -156,7 +156,9 @@ async function recordStart({ endOnSilence }) {
       let sum = 0;
       for (const v of buf) sum += v * v;
       const now = Date.now();
-      if (Math.sqrt(sum / buf.length) > SPEECH_RMS) {
+      const rms = Math.sqrt(sum / buf.length);
+      window.ARIA_micLevel = rms; // for the call hologram (js/holo/)
+      if (rms > SPEECH_RMS) {
         r.heard = true;
         lastLoud = now;
       }

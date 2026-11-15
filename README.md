@@ -99,7 +99,12 @@ window (Electron, `desktop/main.js`). It's the same `server.js` as Render's.
   too when it's open on the PC running the desktop app: it calls
   `http://127.0.0.1:3717/api/tts`, which only accepts requests from your
   site's origin (`ARIA_WEB_ORIGINS`, default the Render URL). Off on
-  Render itself (`ARIA_TTS=on` to force it).
+  Render itself (`ARIA_TTS=on` to force it). From any other device (your
+  phone, say) the hosted site borrows the voice through a relay instead:
+  the ARIA on your PC connects out to the cloud one and speaks for it
+  (`lib/tts-relay.js`). The desktop app does this when **Remote** is on;
+  with `npm start`, set `ARIA_CLOUD_URL` to your Render URL and
+  `ARIA_RELAY_KEY` to the same key Render has.
 - **Other websites can't use your local ARIA.** A request carrying another
   site's `Origin` is refused, so a page you visit can't post a Claw command
   to the local server.

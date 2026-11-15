@@ -127,10 +127,49 @@ function svgAspect(code) {
 }
 
 /**
+ * React/JSX or similar component source, not a page. The same test as
+ * tools/visualize.js looksLikeComponent, which now refuses these; this one
+ * covers widgets saved before it did.
+ */
+export function looksLikeComponent(code) {
+  const s = String(code || "");
+  return (
+    /\bclassName\s*=/.test(s) ||
+    /<[A-Za-z][\w.]*[^>]*\s[\w-]+=\{/.test(s) ||
+    /\bfrom\s+['"](react|vue|svelte|preact|solid-js|next\/[\w-]+)['"]/.test(s) ||
+    /\bexport\s+default\b/.test(s) ||
+    /\b(useState|useEffect|useRef|useMemo|defineComponent)\s*\(/.test(s)
+  );
+}
+
+/** A component "widget" shown as what it is: its code. */
+function componentAsCode(visual) {
+  let code = String(visual.code || "");
+  // Some arrive as one line with escaped newlines ("\n" as two characters).
+  if (!code.includes("\n") && code.includes("\\n")) code = code.replace(/\\n/g, "\n").replace(/\\t/g, "\t");
+  const lang = /\bfrom\s+['"]vue['"]|defineComponent/.test(code) ? "vue" : "jsx";
+  const wrap = document.createElement("div");
+  // renderMarkdown escapes the code and adds Panel / Copy / download.
+  const md = window.ARIA_renderMarkdown;
+  if (md) wrap.innerHTML = md("```" + lang + "\n" + code.replace(/```/g, "`​``") + "\n```");
+  else {
+    const pre = document.createElement("pre");
+    pre.className = "codeBlock";
+    pre.textContent = code;
+    wrap.appendChild(pre);
+  }
+  return wrap;
+}
+
+/**
  * Build the visualization block for a chat message.
  * @returns {HTMLElement}
  */
 export function createVisual(visual) {
+  // Rendered as a page, component source comes out as giant headings,
+  // {expressions} as text and broken images; and it was code that was wanted.
+  if (looksLikeComponent(visual?.code)) return componentAsCode(visual);
+
   const wrap = document.createElement("div");
   wrap.className = "msgVisual";
 

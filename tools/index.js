@@ -20,6 +20,8 @@ const TODOS_FILE = path.join(DATA_DIR, "todos.json");
 
 /** The todo list as stored (for the evening debrief). */
 export const readTodos = () => loadJSON(TODOS_FILE, []);
+/** The notes as stored (for search). */
+export const readNotes = () => loadJSON(NOTES_FILE, []);
 
 function loadJSON(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return fallback; }

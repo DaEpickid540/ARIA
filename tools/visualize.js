@@ -14,6 +14,23 @@
 // generation cannot wedge a chat log in localStorage.
 const MAX_BYTES = 256 * 1024;
 
+/**
+ * React/JSX (or similar component source) rather than a page a browser can
+ * show. Rendered as HTML it comes out as giant headings, {expressions} as
+ * literal text and broken images, and the user wanted the code anyway.
+ * public/js/visualize.js applies the same test to widgets already saved.
+ */
+export function looksLikeComponent(code) {
+  const s = String(code || "");
+  return (
+    /\bclassName\s*=/.test(s) || // JSX attribute; HTML has class=
+    /<[A-Za-z][\w.]*[^>]*\s[\w-]+=\{/.test(s) || // attr={expression}
+    /\bfrom\s+['"](react|vue|svelte|preact|solid-js|next\/[\w-]+)['"]/.test(s) ||
+    /\bexport\s+default\b/.test(s) ||
+    /\b(useState|useEffect|useRef|useMemo|defineComponent)\s*\(/.test(s)
+  );
+}
+
 /** SVG or full HTML? Decides which wrapper the client uses. */
 function detectKind(code) {
   return /^\s*<svg[\s>]/i.test(code) ? "svg" : "html";
@@ -40,6 +57,11 @@ export async function runVisualize({ title = "", code = "" } = {}) {
   // narrated instead of drawn — say so rather than rendering an empty box.
   if (!/<[a-z][\s\S]*>/i.test(source)) {
     return "Visualize expects markup, but the input had no HTML or SVG elements in it.";
+  }
+
+  // Reaches the model as the tool result, so the next turn sends code.
+  if (looksLikeComponent(source)) {
+    return "Tool error: that is component source (React/JSX or similar), which a browser can't render as a page. Don't visualize it: reply with the code itself in fenced blocks (```jsx, ```css …).";
   }
 
   return (

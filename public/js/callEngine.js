@@ -16,6 +16,7 @@ export function initCallEngine() {
 
   const status = document.getElementById("callModeStatus");
   const orbCore = document.getElementById("callOrbCore");
+  const hint = document.getElementById("callModeHint");
 
   function open() {
     overlay.classList.add("active");
@@ -27,9 +28,53 @@ export function initCallEngine() {
     window.ARIA_stopCallListening = stopCallListening;
     setCallModeActive(true);
     startOrbAnimation();
+    startHolo();
+  }
+
+  // ── Hologram (js/holo/) ──
+  // Takes the orb's place when the browser can draw it. Loaded on the first
+  // call, so three.js costs nothing before then; if it can't load or there's
+  // no WebGL, the CSS orb stays, and it isn't tried again.
+  let holo = null;
+  let holoFailed = false;
+
+  async function startHolo() {
+    if (holoFailed) return;
+    try {
+      if (!holo) {
+        const { createHolo } = await import("./holo/index.js");
+        const canvas = document.createElement("canvas");
+        canvas.id = "callHolo";
+        canvas.setAttribute("aria-hidden", "true");
+        overlay.prepend(canvas);
+        holo = createHolo(canvas, {
+          // The same signals the orb reads: ARIA's voice, else the mic.
+          state: () =>
+            window.ARIA_isSpeaking || overlay.classList.contains("aria-speaking")
+              ? "aria"
+              : overlay.classList.contains("user-speaking")
+              ? "user"
+              : "idle",
+          voice: () => window.ARIA_voiceLevel?.() ?? null,
+          mic: () => (overlay.classList.contains("user-speaking") ? window.ARIA_micLevel ?? null : null),
+          // The canvas covers the overlay, so it passes taps on: tap to hang up.
+          onTap: close,
+        });
+      }
+      if (!overlay.classList.contains("active")) return; // closed while it loaded
+      overlay.classList.add("holo-on");
+      if (hint) hint.textContent = "Drag to turn · tap or ESC to exit";
+      holo.start();
+    } catch (e) {
+      holoFailed = true;
+      console.warn("[CALL] Hologram unavailable, keeping the orb:", e.message);
+      overlay.classList.remove("holo-on");
+      document.getElementById("callHolo")?.remove();
+    }
   }
 
   function close() {
+    holo?.stop();
     overlay.classList.remove("active", "user-speaking", "aria-speaking");
     setCallModeActive(false);
     window.ARIA_isSpeaking = false;
