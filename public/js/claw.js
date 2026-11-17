@@ -56,29 +56,36 @@ export function initClaw() {
 function _buildKillSwitch() {
   const btn = document.createElement("button");
   btn.id = "clawKillSwitch";
-  btn.innerHTML = "⬡<br>KILL";
   btn.title = "Emergency stop — halt ALL Claw actions immediately (Ctrl+Shift+X)";
   btn.addEventListener("click", () => {
     btn.classList.contains("killed") ? resumeClaw() : killClaw();
   });
   document.body.appendChild(btn);
+  _paintKill(false);
+}
+
+// The floating switch reads KILL until it is pressed, then RESUME.
+function _paintKill(killed) {
+  const ks = document.getElementById("clawKillSwitch");
+  if (!ks || ks.dataset.killed === String(killed)) return;
+  ks.dataset.killed = String(killed);
+  ks.classList.toggle("killed", killed);
+  ks.innerHTML = killed
+    ? `${_bi("play-circle")}<span>RESUME</span>`
+    : `${_bi("octagon")}<span>KILL</span>`;
 }
 
 async function killClaw() {
   if (_autoJob) _stopAuto();
-  document.getElementById("clawKillSwitch")?.classList.add("killed");
-  const ks = document.getElementById("clawKillSwitch");
-  if (ks) ks.innerHTML = "⬡<br>RESUME";
-  _setStatus("● KILLED", "var(--danger-text)");
-  _log("⬡ KILL", "All actions halted.", "error");
+  _paintKill(true);
+  _paintCore({ killed: true, busy: false });
+  _log(`${_bi("octagon")} KILL`, "All actions halted.", "error");
   await fetch("/api/claw/kill", { method: "POST" }).catch(() => {});
 }
 
 async function resumeClaw() {
-  document.getElementById("clawKillSwitch")?.classList.remove("killed");
-  const ks = document.getElementById("clawKillSwitch");
-  if (ks) ks.innerHTML = "⬡<br>KILL";
-  _setStatus("● READY", "");
+  _paintKill(false);
+  _paintCore({ killed: false });
   _log("SYSTEM", "Claw resumed.", "info");
   await fetch("/api/claw/resume", { method: "POST" }).catch(() => {});
 }
@@ -95,11 +102,14 @@ function _setClawEnabled(on, { remote = true } = {}) {
   _clawEnabled = !!on;
   const btn = document.getElementById("clawToggleBtn");
   if (btn) {
-    btn.textContent = _clawEnabled ? "ON" : "OFF";
+    const label = btn.querySelector("span");
+    if (label) label.textContent = _clawEnabled ? "ON" : "OFF";
     btn.classList.toggle("clawBtnOff", !_clawEnabled);
+    btn.setAttribute("aria-pressed", String(_clawEnabled));
   }
   const cb = document.getElementById("cfgEnabled");
   if (cb) cb.checked = _clawEnabled;
+  _paintCore();
   if (!remote) return;
   // Not kill/resume in the desktop app: a kill outlives the relay, so turning
   // PC control back on from the tray would still find the Claw killed.
@@ -158,7 +168,98 @@ function _remember(input) {
 
 let _pins = _read(PINS_KEY, []);
 if (!Array.isArray(_pins)) _pins = [];
-const MODE_ICON = { auto: "🧠", shell: "💻", type: "⌨", hotkey: "⌘", mouse: "🖱", line: "⚡" };
+// Bootstrap Icons, the same set the home screen uses.
+const _bi = (name) => `<i class="bi bi-${name}" aria-hidden="true"></i>`;
+const MODE_ICON = {
+  auto: _bi("stars"),
+  shell: _bi("terminal"),
+  type: _bi("keyboard"),
+  hotkey: _bi("command"),
+  mouse: _bi("mouse"),
+  line: _bi("lightning-charge"),
+};
+
+/* ── the core ────────────────────────────────────────────────────
+   The ring at the top of the panel, a small cousin of the one on the home
+   screen (homeCore.js). One SVG, drawn once:
+     - 48 ticks round the rim
+     - a dashed ring that turns slowly, faster while something is running
+     - a status ring: full and green with a relay connected, empty without
+       one, red when killed; during an Auto task it fills step by step
+   The power button sits in the middle, and four readouts flank it. */
+const CORE_C = 100; // centre of the 200×200 viewBox
+function _drawCore(svg) {
+  let ticks = "";
+  for (let i = 0; i < 48; i++) {
+    const major = i % 4 === 0;
+    const a = ((i * 7.5 - 90) * Math.PI) / 180;
+    const at = (r) => [(CORE_C + r * Math.cos(a)).toFixed(2), (CORE_C + r * Math.sin(a)).toFixed(2)];
+    const [x1, y1] = at(major ? 88 : 92);
+    const [x2, y2] = at(97);
+    ticks += `<line class="clawTick${major ? " major" : ""}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+  }
+  svg.innerHTML = `
+    <defs>
+      <radialGradient id="clawGlowGrad">
+        <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.2"/>
+        <stop offset="70%" stop-color="var(--accent)" stop-opacity="0.05"/>
+        <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <circle class="clawGlow" cx="${CORE_C}" cy="${CORE_C}" r="84"/>
+    <g>${ticks}</g>
+    <circle class="clawRingSpin" cx="${CORE_C}" cy="${CORE_C}" r="81" pathLength="360"/>
+    <circle class="clawRingTrack" cx="${CORE_C}" cy="${CORE_C}" r="69"/>
+    <circle id="clawRingProg" class="clawRingProg" cx="${CORE_C}" cy="${CORE_C}" r="69" pathLength="100"
+      stroke-dasharray="0 100"/>
+    <circle class="clawRingDisc" cx="${CORE_C}" cy="${CORE_C}" r="57"/>`;
+}
+
+// Everything the core shows, in one place. Callers patch what changed.
+const _core = { relay: "none", killed: false, busy: false, step: 0, max: 0 };
+function _paintCore(patch) {
+  if (patch) Object.assign(_core, patch);
+  const core = document.getElementById("clawCore");
+  if (!core) return;
+  const online = _core.relay === "online";
+  const stepping = _core.busy && _core.max > 0;
+  const [state, tone] = _core.killed
+    ? ["KILLED", "crit"]
+    : !_clawEnabled
+      ? ["OFF", "off"]
+      : _core.busy
+        ? ["RUNNING", "run"]
+        : online
+          ? ["READY", "good"]
+          : ["STANDBY", "off"];
+  core.className = [tone, online && "online", _core.busy && "busy", _core.busy && !stepping && "spin"].filter(Boolean).join(" ");
+
+  const prog = document.getElementById("clawRingProg");
+  if (prog) {
+    const fill = _core.killed
+      ? 100
+      : stepping
+        ? Math.min(100, (_core.step / _core.max) * 100)
+        : _core.busy
+          ? 22
+          : online && _clawEnabled
+            ? 100
+            : 0;
+    prog.setAttribute("stroke-dasharray", `${fill} 100`);
+    prog.style.opacity = fill ? "" : "0"; // a round cap would leave a dot at zero
+  }
+  const status = document.getElementById("clawStatus");
+  if (status) {
+    status.textContent = state;
+    status.className = `clawCalloutValue ${tone}`;
+  }
+  const step = document.getElementById("clawStep");
+  if (step) {
+    const max = _core.max || Number(document.getElementById("cfgMaxSteps")?.value) || 8;
+    step.textContent = `${stepping ? _core.step : 0}/${max}`;
+    step.className = `clawCalloutValue ${stepping ? "run" : "off"}`;
+  }
+}
 
 function _renderPins() {
   const row = document.getElementById("clawPinRow");
@@ -169,7 +270,7 @@ function _renderPins() {
     _pins
       .map(
         (p, i) =>
-          `<button class="clawPinBtn" data-pin="${i}" title="${_esc(p.input)}\n(${_esc(p.mode)} — right-click to unpin)">${MODE_ICON[p.mode] || "⚡"} ${_esc(
+          `<button class="clawPinBtn" data-pin="${i}" title="${_esc(p.input)}\n(${_esc(p.mode)} — right-click to unpin)">${MODE_ICON[p.mode] || MODE_ICON.line} ${_esc(
             p.input.length > 22 ? p.input.slice(0, 21) + "…" : p.input,
           )}</button>`,
       )
@@ -214,55 +315,68 @@ function _buildPanel() {
   const panel = document.createElement("div");
   panel.id = "clawPanel";
   panel.innerHTML = `
-    <!-- ── Header ── -->
+    <!-- ── Header: the core, with two readouts either side ── -->
     <div id="clawHeader">
-      <div id="clawHeaderLeft">
-        <span id="clawRelayDot" class="clawDotOff" title="Relay status">⬡</span>
-        <span id="clawTitle">🦾 CLAW</span>
+      <div class="clawSide clawSideL">
+        <span id="clawTitle">${_bi("robot")} CLAW</span>
+        <div class="clawCallout" title="The PC this panel controls">
+          <span class="clawCalloutLabel">RELAY</span><span id="clawRelayHost" class="clawCalloutValue off">—</span>
+        </div>
+        <div class="clawCallout" title="How that PC is connected">
+          <span class="clawCalloutLabel">LINK</span><span id="clawRelayPlatform" class="clawCalloutValue off">—</span>
+        </div>
       </div>
-      <div id="clawHeaderRight">
-        <span id="clawStatus">● READY</span>
-        <button class="clawHdrBtn clawOnOff" id="clawToggleBtn" title="Enable / disable Claw">ON</button>
-        <button class="clawHdrBtn" id="clawWideBtn" title="Wide panel (more room for the screen)">⤢</button>
-        <button class="clawHdrBtn" id="clawCloseBtn" title="Close (Esc)">✕</button>
+      <div id="clawCore">
+        <svg id="clawCoreSvg" viewBox="0 0 200 200" aria-hidden="true"></svg>
+        <button id="clawToggleBtn" type="button" aria-pressed="true" title="Enable / disable Claw">${_bi("power")}<span>ON</span></button>
+      </div>
+      <div class="clawSide clawSideR">
+        <div id="clawHeaderBtns">
+          <button class="clawRoundBtn" id="clawWideBtn" title="Wide panel (more room for the screen)">${_bi("arrows-angle-expand")}</button>
+          <button class="clawRoundBtn" id="clawCloseBtn" title="Close (Esc)">${_bi("x-lg")}</button>
+        </div>
+        <div class="clawCallout" title="What Claw is doing right now">
+          <span class="clawCalloutLabel">STATE</span><span id="clawStatus" class="clawCalloutValue off">STANDBY</span>
+        </div>
+        <div class="clawCallout" title="Steps taken in the current Auto task, out of the most it may take">
+          <span class="clawCalloutLabel">STEP</span><span id="clawStep" class="clawCalloutValue off">0/8</span>
+        </div>
       </div>
     </div>
 
-    <!-- ── Relay bar ── -->
+    <!-- ── Relay notice: only there while no relay is connected ── -->
     <div id="clawRelayBar">
       <span id="clawRelayName">No relay — <button type="button" class="clawSetupLinkInline">setup guide</button></span>
-      <span id="clawRelayPlatform"></span>
     </div>
 
     <!-- ── Tab bar ── -->
     <div id="clawTabBar">
-      <button class="clawTab active" data-tab="control">⚡ CONTROL</button>
-      <button class="clawTab"        data-tab="screen" >📷 SCREEN</button>
-      <button class="clawTab"        data-tab="config" >⚙ CONFIG</button>
+      <button class="clawTab active" data-tab="control">${_bi("lightning-charge")} CONTROL</button>
+      <button class="clawTab"        data-tab="screen" >${_bi("display")} SCREEN</button>
+      <button class="clawTab"        data-tab="config" >${_bi("sliders")} CONFIG</button>
     </div>
 
     <!-- ═══ TAB: CONTROL ═══ -->
     <div class="clawTabContent" id="clawTab-control">
-      <!-- Mode pills -->
-      <div id="clawModeRow">
-        <span class="clawModeLabel">MODE</span>
-        <button class="clawModeBtn active" data-mode="auto"   title="Auto: ARIA picks the mode for every step and switches as it goes (PowerShell → mouse → keyboard…)">🧠 Auto</button>
-        <button class="clawModeBtn"        data-mode="shell"  title="Direct shell command">💻 Shell</button>
-        <button class="clawModeBtn"        data-mode="type"   title="Type text into active window">⌨ Type</button>
-        <button class="clawModeBtn"        data-mode="hotkey" title="Keyboard shortcut e.g. ctrl+t">⌘ Key</button>
-        <button class="clawModeBtn"        data-mode="mouse"  title="Mouse: move X Y | click F7 (grid cell) | pos | scroll up 3">🖱 Mouse</button>
+      <!-- Mode dock -->
+      <div id="clawModeRow" role="toolbar" aria-label="Mode">
+        <button class="clawModeBtn active" data-mode="auto"   title="Auto: ARIA picks the mode for every step and switches as it goes (PowerShell → mouse → keyboard…)">${MODE_ICON.auto}<span>Auto</span></button>
+        <button class="clawModeBtn"        data-mode="shell"  title="Direct shell command">${MODE_ICON.shell}<span>Shell</span></button>
+        <button class="clawModeBtn"        data-mode="type"   title="Type text into active window">${MODE_ICON.type}<span>Type</span></button>
+        <button class="clawModeBtn"        data-mode="hotkey" title="Keyboard shortcut e.g. ctrl+t">${MODE_ICON.hotkey}<span>Key</span></button>
+        <button class="clawModeBtn"        data-mode="mouse"  title="Mouse: move X Y | click F7 (grid cell) | pos | scroll up 3">${MODE_ICON.mouse}<span>Mouse</span></button>
       </div>
 
       <!-- Quick actions -->
       <div id="clawQuickRow">
         <span class="clawModeLabel">QUICK</span>
-        <button class="clawQuickBtn" data-action="screenshot"        title="Take screenshot">📸</button>
-        <button class="clawQuickBtn" data-action="open: File Explorer" title="File Explorer">📁</button>
-        <button class="clawQuickBtn" data-action="hotkey: alt+tab"   title="Alt+Tab">⇥</button>
-        <button class="clawQuickBtn" data-action="hotkey: ctrl+z"    title="Undo">↩</button>
-        <button class="clawQuickBtn" data-action="hotkey: win+d"     title="Show desktop">🖥</button>
-        <button class="clawQuickBtn" data-action="shell: clip"       title="Clipboard">📋</button>
-        <button class="clawQuickBtn clawQuickDanger" id="clawQuickKill" title="Kill switch">⬡</button>
+        <button class="clawQuickBtn" data-action="screenshot"        title="Take screenshot">${_bi("camera")}</button>
+        <button class="clawQuickBtn" data-action="open: File Explorer" title="File Explorer">${_bi("folder2-open")}</button>
+        <button class="clawQuickBtn" data-action="hotkey: alt+tab"   title="Alt+Tab">${_bi("window-stack")}</button>
+        <button class="clawQuickBtn" data-action="hotkey: ctrl+z"    title="Undo">${_bi("arrow-counterclockwise")}</button>
+        <button class="clawQuickBtn" data-action="hotkey: win+d"     title="Show desktop">${_bi("display")}</button>
+        <button class="clawQuickBtn" data-action="shell: clip"       title="Clipboard">${_bi("clipboard")}</button>
+        <button class="clawQuickBtn clawQuickDanger" id="clawQuickKill" title="Kill switch">${_bi("octagon")}</button>
       </div>
 
       <!-- Pinned commands (★ on a command you ran) -->
@@ -273,24 +387,26 @@ function _buildPanel() {
 
       <!-- Input row -->
       <div id="clawInputRow">
-        <span class="clawPrompt">▶</span>
-        <input id="clawInput" type="text"
-          placeholder="describe what ARIA should do on your PC...  (/help)"
-          autocomplete="off" spellcheck="false"/>
-        <button id="clawRunBtn" title="Run (Enter)">⚡</button>
-        <button id="clawCopyBtn" title="Copy the whole log">⧉</button>
-        <button id="clawClearBtn" title="Clear log (Ctrl+L)">🗑</button>
+        <label class="clawInputPill">
+          <span class="clawPrompt">${_bi("chevron-right")}</span>
+          <input id="clawInput" type="text"
+            placeholder="describe what ARIA should do on your PC...  (/help)"
+            autocomplete="off" spellcheck="false"/>
+        </label>
+        <button id="clawRunBtn" title="Run (Enter)">${_bi("play-fill")}</button>
+        <button id="clawCopyBtn" title="Copy the whole log">${_bi("copy")}</button>
+        <button id="clawClearBtn" title="Clear log (Ctrl+L)">${_bi("trash3")}</button>
       </div>
     </div>
 
     <!-- ═══ TAB: SCREEN ═══ -->
     <div class="clawTabContent" id="clawTab-screen" style="display:none">
       <div id="clawScreenControls">
-        <button id="clawScreenSnapBtn" class="clawHdrBtn">📸 Snapshot</button>
-        <button id="clawScreenWatchBtn" class="clawHdrBtn">▶ Start Watch</button>
-        <button id="clawScreenGridBtn" class="clawHdrBtn" title="Show the grid ARIA clicks by (it's only in this picture, never on your screen)">▦ Grid</button>
-        <button id="clawScreenKeysBtn" class="clawHdrBtn" title="Send what you type to the PC while the picture has focus (click the picture first)">⌨ Keys</button>
-        <button id="clawScreenSaveBtn" class="clawHdrBtn" title="Save this picture">⬇</button>
+        <button id="clawScreenSnapBtn" class="clawHdrBtn">${_bi("camera")} Snapshot</button>
+        <button id="clawScreenWatchBtn" class="clawHdrBtn">${_bi("play-fill")} Start Watch</button>
+        <button id="clawScreenGridBtn" class="clawHdrBtn" title="Show the grid ARIA clicks by (it's only in this picture, never on your screen)">${_bi("grid-3x3")} Grid</button>
+        <button id="clawScreenKeysBtn" class="clawHdrBtn" title="Send what you type to the PC while the picture has focus (click the picture first)">${_bi("keyboard")} Keys</button>
+        <button id="clawScreenSaveBtn" class="clawHdrBtn" title="Save this picture">${_bi("download")}</button>
         <span id="clawScreenStatus" class="clawScreenStatusText">Idle</span>
       </div>
       <div id="clawScreenIntervalRow">
@@ -299,7 +415,7 @@ function _buildPanel() {
         <span id="clawScreenIntervalVal">4s</span>
       </div>
       <div id="clawPovFrame" tabindex="0">
-        <div id="clawPovEmpty">No screenshot yet<br><span>Click Snapshot or Start Watch, then click, drag or scroll on the picture to control the PC. ⌨ Keys sends your typing too.</span></div>
+        <div id="clawPovEmpty">No screenshot yet<br><span>Click Snapshot or Start Watch, then click, drag or scroll on the picture to control the PC. Keys sends your typing too.</span></div>
         <img id="clawPovImg" style="display:none" alt="ARIA POV"/>
         <div id="clawPovCoords"></div>
         <div id="clawPovTimestamp"></div>
@@ -375,15 +491,17 @@ function _buildPanel() {
         <div id="clawSetupGuideBlock" class="clawCfgGuide">
           <div class="clawCfgTitle" style="margin-bottom:8px">CONNECT YOUR PC</div>
           <code id="clawSetupCmd">node claw-relay.js https://aria-69jr.onrender.com --key=&lt;key&gt; --background</code>
-          <button id="clawSetupCopy" class="clawHdrBtn" type="button">⧉ Copy command</button>
+          <button id="clawSetupCopy" class="clawHdrBtn" type="button">${_bi("copy")} Copy command</button>
           <p>No npm install. Node.js only. Works on Win / Mac / Linux.</p>
           <p><code>--background</code> runs it hidden (no window); <code>--stop</code> stops it; <code>--startup</code> also starts it hidden at every Windows login.</p>
-          <p>Kill switch ⬡ always visible bottom-right.</p>
+          <p>The kill switch is always visible, bottom-right.</p>
         </div>
       </div>
     </div>`;
 
   document.body.appendChild(panel);
+  _drawCore(document.getElementById("clawCoreSvg"));
+  _paintCore();
 
   // ── Tab switching ──
   panel.querySelectorAll(".clawTab").forEach((btn) => {
@@ -513,6 +631,7 @@ function _buildPanel() {
     el?.addEventListener("input", () => {
       if (vl) vl.textContent = fmt(el.value);
       _setPref(id, Number(el.value));
+      _paintCore(); // the STEP readout shows the step limit
     });
   });
 
@@ -548,8 +667,8 @@ function _buildPanel() {
       .join("\n");
     const btn = e.currentTarget;
     navigator.clipboard?.writeText(text).then(() => {
-      btn.textContent = "✓";
-      setTimeout(() => (btn.textContent = "⧉"), 900);
+      btn.innerHTML = _bi("check-lg");
+      setTimeout(() => (btn.innerHTML = _bi("copy")), 900);
     }).catch(() => {});
   });
 
@@ -560,8 +679,8 @@ function _buildPanel() {
   document.getElementById("clawSetupCopy")?.addEventListener("click", (e) => {
     const btn = e.currentTarget;
     navigator.clipboard?.writeText(setupCmd.textContent).then(() => {
-      btn.textContent = "✓ Copied";
-      setTimeout(() => (btn.textContent = "⧉ Copy command"), 1200);
+      btn.innerHTML = `${_bi("check-lg")} Copied`;
+      setTimeout(() => (btn.innerHTML = `${_bi("copy")} Copy command`), 1200);
     }).catch(() => {});
   });
 
@@ -708,7 +827,7 @@ function _startScreenWatch() {
   _screenWatch = true;
   const btn = document.getElementById("clawScreenWatchBtn");
   if (btn) {
-    btn.textContent = "⏹ Stop Watch";
+    btn.innerHTML = `${_bi("stop-fill")} Stop Watch`;
     btn.classList.add("active");
   }
   _setScreenStatus("Watching...");
@@ -757,7 +876,7 @@ function _stopScreenWatch() {
   _screenTimer = null;
   const btn = document.getElementById("clawScreenWatchBtn");
   if (btn) {
-    btn.textContent = "▶ Start Watch";
+    btn.innerHTML = `${_bi("play-fill")} Start Watch`;
     btn.classList.remove("active");
   }
   _setScreenStatus("Idle");
@@ -1105,51 +1224,40 @@ function _startStatusPoll() {
       // Approvals raised from a text or a background task have no chat
       // reply to ride on, so they arrive here.
       for (const c of d.pendingConfirms || []) showConfirmDialog(c);
-      const dot = document.getElementById("clawRelayDot");
+      const bar = document.getElementById("clawRelayBar");
       const nameEl = document.getElementById("clawRelayName");
+      const hostEl = document.getElementById("clawRelayHost");
       const platEl = document.getElementById("clawRelayPlatform");
-      const killBtn = document.getElementById("clawKillSwitch");
+      // The two readouts left of the core: which PC, and how it is linked.
+      const readout = (host, link) => {
+        if (hostEl) {
+          hostEl.textContent = host;
+          hostEl.title = host;
+          hostEl.className = `clawCalloutValue ${link ? "" : "off"}`.trim();
+        }
+        if (platEl) {
+          platEl.textContent = link || "—";
+          platEl.className = `clawCalloutValue ${link ? "" : "off"}`.trim();
+        }
+        // The notice under the core is only for when there is no relay.
+        if (bar) bar.hidden = !!link;
+      };
 
-      if (d.killed) {
-        killBtn?.classList.add("killed");
-        if (killBtn) killBtn.innerHTML = "⬡<br>RESUME";
-      } else {
-        killBtn?.classList.remove("killed");
-        if (killBtn) killBtn.innerHTML = "⬡<br>KILL";
-      }
+      _paintKill(!!d.killed);
 
       if (d.disabled) {
-        if (dot) {
-          dot.textContent = "⬡";
-          dot.className = "clawDotOff";
-          dot.title = "Disabled";
-        }
+        readout("DISABLED", "");
         if (nameEl)
           nameEl.textContent = "Disabled — set ARIA_OWNER_UID or ARIA_ACCESS_KEY on the server";
-        if (platEl) platEl.textContent = "";
+        _paintCore({ relay: "disabled", killed: !!d.killed });
       } else if (d.relays?.length) {
         const relay =
           d.relays.find((r) => r.relayType !== "screenwatcher") || d.relays[0];
-        if (dot) {
-          dot.textContent = "●";
-          dot.className = "clawDotOn";
-          dot.title = "Relay connected";
-        }
-        if (nameEl)
-          nameEl.innerHTML = `<strong>${_esc(
-            relay.hostname || relay.id,
-          )}</strong> <span style="opacity:.45;font-size:9px">${
-            { esp32: "📟 ESP32", electron: "🖥 Electron", node: "⬡ Node" }[
-              relay.relayType
-            ] || "⬡ Node"
-          }</span>`;
-        if (platEl) platEl.textContent = relay.platform || "";
+        const type = { esp32: "ESP32", electron: "ELECTRON", node: "NODE" }[relay.relayType] || "NODE";
+        readout(relay.hostname || relay.id, [type, relay.platform].filter(Boolean).join(" · ").toUpperCase());
+        _paintCore({ relay: "online", killed: !!d.killed });
       } else {
-        if (dot) {
-          dot.textContent = "⬡";
-          dot.className = "clawDotOff";
-          dot.title = "No relay";
-        }
+        readout("NO RELAY", "");
         if (nameEl && window.ariaDesktop) {
           // The desktop app runs the relay itself; it only needs switching on.
           if (!nameEl.querySelector(".clawDesktopOn")) {
@@ -1163,10 +1271,10 @@ function _startStatusPoll() {
               setTimeout(poll, 1500); // the relay registers within a second or so
             });
           }
-        } else if (nameEl)
+        } else if (nameEl && !nameEl.querySelector(".clawSetupLinkInline"))
           nameEl.innerHTML =
             'No relay — <button type="button" class="clawSetupLinkInline">setup guide</button>';
-        if (platEl) platEl.textContent = "";
+        _paintCore({ relay: "none", killed: !!d.killed });
       }
     } catch {}
   }
@@ -1193,11 +1301,11 @@ async function _runCommand(input, mode) {
     return;
   }
   if (_autoJob && mode === "auto") {
-    _log("BUSY", "Still working on the last task — ⏹ to stop it first.", "error");
+    _log("BUSY", "Still working on the last task — press Stop first.", "error");
     return;
   }
   _log("YOU", input, "user", { input, mode });
-  _setStatus("● RUNNING", "var(--accent-text)");
+  _paintCore({ busy: true, step: 0, max: 0 });
   const started = performance.now();
   const panel = document.getElementById("clawPanel");
   const vizMode = panel?._getViz?.() || false;
@@ -1238,7 +1346,7 @@ async function _runCommand(input, mode) {
   } catch (e) {
     _log("ERROR", "Network: " + e.message, "error");
   } finally {
-    if (!following) _setStatus("● READY", "");
+    if (!following) _paintCore({ busy: false });
   }
 }
 
@@ -1248,13 +1356,13 @@ async function _runCommand(input, mode) {
    watch it switch from PowerShell to the mouse and back. */
 let _autoJob = null; // { id, after, timer }
 const AUTO_LABEL = {
-  shell: "💻 PS",
-  app: "🚀 APP",
-  type: "⌨ TYPE",
-  hotkey: "⌘ KEY",
-  mouse: "🖱 MOUSE",
-  look: "👁 LOOK",
-  wait: "⏳ WAIT",
+  shell: `${_bi("terminal")} PS`,
+  app: `${_bi("rocket-takeoff")} APP`,
+  type: `${_bi("keyboard")} TYPE`,
+  hotkey: `${_bi("command")} KEY`,
+  mouse: `${_bi("mouse")} MOUSE`,
+  look: `${_bi("eye")} LOOK`,
+  wait: `${_bi("hourglass-split")} WAIT`,
 };
 const AUTO_PILL = { shell: "shell", app: "shell", type: "type", hotkey: "hotkey", mouse: "mouse", look: "mouse" };
 
@@ -1267,7 +1375,7 @@ function _autoPill(mode) {
 function _followAuto(id) {
   const btn = document.getElementById("clawRunBtn");
   if (btn) {
-    btn.textContent = "⏹";
+    btn.innerHTML = _bi("stop-fill");
     btn.title = "Stop this task";
   }
   _autoJob = { id, after: -1, timer: null, steps: 0, started: performance.now() };
@@ -1283,13 +1391,13 @@ function _followAuto(id) {
         if (AUTO_LABEL[e.mode]) {
           _autoPill(e.mode);
           job.steps++;
-          _setStatus(`● STEP ${job.steps}/${maxSteps}`, "var(--accent-text)");
+          _paintCore({ busy: true, step: job.steps, max: maxSteps });
           _log(AUTO_LABEL[e.mode], e.text, "viz");
         } else if (e.mode === "confirm") {
-          _log("⚠ CONFIRM", e.text, "error");
+          _log(`${_bi("exclamation-triangle")} CONFIRM`, e.text, "error");
           if (e.confirm) showConfirmDialog(e.confirm);
         } else if (e.mode === "say" || e.mode === "done") {
-          _log(e.label === "DONE" ? "✓ DONE" : "ARIA", e.text, "output", e.mode === "done" ? { took: performance.now() - job.started } : {});
+          _log(e.label === "DONE" ? `${_bi("check-lg")} DONE` : "ARIA", e.text, "output", e.mode === "done" ? { took: performance.now() - job.started } : {});
         } else if (e.mode === "result") {
           _log("↳", e.text, "info");
         } else {
@@ -1312,10 +1420,10 @@ function _endAuto() {
   _autoPill(null);
   const btn = document.getElementById("clawRunBtn");
   if (btn) {
-    btn.textContent = "⚡";
-    btn.title = "";
+    btn.innerHTML = _bi("play-fill");
+    btn.title = "Run (Enter)";
   }
-  _setStatus("● READY", "");
+  _paintCore({ busy: false, step: 0, max: 0 });
 }
 
 function _stopAuto() {
@@ -1365,14 +1473,6 @@ function _switchTab(name, { save = true } = {}) {
 /* ═══════════════════════════════════════════════════════════
    HELPERS
 ═══════════════════════════════════════════════════════════ */
-function _setStatus(text, color) {
-  const el = document.getElementById("clawStatus");
-  if (el) {
-    el.textContent = text;
-    el.style.color = color || "";
-  }
-}
-
 /**
  * One line in the log. `extra.input`/`extra.mode` (a command you ran) add
  * the ↻ and ★ buttons; `extra.took` (ms) shows how long it took.
