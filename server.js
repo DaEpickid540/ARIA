@@ -21,6 +21,7 @@ import * as grades from "./lib/grades.js";
 import * as practice from "./lib/practice.js";
 import * as flashcards from "./lib/flashcards.js";
 import * as habits from "./lib/habits.js";
+import * as journal from "./lib/journal.js";
 import * as memTimeline from "./lib/memory-timeline.js";
 import * as arena from "./lib/arena.js";
 import * as selftest from "./lib/selftest.js";
@@ -603,6 +604,7 @@ async function serverTool(name, input, { skillTools } = {}) {
   if (/^practi[cs]e(\s+(summary|list|log|piece))?$/.test(key)) return practice.runPracticeTool(key, input);
   if (/^flash ?cards?(\s+(list|decks|add|due|grade))?$/.test(key)) return flashcards.runFlashcardTool(key, input);
   if (/^(rings?|habits?)(\s+(list|add|done|check|undo|remove|delete))?$/.test(key)) return habits.runHabitTool(key, input);
+  if (/^(journal|mood)(\s+(summary|log|add|write|show|read|find|search|remove|delete))?$/.test(key)) return journal.runJournalTool(key, input);
   if (key === "arena") return arenaTool(input);
   if (key === "selftest" || key === "self-test" || key === "self test") return (await runSelfTest({ full: /full|tests?|suite/i.test(String(input)) })).summary;
   // A skill's own tool (skills/*/tool.js). skillTools is the chat's list of
@@ -764,6 +766,21 @@ The last field of add is times per day (default 1); of done, how many to
 count (default 1). When the user says they did one of their rings ("I read
 today", "drank 2 glasses") → rings done. For "how are my rings / habits /
 streaks" → rings. Never invent a check-in the user didn't report.
+
+JOURNAL & MOOD — one entry a day: a mood 1–5 (rough, low, okay, good, great)
+and a few lines in the user's own words:
+ACTION: journal |
+ACTION: journal log | 4 | finally finished the essay #school
+ACTION: journal log | 2 | slept badly | yesterday
+ACTION: journal add | went for a run after dinner
+ACTION: journal show | yesterday
+ACTION: journal find | essay
+ACTION: journal remove | 2026-11-19
+When the user rates their day or says how they feel and asks you to note it
+("today was a 4", "log my mood, pretty low") → journal log, with their words
+as the note (leave the mood field empty when they gave none). "add" appends
+to today's note. For "how has my mood been" → journal. Never write an entry
+the user didn't ask for, and never put words in their mouth.
 
 SELF-TEST — check every part of yourself and report what's broken:
 ACTION: selftest |
@@ -979,7 +996,7 @@ allTools()
       ...Object.keys(all),
       ...[...TOOL_SYSTEM.matchAll(/^ACTION:\s*([a-z][\w-]*)/gim)].map((m) => m[1]),
       ...["agent", "claw", "debrief", "fixscreen", "imagine", "research", "scrape", "search", "spawn", "task", "visualize", "watch", "trigger",
-        "routine", "routines", "grade", "grades", "practice", "practise", "flash", "flashcard", "flashcards", "ring", "rings", "habit", "habits", "arena", "selftest", "self-test",
+        "routine", "routines", "grade", "grades", "practice", "practise", "flash", "flashcard", "flashcards", "ring", "rings", "habit", "habits", "journal", "mood", "arena", "selftest", "self-test",
         "remind", "reminder", "reminders", "timer", "focus", "find", "recall", "usage", "status", "sitrep"],
     ]);
     return skills.refreshSkillTools();
@@ -4839,6 +4856,39 @@ app.delete("/api/habits/:id", (req, res) => {
 });
 
 /* ============================================================
+   JOURNAL & MOOD — one entry a day (lib/journal.js)
+   ============================================================ */
+journal.init();
+
+app.get("/api/journal", (req, res) => {
+  const s = journal.summary();
+  if (req.query.q) s.recent = journal.recent({ limit: 30, q: String(req.query.q) });
+  res.json(s);
+});
+
+app.get("/api/journal/:day", (req, res) => {
+  const e = journal.get(req.params.day);
+  if (!e) return res.status(404).json({ error: "No entry for that day." });
+  res.json(e);
+});
+
+// { day?, mood?, note?, append? } — mood null clears it, left out keeps it.
+app.post("/api/journal", (req, res) => {
+  try {
+    const b = req.body || {};
+    const day = journal.write({ day: b.day, mood: b.mood, note: b.note, append: !!b.append });
+    res.json({ ok: true, saved: day, ...journal.summary() });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.delete("/api/journal/:day", (req, res) => {
+  if (!journal.remove(req.params.day)) return res.status(404).json({ error: "No entry for that day." });
+  res.json({ ok: true, ...journal.summary() });
+});
+
+/* ============================================================
    FLASHCARDS — spaced repetition (lib/flashcards.js)
    ============================================================ */
 flashcards.init();
@@ -5855,6 +5905,7 @@ async function gatherToday() {
     chats: chatStore(OWNER_CHAT_SPACE).chats,
     events,
     grind: lifeContext.grindSummary(),
+    journal: journal.todayLine(),
   });
 }
 

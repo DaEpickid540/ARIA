@@ -94,6 +94,7 @@ function staticCommands() {
     }, ["help", "keys"]),
 
     c("tool.rings", "Daily Rings", "bi-bullseye", "Tools", () => window.ARIA_showRings?.(), ["habits", "streaks"]),
+    c("tool.journal", "Journal", "bi-journal-text", "Tools", () => window.ARIA_showJournal?.(), ["mood", "diary", "notes", "log"]),
 
     c("claw.open", "Open Claw (PC control)", "bi-robot", "Claw", async () => {
       await modules();
@@ -115,7 +116,7 @@ function staticCommands() {
 // Tools → menu: every entry becomes a command. "tool_commands" and the wake
 // toggle's live label are handled so they read well in a list.
 function toolCommands() {
-  const skip = new Set(["tool_rings", "tool_commands"]);
+  const skip = new Set(["tool_rings", "tool_journal", "tool_commands"]);
   return [...document.querySelectorAll("#toolsDropdown .toolDropItem[id]")]
     .filter((b) => !skip.has(b.id))
     .map((b) => ({
