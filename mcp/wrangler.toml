@@ -14,10 +14,11 @@ compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
 # OAuth clients, grants and tokens, plus the short-lived connect handles.
-# First deploy: `npx wrangler kv namespace create OAUTH_KV`, paste the id here.
+# Its own namespace ("aria-mcp-oauth"), not openplan-mcp's: grants for the
+# two connectors must never mix.
 [[kv_namespaces]]
 binding = "OAUTH_KV"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "60bb7405f2d244fe85bc3cc2569529ff"
 
 [vars]
 ARIA_URL = "https://aria-69jr.onrender.com"
