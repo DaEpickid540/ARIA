@@ -1,0 +1,34 @@
+# The ARIA MCP server. Deploy from this folder:  npx wrangler deploy
+# Connector URL for Claude:  https://aria-mcp.openplan.workers.dev/mcp
+# (same Cloudflare account and workers.dev subdomain as openplan-mcp)
+#
+# No secrets: each connected account's Firebase session lives inside its
+# OAuth grant, encrypted by workers-oauth-provider. ARIA itself stays on
+# Render; every tool call goes there as you, with a Firebase ID token.
+name = "aria-mcp"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+# nodejs_compat: AsyncLocalStorage, which the MCP handler uses to carry the
+# auth context. global_fetch_strictly_public: client ID metadata documents are
+# fetched from URLs a client names, and must never reach a private address.
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+
+# OAuth clients, grants and tokens, plus the short-lived connect handles.
+# Its own namespace ("aria-mcp-oauth"), not openplan-mcp's: grants for the
+# two connectors must never mix.
+[[kv_namespaces]]
+binding = "OAUTH_KV"
+id = "60bb7405f2d244fe85bc3cc2569529ff"
+
+[vars]
+ARIA_URL = "https://aria-69jr.onrender.com"
+FIREBASE_PROJECT = "personal-suite-ca587"
+# The public Firebase web API key (public/js/firebase-config.js): names the
+# project for the token exchange; not a secret.
+FIREBASE_API_KEY = "AIzaSyAtRLYEN30W1eL4EwiRGN4x_oOzI-HlJZQ"
+TIMEZONE = "America/New_York"
+# The consent page is served by ARIA itself (public/connect.html), where
+# Google sign-in already works.
+CONNECT_URL = "https://aria-69jr.onrender.com/connect.html"
+CONNECT_ORIGINS = "https://aria-69jr.onrender.com,http://localhost:3000"
+ALLOWED_REDIRECT_HOSTS = "claude.ai,claude.com"
