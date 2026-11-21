@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════
-//  ARIA CLI HOOK — lets ARIA hand jobs to Claude Code and Gemini CLI on
+//  ARIA CLI HOOK — lets ARIA hand jobs to Claude Code and Gemini (run by
+//  Antigravity CLI, `agy`, which replaced Gemini CLI for personal accounts) on
 //  YOUR machine, signed in as you. Zero npm installs. It connects OUT to
 //  ARIA (like aria-ollama-hook.js), so nothing is port-forwarded.
 //
@@ -140,27 +141,39 @@ const RUNNERS = {
     },
     stdin: (task) => task,
   },
+  // "gemini" to ARIA; run by Antigravity CLI (agy), which replaced Gemini CLI
+  // for personal Google accounts. agy is a real .exe, so no shell.
   gemini: {
-    bin: "gemini",
-    shell: WIN,
-    args(mode) {
+    bin: "agy",
+    shell: false,
+    args(mode, task) {
       return [
-        // plan = Gemini's read-only mode. auto_edit = edits run without a
-        // prompt; anything else (shell) would need one, so it's refused.
-        "--approval-mode", mode === "edit" ? "auto_edit" : "plan",
+        // agy ignores stdin when -p has a prompt, so the task rides here. With
+        // no shell, Node passes it as one argument: nothing can break out.
+        "-p", `${BRIEF}\n\nTASK:\n${task}\n`,
         "--output-format", "json",
-        "--skip-trust",
-        "-p", "Do the task given above.",
-        ...(GEMINI_MODEL ? ["-m", GEMINI_MODEL] : []),
+        // Always set: headless runs otherwise default to Auto mode.
+        // plan = read-only; accept-edits = file edits without asking.
+        "--mode", mode === "edit" ? "accept-edits" : "plan",
+        // Belt and braces: no terminal commands even if a mode allowed some,
+        // and the sandbox if one slips through. Never saved to settings.json.
+        "--settings", JSON.stringify({ permissions: { deny: ["command(*)"] } }),
+        "--sandbox",
+        // Not --disable-slash-commands: agy then ignores --mode plan.
+        ...(GEMINI_MODEL ? ["--model", GEMINI_MODEL] : []),
       ];
     },
     parse(raw) {
-      // Gemini may print notices before the JSON.
+      // agy may print notices before the JSON.
       const j = JSON.parse(raw.slice(raw.indexOf("{")));
-      if (j.error) throw new Error(String(j.error.message || j.error).slice(0, 400));
-      return { text: j.response || "", meta: { model: Object.keys(j.stats?.models || {})[0] || "" } };
+      const status = String(j.status || "SUCCESS").toUpperCase();
+      if (status !== "SUCCESS") {
+        const why = j.error?.message || j.error || j.result || status;
+        throw new Error(`Antigravity ${status}: ${String(why)}`.slice(0, 400));
+      }
+      return { text: j.result ?? j.response ?? j.text ?? "", meta: { model: j.model || Object.keys(j.stats?.models || j.modelUsage || {})[0] || "" } };
     },
-    stdin: (task) => `${BRIEF}\n\nTASK:\n${task}\n`,
+    stdin: () => "",
   },
 };
 
@@ -188,7 +201,10 @@ async function runJob(job) {
     if (!r || !agents[job.agent]) throw new Error(`${job.agent} isn't available on this PC`);
     if (job.mode !== "read" && job.mode !== "edit") throw new Error(`unknown mode ${job.mode}`);
     console.log(`[CLI] ${job.agent} ${job.mode} ▶ ${short}`);
-    const res = await exec(r.bin, r.args(job.mode), r.stdin(String(job.task)), JOB_TIMEOUT_MS, r.shell);
+    const task = String(job.task);
+    // Windows caps a whole command line near 32k characters.
+    if (r.stdin(task) === "" && task.length > 24000) throw new Error("task too long for this CLI (24k characters max)");
+    const res = await exec(r.bin, r.args(job.mode, task), r.stdin(task), JOB_TIMEOUT_MS, r.shell);
     let parsed;
     try {
       parsed = r.parse(res.out);
@@ -292,7 +308,7 @@ console.log(`
 `);
 const agents = { claude: await detect("claude"), gemini: await detect("gemini") };
 for (const a of Object.keys(agents))
-  console.log(agents[a] ? `[CLI] ${a} ✓ ${agents[a].version}` : `[CLI] ${a} — not found${a === "gemini" ? " (npm install -g @google/gemini-cli, then run `gemini` once to sign in)" : ""}`);
+  console.log(agents[a] ? `[CLI] ${a} ✓ ${agents[a].version}` : `[CLI] ${a} — not found${a === "gemini" ? " (winget install Google.AntigravityCLI, then run `agy` once in the folder to sign in and trust it)" : ""}`);
 if (!agents.claude && !agents.gemini) {
   console.error("[CLI] Neither CLI is installed — nothing to offer ARIA.");
   process.exit(1);
