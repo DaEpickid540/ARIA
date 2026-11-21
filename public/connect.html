@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex" />
+  <title>Connect ARIA</title>
+  <!-- The OAuth consent step for the ARIA MCP connector (mcp/src/connect.js
+       is the other half). Claude sends you here through the connector's
+       /authorize, with a one-time handle in the URL fragment. Sign in with
+       Google, check who is asking, and press Allow. -->
+  <style>
+    :root {
+      --bg: #0b0f14; --card: #121922; --line: #22303d; --text: #e6edf3;
+      --muted: #8b9bab; --accent: #3fd0c9; --accent-ink: #04201f; --bad: #ff7b72;
+    }
+    @media (prefers-color-scheme: light) {
+      :root { --bg: #f3f6f8; --card: #ffffff; --line: #d6dee5; --text: #14202b;
+        --muted: #5b6b7a; --accent: #0f8f89; --accent-ink: #ffffff; --bad: #c4332b; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px 16px;
+      background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .card { width: 100%; max-width: 440px; background: var(--card); border: 1px solid var(--line);
+      border-radius: 14px; padding: 28px 24px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: .14em; font-size: 13px; color: var(--muted); }
+    .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+    h1 { font-size: 22px; margin: 18px 0 6px; }
+    .sub { color: var(--muted); margin: 0 0 18px; }
+    .sub strong, .who { color: var(--text); }
+    ul { list-style: none; padding: 0; margin: 0 0 20px; display: grid; gap: 10px; }
+    li { display: flex; gap: 10px; font-size: 14px; }
+    li::before { content: "✓"; color: var(--accent); font-weight: 700; flex: none; }
+    li.no::before { content: "✕"; color: var(--muted); }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    button { flex: 1 1 140px; min-height: 44px; border-radius: 10px; border: 1px solid var(--line);
+      background: transparent; color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+    button:disabled { opacity: .6; cursor: default; }
+    .account { font-size: 13px; color: var(--muted); margin: 16px 0 0; }
+    .account a { color: var(--accent); }
+    .error { color: var(--bad); margin: 14px 0 0; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand"><span class="dot" aria-hidden="true"></span>ARIA</div>
+    <h1 id="title">Connect ARIA</h1>
+    <p class="sub" id="sub">Checking this request…</p>
+    <div id="body"></div>
+    <p class="error" id="error" hidden></p>
+  </main>
+  <script type="module">
+    import { FIREBASE_CONFIG } from "./js/firebase-config.js";
+
+    // Tokens only ever go to this one server, never to a URL from the
+    // request, and only after an explicit click. Local testing may point it
+    // elsewhere with ?server=, but only from localhost.
+    const LOCAL = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+    const asked = new URLSearchParams(location.search).get("server");
+    const SERVER = LOCAL && asked ? asked.replace(/\/+$/, "") : "https://aria-mcp.openplan.workers.dev";
+    const SDK = "https://www.gstatic.com/firebasejs/10.12.5";
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+    const handle = new URLSearchParams(location.hash.slice(1)).get("h");
+    let request = null;
+
+    function fail(message) {
+      $("sub").textContent = "";
+      $("body").innerHTML = "";
+      $("error").textContent = message;
+      $("error").hidden = false;
+    }
+
+    async function post(path, body) {
+      const res = await fetch(`${SERVER}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || `The connector answered ${res.status}.`);
+      return json;
+    }
+
+    const appName = (host) => (/(^|\.)claude\.(ai|com)$/.test(host || "") ? "Claude" : host || "the app");
+
+    function renderSignIn(sdk, auth) {
+      $("sub").textContent = "Sign in with the Google account you use for ARIA.";
+      $("body").innerHTML = `<div class="actions"><button class="primary" id="signin" type="button">Continue with Google</button></div>`;
+      $("signin").addEventListener("click", async () => {
+        $("signin").disabled = true;
+        try {
+          const provider = new sdk.GoogleAuthProvider();
+          provider.setCustomParameters({ prompt: "select_account" });
+          await sdk.signInWithPopup(auth, provider);
+        } catch (err) {
+          if (err?.code !== "auth/popup-closed-by-user") fail(`Sign-in failed${err?.code ? ` (${err.code})` : ""}.`);
+        } finally {
+          if ($("signin")) $("signin").disabled = false;
+        }
+      });
+    }
+
+    function renderConsent(sdk, auth, user) {
+      $("title").textContent = `Connect to ${appName(request.redirectHost)}`;
+      const who = request.clientDomain || request.clientName;
+      $("sub").innerHTML = `<span class="who">${esc(who)}</span> wants to use your ARIA. Access goes to <strong>${esc(request.redirectHost)}</strong>.`;
+      $("body").innerHTML = `
+        <ul>
+          <li>Talk to ARIA and have it use its tools: research, Claw on your PC, Claude Code and Gemini CLI</li>
+          <li>See and change your memory, reminders, journal, daily rings, background tasks and watchers</li>
+          <li class="no">Anything ARIA treats as sensitive still waits for your OK in the ARIA app</li>
+        </ul>
+        <div class="actions">
+          <button id="deny" type="button">Cancel</button>
+          <button class="primary" id="allow" type="button">Allow</button>
+        </div>
+        <p class="account">Signed in as ${esc(user.email || user.displayName || "you")} · <a href="#" id="switch">use another account</a></p>`;
+
+      $("allow").addEventListener("click", async () => {
+        $("allow").disabled = true;
+        $("deny").disabled = true;
+        $("sub").textContent = "Checking with ARIA… (this can take a minute if the server is waking up)";
+        try {
+          const idToken = await user.getIdToken(true);
+          const { redirectTo } = await post("/connect/complete", { h: handle, idToken, refreshToken: user.refreshToken });
+          $("sub").textContent = `Connected. Taking you back to ${appName(request.redirectHost)}…`;
+          $("body").innerHTML = "";
+          location.assign(redirectTo);
+        } catch (err) {
+          fail(err.message);
+        }
+      });
+      $("deny").addEventListener("click", async () => {
+        try {
+          const { redirectTo } = await post("/connect/deny", { h: handle });
+          if (redirectTo) return location.assign(redirectTo);
+        } catch { /* fall through */ }
+        fail("Cancelled. You can close this tab.");
+      });
+      $("switch").addEventListener("click", async (e) => {
+        e.preventDefault();
+        await sdk.signOut(auth);
+      });
+    }
+
+    async function start() {
+      if (!/^[0-9a-f]{48}$/.test(handle || "")) {
+        fail("This page opens when you connect ARIA from Claude (Settings → Connectors → Add custom connector).");
+        return;
+      }
+      try {
+        const res = await fetch(`${SERVER}/connect/info?h=${handle}`);
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || "This connection request is not valid.");
+        request = body;
+      } catch (err) {
+        fail(err.message);
+        return;
+      }
+      const [appSdk, sdk] = await Promise.all([import(`${SDK}/firebase-app.js`), import(`${SDK}/firebase-auth.js`)]);
+      // Same named app as the lock screen (googleAuth.js), so an existing
+      // Google session here is picked up without a popup.
+      const auth = sdk.getAuth(appSdk.initializeApp(FIREBASE_CONFIG, "aria"));
+      try { await sdk.setPersistence(auth, sdk.browserLocalPersistence); } catch { /* private window */ }
+      sdk.onAuthStateChanged(auth, (user) => {
+        $("error").hidden = true;
+        if (user) renderConsent(sdk, auth, user);
+        else renderSignIn(sdk, auth);
+      });
+    }
+
+    start();
+  </script>
+</body>
+</html>
