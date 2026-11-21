@@ -28,6 +28,7 @@ import {
 } from "./homeTools.js";
 import { initHomeCore } from "./homeCore.js";
 import { initRings } from "./rings.js";
+import { initJournal } from "./journal.js";
 import { initPalette } from "./palette.js";
 import { initSidebarHud } from "./sidebarHud.js";
 import { initChatHud } from "./chatHud.js";
@@ -64,6 +65,7 @@ export function initHomepage() {
   // The core (clock, gauges, dock) and Daily Rings: safe to call every visit
   initHomeCore();
   initRings();
+  initJournal();
   initPalette();
   initSidebarHud();
   initChatHud();

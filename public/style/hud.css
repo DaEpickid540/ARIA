@@ -1593,3 +1593,197 @@ body:has(#layout[style*="display: flex"]) #clawKillSwitch {
     animation: none;
   }
 }
+
+/* ============================================================
+   JOURNAL & MOOD (journal.js)
+   ============================================================ */
+.journalBody {
+  --m1: var(--danger);
+  --m2: color-mix(in srgb, var(--danger) 45%, var(--warning));
+  --m3: var(--warning);
+  --m4: color-mix(in srgb, var(--warning) 35%, var(--success));
+  --m5: var(--success);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: min(440px, 100%);
+}
+.jStats {
+  margin: 0;
+}
+.jStrip {
+  display: grid;
+  grid-template-columns: repeat(14, 1fr);
+  align-items: end;
+  gap: 4px;
+  height: 64px;
+  padding: 6px 2px 0;
+  border-bottom: 1px solid var(--border);
+}
+.jBar {
+  height: var(--h);
+  min-height: 3px;
+  padding: 0;
+  background: var(--border-strong);
+  border: 0;
+  border-radius: 3px 3px 0 0;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: height 0.3s ease, opacity 0.15s;
+}
+.jBar:hover,
+.jBar.sel {
+  opacity: 1;
+}
+.jBar.sel {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.jBar.note { background: var(--text-3); }
+.jBar.m1 { background: var(--m1); }
+.jBar.m2 { background: var(--m2); }
+.jBar.m3 { background: var(--m3); }
+.jBar.m4 { background: var(--m4); }
+.jBar.m5 { background: var(--m5); }
+.jHead,
+.jListHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.jHead b,
+.jListHead b {
+  flex: 1;
+  font-size: 0.85rem;
+}
+.jListHead .hwField {
+  width: 45%;
+  min-width: 0;
+}
+.jMoods {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.jMood {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 2px 6px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-3);
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.jMood i {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+.jMood:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.jMood:nth-child(1) { --c: var(--m1); }
+.jMood:nth-child(2) { --c: var(--m2); }
+.jMood:nth-child(3) { --c: var(--m3); }
+.jMood:nth-child(4) { --c: var(--m4); }
+.jMood:nth-child(5) { --c: var(--m5); }
+.jMood.on {
+  border-color: var(--c);
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) 12%, transparent);
+}
+.jNote {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  font-family: var(--font-sans);
+  line-height: 1.45;
+}
+.jActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+.jTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+.jTag {
+  padding: 1px 7px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+.jTag small {
+  margin-left: 4px;
+  color: var(--text-3);
+}
+.jSave {
+  flex: none;
+}
+.jList {
+  display: flex;
+  flex-direction: column;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.jEntry {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 4px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+.jEntry:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.jEntryMood {
+  flex: none;
+  width: 22px;
+  font-size: 1.1rem;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--text-3);
+}
+.jEntryMood.m1 { color: var(--m1); }
+.jEntryMood.m2 { color: var(--m2); }
+.jEntryMood.m3 { color: var(--m3); }
+.jEntryMood.m4 { color: var(--m4); }
+.jEntryMood.m5 { color: var(--m5); }
+.jEntryMain {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.jEntryMain .watchHint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .jBar {
+    transition: none;
+  }
+}
